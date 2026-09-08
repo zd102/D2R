@@ -6,7 +6,7 @@ import { PROFILE_PREFIX, LAST_PROFILE_KEY } from '../src/saves.ts';
 
 await mkdir('.verification', { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
-const base = process.env.BASE_URL || 'http://192.168.158.112:5173';
+const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const errors = [];
 const context = await browser.newContext({ viewport: { width: 1440, height: 960 } });
 context.on('page', page => page.on('pageerror', error => errors.push(error.message)));

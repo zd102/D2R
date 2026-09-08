@@ -33,6 +33,7 @@ export class ProfileScreen {
           case 'confirm-delete':
             if (this.editing && game.saves) {
               game.saves.delete(this.editing.id, this.editing.revision);
+              game.storageAvailable = true;
               this.selectedId = undefined; this.editing = undefined; ui.openPanel('profiles');
             }
             break;
@@ -54,6 +55,11 @@ export class ProfileScreen {
           this.selectedId = profile.id; this.editing = undefined; ui.openPanel('profiles');
         }
       } catch (error) { this.error(error); }
+    });
+    ui.overlay.addEventListener('input', event => {
+      if ((event.target as HTMLElement).id === 'profile-name') {
+        const error = document.getElementById('profile-error'); if (error) error.hidden = true;
+      }
     });
     ui.overlay.addEventListener('keydown', event => {
       if (ui.panel !== 'profiles' || !['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
@@ -107,5 +113,6 @@ export class ProfileScreen {
     }
     ui.overlay.innerHTML = `<section class="profile-screen" role="dialog" aria-modal="true" aria-label="${title}"><header class="profile-header"><small>${subtitle}</small><h2>${title}</h2></header>${body}<div class="profile-footer"><span></span><img src="/sigil.svg" alt=""/><span></span></div></section>`;
     ui.refreshIcons();
+    ui.overlay.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }
 }

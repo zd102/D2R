@@ -2,6 +2,7 @@ import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave } from '../src/model.ts';
+import { enterGame, savedProfile } from './browser-helpers.mjs';
 
 await mkdir('.verification', { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -14,14 +15,14 @@ try {
   await page.addInitScript(save => {
     if (!sessionStorage.getItem('death-fixture')) { localStorage.setItem('eclipse-ii-save-v1', save); sessionStorage.setItem('death-fixture', '1'); }
   }, serializeSave(hero));
-  await page.goto(base); await page.waitForFunction(() => window.eclipseState?.drawCalls > 0);
+  await page.goto(base); await enterGame(page);
   const initial = await page.locator('#game-canvas').evaluate(canvas => canvas.toDataURL());
   await page.waitForTimeout(400);
   assert.notEqual(await page.locator('#game-canvas').evaluate(canvas => canvas.toDataURL()), initial, 'Scene animates');
   const target = await page.evaluate(() => window.eclipseState.enemies.find(e => e.id === 1));
   await page.mouse.click(target.screen.x - 60, target.screen.y + 40);
   await page.getByRole('dialog', { name: '你已陨落' }).waitFor({ timeout: 30000 });
-  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('eclipse-ii-save-v1')).hero.gold), 900, 'Death penalty persisted');
+  assert.equal((await savedProfile(page)).hero.gold, 900, 'Death penalty persisted');
   await page.screenshot({ path: '.verification/death.png' });
   await page.getByRole('button', { name: '在传送阵重生', exact: true }).click();
   assert.equal(await page.evaluate(() => window.eclipseState.dead), false);
@@ -35,14 +36,14 @@ try {
   await page.locator('#volume').fill('10');
   await page.keyboard.press('Escape');
   assert.equal(await page.evaluate(() => window.eclipseState.paused), false, 'Escape closes settings while input is focused');
-  await page.reload(); await page.waitForFunction(() => window.eclipseState?.drawCalls > 0);
+  await page.reload(); await enterGame(page);
   assert.equal(await page.evaluate(() => window.eclipseState.gold), 900, 'Revive and reload do not charge twice');
   console.log('Death, revival, pause, settings and animation passed');
 
   for (const size of [{ width: 360, height: 640 }, { width: 844, height: 390 }]) {
     const mobile = await browser.newPage({ viewport: size, isMobile: true, hasTouch: true });
     mobile.on('pageerror', e => errors.push(e.message));
-    await mobile.goto(base); await mobile.waitForFunction(() => window.eclipseState?.drawCalls > 0);
+    await mobile.goto(base); await enterGame(mobile);
     const layout = await mobile.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth, overflow: [...document.querySelectorAll('body *')].map(el => ({ tag: el.tagName, id: el.id, cls: el.className, right: el.getBoundingClientRect().right })).filter(el => el.right > innerWidth + 1) }));
     if (layout.scroll > layout.width) { console.log('Overflow:', JSON.stringify({ size, layout })); await mobile.screenshot({ path: '.verification/overflow.png' }); }
     assert.equal(layout.scroll <= layout.width, true);

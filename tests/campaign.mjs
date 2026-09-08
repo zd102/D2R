@@ -1,6 +1,8 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import { enterGame, savedProfile } from './browser-helpers.mjs';
+import { PROFILE_PREFIX } from '../src/saves.ts';
 
 await mkdir('.verification', { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -39,7 +41,7 @@ async function travel(index, closeEnough = 3.3) {
   throw new Error(`Travel timed out: ${JSON.stringify(await state())}`);
 }
 try {
-  await page.goto(base); await page.waitForFunction(() => window.eclipseState?.drawCalls > 0);
+  await page.goto(base); await enterGame(page);
   for (let i = 0; i < 12; i++) {
     const s = await state(); if (s.kills >= 3) break;
     const target = s.enemies.filter(e => e.screen.x > 200 && e.screen.x < 1170 && e.screen.y > 120 && e.screen.y < 750).sort((a, b) => Math.hypot(a.x - s.position.x, a.z - s.position.z) - Math.hypot(b.x - s.position.x, b.z - s.position.z))[0];
@@ -50,17 +52,15 @@ try {
   console.log('Fresh-character combat:', JSON.stringify({ kills: s.kills, hp: s.hp, level: s.level }));
   await page.screenshot({ path: '.verification/combat.png' });
   // A durable saved character keeps the full quest traversal deterministic and short.
-  const fixture = await page.evaluate(() => {
-    const saved = JSON.parse(localStorage.getItem('eclipse-ii-save-v1'));
-    Object.assign(saved.hero, { strength: 90, spirit: 90, vitality: 100, hp: 600, mana: 340, gold: 500, potions: [50, 50], points: 3 });
-    return saved;
-  });
-  await page.addInitScript(fixture => {
+  await page.getByRole('button', { name: '保存旅程', exact: true }).click();
+  const fixture = await savedProfile(page);
+  Object.assign(fixture.hero, { strength: 90, spirit: 90, vitality: 100, hp: 600, mana: 340, gold: 500, potions: [50, 50], points: 3 });
+  await page.addInitScript(({ fixture, prefix }) => {
     if (!sessionStorage.getItem('fixture-loaded')) {
-      localStorage.setItem('eclipse-ii-save-v1', JSON.stringify(fixture)); sessionStorage.setItem('fixture-loaded', '1');
+      localStorage.setItem(prefix + fixture.id, JSON.stringify(fixture)); sessionStorage.setItem('fixture-loaded', '1');
     }
-  }, fixture);
-  await page.reload(); await page.waitForFunction(() => window.eclipseState?.drawCalls > 0);
+  }, { fixture, prefix: PROFILE_PREFIX });
+  await page.reload(); await enterGame(page);
   await travel(4);
   await key('f'); await page.getByRole('dialog', { name: '旅者补给' }).waitFor();
   const goldBefore = (await state()).gold;
@@ -90,9 +90,10 @@ try {
   if (await bagItem.count()) { await bagItem.click(); await page.getByRole('button', { name: '装备', exact: true }).click(); }
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.keyboard.press('c'); await page.getByRole('button', { name: '提升力量', exact: true }).click(); await page.getByRole('button', { name: '关闭', exact: true }).click();
-  await page.reload(); await page.waitForFunction(() => window.eclipseState?.drawCalls > 0);
+  await page.reload(); await enterGame(page);
   assert.equal((await state()).shrines.length, 3); assert.equal((await state()).bossDefeated, true);
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: '进入第 2 周目', exact: true }).click();
+  await enterGame(page);
   await page.waitForFunction(() => window.eclipseState?.stage === 2);
   assert.equal((await state()).shrines.length, 0); assert.equal((await state()).bossDefeated, false);
   assert.deepEqual(errors, []);

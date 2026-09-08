@@ -1,6 +1,7 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import { enterGame, savedProfile } from './browser-helpers.mjs';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const output = new URL('../.verification/', import.meta.url);
@@ -12,6 +13,7 @@ page.on('pageerror', error => { errors.push(error.message); console.log('PAGE ER
 page.on('console', message => { if (message.type() === 'error') { errors.push(message.text()); console.log('CONSOLE ERROR:', message.text()); } });
 try {
   await page.goto(base);
+  await enterGame(page);
   await page.waitForFunction(() => window.eclipseState?.drawCalls > 0, undefined, { timeout: 60000 });
   await page.screenshot({ path: new URL('desktop.png', output).pathname.replace(/^\/(\w:)/, '$1') });
   const pixels = await page.evaluate(() => {
@@ -38,12 +40,12 @@ try {
   await page.screenshot({ path: new URL('map.png', output).pathname.replace(/^\/(\w:)/, '$1') });
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.getByRole('button', { name: '保存旅程', exact: true }).click();
-  assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('eclipse-ii-save-v1')).hero.level === 1));
+  assert.equal((await savedProfile(page)).hero.level, 1);
   console.log('Desktop passed:', JSON.stringify({ pixels, position: after, errors }));
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   mobile.on('pageerror', error => errors.push(error.message));
-  await mobile.goto(base); await mobile.waitForFunction(() => window.eclipseState?.drawCalls > 0);
+  await mobile.goto(base); await enterGame(mobile);
   const mobilePixels = await mobile.evaluate(() => {
     const sample = document.createElement('canvas'); sample.width = 80; sample.height = 80;
     const ctx = sample.getContext('2d'); ctx.drawImage(document.getElementById('game-canvas'), 0, 0, 80, 80);

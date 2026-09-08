@@ -121,7 +121,7 @@ export class UI {
     if (this.game.dead && panel !== 'death' && panel !== 'save-conflict') return;
     this.panel = panel; this.game.paused = true; this.game.releaseInput(); this.overlay.hidden = false;
     this.renderPanel();
-    (this.overlay.querySelector<HTMLInputElement>('#profile-name') ?? this.overlay.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
+    (this.overlay.querySelector<HTMLInputElement>('#profile-name') ?? this.overlay.querySelector<HTMLButtonElement>('[aria-selected="true"]') ?? this.overlay.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
   }
   closePanel() {
     if (this.game.dead || this.game.saveConflict) return;
