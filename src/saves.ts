@@ -4,6 +4,7 @@ export const PROFILE_PREFIX = 'eclipse-ii-profile-v2:';
 export const LAST_PROFILE_KEY = 'eclipse-ii-last-profile';
 export const MIGRATION_KEY = 'eclipse-ii-legacy-migrated';
 export const NAME_LIMIT = 16;
+export const RULES_BACKUP_PREFIX = 'eclipse-ii-before-paladin:';
 export type SavedProfile = {
   version: 2; id: string; name: string; createdAt: number; updatedAt: number;
   revision: number; hero: HeroState;
@@ -78,8 +79,15 @@ export class SaveStore {
     if (profile.revision !== revision) throw new SaveError('该角色已在其他窗口更新。', 'conflict');
     return profile;
   }
+  private backupPreviousSystems(id: string) {
+    const raw = this.storage.getItem(PROFILE_PREFIX + id)!;
+    const hero = JSON.parse(raw).hero;
+    if (hero.rulesVersion !== 2 && !this.storage.getItem(RULES_BACKUP_PREFIX + id)) this.storage.setItem(RULES_BACKUP_PREFIX + id, raw);
+    if (!hero.campaign && !this.storage.getItem('eclipse-ii-before-campaign:' + id)) this.storage.setItem('eclipse-ii-before-campaign:' + id, raw);
+  }
   save(id: string, hero: HeroState, revision: number): SavedProfile {
     const current = this.current(id, revision);
+    this.backupPreviousSystems(id);
     const profile = { ...current, hero: structuredClone(hero), updatedAt: Date.now(), revision: current.revision + 1 };
     // Each character has its own key; saving one never rewrites another character.
     this.storage.setItem(PROFILE_PREFIX + id, JSON.stringify(profile));
@@ -88,6 +96,7 @@ export class SaveStore {
   rename(id: string, name: string, revision: number): SavedProfile {
     const current = this.current(id, revision);
     const profile = { ...current, name: this.checkName(name, id), revision: current.revision + 1 };
+    this.backupPreviousSystems(id);
     this.storage.setItem(PROFILE_PREFIX + id, JSON.stringify(profile));
     return profile;
   }

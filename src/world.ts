@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import PF from 'pathfinding';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { ACTS, LEVELS, levelLayout, type Level, type QuestProp } from './campaign.ts';
 
 export const BOUNDS = 27;
 export const SHRINES = [{ x: -16, z: 0 }, { x: 15, z: -2 }, { x: 0, z: -17 }];
-export const COLORS = { common: 0xc3c4bf, magic: 0x73bdf4, rare: 0xe2c775, legendary: 0xf19b4f };
+export const COLORS = { common: 0xc3c4bf, magic: 0x73bdf4, rare: 0xe2c775, set: 0x77cf6c, unique: 0xc9b37c, runeword: 0xdacba0, legendary: 0xf19b4f };
 const rng = (seed: number) => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 const random = rng(8943);
 const box = new THREE.BoxGeometry(1, 1, 1);
@@ -79,7 +80,7 @@ function stoneTexture() {
   }
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; return texture;
 }
-export type Actor = { group: THREE.Group; leftLeg: THREE.Group; rightLeg: THREE.Group; leftArm: THREE.Group; rightArm: THREE.Group; cape?: THREE.Mesh; kind: string };
+export type Actor = { group: THREE.Group; leftLeg: THREE.Group; rightLeg: THREE.Group; leftArm: THREE.Group; rightArm: THREE.Group; cape?: THREE.Mesh; kind: string; animate?: (time: number, moving: boolean, attacking: number) => void };
 export function createActor(kind: 'hero' | 'skeleton' | 'demon' | 'boss'): Actor {
   const group = new THREE.Group(), upper = new THREE.Group(); group.add(upper);
   const hero = kind === 'hero', skeleton = kind === 'skeleton', boss = kind === 'boss';
@@ -135,7 +136,7 @@ export function createActor(kind: 'hero' | 'skeleton' | 'demon' | 'boss'): Actor
     mesh(arm, sphere, hero ? steel : skin, side * .06, -.4, .10, .10, .12, .09);
   }
   if (hero || skeleton) {
-    const sword = new THREE.Group(); sword.position.set(.06, -.35, .18); rightArm.add(sword);
+    const sword = new THREE.Group(); sword.position.set(.06, -.35, .18); rightArm.add(sword); if (hero) sword.name = 'hero-weapon';
     mesh(sword, cylinder, leather, 0, 0, 0, .038, .27, .038).rotation.x = Math.PI / 2;
     mesh(sword, box, gold, 0, 0, .14, .37, .065, .07);
     mesh(sword, box, steel, 0, 0, .67, .095, .036, 1.04);
@@ -143,7 +144,7 @@ export function createActor(kind: 'hero' | 'skeleton' | 'demon' | 'boss'): Actor
     if (hero) {
       const shape = new THREE.Shape(); shape.moveTo(-.29, .3); shape.lineTo(.29, .3); shape.lineTo(.26, -.08); shape.lineTo(0, -.4); shape.lineTo(-.26, -.08); shape.closePath();
       const shield = mesh(leftArm, new THREE.ExtrudeGeometry(shape, { depth: .065, bevelEnabled: true, bevelThickness: .025, bevelSize: .02, bevelSegments: 1 }), iron, -.10, -.26, .29);
-      shield.rotation.y = -.25;
+      shield.rotation.y = -.25; shield.name = 'hero-shield';
       mesh(shield, box, gold, 0, -.015, .09, .046, .53, .022);
       mesh(shield, box, gold, 0, .12, .09, .42, .04, .022);
     }
@@ -178,9 +179,14 @@ export class GameWorld {
   particles: THREE.Points;
   obstacles: { x: number; z: number; w: number; d: number }[] = [];
   ground: THREE.Mesh;
-  constructor() {
-    this.scene.background = new THREE.Color(0x182323);
-    this.scene.fog = new THREE.FogExp2(0x182323, .012);
+  exit: THREE.Group;
+  level: Level;
+  floorCells: { x: number; z: number }[] = [];
+  constructor(level = LEVELS[0]) {
+    this.level = level;
+    const theme = ACTS[level.act];
+    this.scene.background = new THREE.Color(theme.sky);
+    this.scene.fog = new THREE.FogExp2(theme.sky, .009);
     this.physics.broadphase = new CANNON.SAPBroadphase(this.physics);
     this.physics.defaultContactMaterial.friction = 0;
     this.scene.add(new THREE.HemisphereLight(0xb7dcda, 0x424533, 1.7));
@@ -192,7 +198,8 @@ export class GameWorld {
     this.ground = mesh(this.scene, new THREE.PlaneGeometry(170, 170), new THREE.MeshStandardMaterial({ map: groundMap, roughness: 1, bumpMap: groundMap, bumpScale: .18 }), 0, -.05, 0);
     this.ground.rotation.x = -Math.PI / 2; this.ground.castShadow = false;
     this.scene.add(this.staticGroup);
-    this.paving(); this.ruins(); this.graves(); this.vegetation();
+    (this.ground.material as THREE.MeshStandardMaterial).color.setHex(theme.ground);
+    this.buildLevel();
     for (let i = -28; i <= 28; i++) {
       this.grid.setWalkableAt(i + 28, 0, false); this.grid.setWalkableAt(i + 28, 56, false);
       this.grid.setWalkableAt(0, i + 28, false); this.grid.setWalkableAt(56, i + 28, false);
@@ -202,12 +209,135 @@ export class GameWorld {
     this.rune = mesh(this.scene, new THREE.PlaneGeometry(7, 7), runeMat, 0, .16, 11); this.rune.rotation.x = -Math.PI / 2;
     this.rune.castShadow = false;
     this.portal = this.makePortal(-5.8, 12);
-    SHRINES.forEach((p, i) => this.shrineMeshes.push(this.makeShrine(p.x, p.z, i)));
+    levelLayout(level).objects.forEach((p, i) => this.shrineMeshes.push(this.makeObjective(p.x, p.z, i, level.quest.prop)));
+    this.exit = this.makePortal(0, -26); this.exit.visible = false;
     const particleGeo = new THREE.BufferGeometry(), pos = new Float32Array(420 * 3);
     for (let i = 0; i < pos.length; i += 3) { pos[i] = (random() - .5) * 64; pos[i + 1] = random() * 7; pos[i + 2] = (random() - .5) * 64; }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    this.particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({ color: 0xd9e6c1, size: .045, transparent: true, opacity: .55, depthWrite: false })); this.scene.add(this.particles);
+    this.particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({ color: level.act === 4 ? 0xf2ffff : theme.accent, size: level.act === 4 ? .085 : .04, transparent: true, opacity: .5, depthWrite: false })); this.scene.add(this.particles);
     this.mergeStatic();
+  }
+  buildLevel() {
+    const level = this.level, theme = ACTS[level.act], layout = levelLayout(level), random = rng(7421 + level.index * 103);
+    const surface = mat(theme.stone), rock = mat(theme.ground), trim = mat(theme.accent, .3), wood = mat(level.act === 4 ? 0x555e61 : 0x4d5545);
+    const pathMaterial = new THREE.MeshStandardMaterial({ color: theme.stone, map: stoneTexture(), roughness: 1 });
+    const segments = layout.route.slice(1).map((to, i) => [layout.route[i], to]);
+    for (const point of layout.objects) segments.push([layout.route[2], point]);
+    segments.push([layout.spawn, layout.supply]);
+    const distance = (x: number, z: number, a: { x: number; z: number }, b: { x: number; z: number }) => {
+      const t = Math.max(0, Math.min(1, ((x - a.x) * (b.x - a.x) + (z - a.z) * (b.z - a.z)) / ((b.x - a.x) ** 2 + (b.z - a.z) ** 2)));
+      return Math.hypot(x - a.x - t * (b.x - a.x), z - a.z - t * (b.z - a.z));
+    };
+    const width = level.terrain === 'field' || level.terrain === 'snow' ? 5.5 : level.terrain === 'arcane' ? 2.6 : 3.4;
+    const walkable = (x: number, z: number) => Math.abs(x) < 27 && Math.abs(z) < 27 && (segments.some(([a, b]) => distance(x, z, a, b) < width) || Math.hypot(x, z - 11) < 6 || Math.hypot(x, z + 23) < 5.5 || layout.objects.some(p => Math.hypot(x - p.x, z - p.z) < 4));
+    const matrix = Array.from({ length: 57 }, (_, row) => Array.from({ length: 57 }, (_, column) => walkable(column - 28, row - 28) ? 0 : 1));
+    // Terrain and physics share the same corridor mask, including every objective branch.
+    for (let z = -27; z <= 27; z++) {
+      for (let x = -27; x <= 27;) {
+        if (walkable(x, z)) { this.floorCells.push({ x, z }); x++; continue; }
+        const start = x; while (x <= 27 && !walkable(x, z)) x++;
+        this.addCollider((start + x - 1) / 2, z, x - start, 1);
+      }
+    }
+    this.grid = new PF.Grid(matrix);
+    for (const { x, z } of this.floorCells) {
+      const slab = mesh(this.staticGroup, box, pathMaterial, x, .015, z, .99, .15, .99);
+      if (level.terrain === 'field' || level.terrain === 'snow') slab.material = rock;
+      if (level.terrain === 'arcane' || level.terrain === 'lava') mesh(this.staticGroup, box, surface, x, -.45, z, 1, .8, 1);
+    }
+    if (level.terrain === 'arcane' || level.terrain === 'lava') {
+      this.ground.position.y = -1.2;
+      (this.ground.material as THREE.MeshStandardMaterial).color.setHex(level.terrain === 'lava' ? 0x7a3239 : 0x263445);
+      const glow = new THREE.MeshBasicMaterial({ color: level.terrain === 'lava' ? 0xea6950 : 0x507c9c });
+      for (let i = 0; i < 65; i++) {
+        const x = (random() - .5) * 52, z = (random() - .5) * 52;
+        if (walkable(x, z)) continue;
+        mesh(this.staticGroup, box, glow, x, -1.05, z, .1 + random() * .4, .02, 1 + random() * 3).rotation.y = random() * 6;
+      }
+    }
+    for (let x = -26; x <= 26; x += 2.8) for (let z = -26; z <= 26; z += 2.8) {
+      if (walkable(x, z) || !segments.some(([a, b]) => distance(x, z, a, b) < width + 5) || random() < .18) continue;
+      const h = .6 + random() * 1.4;
+      if (level.terrain === 'cave') {
+        const crag = mesh(this.staticGroup, new THREE.DodecahedronGeometry(1, 0), rock, x, h / 2, z, 1.5, h, 1.6); crag.rotation.y = random() * 6;
+        if (level.act === 4) mesh(this.staticGroup, cone, trim, x + .4, h, z, .24, 1.5, .24);
+      } else if (level.terrain === 'field' && level.act === 2) {
+        beam(this.staticGroup, [x, 0, z], [x + .3, 3.8, z + .3], .22, wood);
+        for (let i = 0; i < 4; i++) mesh(this.staticGroup, sphere, rock, x + Math.cos(i * 1.57), 3 + random(), z + Math.sin(i * 1.57), 1.3, .5, 1.1);
+      } else if (level.terrain === 'snow') {
+        mesh(this.staticGroup, cone, surface, x, .9, z, .8, 1.8, .8);
+        mesh(this.staticGroup, cone, rock, x, 2, z, .55, 1.5, .55);
+      } else if (level.terrain === 'field') {
+        mesh(this.staticGroup, box, surface, x, .6, z, .8, 1.2, .3);
+        mesh(this.staticGroup, cylinder, surface, x, 1.2, z, .4, .3, .4).rotation.x = Math.PI / 2;
+      } else {
+        mesh(this.staticGroup, box, surface, x, h / 2, z, 1.8, h, 1.7);
+        mesh(this.staticGroup, box, trim, x, h + .08, z, 1.9, .1, 1.8);
+        if (level.terrain === 'ruins') beam(this.staticGroup, [x, h, z], [x + 1, h + .8, z], .09, wood);
+      }
+    }
+    for (const z of [8, -9, -21]) {
+      const x = z === 8 ? 4 : z === -9 ? layout.route[2].x + 2.5 : 4;
+      this.torch(x, z, 1.7, z !== -9);
+    }
+    const arena = mesh(this.staticGroup, cylinder, surface, 0, .06, -23, 4.4, .14, 4.4);
+    if (level.actBoss) {
+      arena.material = trim;
+      mesh(this.staticGroup, cylinder, surface, 0, .15, -23, 4.1, .1, 4.1);
+      for (const side of [-1, 1]) {
+        mesh(this.staticGroup, box, surface, side * 4.5, 1.8, -25, 1, 3.6, 1);
+        mesh(this.staticGroup, cone, trim, side * 4.5, 4, -25, .65, .8, .65);
+      }
+    }
+  }
+  makeObjective(x: number, z: number, id: number, prop: QuestProp) {
+    const group = new THREE.Group(); group.position.set(x, 0, z); group.userData.id = id; this.scene.add(group);
+    const theme = ACTS[this.level.act], material = mat(theme.stone), accent = mat(theme.accent, .35), bars = mat(0x7a8889, .7);
+    mesh(group, cylinder, material, 0, .15, 0, 1.25, .3, 1.25);
+    if (prop === 'cage') {
+      for (const side of [-1, 1]) for (const p of [-.65, 0, .65]) {
+        mesh(group, cylinder, bars, side * .75, 1.1, p, .045, 2, .045); mesh(group, cylinder, bars, p, 1.1, side * .75, .045, 2, .045);
+      }
+      mesh(group, box, material, 0, 2.15, 0, 1.7, .18, 1.7);
+      mesh(group, sphere, accent, 0, .7, 0, .24, .4, .24); mesh(group, sphere, accent, 0, 1.28, 0, .2, .22, .2);
+    } else if (prop === 'chest') {
+      mesh(group, box, material, 0, .55, 0, 1.2, .7, .85); mesh(group, box, accent, 0, .95, 0, 1.3, .16, .95);
+      mesh(group, box, gold, 0, .66, .45, .18, .22, .06);
+    } else if (prop === 'grave') {
+      mesh(group, box, material, 0, .9, 0, .8, 1.5, .32); mesh(group, box, accent, 0, 1.1, .2, .55, .08, .07);
+    } else if (prop === 'siege') {
+      mesh(group, box, material, 0, .8, 0, 1.8, .45, 1.5);
+      beam(group, [-.8, .5, 0], [.8, 2, 0], .18, bars); mesh(group, sphere, accent, .8, 2, 0, .4, .3, .4);
+    } else if (prop === 'ice') {
+      mesh(group, new THREE.OctahedronGeometry(1), new THREE.MeshStandardMaterial({ color: 0xb7f3ff, transparent: true, opacity: .8, metalness: .4, roughness: .2 }), 0, 1.2, 0, .8, 1.3, .8);
+    } else {
+      mesh(group, cylinder, material, 0, .75, 0, .5, 1.1, .5);
+      mesh(group, prop === 'forge' ? box : new THREE.OctahedronGeometry(1), accent, 0, 1.55, 0, .65, .45, .65);
+    }
+    const indicator = makeRing(1.5, theme.accent); indicator.name = 'indicator'; group.add(indicator);
+    this.addCollider(x, z, 1.5, 1.5); return group;
+  }
+  completeObjective(id: number) {
+    const group = this.shrineMeshes[id]; if (!group) return;
+    group.userData.complete = true;
+    (group.getObjectByName('indicator') as THREE.Mesh).material = new THREE.MeshBasicMaterial({ color: 0xd6e8b6, transparent: true, opacity: .7, side: THREE.DoubleSide });
+    if (this.level.quest.prop === 'cage' || this.level.quest.prop === 'ice') group.scale.y = .35;
+  }
+  dispose() {
+    const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
+    this.scene.traverse(object => {
+      if (object instanceof THREE.Mesh || object instanceof THREE.Points) {
+        geometries.add(object.geometry);
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+          materials.add(material);
+          for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
+        }
+      }
+      if (object instanceof THREE.Light && 'shadow' in object) (object as THREE.DirectionalLight).shadow.map?.dispose();
+    });
+    geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose()); textures.forEach(texture => texture.dispose());
+    for (const body of [...this.physics.bodies]) this.physics.removeBody(body);
+    this.scene.clear();
   }
   addCollider(x: number, z: number, w: number, d: number) {
     const body = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(w / 2, 2, d / 2)), position: new CANNON.Vec3(x, 0, z) }); this.physics.addBody(body);
@@ -233,7 +363,12 @@ export class GameWorld {
     for (const candidate of candidates) {
       const grid = this.grid.clone(); grid.setWalkableAt(sx, sy, true);
       const result = this.finder.findPath(sx, sy, candidate.x, candidate.y, grid);
-      if (result.length) return PF.Util.compressPath(result).slice(1).map(([x, z]) => new THREE.Vector3(x - 28, 0, z - 28));
+      if (result.length) {
+        const path = PF.Util.compressPath(result).slice(1).map(([x, z]) => new THREE.Vector3(x - 28, 0, z - 28));
+        // The actor can round into the destination cell before reaching its interactable center.
+        if (!path.length && Math.hypot(from.x - candidate.x + 28, from.z - candidate.y + 28) > .1) path.push(new THREE.Vector3(candidate.x - 28, 0, candidate.y - 28));
+        return path;
+      }
     }
     return [];
   }
@@ -418,22 +553,65 @@ export class GameWorld {
       torch.flame.scale.y = 1.5 + Math.sin(time * 12 + torch.phase) * .35; torch.flame.rotation.y = time * 2;
       if (torch.light) torch.light.intensity = 6.5 + Math.sin(time * 11 + torch.phase) * 1.2;
     }
-    this.shrineMeshes.forEach((shrine, i) => { shrine.getObjectByName('crystal')!.rotation.y = time * .6; shrine.getObjectByName('crystal')!.position.y = 1.9 + Math.sin(time * 1.5 + i) * .13; shrine.getObjectByName('halo')!.rotation.z = time * .35; });
+    this.shrineMeshes.forEach(shrine => { const indicator = shrine.getObjectByName('indicator'); if (indicator) indicator.scale.setScalar(shrine.userData.complete ? 1 : 1 + Math.sin(time * 2) * .04); });
     this.portal.children.forEach((child, i) => { if (child.userData.portal) { child.rotation.z = time * .15 * (i % 2 ? 1 : -1); child.scale.setScalar(1 + Math.sin(time * 2 + i) * .055); } });
     this.rune.rotation.z = time * .015;
     const positions = this.particles.geometry.attributes.position;
-    for (let i = 0; i < positions.count; i++) { let y = positions.getY(i) + dt * .07; if (y > 7) y = 0; positions.setY(i, y); }
+    for (let i = 0; i < positions.count; i++) { let y = positions.getY(i) + dt * (this.level.act === 4 ? -.7 : .07); if (y > 7) y = 0; if (y < 0) y = 7; positions.setY(i, y); }
     positions.needsUpdate = true;
   }
 }
 
 export function animateActor(actor: Actor, time: number, moving: boolean, attacking: number) {
+  if (actor.animate) { actor.animate(time, moving, attacking); return; }
   const walk = moving ? Math.sin(time * 10) * .5 : Math.sin(time * 2) * .025;
   actor.leftLeg.rotation.x = walk; actor.rightLeg.rotation.x = -walk;
   actor.leftArm.rotation.x = -walk * .4;
   actor.rightArm.rotation.x = attacking > 0 ? -1.2 + Math.sin((1 - attacking) * Math.PI * 2) * 1.2 : walk * .5;
   actor.rightArm.rotation.z = attacking > 0 ? -.45 : 0;
   if (actor.cape) actor.cape.rotation.x = Math.sin(time * 5) * .06 + (moving ? .25 : 0);
+}
+
+export function styleCampaignEnemy(actor: Actor, level: Level, boss: boolean, demon: boolean) {
+  const color = boss && level.actBoss ? [0x698753, 0x958b64, 0x92bbaa, 0xa74346, 0xb7b494][level.act] : ACTS[level.act].stone;
+  const replacements = new Map<THREE.Material, THREE.Material>();
+  actor.group.traverse(object => {
+    if (!(object instanceof THREE.Mesh) || !(object.material instanceof THREE.MeshStandardMaterial)) return;
+    let material = replacements.get(object.material);
+    if (!material) { material = object.material.clone(); (material as THREE.MeshStandardMaterial).color.lerp(new THREE.Color(color), boss ? .75 : .24); replacements.set(object.material, material); }
+    object.material = material;
+  });
+  if (!boss) { actor.group.scale.multiplyScalar(level.act === 2 && demon ? .8 : 1); return; }
+  actor.group.scale.setScalar(level.actBoss ? 1.9 : 1.4);
+  const hide = mat(color, .15), spikes = mat(0xc6c0a4);
+  if (!level.actBoss) { mesh(actor.group, cone, hide, 0, 1.9, 0, .24, .55, .24); return; }
+  if (actor.cape) actor.cape.visible = false;
+  if (level.act === 0) {
+    for (const side of [-1, 1]) for (const height of [.7, 1.15]) {
+      beam(actor.group, [side * .2, height, -.2], [side * .95, height + .8, -.6], .08, hide);
+      beam(actor.group, [side * .95, height + .8, -.6], [side * 1.1, height + 1, .15], .045, spikes);
+    }
+  } else if (level.act === 1) {
+    mesh(actor.group, sphere, hide, 0, .85, -.35, .7, .7, .9);
+    for (const side of [-1, 1]) for (const z of [-.6, -.15, .3]) beam(actor.group, [side * .4, .7, z], [side * 1, .05, z + .2], .12, spikes);
+    actor.group.scale.set(2.2, 1.5, 2.1);
+  } else if (level.act === 2) {
+    actor.leftLeg.visible = actor.rightLeg.visible = false;
+    for (const side of [-1, 1]) {
+      beam(actor.group, [side * .3, 1.25, 0], [side * 1.1, 1.7, -.2], .08, spikes);
+      beam(actor.group, [side * 1.1, 1.7, -.2], [side * 1.35, .7, .3], .04, spikes);
+    }
+    mesh(actor.group, cone, hide, 0, .5, -.1, .28, 1, .28).rotation.z = Math.PI;
+  } else if (level.act === 3) {
+    for (let i = 0; i < 5; i++) mesh(actor.group, cone, spikes, 0, .9 + i * .17, -.35, .1, .55, .12).rotation.x = -.8;
+    beam(actor.group, [0, .7, -.2], [.6, .25, -1.3], .13, hide);
+  } else {
+    for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
+      const x = side * (.5 + i * .3), z = -.5 + i * .5;
+      beam(actor.group, [side * .2, .8, 0], [x, .35, z], .1, hide);
+      beam(actor.group, [x, .35, z], [x * 1.3, .06, z + .7], .065, hide);
+    }
+  }
 }
 
 export function makeRing(radius: number, color: number, opacity = .65) {

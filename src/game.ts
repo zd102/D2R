@@ -4,14 +4,23 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { GameWorld, createActor, animateActor, makeRing, SHRINES, COLORS, type Actor } from './world';
-import { newHero, stats, gainXp, rollItem, equipItem, type HeroState, type Item } from './model';
+import { GameWorld, createActor, animateActor, makeRing, COLORS, type Actor } from './world';
+import { newHero, stats, gainXp, equipItem, equipReason, sellItem, allocateAttribute, swapWeapons, difficulty, recoverCorpse, selectCampaignLevel, prepareCampaignReplay, completeCampaignLevel, activateQuestObject, recordQuestKill, type HeroState, type Item, type Slot } from './model';
+import { ACTS, LEVELS, levelLayout, levelTuning, questComplete, canEnterLevel } from './campaign';
+import { type Attribute, type DamageType } from './paladin';
+import { packItems, placeItems, RUNES, type DropRank, type RuneId } from './items';
+import { rollLoot } from './loot';
+import { PaladinCombat } from './combat';
+import { BOSSES, ENCOUNTERS, MONSTERS, type MonsterDef } from './bestiary';
+import { createMonsterActor } from './monster-models';
+import { MonsterCombat } from './monster-combat';
+import { monsterExperience, monsterStats } from './balance';
 import { SaveStore, SaveError, PROFILE_PREFIX, type SavedProfile } from './saves';
 import { GameAudio } from './audio';
 import { UI } from './ui';
 
-export type Enemy = { id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; active: boolean };
-export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; mesh: THREE.Group };
+export type Enemy = { id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number } };
+export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 export type Skill = 'attack' | 'cleave' | 'nova' | 'dash' | 'bolt';
 export class Game {
@@ -24,6 +33,8 @@ export class Game {
   body: CANNON.Body;
   audio = new GameAudio();
   ui: UI;
+  combat: PaladinCombat;
+  monsterCombat = new MonsterCombat(this);
   enemies: Enemy[] = [];
   loot: Loot[] = [];
   effects: Effect[] = [];
@@ -35,6 +46,7 @@ export class Game {
   raycaster = new THREE.Raycaster();
   plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   target?: Enemy;
+  pendingPickup?: number;
   heldAttack = false;
   started = false;
   paused = true;
@@ -58,6 +70,7 @@ export class Game {
   profile?: SavedProfile;
   profileNotice = '';
   saveConflict = false;
+  victoryTimer = 0;
   constructor() {
     this.hero = newHero();
     try {
@@ -83,6 +96,7 @@ export class Game {
     this.composer.addPass(new RenderPass(this.world.scene, this.camera));
     this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .30, .5, 1.2));
     this.composer.addPass(new OutputPass());
+    this.combat = new PaladinCombat(this);
     this.ui = new UI(this);
     this.resize(); this.bindControls();
     this.ui.openPanel('profiles');
@@ -104,17 +118,36 @@ export class Game {
     });
     this.loop();
   }
-  startProfile(id: string) {
+  startProfile(id: string, chooseLevel = false) {
     if (this.profile || !this.saves) return;
     const profile = this.saves.read(id);
     this.saves.remember(id);
     this.profile = profile; this.hero = structuredClone(profile.hero);
-    this.actor.group.scale.setScalar(1); this.actor.group.rotation.y = Math.PI;
-    this.hero.shrines.forEach(shrine => this.world.cleanseShrine(shrine));
-    this.spawnEnemies(); this.ui.closePanel(); this.resize();
+    if (this.hero.corpse) { this.hero.corpse.x = 0; this.hero.corpse.z = 11; this.hero.corpse.xpLost = 0; }
+    const replay = prepareCampaignReplay(this.hero);
+    this.loadLevel();
+    if (replay && !this.save(false)) return;
+    if (chooseLevel) this.ui.openPanel('campaign');
     document.getElementById('hero-profile-name')!.textContent = profile.name;
     document.getElementById('hero-profile-name')!.title = profile.name;
-    this.ui.toast(profile.name, `等级 ${this.hero.level} · 第 ${this.hero.stage} 周目`);
+    this.ui.toast(profile.name, `等级 ${this.hero.level} · ${this.level.name}`);
+  }
+  get level() { return LEVELS[this.hero.campaign.current]; }
+  loadLevel() {
+    this.releaseInput();
+    this.world.scene.remove(this.actor.group, this.marker, this.selection, this.playerRing);
+    this.world.dispose(); this.world = new GameWorld(this.level);
+    (this.composer.passes[0] as RenderPass).scene = this.world.scene;
+    this.body = this.world.body(0, 11); this.actor.group.position.set(0, 0, 11); this.actor.group.scale.setScalar(1); this.actor.group.rotation.set(0, Math.PI, 0);
+    this.world.scene.add(this.actor.group, this.marker, this.selection, this.playerRing);
+    this.marker.visible = this.selection.visible = false; this.playerRing.position.set(0, .09, 11);
+    this.enemies = []; this.loot = []; this.effects = []; this.visited.clear(); this.combat = new PaladinCombat(this);
+    this.monsterCombat = new MonsterCombat(this);
+    this.cooldowns = { attack: 0, cleave: 0, nova: 0, dash: 0, bolt: 0 }; this.victoryTimer = 0; this.attackTime = 0; this.invincible = 2;
+    this.ui.hoveredEnemy = undefined; this.ui.floats.forEach(float => float.element.remove()); this.ui.floats = [];
+    this.hero.campaign.objects.forEach(id => this.world.completeObjective(id)); this.world.exit.visible = this.hero.bossDefeated;
+    this.renderer.domElement.setAttribute('aria-label', `${ACTS[this.level.act].region} · ${this.level.name}游戏场景`);
+    this.spawnEnemies(); this.ui.closePanel(); this.resize();
   }
   returnToProfiles(discard = false) {
     if (!discard && !this.save()) return;
@@ -146,27 +179,31 @@ export class Game {
     this.resize();
   }
   spawnEnemies() {
-    const packs: [number, number, number][] = [[5, 5, 3], [-6, 1, 3], [9, -3, 3], [-17, -3, 4], [18, -3, 4], [0, -12, 3], [3, -20, 3]];
-    packs.forEach(([x, z, count], pack) => {
+    const layout = levelLayout(this.level), tuning = levelTuning(this.level, difficulty(this.hero));
+    const points = [layout.route[1], layout.route[2], ...layout.objects, layout.route[3], { x: 1, z: -19 }];
+    const packs = Array.from({ length: tuning.packs }, (_, i) => points[i % points.length]);
+    packs.forEach(({ x, z }, pack) => {
+      const count = 3;
       for (let i = 0; i < count; i++) {
         let px = x + Math.cos(i * 2.4) * 1.8, pz = z + Math.sin(i * 2.4) * 1.8;
         if (!this.world.grid.isWalkableAt(Math.round(px) + 28, Math.round(pz) + 28)) {
           const route = this.world.path({ x: 0, z: 11 }, { x: px, z: pz });
           if (route.length) { const end = route[route.length - 1]; px = end.x; pz = end.z; }
         }
-        this.spawnEnemy(px, pz, (i + pack) % 3 === 0 ? 'demon' : 'skeleton');
+        const pool = ENCOUNTERS[this.level.index];
+        this.spawnEnemy(px, pz, 'demon', MONSTERS[pool[(pack * 3 + i) % pool.length]]);
       }
     });
     if (!this.hero.bossDefeated) this.spawnEnemy(0, -23, 'boss');
   }
-  spawnEnemy(x: number, z: number, kind: 'skeleton' | 'demon' | 'boss') {
-    const actor = createActor(kind), boss = kind === 'boss', scale = 1 + (this.hero.stage - 1) * .4;
-    const maxHp = Math.round((boss ? 680 : kind === 'demon' ? 70 : 48) * scale);
+  spawnEnemy(x: number, z: number, kind: 'skeleton' | 'demon' | 'boss', definition = kind === 'boss' ? BOSSES[this.level.index] : MONSTERS[kind === 'skeleton' ? 'skeleton' : ENCOUNTERS[this.level.index][0]]) {
+    const boss = kind === 'boss', actor = createMonsterActor(definition, boss), tuning = monsterStats(definition, this.level, difficulty(this.hero), boss);
     actor.group.position.set(x, 0, z); this.world.scene.add(actor.group);
-    this.enemies.push({ id: this.nextId++, name: boss ? '无光者 · 莫德雷克' : kind === 'demon' ? '堕落守卫' : '复生骸骨', actor, body: this.world.body(x, z, boss ? .85 : .37), hp: maxHp, maxHp, damage: (boss ? 22 : kind === 'demon' ? 10 : 7) * scale, speed: boss ? 2 : kind === 'demon' ? 2.3 : 1.9, cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, active: false });
+    const enemy: Enemy = { id: this.nextId++, name: boss ? this.level.boss : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : .37), ...tuning, hp: tuning.maxHp, speed: definition.speed, cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
+    this.enemies.push(enemy); return enemy;
   }
   begin() { if (!this.profile) return; this.started = true; this.audio.unlock(); }
-  releaseInput() { this.keys.clear(); this.heldAttack = false; this.joystick.set(0, 0); this.path = []; this.target = undefined; this.body.velocity.set(0, 0, 0); }
+  releaseInput() { this.keys.clear(); this.heldAttack = false; this.joystick.set(0, 0); this.path = []; this.target = undefined; this.pendingPickup = undefined; this.body.velocity.set(0, 0, 0); }
   bindControls() {
     const canvas = this.renderer.domElement;
     canvas.addEventListener('contextmenu', event => event.preventDefault());
@@ -178,11 +215,16 @@ export class Game {
     });
     canvas.addEventListener('pointerdown', event => {
       if (this.paused || this.dead) return;
+      this.pendingPickup = undefined;
       this.begin();
       this.pointer.set(event.clientX / innerWidth * 2 - 1, -event.clientY / innerHeight * 2 + 1);
       this.raycaster.setFromCamera(this.pointer, this.camera); this.raycaster.ray.intersectPlane(this.plane, this.aim);
       if (event.button === 2) { this.useSkill('bolt', true); return; }
+      if (event.button !== 0) return;
       const enemy = this.enemyAt(event.clientX, event.clientY);
+      const hit = this.raycaster.intersectObjects(this.loot.map(loot => loot.mesh), true)[0];
+      const clickedLoot = hit && this.loot.find(loot => { for (let object: THREE.Object3D | null = hit.object; object; object = object.parent) if (object === loot.mesh) return true; return false; });
+      if (!enemy && clickedLoot && !event.shiftKey) { this.pickup(clickedLoot.id); return; }
       if (enemy) { this.target = enemy; this.heldAttack = true; this.path = this.world.path(this.position, enemy.actor.group.position); }
       else if (event.shiftKey) { this.path = []; this.useSkill('attack', true); this.heldAttack = true; }
       else this.moveTo(this.aim);
@@ -209,10 +251,14 @@ export class Game {
       if (key === 'escape') { this.ui.panel ? this.ui.closePanel() : this.ui.openPanel('pause'); return; }
       if (key === 'i') { this.ui.togglePanel('inventory'); return; }
       if (key === 'c') { this.ui.togglePanel('character'); return; }
+      if (key === 't') { this.ui.togglePanel('skills'); return; }
       if (key === 'tab' || key === 'm') { this.ui.togglePanel('map'); return; }
       if (key === 'j') { this.ui.togglePanel('quest'); return; }
       if (this.paused || this.dead) return;
       this.begin(); this.keys.add(key);
+      if (key === 'x') { this.swapWeapons(); return; }
+      if (key === 'v') { this.hero.running = !this.hero.running; return; }
+      if (/^f[1-5]$/.test(key)) { event.preventDefault(); this.useSkill((['attack', 'cleave', 'nova', 'dash', 'bolt'] as const)[Number(key.slice(1)) - 1]); return; }
       if (key === 'q') this.useSkill('cleave');
       if (key === 'e') this.useSkill('nova');
       if (key === 'r' || key === ' ') this.useSkill('dash');
@@ -226,7 +272,7 @@ export class Game {
   enemyAt(x: number, y: number) {
     let found: Enemy | undefined, best = 45;
     for (const enemy of this.enemies) {
-      if (enemy.dead) continue;
+      if (enemy.dead || enemy.converted > 0) continue;
       const screen = this.project(enemy.actor.group.position.clone().add(new THREE.Vector3(0, enemy.boss ? 1.8 : .9, 0)));
       const d = Math.hypot(x - screen.x, y - screen.y);
       if (d < best) { best = d; found = enemy; }
@@ -234,95 +280,45 @@ export class Game {
     return found;
   }
   moveTo(point: THREE.Vector3) {
+    this.pendingPickup = undefined;
     this.target = undefined; this.path = this.world.path(this.position, point);
     if (this.path.length) { this.marker.position.set(this.path[this.path.length - 1].x, .08, this.path[this.path.length - 1].z); this.marker.visible = true; }
   }
   nearestEnemy(range: number) {
-    return this.enemies.filter(e => !e.dead && (!e.boss || this.hero.shrines.length === 3)).sort((a, b) => a.actor.group.position.distanceToSquared(this.position) - b.actor.group.position.distanceToSquared(this.position)).find(e => e.actor.group.position.distanceTo(this.position) < range);
+    return this.enemies.filter(e => this.combat.hostile(e)).sort((a, b) => a.actor.group.position.distanceToSquared(this.position) - b.actor.group.position.distanceToSquared(this.position)).find(e => e.actor.group.position.distanceTo(this.position) < range);
   }
-  useSkill(skill: Skill, aimed = false) {
-    if (this.paused || this.dead) return;
-    this.begin();
-    if (this.cooldowns[skill] > 0) return;
-    const cost = { attack: 0, cleave: 20, nova: 30, dash: 12, bolt: 10 }[skill];
-    if (this.hero.mana < cost) { this.ui.toast('法力不足'); return; }
-    this.hero.mana -= cost;
-    this.cooldowns[skill] = { attack: .45, cleave: 3.5, nova: 6, dash: 2.2, bolt: .7 }[skill];
-    const s = stats(this.hero), origin = this.position.clone();
-    const enemy = this.target && !this.target.dead ? this.target : this.nearestEnemy(skill === 'bolt' ? 13 : 4);
-    const direction = aimed ? this.aim.clone().sub(origin) : enemy ? enemy.actor.group.position.clone().sub(origin) : new THREE.Vector3(Math.sin(this.actor.group.rotation.y), 0, Math.cos(this.actor.group.rotation.y)); direction.y = 0; direction.normalize();
-    if (!direction.lengthSq()) direction.set(0, 0, -1);
-    this.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
-    this.attackTime = 1;
-    if (skill === 'dash') {
-      if (this.joystick.length() > .1 || ['w', 'a', 's', 'd'].some(key => this.keys.has(key))) { direction.set(this.body.velocity.x, 0, this.body.velocity.z).normalize(); }
-      let last = origin.clone();
-      for (let i = .4; i <= 5.2; i += .25) {
-        const next = origin.clone().addScaledVector(direction, i);
-        if (!this.world.grid.isWalkableAt(Math.round(next.x) + 28, Math.round(next.z) + 28)) break;
-        last = next;
-        if (Math.floor(i * 4) % 2 === 0) this.burst(next.clone().add(new THREE.Vector3(0, .5, 0)), 0x9de9da, 2);
-      }
-      this.body.position.set(last.x, .5, last.z); this.actor.group.position.set(last.x, 0, last.z); this.invincible = .55; this.path = []; this.audio.play('portal'); return;
-    }
-    if (skill === 'bolt') {
-      const end = aimed ? origin.clone().addScaledVector(direction, 12) : enemy ? enemy.actor.group.position.clone() : origin.clone().addScaledVector(direction, 12);
-      this.beam(origin.clone().add(new THREE.Vector3(0, 1, 0)), end.clone().add(new THREE.Vector3(0, .8, 0)));
-      for (const e of this.enemies) {
-        if (e.dead) continue;
-        const relative = e.actor.group.position.clone().sub(origin), distance = relative.dot(direction);
-        if (distance > 0 && distance < 13 && relative.addScaledVector(direction, -distance).length() < .85) this.hurtEnemy(e, s.magic * 1.15);
-      }
-      this.audio.play('spell'); return;
-    }
-    const radius = skill === 'nova' ? 7 : skill === 'cleave' ? 4.3 : 2.9;
-    const color = skill === 'nova' ? 0x79e6d1 : skill === 'cleave' ? 0xe6c277 : 0xd5ddc3;
-    const ring = makeRing(skill === 'attack' ? radius : .4, color, .9); ring.position.copy(origin); ring.position.y = .2;
-    if (skill === 'attack') { ring.geometry.dispose(); ring.geometry = new THREE.RingGeometry(2.2, 2.7, 24, 1, -.8, 1.6); ring.rotation.z = -this.actor.group.rotation.y + Math.PI / 2; }
-    this.world.scene.add(ring); this.effects.push({ mesh: ring, life: skill === 'attack' ? .18 : .5, duration: skill === 'attack' ? .18 : .5, type: skill === 'attack' ? 'slash' : 'ring' });
-    if (skill === 'nova') this.burst(origin.clone().add(new THREE.Vector3(0, 1, 0)), color, 40);
-    for (const e of this.enemies) {
-      if (e.dead) continue;
-      const distance = e.actor.group.position.distanceTo(origin);
-      const facing = e.actor.group.position.clone().sub(origin).normalize().dot(direction);
-      if (distance <= radius && (skill !== 'attack' || facing > -.25 || distance < 1.4)) this.hurtEnemy(e, skill === 'nova' ? s.magic * 1.6 : s.attack * (skill === 'cleave' ? 1.9 : 1));
-    }
-    this.audio.play(skill === 'nova' ? 'spell' : 'swing');
-  }
-  hurtEnemy(enemy: Enemy, damage: number) {
-    if (enemy.boss && this.hero.shrines.length < 3) { this.ui.toast('三重封印尚未解除'); return; }
-    const critical = Math.random() < .16;
-    const amount = Math.round(damage * (.9 + Math.random() * .2) * (critical ? 1.7 : 1));
-    enemy.hp -= amount; enemy.active = true;
-    this.ui.floatText(String(amount), enemy.actor.group.position.clone().add(new THREE.Vector3(0, 1.8, 0)), critical ? 'critical' : 'damage');
-    this.burst(enemy.actor.group.position.clone().add(new THREE.Vector3(0, .9, 0)), critical ? 0xffd889 : 0xc9d6b3, 7);
-    this.audio.play('hit');
-    const knock = enemy.actor.group.position.clone().sub(this.position).normalize(); enemy.body.velocity.x += knock.x * 5; enemy.body.velocity.z += knock.z * 5;
-    if (enemy.hp <= 0) this.killEnemy(enemy);
-  }
+  useSkill(skill: Skill, aimed = false) { if (this.pendingPickup !== undefined) { this.pendingPickup = undefined; this.path = []; } this.combat.cast(skill, aimed); }
+  hurtEnemy(enemy: Enemy, damage: number) { this.combat.damage(enemy, damage, 'physical'); }
   killEnemy(enemy: Enemy) {
-    enemy.dead = true; this.hero.kills++; this.world.physics.removeBody(enemy.body);
+    if (enemy.dead) return;
+    enemy.dead = true; this.monsterCombat.cancel(enemy); this.world.physics.removeBody(enemy.body);
+    if (enemy.summoned) { enemy.redeemed = true; enemy.actor.group.visible = false; if (this.target === enemy) { this.target = undefined; this.path = []; } return; }
+    this.hero.kills++;
+    const playerStats = stats(this.hero); this.hero.mana = Math.min(playerStats.maxMana, this.hero.mana + (playerStats.mods.manaOnKill ?? 0));
     enemy.actor.group.rotation.z = -Math.PI / 2; enemy.actor.group.position.y = .2;
     if (this.target === enemy) { this.target = undefined; this.path = []; }
-    const xp = enemy.boss ? 250 : 22 + this.hero.stage * 3;
-    if (gainXp(this.hero, xp)) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 获得 3 点属性`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
-    this.dropLoot(enemy.actor.group.position, enemy.boss);
+    const xp = monsterExperience(this.hero.level, enemy.level, enemy.boss ? this.level.actBoss ? 'actBoss' : 'miniboss' : 'monster', { difficulty: difficulty(this.hero), act: this.level.act, baseLife: enemy.definition?.hp, firstClear: this.hero.campaign.cleared[difficulty(this.hero)] === this.level.index });
+    if (gainXp(this.hero, xp)) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
+    const wasReady = questComplete(this.hero.campaign);
+    if (!enemy.boss) recordQuestKill(this.hero);
+    if (!wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.save(false); }
+    this.dropLoot(enemy.actor.group.position, enemy.boss ? this.level.actBoss ? 'actBoss' : 'miniboss' : 'monster', enemy.level);
     if (enemy.boss) {
-      this.hero.bossDefeated = true; this.hero.gold += 200; this.ui.toast('无光者已陨落', '遗忘墓园重归寂静');
-      this.save(false); setTimeout(() => { if (!this.dead) this.ui.openPanel('victory'); }, 1400);
+      if (!completeCampaignLevel(this.hero)) return;
+      this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, this.level.actBoss ? '本章已通关' : '下一关已解锁');
+      this.save(false); this.victoryTimer = 1.1;
     }
   }
-  dropLoot(position: THREE.Vector3, boss = false) {
-    const gold = { id: this.nextId++, x: position.x + .4, z: position.z + .2, gold: 9 + Math.floor(Math.random() * 13) + this.hero.stage * 3, mesh: new THREE.Group() };
-    this.addLoot(gold);
-    if (boss || Math.random() > .40) {
-      const item = rollItem(this.hero.level, Math.random(), boss);
-      this.addLoot({ id: this.nextId++, x: position.x - .5, z: position.z, item, mesh: new THREE.Group() });
-    }
-    if (Math.random() < .30) this.addLoot({ id: this.nextId++, x: position.x, z: position.z + .6, potion: Math.random() > .4 ? 0 : 1, mesh: new THREE.Group() });
+  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level) {
+    const mods = stats(this.hero).mods, diff = difficulty(this.hero);
+    const drop = rollLoot({ level: areaLevel, act: this.level.act, difficulty: diff, rank, firstClear: this.hero.campaign.cleared[diff] <= this.level.index, countess: this.level.index === 3, magicFind: mods.magicFind, goldFind: mods.goldFind });
+    this.addLoot({ id: this.nextId++, x: position.x + .4, z: position.z + .2, gold: drop.gold, mesh: new THREE.Group() });
+    drop.items.forEach((item, i) => this.addLoot({ id: this.nextId++, x: position.x - .6 + i * .8, z: position.z + .6, item, mesh: new THREE.Group() }));
+    drop.runes.forEach((rune, i) => this.addLoot({ id: this.nextId++, x: position.x + .8, z: position.z - .5 - i * .6, rune, mesh: new THREE.Group() }));
+    if (drop.potion !== undefined) this.addLoot({ id: this.nextId++, x: position.x, z: position.z + .9, potion: drop.potion, mesh: new THREE.Group() });
   }
   addLoot(loot: Loot) {
-    const color = loot.item ? COLORS[loot.item.rarity] : loot.gold ? 0xe5bd60 : loot.potion === 0 ? 0xe45555 : 0x56a7eb;
+    const color = loot.item ? COLORS[loot.item.rarity] : loot.gold || loot.rune ? 0xe5bd60 : loot.potion === 0 ? 0xe45555 : 0x56a7eb;
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(loot.gold ? .12 : .19), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .6, metalness: .7, roughness: .3 })); gem.position.y = .25; loot.mesh.add(gem);
     if (loot.item) {
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(.028, .12, loot.item.rarity === 'legendary' ? 3.5 : 1.8, 8, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .24, depthWrite: false, side: THREE.DoubleSide })); beam.position.y = loot.item.rarity === 'legendary' ? 1.7 : .9; loot.mesh.add(beam);
@@ -333,62 +329,89 @@ export class Game {
   pickup(id: number) {
     if (this.paused || this.dead) return;
     const loot = this.loot.find(l => l.id === id); if (!loot) return;
-    this.begin();
-    if (Math.hypot(this.position.x - loot.x, this.position.z - loot.z) > 3) { this.moveTo(new THREE.Vector3(loot.x, 0, loot.z)); return; }
+    this.begin(); this.target = undefined; this.heldAttack = false; this.pendingPickup = undefined; this.path = [];
+    if (loot.item && !packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
+    if (Math.hypot(this.position.x - loot.x, this.position.z - loot.z) > 3) {
+      this.moveTo(new THREE.Vector3(loot.x, 0, loot.z));
+      const end = this.path.at(-1);
+      if (!end || Math.hypot(end.x - loot.x, end.z - loot.z) > 3) { this.path = []; this.ui.toast('无法靠近该物品'); return; }
+      this.pendingPickup = id; return;
+    }
+    this.collectLoot(loot);
+  }
+  collectLoot(loot: Loot) {
+    if (this.paused || this.dead || !this.loot.includes(loot)) return;
     if (loot.item) {
-      if (this.hero.inventory.length >= 24) { this.ui.toast('背包已满'); return; }
-      this.hero.inventory.push(loot.item); this.ui.toast(loot.item.name, '已收入背包');
+      if (!packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
+      this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.name, '已收入背包');
+    } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${RUNES[loot.rune].name}符文`);
     } else if (loot.gold) { this.hero.gold += loot.gold; this.ui.floatText(`+${loot.gold}`, this.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 'gold'); }
     else if (loot.potion !== undefined) this.hero.potions[loot.potion] = Math.min(99, this.hero.potions[loot.potion] + 1);
     this.disposeObject(loot.mesh); this.loot.splice(this.loot.indexOf(loot), 1); this.audio.play('loot'); this.save(false);
+  }
+  updateLootPickup() {
+    if (this.paused || this.dead) return;
+    if (this.pendingPickup !== undefined) {
+      const selected = this.loot.find(loot => loot.id === this.pendingPickup);
+      if (!selected) this.pendingPickup = undefined;
+      else if (Math.hypot(this.position.x - selected.x, this.position.z - selected.z) <= 3) {
+        this.pendingPickup = undefined; this.path = []; this.body.velocity.set(0, 0, 0); this.collectLoot(selected);
+      } else if (!this.path.length) this.pendingPickup = undefined;
+    }
+    for (const loot of [...this.loot]) if (!loot.item && Math.hypot(loot.x - this.position.x, loot.z - this.position.z) < (loot.gold || loot.potion !== undefined ? 1.6 : 1)) this.collectLoot(loot);
   }
   drink(index: 0 | 1) {
     if (this.paused || this.dead) return;
     const s = stats(this.hero), key = index === 0 ? 'hp' : 'mana', max = index === 0 ? s.maxHp : s.maxMana;
     if (this.hero[key] >= max) { this.ui.toast(index === 0 ? '生命值已满' : '法力值已满'); return; }
     if (!this.hero.potions[index]) { this.ui.toast('药剂已用尽'); return; }
-    this.hero.potions[index]--; this.hero[key] = Math.min(max, this.hero[key] + max * .65);
+    this.hero.potions[index]--; this.combat.regen[index] += index ? 80 : 160;
     this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), index === 0 ? 0xe25c65 : 0x63c8ed, 15); this.audio.play('loot'); this.save(false);
   }
   contextAction() {
     if (this.dead) return null;
-    const shrine = SHRINES.findIndex(p => Math.hypot(this.position.x - p.x, this.position.z - p.z) < 3.4);
-    if (shrine >= 0 && !this.hero.shrines.includes(shrine)) return { name: '净化祭坛', kind: 'shrine', id: shrine };
+    if (this.hero.corpse && Math.hypot(this.position.x - this.hero.corpse.x, this.position.z - this.hero.corpse.z) < 2.8) return { name: '取回遗体装备', kind: 'corpse', id: 0 };
+    const layout = levelLayout(this.level), shrine = layout.objects.findIndex(p => Math.hypot(this.position.x - p.x, this.position.z - p.z) < 3.4);
+    if (shrine >= 0 && !this.hero.campaign.objects.includes(shrine)) return { name: this.level.quest.action, kind: 'objective', id: shrine };
+    if (this.hero.bossDefeated && Math.hypot(this.position.x - layout.exit.x, this.position.z - layout.exit.z) < 3.5) return { name: this.level.index === 24 ? '战役结算' : this.level.actBoss ? '前往下一章' : '前往下一关', kind: 'exit', id: 0 };
     if (this.position.distanceTo(new THREE.Vector3(-5.8, 0, 12)) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
-    if (this.loot.some(l => Math.hypot(l.x - this.position.x, l.z - this.position.z) < 3)) return { name: '拾取战利品', kind: 'loot', id: 0 };
+    if (this.loot.some(l => !l.item && Math.hypot(l.x - this.position.x, l.z - this.position.z) < 3)) return { name: '拾取补给', kind: 'loot', id: 0 };
     return null;
   }
   interact() {
     if (this.paused || this.dead) return;
     this.begin(); const action = this.contextAction(); if (!action) return;
+    if (action.kind === 'corpse') { if (recoverCorpse(this.hero)) { this.ui.toast('装备已取回'); this.save(false); } else this.ui.toast('背包空间不足'); return; }
     if (action.kind === 'shop') { this.ui.openPanel('shop'); return; }
-    if (action.kind === 'loot') { [...this.loot].filter(l => Math.hypot(l.x - this.position.x, l.z - this.position.z) < 3).forEach(l => this.pickup(l.id)); return; }
-    const p = SHRINES[action.id];
-    if (this.enemies.some(e => !e.dead && !e.boss && Math.hypot(e.actor.group.position.x - p.x, e.actor.group.position.z - p.z) < 6)) { this.ui.toast('祭坛仍受守卫侵蚀'); return; }
-    this.hero.shrines.push(action.id); this.world.cleanseShrine(action.id);
+    if (action.kind === 'exit') { this.ui.openPanel('victory'); return; }
+    if (action.kind === 'loot') { [...this.loot].filter(l => !l.item && Math.hypot(l.x - this.position.x, l.z - this.position.z) < 3).forEach(l => this.collectLoot(l)); return; }
+    const p = levelLayout(this.level).objects[action.id];
+    if (this.enemies.some(e => !e.dead && !e.boss && Math.hypot(e.actor.group.position.x - p.x, e.actor.group.position.z - p.z) < 5)) { this.ui.toast('附近仍有守卫'); return; }
+    if (!activateQuestObject(this.hero, action.id)) return;
+    this.world.completeObjective(action.id);
     this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana;
-    gainXp(this.hero, 60); this.burst(new THREE.Vector3(p.x, 2, p.z), 0x80ffdf, 45); this.audio.play('level');
-    this.ui.toast('祭坛已净化', this.hero.shrines.length === 3 ? '三重封印破碎 · 无光者已苏醒' : `封印已解除 ${this.hero.shrines.length} / 3`); this.save(false);
+    this.burst(new THREE.Vector3(p.x, 2, p.z), ACTS[this.level.act].accent, 25); this.audio.play('level');
+    this.ui.toast(this.level.quest.action, questComplete(this.hero.campaign) ? `任务已完成 · 击败${this.level.boss}` : `${this.hero.campaign.objects.length} / ${this.level.quest.count}`); this.save(false);
   }
   buy(index: 0 | 1) {
     if (this.hero.gold < 25) { this.ui.toast('金币不足'); return; }
     if (this.hero.potions[index] >= 99) return;
     this.hero.gold -= 25; this.hero.potions[index]++; this.audio.play('loot'); this.ui.renderPanel(); this.save(false);
   }
-  equip(id: string) { if (equipItem(this.hero, id)) { this.audio.play('loot'); this.save(false); this.ui.renderPanel(); } }
+  equip(id: string, slot?: Slot) { if (equipItem(this.hero, id, slot)) { this.audio.play('loot'); this.save(false); this.ui.renderPanel(); } else { const item = this.hero.inventory.find(item => item.id === id); this.ui.toast(item ? equipReason(this.hero, item, slot) || '背包空间不足' : '物品不存在'); } }
+  swapWeapons() { swapWeapons(this.hero); this.ui.toast(`武器组 ${this.hero.weaponSet + 1}`); this.save(false); this.ui.renderPanel(); }
   salvage(id: string) {
-    const index = this.hero.inventory.findIndex(item => item.id === id); if (index < 0) return;
-    this.hero.gold += this.hero.inventory[index].value; this.hero.inventory.splice(index, 1); this.ui.selectedItem = undefined; this.ui.renderPanel(); this.save(false);
+    if (this.saveConflict || !sellItem(this.hero, id)) return;
+    this.ui.selectedItem = undefined; this.save(false); this.ui.renderPanel();
   }
-  allocate(key: 'strength' | 'vitality' | 'spirit') {
-    if (this.hero.points <= 0) return;
-    this.hero.points--; this.hero[key]++; if (key === 'vitality') this.hero.hp += 5; if (key === 'spirit') this.hero.mana += 3;
+  allocate(key: Attribute, count = 1) {
+    if (!allocateAttribute(this.hero, key, count)) return;
     this.ui.renderPanel(); this.save(false);
   }
   save(notify = true) {
     if (!this.profile) return true;
     if (!this.saves || this.saveConflict) return false;
-    const savedHero = this.dead ? { ...this.hero, hp: stats(this.hero).maxHp, mana: stats(this.hero).maxMana, gold: Math.floor(this.hero.gold * .9) } : this.hero;
+    const savedHero = this.dead ? { ...this.hero, hp: stats(this.hero).maxHp, mana: stats(this.hero).maxMana } : this.hero;
     try {
       this.profile = this.saves.save(this.profile.id, savedHero, this.profile.revision);
       this.storageAvailable = true; if (notify) this.ui.toast('旅程已保存', this.profile.name);
@@ -400,16 +423,25 @@ export class Game {
     }
   }
   revive() {
-    this.dead = false; this.hero.gold = Math.floor(this.hero.gold * .9); this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana;
+    this.dead = false; this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana; this.hero.stamina = stats(this.hero).maxStamina;
     this.body.position.set(0, .5, 11); this.actor.group.position.set(0, 0, 11); this.actor.group.rotation.z = 0;
     this.invincible = 4; this.enemies.forEach(e => { e.active = false; }); this.ui.closePanel(); this.save(false);
   }
   nextJourney() {
     if (!this.hero.bossDefeated) return;
+    if (this.level.index < 24) this.enterLevel(this.level.index + 1);
+    else if (difficulty(this.hero) < 2) this.enterLevel(0, difficulty(this.hero) + 1);
+  }
+  changeDifficulty(value: number) {
+    if (![0, 1, 2].includes(value) || value === this.hero.difficultyLevel) return;
+    this.enterLevel(Math.min(24, this.hero.campaign.cleared[value]), value);
+  }
+  enterLevel(index: number, diff: number = difficulty(this.hero)) {
+    if (this.dead || !this.profile || this.saveConflict || !canEnterLevel(this.hero.campaign, index, diff)) return false;
     const previous = structuredClone(this.hero);
-    this.hero.stage++; this.hero.shrines = []; this.hero.bossDefeated = false; this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana; this.hero.potions[0] += 3; this.hero.potions[1] += 2;
-    if (this.save(false)) location.reload();
-    else this.hero = previous;
+    if (!selectCampaignLevel(this.hero, index, diff as 0 | 1 | 2)) return false;
+    if (!this.save(false)) { this.hero = previous; return false; }
+    this.loadLevel(); this.ui.toast(this.level.name, `第 ${this.level.act + 1} 章 · 第 ${this.level.step + 1} 关`); return true;
   }
   burst(origin: THREE.Vector3, color: number, count: number) {
     for (let i = 0; i < count; i++) {
@@ -431,65 +463,38 @@ export class Game {
     this.time += dt; this.world.update(this.time, dt);
     if (!this.profile) animateActor(this.actor, this.time, false, 0);
     if (this.paused || this.dead) return;
+    if (this.victoryTimer > 0) { this.victoryTimer -= dt; if (this.victoryTimer <= 0) { this.ui.openPanel('victory'); return; } }
     this.attackTime = Math.max(0, this.attackTime - dt * 3.5); this.invincible = Math.max(0, this.invincible - dt);
-    for (const skill of Object.keys(this.cooldowns) as Skill[]) this.cooldowns[skill] = Math.max(0, this.cooldowns[skill] - dt);
-    const s = stats(this.hero); this.hero.mana = Math.min(s.maxMana, this.hero.mana + dt * 4);
-    if (this.started) this.hero.hp = Math.min(s.maxHp, this.hero.hp + dt * .55);
+    this.combat.update(dt); if (this.dead) return;
+    const s = stats(this.hero);
     const move = new THREE.Vector2(
       Number(this.keys.has('d') || this.keys.has('arrowright')) - Number(this.keys.has('a') || this.keys.has('arrowleft')) + this.joystick.x,
       Number(this.keys.has('s') || this.keys.has('arrowdown')) - Number(this.keys.has('w') || this.keys.has('arrowup')) + this.joystick.y,
     );
     let vx = 0, vz = 0;
     if (move.length() > .1) {
+      this.pendingPickup = undefined;
       move.normalize(); vx = (move.x + move.y) * Math.SQRT1_2; vz = (move.y - move.x) * Math.SQRT1_2; this.path = []; this.target = undefined;
     } else {
-      if (this.target && !this.target.dead) {
+      if (this.target && this.combat.hostile(this.target)) {
         const dist = this.target.actor.group.position.distanceTo(this.position);
-        if (dist < 2.5) { this.path = []; this.useSkill('attack'); }
+        const bound = this.hero.bindings.attack;
+        const reach = ['holyBolt', 'fistOfHeavens', 'charge'].includes(bound) ? 12 : bound === 'blessedHammer' ? 5 : 2.5;
+        if (dist < reach) { this.path = []; this.combat.castAction(bound); }
         else if (!this.path.length || Math.random() < .015) this.path = this.world.path(this.position, this.target.actor.group.position);
-      } else if (this.heldAttack) this.useSkill('attack', true);
+      } else if (this.heldAttack) this.combat.castAction(this.hero.bindings.attack, true);
       if (this.path.length) {
         const target = this.path[0], distance = this.position.distanceTo(target);
         if (distance < .22) this.path.shift();
         else { vx = (target.x - this.position.x) / distance; vz = (target.z - this.position.z) / distance; }
       }
     }
-    const speed = this.attackTime > .35 ? 2.2 : 5.2;
+    this.combat.moving = !!(vx || vz) && !this.combat.zeal && this.combat.lock <= .1; this.combat.running = this.combat.moving && this.hero.running && this.hero.stamina > 0;
+    const speed = this.combat.zeal || this.combat.lock > .1 ? 0 : (this.combat.running ? 5.2 : 3) * s.runSpeed;
     this.body.velocity.set(vx * speed, 0, vz * speed);
     if (vx || vz) this.actor.group.rotation.y = Math.atan2(vx, vz);
     this.marker.visible = this.path.length > 0;
-    for (const enemy of this.enemies) {
-      if (enemy.dead) continue;
-      const p = enemy.actor.group.position, dist = p.distanceTo(this.position);
-      if (this.started && dist < (enemy.boss ? 10 : 9) && (!enemy.boss || this.hero.shrines.length === 3)) enemy.active = true;
-      if (dist > 22) enemy.active = false;
-      enemy.attackTime = Math.max(0, enemy.attackTime - dt * 3);
-      enemy.cooldown = Math.max(0, enemy.cooldown - dt);
-      let moving = false;
-      enemy.body.velocity.x *= .65; enemy.body.velocity.z *= .65;
-      if (enemy.active) {
-        enemy.actor.group.rotation.y = Math.atan2(this.position.x - p.x, this.position.z - p.z);
-        if (dist > (enemy.boss ? 2.25 : 1.45)) {
-          enemy.rethink -= dt;
-          if (enemy.rethink <= 0) { enemy.path = this.world.path(p, this.position); enemy.rethink = .6 + Math.random() * .4; }
-          const point = enemy.path[0];
-          if (point) {
-            const dx = point.x - p.x, dz = point.z - p.z, d = Math.hypot(dx, dz);
-            if (d < .3) enemy.path.shift();
-            else { enemy.body.velocity.set(dx / d * enemy.speed, 0, dz / d * enemy.speed); moving = true; }
-          }
-        } else if (enemy.cooldown === 0) {
-          enemy.cooldown = enemy.boss ? 1.35 : 1.5; enemy.attackTime = 1;
-          if (!this.invincible) this.hurtPlayer(Math.max(2, enemy.damage - s.armor * .5));
-        }
-        if (enemy.boss && enemy.cooldown === 0 && dist > 2.25 && dist < 8) {
-          enemy.cooldown = 3.4;
-          const ring = makeRing(.5, 0xe96653); ring.position.set(p.x, .2, p.z); this.world.scene.add(ring); this.effects.push({ mesh: ring, life: .75, duration: .75, type: 'ring' });
-          if (!this.invincible) this.hurtPlayer(12);
-        }
-      }
-      animateActor(enemy.actor, this.time + enemy.id, moving, enemy.attackTime);
-    }
+    this.monsterCombat.update(dt); if (this.dead) return;
     this.world.physics.step(1 / 60, dt, 3);
     this.position.set(this.body.position.x, 0, this.body.position.z);
     for (const enemy of this.enemies) if (!enemy.dead) enemy.actor.group.position.set(enemy.body.position.x, 0, enemy.body.position.z);
@@ -508,16 +513,13 @@ export class Game {
       const material = (effect.mesh as THREE.Mesh).material as THREE.MeshBasicMaterial; material.opacity = ratio;
     }
     this.loot.forEach(loot => { loot.mesh.children[0].rotation.y = this.time; loot.mesh.children[0].position.y = .23 + Math.sin(this.time * 2 + loot.id) * .06; });
-    [...this.loot].filter(l => Math.hypot(l.x - this.position.x, l.z - this.position.z) < (l.gold || l.potion !== undefined ? 1.6 : 1.0)).forEach(l => { if (!l.item || this.hero.inventory.length < 24) this.pickup(l.id); });
+    this.updateLootPickup();
     const cx = Math.floor(this.position.x / 3), cz = Math.floor(this.position.z / 3);
     for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) this.visited.add(`${cx + dx},${cz + dz}`);
     this.saveTimer += dt; if (this.saveTimer > 8) { this.saveTimer = 0; this.save(false); }
   }
   hurtPlayer(damage: number) {
-    this.hero.hp = Math.max(0, this.hero.hp - damage); this.invincible = .25;
-    this.ui.floatText(`-${Math.round(damage)}`, this.position.clone().add(new THREE.Vector3(0, 1.8, 0)), 'hurt'); this.audio.play('hurt');
-    this.ui.flashDamage();
-    if (this.hero.hp <= 0) { this.dead = true; this.releaseInput(); this.actor.group.rotation.z = Math.PI / 2; this.ui.openPanel('death'); this.save(false); }
+    this.combat.hurt(damage);
   }
   loop = () => {
     const now = performance.now(), dt = Math.min((now - this.lastFrame) / 1000, .05); this.lastFrame = now;

@@ -51,15 +51,15 @@ try {
   await page.getByRole('button', { name: '创建并进入', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.profileName === '晨星');
   assert.equal((await state(page)).gold, 0); assert.equal((await state(page)).level, 1);
-  await page.keyboard.press('e'); await leave(page);
+  await leave(page);
   const beforeA = (await records(page)).find(p => p.name === '晨星');
-  assert.ok(beforeA.hero.mana < 90); assert.equal((await records(page)).length, 2);
+  assert.equal(beforeA.hero.mana, 15); assert.equal((await records(page)).length, 2);
   await select(page, '灰烬行者'); assert.equal((await state(page)).gold, 270); assert.equal((await state(page)).level, 3);
   await page.keyboard.press('c'); await page.getByRole('button', { name: '提升力量', exact: true }).click();
   await page.getByRole('button', { name: '关闭', exact: true }).click(); await leave(page);
   const afterA = await records(page);
   assert.deepEqual(afterA.find(p => p.name === '晨星'), beforeA, 'Other character is unchanged');
-  assert.equal(afterA.find(p => p.name === '灰烬行者').hero.strength, 11);
+  assert.equal(afterA.find(p => p.name === '灰烬行者').hero.strength, 26);
   await page.getByRole('option', { name: '晨星', exact: true }).click();
   await page.getByRole('button', { name: '重命名角色', exact: true }).click();
   await page.getByRole('textbox', { name: '角色名称', exact: true }).fill('灰烬行者');

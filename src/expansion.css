@@ -1,0 +1,9 @@
+.rune-pouch{grid-template-columns:repeat(3,minmax(0,1fr));gap:0 10px}
+.rune-entry{grid-template-columns:18px minmax(0,1fr) 20px;gap:3px;min-height:58px;padding:10px 26px 10px 0}
+.rune-entry>svg{width:16px;height:16px}.rune-entry strong{overflow-wrap:anywhere;font-size:11px}.rune-entry small{grid-column:2/4;font-size:9px}
+.rune-entry b{position:static;grid-column:3;grid-row:1;text-align:right;font-size:11px;align-self:center}
+.rune-upgrade{position:absolute;right:0;top:15px;width:24px;height:28px;padding:4px;display:grid;place-items:center;border:1px solid #85967a50;background:#243129;color:#d8d5b5;border-radius:3px}
+.rune-upgrade>svg{width:14px;height:14px}.rune-upgrade:disabled{opacity:.3;cursor:default}.rune-upgrade:enabled:hover{border-color:#c7bc83;background:#3a4434}
+.recipe-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px}.recipe-heading select{max-width:125px;padding:5px 8px;font-size:11px;background:#1a2420;color:#ced5c5;border:1px solid #64755b}
+.runeword-list>div{grid-template-columns:76px minmax(0,1fr);padding-bottom:8px;border-bottom:1px solid #74816d25}.runeword-list span,.runeword-list small{overflow-wrap:anywhere;line-height:1.6}
+@media(max-width:700px){.rune-pouch{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}.rune-entry{min-height:62px;padding-right:32px}.rune-upgrade{width:30px;height:32px;top:13px}.runeword-list>div{grid-template-columns:70px minmax(0,1fr)}}

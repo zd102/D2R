@@ -1,6 +1,8 @@
 import type { Game } from './game';
 import type { UI } from './ui';
 import { SaveError, NAME_LIMIT, type SavedProfile } from './saves';
+import { LEVELS } from './campaign';
+import { difficultyNames } from './model';
 
 export type ProfilePanel = 'profiles' | 'new-profile' | 'rename-profile' | 'delete-profile' | 'save-conflict';
 const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -28,6 +30,7 @@ export class ProfileScreen {
           case 'new': this.editing = undefined; ui.openPanel('new-profile'); break;
           case 'back': this.editing = undefined; ui.openPanel('profiles'); break;
           case 'play': if (profile) game.startProfile(profile.id); break;
+          case 'choose-level': if (profile) game.startProfile(profile.id, true); break;
           case 'rename': if (profile) { this.editing = profile; ui.openPanel('rename-profile'); } break;
           case 'delete': if (profile) { this.editing = profile; ui.openPanel('delete-profile'); } break;
           case 'confirm-delete':
@@ -93,16 +96,16 @@ export class ProfileScreen {
       const rows = this.profiles.map(profile => {
         const h = profile.hero, active = profile.id === this.selectedId;
         return `<button class="profile-row ${active ? 'selected' : ''}" role="option" aria-selected="${active}" aria-label="${escape(profile.name)}" data-profile-id="${profile.id}">
-          <span class="profile-emblem">${icon('shield')}</span><span class="profile-info"><strong>${escape(profile.name)}</strong><span>守誓者 <b>Lv. ${h.level}</b><span>第 ${h.stage} 周目</span></span><small>${h.bossDefeated ? '远征已完成' : `祭坛 ${h.shrines.length} / 3`}<span>${date(profile.updatedAt)}</span></small></span>${icon(active ? 'check' : 'chevron-right')}
+          <span class="profile-emblem">${icon('shield')}</span><span class="profile-info"><strong>${escape(profile.name)}</strong><span>圣骑士 <b>Lv. ${h.level}</b><span>${difficultyNames[h.difficultyLevel]} · 第 ${LEVELS[h.campaign.current].act + 1} 章</span></span><small>${LEVELS[h.campaign.current].name} · ${h.campaign.cleared[h.difficultyLevel]} / 25<span>${date(profile.updatedAt)}</span></small></span>${icon(active ? 'check' : 'chevron-right')}
         </button>`;
       }).join('');
-      body = `<div class="roster-label"><span>${this.profiles.length} 位守誓者</span><span>本地存档</span></div>
+      body = `<div class="roster-label"><span>${this.profiles.length} 位圣骑士</span><span>本地存档</span></div>
         <div class="profile-list" role="listbox" aria-label="角色存档">${rows || `<div class="profile-empty">${icon('users')}<h3>尚无角色</h3><span>新的誓约，始于此刻。</span></div>`}</div>
         ${selected ? `<div class="profile-summary"><span>${icon('coins')}${selected.hero.gold.toLocaleString()}</span><span>${icon('skull')}${selected.hero.kills}</span><div class="profile-tools"><button aria-label="重命名角色" data-tip="重命名角色" data-profile-action="rename">${icon('pencil')}</button><button aria-label="删除角色" data-tip="删除角色" data-profile-action="delete">${icon('trash-2')}</button></div></div>` : ''}
-        ${error}<div class="profile-commands"><button class="primary-button" data-profile-action="play" ${selected ? '' : 'disabled'}>${icon('play')}进入旅程</button><button class="secondary-button" data-profile-action="new" ${game.saves && game.storageAvailable ? '' : 'disabled'}>${icon('user-plus')}新建角色</button></div>${warning ? `<p class="profile-notice">${escape(warning)}</p>` : ''}`;
+        ${error}<div class="profile-commands"><button class="primary-button" data-profile-action="play" ${selected ? '' : 'disabled'}>${icon('play')}进入旅程</button><button class="secondary-button" data-profile-action="new" ${game.saves && game.storageAvailable ? '' : 'disabled'}>${icon('user-plus')}新建角色</button><button class="text-button campaign-roster-button" data-profile-action="choose-level" ${selected ? '' : 'disabled'}>${icon('map')}关卡选择</button></div>${warning ? `<p class="profile-notice">${escape(warning)}</p>` : ''}`;
     } else if (ui.panel === 'new-profile' || ui.panel === 'rename-profile') {
       const creating = ui.panel === 'new-profile'; title = creating ? '新建角色' : '重命名角色'; subtitle = creating ? 'A NEW OATH' : 'RENAME CHARACTER';
-      body = `<div class="profile-class">${icon('shield')}<div><h3>守誓者</h3><span>近战 / 灵魂</span></div><b>Lv. ${creating ? 1 : this.editing?.hero.level ?? 1}</b></div>
+      body = `<div class="profile-class">${icon('shield')}<div><h3>圣骑士</h3><span>战斗 / 灵气</span></div><b>Lv. ${creating ? 1 : this.editing?.hero.level ?? 1}</b></div>
         <form id="profile-form"><label for="profile-name">角色名称</label><input id="profile-name" name="name" type="text" required maxlength="${NAME_LIMIT}" autocomplete="off" value="${escape(creating ? '' : this.editing?.name ?? '')}" aria-describedby="profile-error"/>${error}<button class="primary-button" type="submit">${icon(creating ? 'user-plus' : 'check')}${creating ? '创建并进入' : '保存名称'}</button></form><button class="text-button" data-profile-action="back">${icon('arrow-left')}返回角色选择</button>`;
     } else if (ui.panel === 'delete-profile') {
       title = '删除角色'; subtitle = 'DELETE CHARACTER';

@@ -22,12 +22,13 @@ try {
   const target = await page.evaluate(() => window.eclipseState.enemies.find(e => e.id === 1));
   await page.mouse.click(target.screen.x - 60, target.screen.y + 40);
   await page.getByRole('dialog', { name: '你已陨落' }).waitFor({ timeout: 30000 });
-  assert.equal((await savedProfile(page)).hero.gold, 900, 'Death penalty persisted');
+  assert.equal((await savedProfile(page)).hero.gold, 990, 'Level-based death penalty persisted');
+  assert.equal((await savedProfile(page)).hero.corpse.equipment.weapon.id, 'starter-sword');
   await page.screenshot({ path: '.verification/death.png' });
   await page.getByRole('button', { name: '在传送阵重生', exact: true }).click();
   assert.equal(await page.evaluate(() => window.eclipseState.dead), false);
-  assert.equal(await page.evaluate(() => window.eclipseState.gold), 900);
-  assert.equal(await page.evaluate(() => window.eclipseState.hp), 150);
+  assert.equal(await page.evaluate(() => window.eclipseState.gold), 990);
+  assert.equal(await page.evaluate(() => window.eclipseState.hp), 55);
   await page.keyboard.press('Escape');
   const before = await page.evaluate(() => window.eclipseState.position);
   await page.keyboard.down('w'); await page.waitForTimeout(500); await page.keyboard.up('w');
@@ -37,7 +38,8 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(await page.evaluate(() => window.eclipseState.paused), false, 'Escape closes settings while input is focused');
   await page.reload(); await enterGame(page);
-  assert.equal(await page.evaluate(() => window.eclipseState.gold), 900, 'Revive and reload do not charge twice');
+  assert.equal(await page.evaluate(() => window.eclipseState.gold), 990, 'Revive and reload do not charge twice');
+  await page.keyboard.press('f'); assert.equal((await savedProfile(page)).hero.corpse, null); assert.equal((await savedProfile(page)).hero.equipment.weapon.id, 'starter-sword');
   console.log('Death, revival, pause, settings and animation passed');
 
   for (const size of [{ width: 360, height: 640 }, { width: 844, height: 390 }]) {

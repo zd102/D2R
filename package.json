@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "test:browser": "node tests/profiles-browser.mjs && node tests/browser-smoke.mjs && node tests/campaign.mjs && node tests/browser-regressions.mjs"
+    "balance:report": "node scripts/balance-report.ts",
+    "test:browser": "node tests/profiles-browser.mjs && node tests/browser-smoke.mjs && node tests/paladin-browser.mjs && node tests/inventory-drag-browser.mjs && node tests/item-economy-browser.mjs && node tests/loot-pickup-browser.mjs && node tests/campaign-browser.mjs && node tests/campaign.mjs && node tests/browser-regressions.mjs && node tests/expansion-browser.mjs && node tests/affixes-browser.mjs && node tests/balance-browser.mjs"
   },
   "dependencies": {
     "cannon-es": "^0.20.0",
