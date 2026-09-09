@@ -3,7 +3,7 @@ import { BOSSES, ENCOUNTERS, MONSTERS } from '../src/bestiary.ts';
 import { LEVELS } from '../src/campaign.ts';
 const names = ['Normal', 'Nightmare', 'Hell'];
 for (const fraction of [.65, 1]) {
-  console.log(`\nProgression, ${fraction * 100}% of ordinary monsters, no farming:`);
+  console.log(`\nProgression, ${fraction * 100}% of ordinary monsters and elites, no farming:`);
   console.table(simulateProgression(fraction).map(row => ({ difficulty: names[row.difficulty], act: row.act + 1, level: row.level })));
 }
 const rows = [];

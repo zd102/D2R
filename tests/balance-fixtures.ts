@@ -1,7 +1,7 @@
 import { newHero, gainXp, learnSkill, allocateAttribute, stats, skillLevel, activeEquipment, hitChance, resistedDamage, selectCampaignLevel, completeCampaignLevel, type HeroState } from '../src/model.ts';
 import { EXPERIENCE, skillById, skillValues, type SkillId, type DamageType } from '../src/paladin.ts';
 import { BASES, makeItem, RUNEWORDS, socketItem, itemRequirements, type Item, type Mods } from '../src/items.ts';
-import { LEVELS, levelTuning } from '../src/campaign.ts';
+import { LEVELS, levelTuning, eliteCount } from '../src/campaign.ts';
 import { BOSSES, MONSTERS, ENCOUNTERS, type MonsterDef } from '../src/bestiary.ts';
 import { monsterExperience, monsterStats } from '../src/balance.ts';
 import { ATTACKS } from '../src/monster-combat.ts';
@@ -15,6 +15,10 @@ export function simulateProgression(clearFraction = 1) {
       const definition = MONSTERS[pool[i % pool.length]], enemy = monsterStats(definition, area, difficulty);
       gainXp(hero, monsterExperience(hero.level, enemy.level, 'monster', { difficulty, act: area.act, baseLife: definition.hp }));
     }
+    for (let i = 0; i < Math.round(eliteCount(area, difficulty) * clearFraction); i++) {
+      const definition = MONSTERS[pool[(area.index + i) % pool.length]], elite = monsterStats(definition, area, difficulty, false, true);
+      gainXp(hero, monsterExperience(hero.level, elite.level, 'elite', { difficulty, act: area.act, baseLife: definition.hp }));
+    }
     const boss = monsterStats(BOSSES[area.index], area, difficulty, true);
     gainXp(hero, monsterExperience(hero.level, boss.level, area.actBoss ? 'actBoss' : 'miniboss', { difficulty, act: area.act, firstClear: hero.campaign.cleared[difficulty] === area.index }));
     hero.campaign.kills = area.quest.count; hero.campaign.objects = Array.from({ length: area.quest.count }, (_, i) => i); completeCampaignLevel(hero);
@@ -25,7 +29,7 @@ export function simulateProgression(clearFraction = 1) {
 
 export type ReferenceBuild = 'zeal' | 'hammer';
 const base = (name: string) => makeItem(BASES.find(b => b.name === name)!);
-const word = (baseName: string, name: string) => { const item = base(baseName), recipe = RUNEWORDS.find(w => w.name === name)!; item.sockets = recipe.runes.length; recipe.runes.forEach(rune => socketItem(item, rune)); if (item.name !== name) throw new Error(`Invalid fixture recipe: ${name}`); return item; };
+const word = (baseName: string, name: string) => { const item = base(baseName), recipe = RUNEWORDS.find(w => w.name === name)!; item.sockets = recipe.runes.length; recipe.runes.forEach(rune => socketItem(item, rune, () => .5)); if (item.name !== name) throw new Error(`Invalid fixture recipe: ${name}`); return item; };
 const rare = (baseName: string, requiredLevel: number, mods: Mods): Item => ({ ...base(baseName), rarity: 'rare', requiredLevel, mods });
 export function referenceHero(level: number, difficulty: 0 | 1 | 2, build: ReferenceBuild) {
   const hero = newHero(); gainXp(hero, EXPERIENCE[level - 1]); hero.difficultyLevel = difficulty;

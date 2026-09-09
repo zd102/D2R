@@ -11,7 +11,7 @@ import type { Enemy, Game } from '../src/game.ts';
 function setup() {
   const hits: string[] = [], scene = new THREE.Scene(), enemies: Enemy[] = [];
   const game: any = { hero: newHero(), enemies, time: 0, position: new THREE.Vector3(), started: true, invincible: 0, dead: false,
-    world: { scene, grid: { isWalkableAt: () => true }, path: () => [] },
+    world: { scene, grid: { width: 57, height: 57, isWalkableAt: () => true }, path: () => [] },
     disposeObject: (object: THREE.Object3D) => object.removeFromParent(), killEnemy: (enemy: Enemy) => { enemy.dead = true; },
     combat: { slow: () => 1, allyUpdate: () => false, hurt: (_damage: number, type: string) => hits.push(type) } };
   const combat = new MonsterCombat(game as Game); game.monsterCombat = combat;
@@ -88,6 +88,8 @@ test('poison pools are telegraphed, spatial, expire and are removed when their c
 });
 test('revival consumes matching corpses once and bounded summons cannot chain-revive', () => {
   const { spawn, combat, game, step } = setup(), shaman = spawn(MONSTERS.shaman), corpse = spawn(MONSTERS.fallen, 1, 4); corpse.dead = true;
+  corpse.elite = true; combat.summon(shaman, 'revive', new THREE.Vector3()); assert.equal(game.enemies.length, 2); assert.equal(corpse.redeemed, false);
+  corpse.elite = false;
   combat.summon(shaman, 'revive', new THREE.Vector3()); assert.equal(corpse.redeemed, true); assert.equal(game.enemies.length, 3);
   const add = game.enemies[2]; assert.equal(add.summoned, true); assert.equal(add.owner, shaman.id);
   combat.summon(shaman, 'revive', new THREE.Vector3()); assert.equal(game.enemies.length, 3);

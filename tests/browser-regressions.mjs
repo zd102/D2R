@@ -31,7 +31,7 @@ try {
   assert.equal(await page.evaluate(() => window.eclipseState.hp), 55);
   await page.keyboard.press('Escape');
   const before = await page.evaluate(() => window.eclipseState.position);
-  await page.keyboard.down('w'); await page.waitForTimeout(500); await page.keyboard.up('w');
+  await page.keyboard.down('ArrowUp'); await page.waitForTimeout(500); await page.keyboard.up('ArrowUp');
   assert.deepEqual(await page.evaluate(() => window.eclipseState.position), before, 'Pause stops movement');
   await page.locator('#quality').selectOption('low');
   await page.locator('#volume').fill('10');

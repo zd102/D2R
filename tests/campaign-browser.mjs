@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave } from '../src/model.ts';
 import { LEVELS, levelTuning } from '../src/campaign.ts';
-import { enterGame, savedProfile } from './browser-helpers.mjs';
+import { enterGame, openCampaign, savedProfile } from './browser-helpers.mjs';
 
 await mkdir('.verification', { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -14,7 +14,7 @@ async function seed(page, hero) {
   await page.addInitScript(save => { if (!sessionStorage.getItem('campaign-fixture')) { localStorage.setItem('eclipse-ii-save-v1', save); sessionStorage.setItem('campaign-fixture', '1'); } }, serializeSave(hero));
   await page.goto(base); await enterGame(page);
 }
-async function chooser(page) { await page.keyboard.press('Escape'); await page.locator('[data-panel="campaign"]').click(); await expect(page.locator('.panel-campaign')).toBeVisible(); }
+async function chooser(page) { await openCampaign(page); await expect(page.locator('.panel-campaign')).toBeVisible(); }
 async function pixels(page) {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   return page.evaluate(() => {
@@ -57,7 +57,9 @@ try {
   assert.equal(new Set(themes).size, 5, 'Five acts have distinct scenes');
   await chooser(page); await page.locator('[data-campaign-difficulty="1"]').click(); await page.locator('[data-campaign-act="1"]').click(); await page.locator('[data-enter-level="8"]').click();
   assert.equal((await state(page)).difficulty, 1); await page.reload();
-  await page.getByRole('dialog', { name: '选择角色', exact: true }).waitFor(); await page.locator('[data-profile-action="choose-level"]').click();
+  await page.getByRole('dialog', { name: '选择角色', exact: true }).waitFor();
+  await expect(page.getByRole('button', { name: '关卡选择', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '进入旅程', exact: true }).click(); await openCampaign(page);
   await expect(page.locator('.panel-campaign')).toBeVisible(); await expect(page.locator('[data-campaign-difficulty="1"]')).toHaveAttribute('aria-selected', 'true');
   assert.deepEqual((await savedProfile(page)).hero.campaign.cleared, [25, 25, 25]);
   await page.screenshot({ path: '.verification/campaign-selector-desktop.png' }); await page.close();

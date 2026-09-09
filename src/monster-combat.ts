@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import type { ClassSummon } from './class-combat.ts';
 import type { Enemy, Game } from './game.ts';
 import { MONSTERS, type AttackId } from './bestiary.ts';
 import type { DamageType } from './paladin.ts';
 import { questComplete } from './campaign.ts';
-import { animateActor } from './world.ts';
+import { animateActor, gridWalkable } from './world.ts';
 
 type Shape = 'melee' | 'bolt' | 'fan' | 'nova' | 'pool' | 'line' | 'summon' | 'revive';
 export type AttackSpec = { name: string; shape: Shape; type: DamageType; range: number; windup: number; cooldown: number; damage: number; radius: number; count?: number; speed?: number; duration?: number; status?: 'curse' | 'mana'; move?: boolean; color?: number };
@@ -38,9 +39,9 @@ export const ATTACKS: Record<AttackId, AttackSpec> = {
   whirlwind: attack('旋风斩', 'line', 'physical', 8, .9, 3.4, .8, 1.3, { duration: 1, move: true }),
 };
 export const ELEMENT_COLORS: Record<DamageType, number> = { physical: 0xf1bd7b, fire: 0xff7045, cold: 0x8bdfff, lightning: 0xffdb84, poison: 0xa1e26b, magic: 0xeaa6dd };
-type Cast = { id: AttackId; spec: AttackSpec; left: number; origin: THREE.Vector3; target: THREE.Vector3; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> };
+type Cast = { id: AttackId; spec: AttackSpec; left: number; origin: THREE.Vector3; target: THREE.Vector3; summon?: ClassSummon; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> };
 type State = { cast?: Cast; sequence: number; retaliation: number; summons: number; cloned: boolean; frenzy: number; lifetime?: number };
-type Missile = { source: Enemy; mesh: THREE.Mesh; velocity: THREE.Vector3; spec: AttackSpec; life: number; volley: { hit: boolean } };
+type Missile = { source: Enemy; mesh: THREE.Mesh; velocity: THREE.Vector3; spec: AttackSpec; life: number; volley: { hit: boolean; summons?: Set<ClassSummon> } };
 type Hazard = { source: Enemy; mesh: THREE.Mesh; spec: AttackSpec; origin: THREE.Vector3; target: THREE.Vector3; life: number; tick: number; hit: boolean; moving: boolean };
 export function segmentDistance(point: { x: number; z: number }, from: { x: number; z: number }, to: { x: number; z: number }) {
   const dx = to.x - from.x, dz = to.z - from.z, length = dx * dx + dz * dz;
@@ -55,7 +56,7 @@ export class MonsterCombat {
   constructor(game: Game) { this.game = game; }
   state(enemy: Enemy) { let state = this.states.get(enemy.id); if (!state) { state = { sequence: 0, retaliation: 0, summons: 0, cloned: false, frenzy: 0 }; this.states.set(enemy.id, state); } return state; }
   telegraph(enemy: Enemy) { const cast = this.states.get(enemy.id)?.cast; return cast ? { name: cast.spec.name, remaining: cast.left, total: cast.spec.windup } : null; }
-  walkable(p: { x: number; z: number }) { return this.game.world.grid.isWalkableAt(Math.round(p.x) + 28, Math.round(p.z) + 28); }
+  walkable(p: { x: number; z: number }) { return gridWalkable(this.game.world.grid, p); }
   lineOfSight(a: { x: number; z: number }, b: { x: number; z: number }) {
     const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) * 3));
     for (let i = 0; i <= steps; i++) if (!this.walkable({ x: a.x + (b.x - a.x) * i / steps, z: a.z + (b.z - a.z) * i / steps })) return false;
@@ -81,15 +82,16 @@ export class MonsterCombat {
     this.game.world.scene.add(mesh); return mesh;
   }
   startCast(enemy: Enemy, id: AttackId, override?: AttackSpec) {
-    const spec = override ?? ATTACKS[id], origin = enemy.actor.group.position.clone(), target = this.game.position.clone();
+    const summon=this.game.combat.classes?.target(enemy);
+    const spec = override ?? ATTACKS[id], origin = enemy.actor.group.position.clone(), target = (summon?.actor.group.position??this.game.position).clone();
     if (spec.shape === 'melee' || spec.shape === 'nova') target.copy(origin);
     if (spec.shape === 'line') { const dir = target.clone().sub(origin).normalize(); target.copy(origin).addScaledVector(dir, spec.range); }
-    this.state(enemy).cast = { id, spec, origin, target, left: spec.windup, mesh: this.warning(spec, origin, target) };
+    this.state(enemy).cast = { id, spec, origin, target, summon, left: spec.windup, mesh: this.warning(spec, origin, target) };
     enemy.attackTime = 1; enemy.body.velocity.set(0, 0, 0);
   }
   hit(source: Enemy, spec: AttackSpec) {
     const g = this.game; if (g.invincible > 0 || g.dead || source.converted > 0) return;
-    g.combat.hurt(source.damage * spec.damage, spec.type, source);
+    g.combat.hurt(source.damage * spec.damage, spec.type, source, false, spec.shape !== 'melee');
     if (g.dead) return;
     if (spec.status === 'curse') g.hero.curse = Math.max(g.hero.curse, 5);
     if (spec.status === 'mana') g.hero.mana = Math.max(0, g.hero.mana * .75);
@@ -105,7 +107,10 @@ export class MonsterCombat {
   resolve(enemy: Enemy, cast: Cast) {
     const g = this.game, { spec, id, origin, target } = cast;
     if (spec.shape === 'melee') {
-      if (g.position.distanceTo(enemy.actor.group.position) <= spec.radius && this.lineOfSight(enemy.actor.group.position, g.position)) this.hit(enemy, spec);
+      const point=cast.summon?.actor.group.position??g.position;
+      if (point.distanceTo(enemy.actor.group.position) <= spec.radius && this.lineOfSight(enemy.actor.group.position, point)) {
+        if(cast.summon){if(cast.summon.hp>0)g.combat.classes.hurtSummon(cast.summon,enemy.damage*spec.damage,spec.type);}else this.hit(enemy,spec);
+      }
       if (id === 'frenzy') this.state(enemy).frenzy = 5;
     } else if (['bolt', 'fan', 'nova'].includes(spec.shape)) {
       const count = spec.count ?? 1, angle = Math.atan2(target.x - origin.x, target.z - origin.z);
@@ -130,7 +135,7 @@ export class MonsterCombat {
     if (g.enemies.filter(e => !e.dead && e.summoned).length >= 8 || g.enemies.filter(e => !e.dead && e.owner === enemy.id).length >= (id === 'clone' ? 1 : 2)) return;
     let definition = MONSTERS.viper, name = '腐化触须', position = target.clone(), corpse: Enemy | undefined;
     if (id === 'revive') {
-      corpse = g.enemies.find(e => e.dead && !e.redeemed && !e.summoned && e.definition?.id === enemy.definition?.revive && e.actor.group.position.distanceTo(enemy.actor.group.position) < 9);
+      corpse = g.enemies.find(e => e.dead && !e.elite && !e.redeemed && !e.summoned && e.definition?.id === enemy.definition?.revive && e.actor.group.position.distanceTo(enemy.actor.group.position) < 9);
       if (!corpse || state.summons >= 3) return;
       definition = corpse.definition!; name = corpse.name; position.copy(corpse.actor.group.position);
     } else if (id === 'clone') {
@@ -148,7 +153,7 @@ export class MonsterCombat {
     this.state(add).lifetime = id === 'clone' ? 16 : 12; state.summons++;
   }
   updateEnemy(enemy: Enemy, dt: number) {
-    const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, distance = p.distanceTo(g.position);
+    const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, targetPoint=g.combat.classes?.target(enemy)?.actor.group.position??g.position, distance = p.distanceTo(targetPoint);
     state.retaliation = Math.max(0, state.retaliation - dt); state.frenzy = Math.max(0, state.frenzy - dt);
     enemy.blind = Math.max(0, (enemy.blind ?? 0) - dt); enemy.flee = Math.max(0, (enemy.flee ?? 0) - dt);
     if (enemy.active && !enemy.preventHeal && !enemy.poison && enemy.definition?.model === 'council') enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * .01 * dt);
@@ -173,6 +178,8 @@ export class MonsterCombat {
       const next = p.clone().addScaledVector(direction, Math.min(remaining, dt * 10));
       if (remaining < .4 || !this.lineOfSight(p, next)) { dash.life = 0; enemy.body.velocity.set(0, 0, 0); }
       else enemy.body.velocity.set(direction.x * 10, 0, direction.z * 10);
+      const summon=g.combat.classes?.summons.find(s=>s.id!=='hydra'&&s.hp>0&&segmentDistance(s.actor.group.position,p,next)<dash.spec.radius+.3);
+      if(!dash.hit&&summon){g.combat.classes.hurtSummon(summon,enemy.damage*dash.spec.damage,dash.spec.type);dash.hit=true;}
       if (!dash.hit && segmentDistance(g.position, p, next) < dash.spec.radius + .3) { this.hit(enemy, dash.spec); dash.hit = true; }
       animateActor(enemy.actor, g.time + enemy.id, true, .6); return;
     }
@@ -182,17 +189,17 @@ export class MonsterCombat {
       if (state.cast.left <= 0) { const cast = state.cast; state.cast = undefined; g.disposeObject(cast.mesh); this.resolve(enemy, cast); enemy.cooldown = cast.spec.cooldown / g.combat.slow(enemy) / (state.frenzy > 0 ? 1.25 : 1); }
       animateActor(enemy.actor, g.time + enemy.id, false, enemy.attackTime); return;
     }
-    enemy.actor.group.rotation.y = Math.atan2(g.position.x - p.x, g.position.z - p.z);
+    enemy.actor.group.rotation.y = Math.atan2(targetPoint.x - p.x, targetPoint.z - p.z);
     const attacks = enemy.definition?.attacks ?? ['strike'];
     let selected = attacks[state.sequence % attacks.length];
     if (selected === 'clone' && (state.cloned || enemy.hp > enemy.maxHp * .5)) selected = 'coldWave';
     if (selected === 'revive' && (state.summons >= 3 || !g.enemies.some(e => e.dead && !e.redeemed && !e.summoned && e.definition?.id === enemy.definition?.revive && e.actor.group.position.distanceTo(p) < 9))) selected = enemy.definition?.id === 'bloodRaven' ? 'fireArrow' : 'fireball';
-    const spec = ATTACKS[selected], sight = distance < spec.range && this.lineOfSight(p, g.position);
+    const spec = ATTACKS[selected], sight = distance < spec.range && this.lineOfSight(p, targetPoint);
     if (!enemy.cooldown && sight) { state.sequence++; this.startCast(enemy, selected); return; }
     let moving = false;
     if (distance > (spec.shape === 'melee' ? spec.range * .85 : sight ? spec.range * .65 : 1.5)) {
       enemy.rethink -= dt;
-      if (enemy.rethink <= 0) { enemy.path = g.world.path(p, g.position); enemy.rethink = .7; }
+      if (enemy.rethink <= 0) { enemy.path = g.world.path(p, targetPoint); enemy.rethink = .7; }
       const point = enemy.path[0];
       if (point) { const direction = point.clone().sub(p), d = direction.length(); if (d < .3) enemy.path.shift(); else { direction.normalize(); const speed = enemy.speed * g.combat.slow(enemy) * (state.frenzy > 0 ? 1.25 : 1); enemy.body.velocity.set(direction.x * speed, 0, direction.z * speed); moving = speed > 0; } }
     }
@@ -202,9 +209,12 @@ export class MonsterCombat {
     const g = this.game;
     for (const enemy of g.enemies) if (!enemy.dead) this.updateEnemy(enemy, dt); else this.cancel(enemy);
     for (let i = this.missiles.length - 1; i >= 0; i--) {
-      const m = this.missiles[i], previous = m.mesh.position.clone(); m.life -= dt; m.mesh.position.addScaledVector(m.velocity, dt);
+      const m = this.missiles[i], previous = m.mesh.position.clone(), speed=g.combat.classes?.missileSpeed(m.source)??1; m.life -= dt*speed; m.mesh.position.addScaledVector(m.velocity, dt*speed);
       const blocked = !this.lineOfSight(previous, m.mesh.position), cancelled = m.source.dead || m.source.converted > 0;
-      if (!cancelled && !blocked && segmentDistance(g.position, previous, m.mesh.position) < m.spec.radius + .32) {
+      const heroHit=segmentDistance(g.position,previous,m.mesh.position)<m.spec.radius+.32;
+      const summon=g.combat.classes?.summons.filter(s=>s.id!=='hydra'&&s.hp>0&&segmentDistance(s.actor.group.position,previous,m.mesh.position)<m.spec.radius+.32&&(!heroHit||s.actor.group.position.distanceToSquared(previous)<g.position.distanceToSquared(previous))).sort((a,b)=>a.actor.group.position.distanceToSquared(previous)-b.actor.group.position.distanceToSquared(previous))[0];
+      if(!cancelled&&!blocked&&summon){m.volley.summons??=new Set();if(!m.volley.summons.has(summon)){g.combat.classes.hurtSummon(summon,m.source.damage*m.spec.damage,m.spec.type);m.volley.summons.add(summon);}m.life=0;}
+      else if (!cancelled && !blocked && heroHit) {
         // One volley can hit once even if its other missiles arrive in later frames.
         if (!m.volley.hit) this.hit(m.source, m.spec);
         m.volley.hit = true; m.life = 0;
@@ -218,6 +228,7 @@ export class MonsterCombat {
       h.tick = .65;
       const inside = h.spec.shape === 'line' ? segmentDistance(g.position, h.origin, h.target) <= h.spec.radius + .3 : g.position.distanceTo(h.target) < h.spec.radius + .25;
       if (inside && this.lineOfSight(h.origin, g.position)) this.hit(h.source, h.spec);
+      for(const summon of g.combat.classes?.summons??[]) {const point=summon.actor.group.position;if(summon.id!=='hydra'&&summon.hp>0&&(h.spec.shape==='line'?segmentDistance(point,h.origin,h.target)<=h.spec.radius+.3:point.distanceTo(h.target)<h.spec.radius+.25)&&this.lineOfSight(h.origin,point))g.combat.classes.hurtSummon(summon,h.source.damage*h.spec.damage,h.spec.type);}
     }
     for (let i = g.enemies.length - 1; i >= 0; i--) {
       const enemy = g.enemies[i];

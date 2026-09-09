@@ -12,7 +12,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const hero = newHero(); gainXp(hero, EXPERIENCE[39]);
 for (const skill of SKILLS) assert.equal(learnSkill(hero, skill.id), true, skill.id);
 hero.gold = 1500; hero.strength = 65; hero.dexterity = 80; hero.vitality = 100;
-hero.bindings = { attack: 'zeal', cleave: 'blessedHammer', nova: 'holyShield', dash: 'charge', bolt: 'holyBolt' };
+hero.bindings = { ...hero.bindings, attack: 'zeal', cleave: 'blessedHammer', nova: 'holyShield', dash: 'charge', bolt: 'holyBolt' };
 hero.equipment.armor = makeItem(BASES.find(item => item.name === '皮甲'), 'test-armor');
 hero.hp = stats(hero).maxHp; hero.mana = stats(hero).maxMana;
 const sword = makeItem(BASES.find(item => item.name === '水晶剑'), 'spirit-base'); sword.sockets = 4;

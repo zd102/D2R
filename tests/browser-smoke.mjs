@@ -25,9 +25,9 @@ try {
   });
   assert.ok(pixels.colors > 100 && pixels.lit > 2000, `Nonblank scene: ${JSON.stringify(pixels)}`);
   const before = await page.evaluate(() => window.eclipseState.position);
-  await page.keyboard.down('w'); await page.waitForTimeout(1200); await page.keyboard.up('w');
+  await page.keyboard.down('ArrowUp'); await page.waitForTimeout(1200); await page.keyboard.up('ArrowUp');
   const after = await page.evaluate(() => window.eclipseState.position);
-  assert.ok(Math.hypot(after.x - before.x, after.z - before.z) > 2, 'W moves the player');
+  assert.ok(Math.hypot(after.x - before.x, after.z - before.z) > 2, 'ArrowUp moves the player');
   await page.keyboard.press('e');
   await page.getByRole('dialog', { name: '圣骑士技能', exact: true }).waitFor();
   assert.equal(await page.locator('.skill-node').count(), 10, 'Unassigned slot opens the skill tree');
@@ -66,7 +66,7 @@ try {
   assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await mobile.screenshot({ path: new URL('mobile-inventory.png', output).pathname.replace(/^\/(\w:)/, '$1') });
   await mobile.getByRole('button', { name: '关闭', exact: true }).tap();
-  await mobile.getByRole('button', { name: '快捷二 · 配置技能', exact: true }).tap();
+  await mobile.locator('[data-skill="nova"]').tap();
   await mobile.getByRole('dialog', { name: '圣骑士技能', exact: true }).waitFor();
   console.log('Mobile passed');
   assert.deepEqual(errors, [], 'No browser errors');

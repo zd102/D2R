@@ -23,7 +23,7 @@ $supported = @('ac','ac%','ac/lvl','att','att%','att/lvl','att%/lvl','dmg%','dmg
     'swing1','swing2','swing3','move1','move2','move3','lifesteal','manasteal',
     'mag%','gold%','regen','mana-kill','red-dmg','red-mag','thorns','ease',
     'knock','noheal','ignore-ac','indestruct','half-freeze','regen-stam','stamdrain',
-    'dmg-demon','dmg-undead','att-demon','att-undead','dmg-to-mana','pal','skilltab','sock',
+    'dmg-demon','dmg-undead','att-demon','att-undead','dmg-to-mana','pal','ama','sor','skilltab','sock',
     'fire-min','fire-max','cold-min','cold-max','cold-len','ltng-min','ltng-max',
     'dmg-fire','dmg-cold','dmg-ltng','dmg-pois')
 $affixes = @()
@@ -39,7 +39,7 @@ foreach ($kind in @('prefix','suffix')) {
             $code = $row."mod${n}code"
             if (!$code) { continue }
             $param = [int]$row."mod${n}param"
-            if ($code -notin $supported -or ($code -eq 'skilltab' -and $param -notin @(9,10,11))) { $valid = $false; break }
+            if ($code -notin $supported -or ($code -eq 'skilltab' -and $param -notin @(0,1,2,3,4,5,9,10,11))) { $valid = $false; break }
             $properties += ,@($code, $param, [int]$row."mod${n}min", [int]$row."mod${n}max")
         }
         if (!$valid -or !$properties.Count) { continue }

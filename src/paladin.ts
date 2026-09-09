@@ -1,9 +1,12 @@
-export type SkillTree = 'combat' | 'offensive' | 'defensive';
-export type SkillId = 'sacrifice' | 'smite' | 'holyBolt' | 'zeal' | 'charge' | 'vengeance' | 'blessedHammer' | 'conversion' | 'holyShield' | 'fistOfHeavens' | 'might' | 'holyFire' | 'thorns' | 'blessedAim' | 'concentration' | 'holyFreeze' | 'holyShock' | 'sanctuary' | 'fanaticism' | 'conviction' | 'prayer' | 'resistFire' | 'resistCold' | 'defiance' | 'resistLightning' | 'cleansing' | 'vigor' | 'meditation' | 'redemption' | 'salvation';
+import { CLASS_SKILLS, extraSkillValues, type ExtraSkillId, type ExtraSkillTree, type ClassSkillMode } from './class-skills.ts';
+import { ORIGINAL_CLASS_SKILLS } from './class-skill-data.ts';
+import type { ClassId } from './classes.ts';
+export type SkillTree = 'combat' | 'offensive' | 'defensive' | ExtraSkillTree;
+export type SkillId = ExtraSkillId | 'sacrifice' | 'smite' | 'holyBolt' | 'zeal' | 'charge' | 'vengeance' | 'blessedHammer' | 'conversion' | 'holyShield' | 'fistOfHeavens' | 'might' | 'holyFire' | 'thorns' | 'blessedAim' | 'concentration' | 'holyFreeze' | 'holyShock' | 'sanctuary' | 'fanaticism' | 'conviction' | 'prayer' | 'resistFire' | 'resistCold' | 'defiance' | 'resistLightning' | 'cleansing' | 'vigor' | 'meditation' | 'redemption' | 'salvation';
 export type ActionId = SkillId | 'attack';
 export type DamageType = 'physical' | 'magic' | 'fire' | 'cold' | 'lightning' | 'poison';
-export type SkillDefinition = { id: SkillId; name: string; tree: SkillTree; level: number; column: number; requires: SkillId[]; icon: string; description: string; synergies: Partial<Record<SkillId, string>> };
-export const treeNames: Record<SkillTree, string> = { combat: '战斗技能', offensive: '攻击灵气', defensive: '防御灵气' };
+export type SkillDefinition = { id: SkillId; name: string; tree: SkillTree; level: number; column: number; requires: SkillId[]; icon: string; description: string; synergies: Partial<Record<SkillId, string>>; classId?: ClassId; mode?: ClassSkillMode };
+export const treeNames: Record<SkillTree, string> = { combat: '战斗技能', offensive: '攻击灵气', defensive: '防御灵气', javelin: '标枪与长矛', passive: '被动与魔法', bow: '弓与弩', cold: '冰冷法术', lightning: '闪电法术', fire: '火焰法术' };
 const define = (id: SkillId, name: string, tree: SkillTree, level: number, column: number, requires: SkillId[], icon: string, description: string, synergies: SkillDefinition['synergies'] = {}): SkillDefinition => ({ id, name, tree, level, column, requires, icon, description, synergies });
 export const SKILLS: SkillDefinition[] = [
   define('sacrifice', '牺牲', 'combat', 1, 1, [], 'sword', '以生命强化单次近战攻击，承受物理伤害的 5% 反噬。', { redemption: '+15% 伤害 / 点', fanaticism: '+5% 伤害 / 点' }),
@@ -37,16 +40,19 @@ export const SKILLS: SkillDefinition[] = [
   define('redemption', '救赎', 'defensive', 30, 2, ['vigor'], 'heart-pulse', '每两秒尝试消耗附近尸体，恢复自身生命和法力。'),
   define('salvation', '救助', 'defensive', 30, 3, [], 'shield-check', '同时提高火焰、冰冷与闪电抗性。'),
 ];
-export const skillById = Object.fromEntries(SKILLS.map(skill => [skill.id, skill])) as Record<SkillId, SkillDefinition>;
+export const ALL_SKILLS = [...SKILLS, ...CLASS_SKILLS];
+export const skillsForClass = (classId: ClassId) => ALL_SKILLS.filter(skill => (skill.classId ?? 'paladin') === classId);
+export const skillById = Object.fromEntries(ALL_SKILLS.map(skill => [skill.id, skill])) as Record<SkillId, SkillDefinition>;
 export const isSkill = (id: unknown): id is SkillId => typeof id === 'string' && Object.hasOwn(skillById, id);
-export const isAura = (id: ActionId) => id !== 'attack' && skillById[id].tree !== 'combat';
+export const isAura = (id: ActionId) => id !== 'attack' && ['offensive','defensive'].includes(skillById[id].tree);
+export const isPassive = (id: ActionId) => id !== 'attack' && skillById[id].mode === 'passive';
 export const skillName = (id: ActionId) => id === 'attack' ? '普通攻击' : skillById[id].name;
 export const skillIcon = (id: ActionId) => id === 'attack' ? 'sword' : skillById[id].icon;
 export const BASE_ATTRIBUTES = { strength: 25, dexterity: 20, vitality: 25, energy: 15 };
 export const PALADIN_BALANCE = { manaRecoverySeconds: 90, sacrificeRecoil: .05, hitGraceSeconds: .2 } as const;
 export type Attribute = keyof typeof BASE_ATTRIBUTES;
 export const attributeNames: Record<Attribute, string> = { strength: '力量', dexterity: '敏捷', vitality: '体力', energy: '精力' };
-export const emptySkills = () => Object.fromEntries(SKILLS.map(skill => [skill.id, 0])) as Record<SkillId, number>;
+export const emptySkills = () => Object.fromEntries(ALL_SKILLS.map(skill => [skill.id, 0])) as Record<SkillId, number>;
 export const diminishing = (rank: number, min: number, max: number) => min + Math.floor((max - min) * Math.floor(110 * rank / (rank + 6)) / 100);
 export const tierValue = (rank: number, initial: number, increments: number[]) => {
   let result = initial;
@@ -55,6 +61,7 @@ export const tierValue = (rank: number, initial: number, increments: number[]) =
 };
 export type SkillValues = { cost: number; damage: number; min: number; max: number; attack: number; hits: number; duration: number; radius: number; type: DamageType; percent: number; secondary: number; healing: number };
 export function skillValues(id: ActionId, rank: number, hard: Partial<Record<SkillId, number>> = {}): SkillValues {
+  if (Object.hasOwn(ORIGINAL_CLASS_SKILLS, id)) return extraSkillValues(id as ExtraSkillId, rank, hard);
   const p = (key: SkillId) => hard[key] ?? 0;
   const v: SkillValues = { cost: 0, damage: 0, min: 0, max: 0, attack: 0, hits: 1, duration: 0, radius: 10.6 + (rank - 1) * 4 / 3, type: 'physical', percent: 0, secondary: 0, healing: 0 };
   if (id === 'attack' || rank <= 0) return v;

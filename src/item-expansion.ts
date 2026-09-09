@@ -9,7 +9,7 @@ export const EXPANSION_MOD_NAMES = {
 type Rune = { name: string; level: number; weapon: Mods; armor: Mods; shield: Mods };
 const rune = (name: string, level: number, weapon: Mods, armor: Mods, shield = armor): Rune => ({ name, level, weapon, armor, shield });
 export const EXTRA_RUNES: Partial<Record<RuneId, Rune>> = {
-  eld: rune('艾德', 11, { damageUndead: 75, attackUndead: 50 }, { stamina: 15 }, { block: 7 }),
+  eld: rune('艾德', 11, { damageUndead: 75, attackUndead: 50 }, { staminaDrain: 15 }, { block: 7 }),
   shael: rune('夏', 29, { ias: 20 }, { fhr: 20 }, { fbr: 20 }),
   dol: rune('多尔', 31, { flee: 25 }, { replenishLife: 7 }),
   hel: rune('海尔', 1, { requirementReduction: 20 }, { requirementReduction: 15 }),

@@ -1,30 +1,73 @@
 import * as THREE from 'three';
 import type { Game, Enemy, Skill } from './game';
 import { stats, skillLevel, setAura, hitChance, resistedDamage, difficulty, createCorpse, clampResources } from './model.ts';
-import { skillValues, isAura, PALADIN_BALANCE, type ActionId, type DamageType } from './paladin.ts';
-import { makeRing } from './world.ts';
+import { skillValues, isAura, tierValue, PALADIN_BALANCE, type ActionId, type DamageType } from './paladin.ts';
+import { makeRing, gridWalkable } from './world.ts';
 import { questComplete } from './campaign.ts';
 import { isUndead, leechEffectiveness } from './bestiary.ts';
-import { itemMods } from './items.ts';
+import { itemMods, quantityLeft, maxQuantity, weaponType, type Item } from './items.ts';
+import { consumeAmmo, clearShot } from './ranged.ts';
 import { elementalDamage, poisonDamage } from './affixes.ts';
+import { itemDamage, absorbDamage, openWoundsDps } from './item-effects.ts';
+import type { SkillId } from './paladin.ts';
+import { activeEquipment, activeCharms } from './model.ts';
+import { itemTriggers } from './item-catalog.ts';
+import { CURSE_NAMES, type ItemCurse } from './item-effects.ts';
+import { ClassCombat } from './class-combat.ts';
+import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
+import { isPassive } from './paladin.ts';
 
-type Projectile = { mesh: THREE.Mesh; origin: THREE.Vector3; direction: THREE.Vector3; phase: number; age: number; life: number; damage: number; healing: number; kind: 'hammer' | 'bolt'; hit: Set<number> };
+export type AttackSnapshot = { stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3 };
+export type Projectile = { mesh: THREE.Mesh; origin: THREE.Vector3; direction: THREE.Vector3; phase: number; age: number; life: number; damage: number; healing: number; kind: 'hammer' | 'bolt' | 'arrow' | 'throw'; hit: Set<number>; snapshot: AttackSnapshot; speed: number; pierce: number; magicArrow: number; explosion: number };
 export class PaladinCombat {
   game: Game;
   lock = 0;
   fohDelay = 0;
   auraTimer = 0;
   regen: [number, number] = [0, 0];
-  zeal: { hits: number; timer: number; direction: THREE.Vector3 } | null = null;
+  repairTime = new Map<string, number>();
+  itemCurses = new WeakMap<Enemy, { kind: ItemCurse; remaining: number }>();
+  zeal: { hits: number; timer: number; direction: THREE.Vector3; aimed: boolean } | null = null;
   projectiles: Projectile[] = [];
   auraRing = makeRing(1.3, 0xd8c674, .65);
   shieldRing = makeRing(.7, 0xebdd9d, .8);
   corpseRing = makeRing(.8, 0xe4dac4, .9);
   moving = false;
   running = false;
+  ammoWarning = 0;
+  classes = new ClassCombat(this);
   constructor(game: Game) { this.game = game; game.world.scene.add(this.auraRing, this.shieldRing, this.corpseRing); this.auraRing.visible = this.shieldRing.visible = this.corpseRing.visible = false; }
   hostile(enemy: Enemy) { return !enemy.dead && enemy.converted <= 0 && (!enemy.boss || questComplete(this.game.hero.campaign)); }
   inAura(enemy: Enemy) { return enemy.actor.group.position.distanceTo(this.game.position) <= stats(this.game.hero).aura.radius; }
+  auraAt(enemy: Enemy, id: SkillId, s = stats(this.game.hero)) { return s.auras.find(aura => aura.id === id && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius); }
+  snapshot(): AttackSnapshot { const h = this.game.hero; return { stats: stats(h), level: h.level, difficulty: difficulty(h), skills: { ...h.skills }, items: structuredClone([...activeEquipment(h), ...activeCharms(h)]), origin: this.game.position.clone() }; }
+  reach(id: ActionId) { return this.classes.reach(id) ?? (id === 'attack' && stats(this.game.hero).ranged ? 14 : ['holyBolt', 'fistOfHeavens', 'charge'].includes(id) ? 12 : id === 'blessedHammer' ? 5 : 2.5); }
+  canReach(enemy: Enemy, id: ActionId) { return enemy.actor.group.position.distanceTo(this.game.position) < this.reach(id) && clearShot(this.game.world.grid, this.game.position, enemy.actor.group.position); }
+  triggerItems(event: string, target: Enemy, equipment?: Item[]) {
+    const g = this.game, triggers = new Map<string, ReturnType<typeof itemTriggers>[number]>();
+    for (const item of equipment ?? [...activeEquipment(g.hero), ...activeCharms(g.hero)]) for (const trigger of itemTriggers(item)) if (trigger.event === event) {
+      const key = `${trigger.kind}:${trigger.level}`, previous = triggers.get(key);
+      triggers.set(key, { ...trigger, chance: trigger.chance + (previous?.chance ?? 0) });
+    }
+    for (const trigger of triggers.values()) if (Math.random() * 100 < trigger.chance) {
+      const duration = trigger.kind === 'amplify' ? 5 + trigger.level * 3 : trigger.kind === 'decrepify' ? 3.4 + trigger.level * .6 : (trigger.kind === 'lifeTap' ? 13.6 : 11.6) + trigger.level * 2.4;
+      const radius = trigger.kind === 'decrepify' ? 4 : (trigger.kind === 'weaken' ? 6 : trigger.kind === 'lifeTap' ? 8 / 3 : 2) + (trigger.level - 1) * 2 / 3;
+      for (const enemy of g.enemies) if (this.hostile(enemy) && enemy.actor.group.position.distanceTo(target.actor.group.position) <= radius) this.itemCurses.set(enemy, { kind: trigger.kind, remaining: duration });
+      g.ui.floatText(CURSE_NAMES[trigger.kind], target.actor.group.position.clone().setY(2.2), 'magic-damage');
+    }
+  }
+  physicalResistance(enemy: Enemy) {
+    const curse = this.itemCurses.get(enemy)?.kind, reduction = curse === 'amplify' ? 100 : curse === 'decrepify' ? 50 : 0;
+    return enemy.resistances.physical - reduction / (enemy.resistances.physical >= 100 ? 5 : 1);
+  }
+  pointedEnemy() {
+    const g = this.game, hovered = g.ui.hoveredEnemy;
+    if (hovered && this.hostile(hovered) && hovered.actor.group.position.distanceTo(g.position) <= 14 && clearShot(g.world.grid, g.position, hovered.actor.group.position)) return hovered;
+    const direction = g.aim.clone().sub(g.position).setY(0);
+    return g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(g.position) <= 14
+      && enemy.actor.group.position.distanceTo(g.aim) <= 2 && enemy.actor.group.position.clone().sub(g.position).dot(direction) > 0 && clearShot(g.world.grid, g.position, enemy.actor.group.position))
+      .sort((a, b) => a.actor.group.position.distanceToSquared(g.aim) - b.actor.group.position.distanceToSquared(g.aim))[0];
+  }
   cast(slot: Skill, aimed = false) {
     const g = this.game, h = g.hero, id = h.bindings[slot];
     if (g.paused || g.dead) return; g.begin();
@@ -33,174 +76,291 @@ export class PaladinCombat {
     this.castAction(id, aimed);
   }
   castAction(id: ActionId, aimed = false) {
-    if (isAura(id)) return;
+    if (isAura(id) || isPassive(id)) return;
+    if (classSkillMode(id)) { this.classes.cast(id as ExtraSkillId,aimed); return; }
     const g = this.game, h = g.hero, s = stats(h), rank = skillLevel(h, id, s.mods), v = skillValues(id, rank, h.skills);
-    if (this.lock > 0 || this.zeal || g.paused || g.dead || id !== 'attack' && !rank || id === 'fistOfHeavens' && this.fohDelay > 0) return;
+    if (this.lock > 0 || this.zeal || this.classes.sequence || g.paused || g.dead || id !== 'attack' && !rank || id === 'fistOfHeavens' && this.fohDelay > 0) return;
     if ((id === 'smite' || id === 'holyShield') && !s.hasShield) { g.ui.toast('需要可用的盾牌'); return; }
+    if (s.ranged && !s.ranged.stack && ['sacrifice', 'zeal', 'vengeance', 'conversion', 'charge'].includes(id)) { if (!this.ammoWarning) g.ui.toast('该技能需要近战武器'); this.ammoWarning = 1; return; }
     if (h.mana < v.cost) { g.ui.toast('法力不足'); return; }
-    const origin = g.position.clone(), target = g.target && this.hostile(g.target) ? g.target : g.nearestEnemy(14);
-    if (id === 'fistOfHeavens' && !target) { g.ui.toast('没有可攻击的目标'); return; }
+    const origin = g.position.clone();
+    const target = aimed ? this.pointedEnemy() : g.target && this.hostile(g.target) && g.target.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, g.target.actor.group.position) ? g.target : g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, enemy.actor.group.position)).sort((a, b) => a.actor.group.position.distanceToSquared(origin) - b.actor.group.position.distanceToSquared(origin))[0];
+    if (id === 'fistOfHeavens' && (!target || !this.canReach(target, id))) { g.ui.toast('没有可攻击的目标'); return; }
     const direction = aimed ? g.aim.clone().sub(origin) : target ? target.actor.group.position.clone().sub(origin) : new THREE.Vector3(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
-    direction.y = 0; direction.normalize(); if (!direction.lengthSq()) direction.set(0, 0, -1);
+    direction.y = 0; direction.normalize(); if (!direction.lengthSq()) direction.set(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
     const casting = ['holyBolt', 'blessedHammer', 'holyShield', 'fistOfHeavens'].includes(id);
-    this.lock = (casting ? s.castFrames : s.attackFrames) / 25;
+    const ranged = id === 'attack' && s.ranged && s.weapon;
+    if (ranged && !consumeAmmo(h, s.weapon!, !s.mods.explosiveArrowLevel && !!s.mods.magicArrowLevel)) { if (!this.ammoWarning) g.ui.toast('弹药已用尽', s.ranged?.stack ? '维修可补充投掷武器' : '旅者补给可购买箭矢'); this.ammoWarning = 1; return; }
+    this.lock = (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25;
     h.mana -= v.cost; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
     if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play('spell'); g.save(false); return; }
+    if (ranged) { this.shootWeapon(origin, direction, target); return; }
     if (id === 'holyBolt' || id === 'blessedHammer') {
       const hammer = id === 'blessedHammer';
       const mesh = new THREE.Mesh(hammer ? new THREE.BoxGeometry(.48, .22, .22) : new THREE.SphereGeometry(.15, 10, 8), new THREE.MeshBasicMaterial({ color: hammer ? 0xf5d88d : 0xdafff4, transparent: true }));
       if (hammer) { const handle = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, .48, 6), new THREE.MeshBasicMaterial({ color: 0xfff1c2 })); handle.position.y = -.25; mesh.add(handle); }
       mesh.position.copy(origin).setY(.9); g.world.scene.add(mesh);
-      const concentration = hammer && s.aura.id === 'concentration' ? 1 + s.aura.damage / 200 : 1;
+      const concentration = hammer ? 1 + (s.auras.find(aura => aura.id === 'concentration')?.damage ?? 0) / 200 : 1;
       // Align one point on the spiral with the aim at cast time, without homing afterward.
       const aimDistance = Math.max(1.2, Math.min(4.5, aimed ? g.aim.distanceTo(origin) : target ? target.actor.group.position.distanceTo(origin) : 2));
       const phase = Math.atan2(direction.z, direction.x) - (hammer ? 7 * (aimDistance - .7) / 2.5 : 0);
-      this.projectiles.push({ mesh, origin, direction, phase, age: 0, life: hammer ? 2.3 : 1.25, damage: (v.min + Math.random() * (v.max - v.min)) * concentration, healing: v.healing, kind: hammer ? 'hammer' : 'bolt', hit: new Set() });
+      this.projectiles.push({ mesh, origin, direction, phase, age: 0, life: hammer ? 2.3 : 1.25, damage: (v.min + Math.random() * (v.max - v.min)) * concentration, healing: v.healing, kind: hammer ? 'hammer' : 'bolt', hit: new Set(), snapshot: this.snapshot(), speed: 14, pierce: 0, magicArrow: 0, explosion: 0 });
       g.audio.play('spell'); return;
     }
     if (id === 'fistOfHeavens' && target) {
       this.fohDelay = 1; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
       this.damage(target, v.min + Math.random() * (v.max - v.min), 'lightning');
       for (const enemy of g.enemies) if (this.hostile(enemy) && isUndead(enemy) && enemy.actor.group.position.distanceTo(point) < 8) {
-        g.beam(point.clone().setY(1), enemy.actor.group.position.clone().setY(.8)); this.damage(enemy, v.secondary, 'magic', true);
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0xe5fff5 }));
+        mesh.position.copy(point).setY(.9); g.world.scene.add(mesh);
+        const flight = enemy.actor.group.position.clone().sub(point).setY(0).normalize(); if (!flight.lengthSq()) flight.copy(direction);
+        // Outgoing bolts must leave the impact target before testing other bodies.
+        this.projectiles.push({ mesh, origin: point.clone(), direction: flight, phase: 0, age: 0, life: .75, damage: v.secondary, healing: 0, kind: 'bolt', hit: new Set(enemy === target ? [] : [target.id]), snapshot: this.snapshot(), speed: 16, pierce: 0, magicArrow: 0, explosion: 0 });
       }
       g.audio.play('spell'); return;
     }
     if (id === 'charge') {
-      let last = origin.clone(); const distance = target ? Math.min(10, Math.max(0, target.actor.group.position.distanceTo(origin) - 1.2)) : 8;
-      for (let step = .25; step <= distance; step += .25) { const next = origin.clone().addScaledVector(direction, step); if (!g.world.grid.isWalkableAt(Math.round(next.x) + 28, Math.round(next.z) + 28)) break; last = next; if (step % 1 === 0) g.burst(next.clone().setY(.4), 0xe5ce84, 2); }
-      g.body.position.set(last.x, .5, last.z); g.position.copy(last); g.path = []; this.melee(id, direction); g.audio.play('swing'); return;
+      let last = origin.clone(); const distance = aimed ? Math.min(10, Math.max(0, g.aim.distanceTo(origin) - (target ? 1.2 : 0))) : target ? Math.min(10, Math.max(0, target.actor.group.position.distanceTo(origin) - 1.2)) : 8;
+      for (let step = .25; step <= distance; step += .25) { const next = origin.clone().addScaledVector(direction, step); if (!gridWalkable(g.world.grid, next)) break; last = next; if (step % 1 === 0) g.burst(next.clone().setY(.4), 0xe5ce84, 2); }
+      g.body.position.set(last.x, .5, last.z); g.position.copy(last); g.path = []; this.melee(id, direction, aimed); g.audio.play('swing'); return;
     }
-    if (id === 'zeal') { this.zeal = { hits: v.hits, timer: 0, direction }; this.lock = (s.attackFrames + s.zealFrames * (v.hits - 1)) / 25; return; }
-    this.melee(id, direction);
+    if (id === 'zeal') { this.zeal = { hits: v.hits, timer: 0, direction, aimed }; this.lock = (s.attackFrames + s.zealFrames * (v.hits - 1)) / 25; return; }
+    this.melee(id, direction, aimed);
   }
-  melee(id: ActionId, direction: THREE.Vector3) {
+  shootWeapon(origin: THREE.Vector3, direction: THREE.Vector3, target?: Enemy) {
+    const g = this.game, snapshot = this.snapshot(), s = snapshot.stats, base = s.ranged!;
+    const bow = !base.stack, explosion = bow ? s.mods.explosiveArrowLevel ?? 0 : 0, magicArrow = bow && !explosion ? s.mods.magicArrowLevel ?? 0 : 0;
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(.025, .035, base.kind === 'javelin' ? 1.2 : .7, 6), new THREE.MeshBasicMaterial({ color: explosion ? 0xffaa54 : magicArrow ? 0xaddcff : 0xdac398 }));
+    const head = new THREE.Mesh(new THREE.ConeGeometry(base.kind === 'axe' ? .16 : .075, .22, 4), new THREE.MeshBasicMaterial({ color: 0xe7edf0 })); head.position.y = .45; mesh.add(head);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction); mesh.position.copy(origin).setY(.9); g.world.scene.add(mesh);
+    this.projectiles.push({ mesh, origin, direction, phase: 0, age: 0, life: 1, damage: 0, healing: 0, kind: bow ? 'arrow' : 'throw', hit: new Set(), snapshot, speed: bow ? 20 : 18, pierce: Math.max(0, Math.min(100, s.mods.pierceChance ?? 0)), magicArrow, explosion });
+    if (target) this.triggerItems('att-skill', target, snapshot.items);
+    g.audio.play('shot');
+  }
+  melee(id: ActionId, direction: THREE.Vector3, aimed = false) {
     const g = this.game, h = g.hero, s = stats(h), v = skillValues(id, skillLevel(h, id, s.mods), h.skills);
-    const enemies = g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(g.position) <= 2.6 && enemy.actor.group.position.clone().sub(g.position).normalize().dot(direction) > -.3);
-    const enemy = (g.target && enemies.includes(g.target) ? g.target : enemies.sort((a, b) => a.actor.group.position.distanceToSquared(g.position) - b.actor.group.position.distanceToSquared(g.position))[0]);
+    const enemies = g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(g.position) <= 2.6 && enemy.actor.group.position.clone().sub(g.position).normalize().dot(direction) > (aimed ? .3 : -.3));
+    const enemy = (!aimed && g.target && enemies.includes(g.target) ? g.target : enemies.sort((a, b) => a.actor.group.position.distanceToSquared(g.position) - b.actor.group.position.distanceToSquared(g.position))[0]);
     const slash = makeRing(1.7, id === 'vengeance' ? 0x96daef : id === 'sacrifice' ? 0xe5948d : 0xe5d6ae, .85);
     slash.geometry.dispose(); slash.geometry = new THREE.RingGeometry(1.4, 1.8, 24, 1, -.8, 1.6); slash.rotation.z = -Math.atan2(direction.x, direction.z) + Math.PI / 2; slash.position.copy(g.position).setY(.25);
     g.world.scene.add(slash); g.effects.push({ mesh: slash, duration: .2, life: .2, type: 'slash' }); g.attackTime = 1; g.audio.play('swing');
     if (!enemy) return;
-    const conviction = s.aura.id === 'conviction' && this.inAura(enemy) ? s.aura.secondary : 0;
+    this.triggerItems('att-skill', enemy);
+    this.weaponHit(enemy, id);
+  }
+  weaponHit(enemy: Enemy, id: ActionId, projectile?: Projectile) {
+    const g = this.game, h = g.hero, snapshot = projectile?.snapshot, s = snapshot?.stats ?? stats(h), level = snapshot?.level ?? h.level, diff = snapshot?.difficulty ?? difficulty(h), skills = snapshot?.skills ?? h.skills;
+    const v = skillValues(id, skillLevel(h, id, s.mods), skills), magicArrow = projectile?.magicArrow ?? 0;
+    const conviction = this.auraAt(enemy, 'conviction', s)?.secondary ?? 0;
     const raceAttack = isUndead(enemy) ? s.mods.attackUndead ?? 0 : enemy.definition?.race === 'demon' ? s.mods.attackDemons ?? 0 : 0;
-    const targetDefense = s.mods.ignoreDefense && !enemy.boss ? 0 : enemy.defense * Math.max(0, 1 - conviction / 100 - (s.mods.targetDefense ?? 0) / 100 / (enemy.boss ? 2 : 1));
-    const chance = hitChance((s.baseAttackRating + raceAttack) * (1 + (s.attackRatingBonus + v.attack) / 100), targetDefense, h.level, enemy.level);
-    if (id !== 'smite' && Math.random() * 100 >= chance) { g.ui.floatText('未命中', enemy.actor.group.position.clone().setY(1.8), 'miss'); return; }
-    const smite = id === 'smite', weaponDamage = s.weaponMin + Math.random() * (s.weaponMax - s.weaponMin);
-    let physical = smite ? (s.smiteMin + Math.random() * (s.smiteMax - s.smiteMin)) * (1 + (s.damageBonus + v.damage) / 100) : weaponDamage * (1 + (s.damageBonus + v.damage) / 100);
+    const targetDefense = s.mods.ignoreDefense && !enemy.boss ? 0 : Math.max(0,enemy.defense-this.classes.defenseReduction(enemy)) * Math.max(0, 1 - conviction / 100 - (s.mods.targetDefense ?? 0) / 100 / (enemy.boss ? 2 : 1));
+    const chance = hitChance((s.baseAttackRating + raceAttack) * (1 + (s.attackRatingBonus + v.attack + (magicArrow ? 1 + magicArrow * 9 : 0)) / 100), targetDefense, level, enemy.level);
+    if (!['smite','guidedArrow'].includes(id) && Math.random() * 100 >= chance) { g.ui.floatText('未命中', enemy.actor.group.position.clone().setY(1.8), 'miss'); return false; }
+    const smite = id === 'smite', weaponDamage = projectile ? s.rangedMin + Math.random() * (s.rangedMax - s.rangedMin) + magicArrow + (id === 'magicArrow' ? v.damage : 0) : s.weaponMin + Math.random() * (s.weaponMax - s.weaponMin);
+    let physical = smite ? (s.smiteMin + Math.random() * (s.smiteMax - s.smiteMin)) * (1 + (s.smiteDamageBonus + v.damage) / 100) : weaponDamage * (1 + (s.damageBonus + (id==='magicArrow'?0:v.damage)) / 100);
     if (!smite) physical += weaponDamage * (isUndead(enemy) ? s.mods.damageUndead ?? 0 : enemy.definition?.race === 'demon' ? s.mods.damageDemons ?? 0 : 0) / 100;
-    const critical = !smite && Math.random() * 100 < (s.mods.deadlyStrike ?? 0); if (critical) physical *= 2;
-    if (Math.random() * 100 < (s.mods.crushingBlow ?? 0)) this.damage(enemy, enemy.hp * (enemy.boss ? .125 : .25), 'physical');
-    const dealt = this.damage(enemy, physical, 'physical', false, critical);
+    if(['multipleShot','strafe'].includes(id)) physical *= .75;
+    const critical = !smite && id !== 'sacrifice' && (s.criticalStrike>0&&Math.random()*100<s.criticalStrike || Math.random() * 100 < (s.mods.deadlyStrike ?? 0)); if (critical) physical *= 2;
+    if (Math.random() * 100 < (s.mods.crushingBlow ?? 0)) this.damage(enemy, resistedDamage(enemy.hp * (enemy.boss ? .125 : .25) * (projectile ? .5 : 1), Math.max(0, this.physicalResistance(enemy))), 'physical', true, false, snapshot);
+    const classConversion = ['magicArrow','fireArrow','coldArrow','lightningBolt'].includes(id);
+    const conversion = Math.min(100, classConversion ? v.percent : magicArrow) / 100;
+    const dealt = this.damage(enemy, physical * (1 - conversion), 'physical', false, critical, snapshot);
+    if (conversion) this.damage(enemy, physical * conversion, classConversion && id !== 'magicArrow' ? v.type : 'magic', false, critical, snapshot);
+    const resources = snapshot ? stats(h) : s;
+    if (this.itemCurses.get(enemy)?.kind === 'lifeTap') h.hp = Math.min(resources.maxHp, h.hp + dealt * .5);
     if (!smite) {
-      const drain = leechEffectiveness(enemy, difficulty(h));
-      h.hp = Math.min(s.maxHp, h.hp + dealt * (s.mods.lifeSteal ?? 0) / 100 * drain); h.mana = Math.min(s.maxMana, h.mana + dealt * (s.mods.manaSteal ?? 0) / 100 * drain);
+      const drain = leechEffectiveness(enemy, diff);
+      h.hp = Math.min(resources.maxHp, h.hp + dealt * (s.mods.lifeSteal ?? 0) / 100 * drain); h.mana = Math.min(resources.maxMana, h.mana + dealt * (s.mods.manaSteal ?? 0) / 100 * drain);
       for (const type of ['fire', 'cold', 'lightning', 'poison'] as const) {
+        if (type === 'fire' && projectile?.explosion) continue;
         let amount = type === 'poison' ? s.mods.poisonDamage ?? 0 : elementalDamage(s.mods, type);
-        if (id === 'vengeance' && type !== 'poison') amount += weaponDamage * (v.percent + 10 * h.skills[({ fire: 'resistFire', cold: 'resistCold', lightning: 'resistLightning' } as const)[type]]) / 100;
-        if (s.aura.type === type && s.aura.id && ['holyFire', 'holyFreeze', 'holyShock'].includes(s.aura.id)) amount += (s.aura.min + Math.random() * (s.aura.max - s.aura.min)) * s.aura.secondary;
+        if (id === 'vengeance' && type !== 'poison') amount += Math.max(0, weaponDamage - (s.mods.damageFlat ?? 0)) * (v.percent + 10 * h.skills[({ fire: 'resistFire', cold: 'resistCold', lightning: 'resistLightning' } as const)[type]]) / 100;
+        for (const aura of s.auras) if (aura.type === type && ['holyFire', 'holyFreeze', 'holyShock'].includes(aura.id)) amount += (aura.min + Math.random() * (aura.max - aura.min)) * aura.secondary * (1 + (projectile || type === 'poison' ? 0 : s.mods[`${type}SkillDamage`] ?? 0) / 100);
+        if(['multipleShot','strafe'].includes(id))amount*=.75;
         if (amount > 0 && !enemy.dead) {
-          const elementalDealt = this.damage(enemy, amount, type);
-          if (type === 'cold' && elementalDealt > 0) enemy.coldTime = Math.max(enemy.coldTime, (s.mods.coldDuration ?? (v.duration || 2)) / [1, 2, 4][difficulty(h)]);
+          const elementalDealt = this.damage(enemy, amount, type, false, false, snapshot);
+          if (type === 'cold' && elementalDealt > 0) enemy.coldTime = Math.max(enemy.coldTime, (s.mods.coldDuration ?? (v.duration || 2)) / [1, 2, 4][diff]);
         }
       }
+      if ((s.mods.magicMinDamage ?? 0) + (s.mods.magicMaxDamage ?? 0) > 0 && !enemy.dead) this.damage(enemy, (s.mods.magicMinDamage ?? 0) + Math.random() * ((s.mods.magicMaxDamage ?? 0) - (s.mods.magicMinDamage ?? 0)), 'magic', false, false, snapshot);
       const poison = poisonDamage(s.mods);
       if (poison.seconds > 0 && !enemy.dead) {
-        const dps = resistedDamage((poison.min + Math.random() * (poison.max - poison.min)) / poison.seconds, enemy.resistances.poison);
+        const dps = itemDamage((poison.min + Math.random() * (poison.max - poison.min)) / poison.seconds, 'poison', s.mods, enemy.resistances.poison);
         if (dps > 0 && (!enemy.poison || dps >= enemy.poison.dps)) enemy.poison = { dps, remaining: poison.seconds };
       }
     }
     if (Math.random() * 100 < (s.mods.openWounds ?? 0)) enemy.bleed = 8;
     if (s.mods.preventHeal) enemy.preventHeal = true;
+    if (!enemy.dead) this.triggerItems('hit-skill', enemy, snapshot?.items);
+    if (s.mods.slowTarget) enemy.slow = { percent: Math.max(enemy.slow?.percent ?? 0, Math.min(enemy.boss ? 50 : 90, s.mods.slowTarget)), remaining: 30 };
+    if (!smite && s.mods.targetDefenseFlat) enemy.defense = Math.max(0, enemy.defense - Math.abs(s.mods.targetDefenseFlat));
     if (!enemy.boss && !enemy.dead) {
-      if (s.mods.freezeTarget && enemy.resistances.cold < 100) enemy.stunned = Math.max(enemy.stunned, s.mods.freezeTarget / [1, 2, 3][difficulty(h)]);
+      if (s.mods.freezeTarget && enemy.resistances.cold < 100) enemy.stunned = Math.max(enemy.stunned, s.mods.freezeTarget / [1, 2, 3][diff]);
       if (s.mods.blindTarget) enemy.blind = Math.max(enemy.blind ?? 0, s.mods.blindTarget);
       if (Math.random() * 100 < (s.mods.flee ?? 0)) enemy.flee = 2;
     }
     if (smite && !enemy.boss) { enemy.stunned = v.duration; this.knockback(enemy, 1.1); }
     if (id === 'charge') this.knockback(enemy, 1.5);
-    if (s.mods.knockback) this.knockback(enemy, .7);
+    if (s.mods.knockback) this.knockback(enemy, .7, snapshot?.origin);
     if (id === 'conversion' && !enemy.dead && !enemy.boss && Math.random() * 100 < v.percent) { enemy.converted = v.duration; enemy.path = []; g.target = undefined; g.ui.floatText('转化', enemy.actor.group.position.clone().setY(2), 'gold'); }
-    if (h.equipment.weapon?.durability && !itemMods(h.equipment.weapon).indestructible && Math.random() < .04) h.equipment.weapon.durability--;
+    if (!projectile && h.equipment.weapon?.durability && !itemMods(h.equipment.weapon).indestructible && Math.random() < .04) h.equipment.weapon.durability--;
     if (id === 'sacrifice') this.hurt(physical * PALADIN_BALANCE.sacrificeRecoil, 'physical', undefined, true);
+    return true;
   }
-  knockback(enemy: Enemy, distance: number) {
+  knockback(enemy: Enemy, distance: number, origin = this.game.position) {
     if (enemy.boss || enemy.dead) return;
-    const p = enemy.actor.group.position, next = p.clone().addScaledVector(p.clone().sub(this.game.position).normalize(), distance);
-    if (this.game.world.grid.isWalkableAt(Math.round(next.x) + 28, Math.round(next.z) + 28)) { enemy.body.position.set(next.x, .5, next.z); p.copy(next); }
+    const p = enemy.actor.group.position, next = p.clone().addScaledVector(p.clone().sub(origin).normalize(), distance);
+    if (gridWalkable(this.game.world.grid, next)) { enemy.body.position.set(next.x, .5, next.z); p.copy(next); }
   }
-  damage(enemy: Enemy, amount: number, type: DamageType, ignoreResist = false, critical = false) {
+  explode(projectile: Projectile, point: THREE.Vector3) {
+    const g = this.game, s = projectile.snapshot.stats, rank = projectile.explosion;
+    const min = tierValue(rank, 2, [5, 7, 9, 11, 13]), max = tierValue(rank, 6, [5, 8, 11, 14, 17]);
+    let amount = min + Math.random() * (max - min) + elementalDamage(s.mods, 'fire');
+    for (const aura of s.auras) if (aura.id === 'holyFire') amount += (aura.min + Math.random() * (aura.max - aura.min)) * aura.secondary;
+    const ring = makeRing(1, 0xff9954, .7); ring.position.copy(point).setY(.2); g.world.scene.add(ring);
+    g.effects.push({ mesh: ring, life: .18, duration: .18, type: 'ring' });
+    for (const enemy of g.enemies) if (this.hostile(enemy) && enemy.actor.group.position.distanceTo(point) <= 2.5 && clearShot(g.world.grid, point, enemy.actor.group.position)) this.damage(enemy, amount, 'fire', false, false, projectile.snapshot);
+  }
+  updateProjectile(projectile: Projectile, dt: number) {
+    const g = this.game, remaining = Math.min(dt, Math.max(0, projectile.life - projectile.age));
+    const steps = Math.max(1, Math.ceil(remaining / .01)), step = remaining / steps;
+    for (let i = 0; i < steps; i++) {
+      const previous = projectile.mesh.position.clone(); projectile.age += step;
+      if (projectile.kind === 'hammer') {
+        const radius = .7 + projectile.age * 2.5, angle = projectile.age * 7 + projectile.phase;
+        projectile.mesh.position.set(projectile.origin.x + Math.cos(angle) * radius, .9, projectile.origin.z + Math.sin(angle) * radius); projectile.mesh.rotation.z += step * 15;
+      } else projectile.mesh.position.addScaledVector(projectile.direction, step * projectile.speed);
+      const next = projectile.mesh.position;
+      if (!clearShot(g.world.grid, previous, next)) { if (projectile.explosion) this.explode(projectile, previous.clone().setY(0)); return false; }
+      const segment = new THREE.Line3(previous, next);
+      const hits = g.enemies.filter(enemy => {
+        if (enemy.dead || projectile.hit.has(enemy.id)) return false;
+        const center = enemy.actor.group.position.clone().setY(.9);
+        return segment.closestPointToPoint(center, true, new THREE.Vector3()).distanceTo(center) <= (enemy.boss ? 1 : .65)
+          && clearShot(g.world.grid, previous, enemy.actor.group.position);
+      }).sort((a, b) => a.actor.group.position.distanceToSquared(previous) - b.actor.group.position.distanceToSquared(previous));
+      for (const enemy of hits) {
+        if (projectile.kind === 'bolt' && projectile.healing > 0 && enemy.converted > 0) { enemy.hp = Math.min(enemy.maxHp, enemy.hp + projectile.healing); return false; }
+        if (!this.hostile(enemy) || projectile.kind === 'bolt' && !isUndead(enemy)) continue;
+        projectile.hit.add(enemy.id);
+        if (projectile.kind === 'arrow' || projectile.kind === 'throw') {
+          const point = enemy.actor.group.position.clone(), hit = this.weaponHit(enemy, 'attack', projectile);
+          if (projectile.explosion) this.explode(projectile, point);
+          if ((hit || projectile.explosion) && Math.random() * 100 >= projectile.pierce) return false;
+        } else {
+          this.damage(enemy, projectile.damage, 'magic', projectile.kind === 'bolt', false, projectile.snapshot);
+          if (projectile.kind === 'bolt') return false;
+        }
+      }
+    }
+    return projectile.age < projectile.life;
+  }
+  damage(enemy: Enemy, amount: number, type: DamageType, ignoreResist = false, critical = false, snapshot?: AttackSnapshot) {
     const g = this.game; if (!this.hostile(enemy)) return 0;
-    const s = stats(g.hero), conviction = ['fire', 'cold', 'lightning'].includes(type) && s.aura.id === 'conviction' && this.inAura(enemy) ? s.aura.percent : 0;
-    const sanctuary = type === 'physical' && isUndead(enemy) && s.aura.id === 'sanctuary' && this.inAura(enemy);
-    const dealt = Math.max(0, Math.floor(resistedDamage(amount, ignoreResist || sanctuary ? 0 : enemy.resistances[type], conviction)));
+    const s = snapshot?.stats ?? stats(g.hero), conviction = ['fire', 'cold', 'lightning'].includes(type) ? this.auraAt(enemy, 'conviction', s)?.percent ?? 0 : 0;
+    const sanctuary = type === 'physical' && isUndead(enemy) && this.auraAt(enemy, 'sanctuary', s);
+    const dealt = Math.max(0, Math.floor(itemDamage(amount, type, s.mods, ignoreResist || sanctuary ? 0 : type === 'physical' ? this.physicalResistance(enemy) : enemy.resistances[type], conviction)));
     enemy.hp -= dealt; enemy.active = true;
     g.ui.floatText(dealt ? String(dealt) : '免疫', enemy.actor.group.position.clone().setY(1.8), critical ? 'critical' : type === 'physical' ? 'damage' : 'magic-damage');
     if (dealt) g.burst(enemy.actor.group.position.clone().setY(.8), type === 'fire' ? 0xf09669 : type === 'cold' ? 0x80cfea : 0xe8d79c, 3);
-    if (enemy.hp <= 0) g.killEnemy(enemy); else if (dealt) g.monsterCombat?.onHit(enemy); return dealt;
+    if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods); else if (dealt) g.monsterCombat?.onHit(enemy); return dealt;
   }
-  hurt(amount: number, type: DamageType = 'physical', source?: Enemy, self = false) {
-    const g = this.game, h = g.hero, s = stats(h); if (g.dead || !self && g.invincible > 0) return;
+  hurt(amount: number, type: DamageType = 'physical', source?: Enemy, self = false, missile = false) {
+    const g = this.game, h = g.hero, s = stats(h); if (g.inCamp || g.dead || !self && g.invincible > 0) return;
+    const evasion=this.moving?s.evade:missile?s.avoid:s.dodge;
+    if(!self&&source&&evasion>0&&Math.random()*100<evasion){g.ui.floatText('回避',g.position.clone().setY(1.8),'miss');return;}
+    if (!self && source && type === 'physical') { const curse = this.itemCurses.get(source)?.kind; amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : 1; }
     if (!self && source && type === 'physical') {
-      if (!this.running && Math.random() * 100 >= hitChance(source.attackRating, s.defense, source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return; }
+      if (!this.running && Math.random() * 100 >= hitChance(source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return; }
       if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.lock = Math.max(this.lock, s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); return; }
     }
+    const shield=h.buffs?.energyShield;
+    if(!self&&type!=='poison'&&shield?.remaining){const v=skillValues('energyShield',shield.rank,h.skills),absorbed=Math.min(amount*v.percent/100,h.mana/v.secondary);h.mana-=absorbed*v.secondary;amount-=absorbed;if(h.mana<=0)delete h.buffs.energyShield;}
     let damage = self ? amount : type === 'physical' ? Math.max(0, amount - (s.mods.damageReductionFlat ?? 0)) * (1 - Math.min(50, s.mods.damageReduction ?? 0) / 100) * (h.curse > 0 ? 2 : 1) : resistedDamage(Math.max(0, amount - (s.mods.magicReduction ?? 0)), type === 'magic' ? 0 : s.resistances[type]);
-    if (!self && type === 'cold') { const absorb = damage * Math.min(40, s.mods.coldAbsorb ?? 0) / 100; h.hp = Math.min(s.maxHp, h.hp + absorb); damage -= absorb; if (!s.mods.cannotBeFrozen) h.cold = s.mods.halfFreeze ? 2 : 4; }
+    if (!self) { const absorbed = absorbDamage(damage, type, s.mods); h.hp = Math.min(s.maxHp, h.hp + absorbed.healing); damage = absorbed.damage; }
+    if (!self && type === 'cold' && !s.mods.cannotBeFrozen) h.cold = s.mods.halfFreeze ? 2 : 4;
     damage = Math.max(0, damage); h.hp = Math.max(0, h.hp - damage);
     if (!self) {
       g.invincible = PALADIN_BALANCE.hitGraceSeconds;
-      h.mana = Math.min(s.maxMana, h.mana + damage * (s.mods.damageToMana ?? 0) / 100);
-      if (damage >= s.maxHp / 12 && !this.zeal && !(s.aura.id === 'concentration' && Math.random() < .2)) this.lock = Math.max(this.lock, s.recoveryFrames / 25);
+      if (type === 'physical') h.mana = Math.min(s.maxMana, h.mana + damage * (s.mods.damageToMana ?? 0) / 100);
+      if (damage >= s.maxHp / 12 && !this.zeal && !(s.auras.some(aura => aura.id === 'concentration') && Math.random() < .2)) this.lock = Math.max(this.lock, s.recoveryFrames / 25);
       if (type === 'poison') h.poison = Math.max(h.poison, 6);
       const armor = h.equipment.armor ?? h.equipment.shield; if (armor?.durability && !itemMods(armor).indestructible && Math.random() < .1) armor.durability--;
     }
     g.ui.floatText(`-${Math.ceil(damage)}`, g.position.clone().setY(1.8), 'hurt'); g.ui.flashDamage(); g.audio.play('hurt');
-    if (!self && source && type === 'physical' && s.aura.id === 'thorns') this.damage(source, damage * s.aura.percent / 100, 'physical');
-    if (!self && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
-    if (h.hp <= 0) { createCorpse(h, g.position.x, g.position.z); g.dead = true; g.releaseInput(); this.zeal = null; g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
+    if (!self && source && h.hp > 0) this.triggerItems('gethit-skill', source);
+    if (!self && source && !source.dead && h.hp > 0) {
+      const id = missile ? 'chillingArmor' : h.buffs?.shiverArmor ? 'shiverArmor' : 'frozenArmor', buff = h.buffs?.[id];
+      if (buff?.remaining) {
+        const v = skillValues(id, buff.rank, h.skills);
+        if (id === 'frozenArmor') {
+          if (source.resistances.cold < 100) { if (!source.boss) source.stunned = Math.max(source.stunned, Math.min(3, 1.2 + .12 * (buff.rank - 1))); source.coldTime = Math.max(source.coldTime, 2); }
+        } else if (missile) this.classes.missile(id, g.position, source.actor.group.position.clone().sub(g.position).normalize(), v, this.snapshot(), source);
+        else this.classes.hit(source, id, v, this.snapshot());
+      }
+    }
+    if (!self && !missile && source && type === 'physical') { const thorns = this.auraAt(source, 'thorns', s); if (thorns) this.damage(source, damage * thorns.percent / 100, 'physical'); }
+    if (!self && !missile && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
+    if (!self && !missile && source && type === 'physical' && s.mods.lightningReflect) this.damage(source, s.mods.lightningReflect, 'lightning');
+    if (h.hp <= 0) { createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; this.classes.clear(); g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
   }
   update(dt: number) {
     const g = this.game, h = g.hero, s = stats(h);
+    this.ammoWarning = Math.max(0, this.ammoWarning - dt);
+    for (const item of activeEquipment(h)) if (maxQuantity(item) && itemMods(item).replenishQuantity) {
+      const key = `quantity:${item.id}`, progress = (this.repairTime.get(key) ?? 0) + dt * itemMods(item).replenishQuantity!;
+      item.quantity = Math.min(maxQuantity(item), quantityLeft(item) + Math.floor(progress)); this.repairTime.set(key, progress % 1);
+    }
+    const light = g.actor.group.getObjectByName('hero-light');
+    if (light instanceof THREE.PointLight) light.distance = 7 * (13 + Math.max(-12, Math.min(5, s.mods.lightRadius ?? 0))) / 13;
+    for (const item of Object.values(h.equipment)) if (item?.maxDurability && item.durability !== undefined && itemMods(item).repairDurability) {
+      const progress = (this.repairTime.get(item.id) ?? 0) + dt * itemMods(item).repairDurability!;
+      item.durability = Math.min(item.maxDurability, item.durability + Math.floor(progress)); this.repairTime.set(item.id, progress % 1);
+    }
     this.lock = Math.max(0, this.lock - dt); this.fohDelay = Math.max(0, this.fohDelay - dt); h.holyShield = Math.max(0, h.holyShield - dt);
+    this.classes.update(dt);
     if (!h.holyShield) h.holyShieldLevel = 0;
     const weaponModel = g.actor.group.getObjectByName('hero-weapon'), shieldModel = g.actor.group.getObjectByName('hero-shield');
-    if (weaponModel) { weaponModel.visible = !!h.equipment.weapon && h.equipment.weapon.durability !== 0; weaponModel.scale.z = h.equipment.weapon?.twoHanded ? 1.3 : 1; }
+    const staffModel=g.actor.group.getObjectByName('hero-staff'), staff=!!s.weapon&&['staff','orb'].includes(weaponType(s.weapon)??'');
+    if(staffModel)staffModel.visible=staff;
+    if (weaponModel) { weaponModel.visible = !!s.weapon && !s.ranged&&!staff; weaponModel.scale.z = h.equipment.weapon?.twoHanded ? 1.3 : 1; }
+    g.actor.group.userData.rangedKind = s.ranged?.kind;
+    for (const model of g.actor.group.getObjectByName('hero-ranged')?.children ?? []) model.visible = model.name === `hero-${s.ranged?.kind}`;
     if (shieldModel) shieldModel.visible = s.hasShield;
-    for (const slot of Object.keys(g.cooldowns) as Skill[]) g.cooldowns[slot] = isAura(h.bindings[slot]) ? 0 : Math.max(this.lock, h.bindings[slot] === 'fistOfHeavens' ? this.fohDelay : 0);
+    for (const slot of Object.keys(g.cooldowns) as Skill[]) g.cooldowns[slot] = isAura(h.bindings[slot]) ? 0 : Math.max(this.lock, this.classes.delays[h.bindings[slot] as ExtraSkillId]??0, h.bindings[slot] === 'fistOfHeavens' ? this.fohDelay : 0);
     h.mana = Math.min(s.maxMana, h.mana + s.manaRegen * dt); h.hp = Math.min(s.maxHp, h.hp + s.lifeRegen * dt);
-    const cleanse = s.aura.id === 'cleansing' ? 1 / (1 - s.aura.percent / 100) : 1;
+    const cleanse = 1 / (1 - (s.auras.find(aura => aura.id === 'cleansing')?.percent ?? 0) / 100);
     h.poison = Math.max(0, h.poison - dt * cleanse / (1 - Math.min(75, s.mods.poisonLength ?? 0) / 100)); h.curse = Math.max(0, h.curse - dt * cleanse); h.cold = Math.max(0, h.cold - dt);
     if (h.poison > 0) h.hp = Math.max(1, h.hp - dt * resistedDamage(2 + difficulty(h) * 2, s.resistances.poison));
     for (const index of [0, 1] as const) if (this.regen[index] > 0) { const restored = Math.min(this.regen[index], (index ? 15 : 30) * dt); this.regen[index] -= restored; const key = index ? 'mana' : 'hp'; h[key] = Math.min(index ? s.maxMana : s.maxHp, h[key] + restored); }
     if (this.moving && h.running && h.stamina > 0) h.stamina = Math.max(0, h.stamina - dt * 6 * Math.max(0, 1 - (s.mods.staminaDrain ?? 0) / 100)); else h.stamina = Math.min(s.maxStamina, h.stamina + dt * (this.moving ? 4 : 16) * (1 + ((s.mods.staminaRegen ?? 0) + (s.aura.id === 'vigor' ? s.aura.secondary : 0)) / 100));
-    this.auraRing.visible = !!s.aura.id; this.auraRing.position.copy(g.position).setY(.08); this.auraRing.rotation.z = g.time * .4;
+    this.auraRing.visible = !!s.auras.length; this.auraRing.position.copy(g.position).setY(.08); this.auraRing.rotation.z = g.time * .4;
     this.auraRing.material.color.setHex(s.aura.type === 'fire' ? 0xe59b52 : s.aura.type === 'cold' ? 0x80cfed : s.aura.id === 'conviction' ? 0x81bd79 : s.aura.id === 'prayer' || s.aura.id === 'meditation' ? 0x7bd3bf : 0xe5d38b);
     this.shieldRing.visible = h.holyShield > 0 && s.hasShield; this.shieldRing.position.copy(g.position).setY(1); this.shieldRing.rotation.x = 0;
     this.corpseRing.visible = !!h.corpse; if (h.corpse) this.corpseRing.position.set(h.corpse.x, .1, h.corpse.z);
     this.auraTimer += dt;
     if (this.auraTimer >= 2) { this.auraTimer -= 2; this.pulse(); }
-    if (this.zeal) { this.zeal.timer -= dt; if (this.zeal.timer <= 0) { const target = g.nearestEnemy(2.6); if (target) this.zeal.direction.copy(target.actor.group.position).sub(g.position).normalize(); this.melee('zeal', this.zeal.direction); if (this.zeal && --this.zeal.hits <= 0) this.zeal = null; else if (this.zeal) this.zeal.timer += s.zealFrames / 25; } }
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const projectile = this.projectiles[i]; projectile.age += dt;
-      if (projectile.age > projectile.life) { g.disposeObject(projectile.mesh); this.projectiles.splice(i, 1); continue; }
-      const p = projectile.mesh.position, previous = p.clone();
-      if (projectile.kind === 'hammer') { const radius = .7 + projectile.age * 2.5, angle = projectile.age * 7 + projectile.phase; p.set(projectile.origin.x + Math.cos(angle) * radius, .9, projectile.origin.z + Math.sin(angle) * radius); projectile.mesh.rotation.z += dt * 15; }
-      else p.addScaledVector(projectile.direction, dt * 14);
-      if (!g.world.grid.isWalkableAt(Math.round(p.x) + 28, Math.round(p.z) + 28)) { projectile.life = 0; continue; }
-      const segment = new THREE.Line3(previous, p);
-      for (const enemy of g.enemies) {
-        const center = enemy.actor.group.position.clone().setY(.9);
-        if (enemy.dead || projectile.hit.has(enemy.id) || segment.closestPointToPoint(center, true, new THREE.Vector3()).distanceTo(center) > .9) continue;
-        if (projectile.kind === 'bolt' && enemy.converted > 0) { enemy.hp = Math.min(enemy.maxHp, enemy.hp + projectile.healing); projectile.hit.add(enemy.id); projectile.life = 0; break; }
-        if (!this.hostile(enemy) || projectile.kind === 'bolt' && !isUndead(enemy)) continue;
-        projectile.hit.add(enemy.id); this.damage(enemy, projectile.damage, 'magic', projectile.kind === 'bolt'); if (projectile.kind === 'bolt') { projectile.life = 0; break; }
+    if (this.zeal) {
+      this.zeal.timer -= dt;
+      if (this.zeal.timer <= 0) {
+        if (this.zeal.aimed) {
+          const direction = g.aim.clone().sub(g.position).setY(0);
+          if (direction.lengthSq() > .15 ** 2) this.zeal.direction.copy(direction).normalize();
+        } else { const target = g.nearestEnemy(2.6); if (target) this.zeal.direction.copy(target.actor.group.position).sub(g.position).normalize(); }
+        g.actor.group.rotation.y = Math.atan2(this.zeal.direction.x, this.zeal.direction.z);
+        this.melee('zeal', this.zeal.direction, this.zeal.aimed);
+        if (this.zeal && --this.zeal.hits <= 0) this.zeal = null; else if (this.zeal) this.zeal.timer += s.zealFrames / 25;
       }
+    }
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const projectile = this.projectiles[i];
+      if (!this.updateProjectile(projectile, dt)) { g.disposeObject(projectile.mesh); this.projectiles.splice(i, 1); }
     }
     for (const enemy of g.enemies) {
       enemy.stunned = Math.max(0, enemy.stunned - dt); enemy.coldTime = Math.max(0, enemy.coldTime - dt); enemy.converted = Math.max(0, enemy.converted - dt);
-      if (enemy.bleed > 0 && !enemy.dead) { enemy.bleed -= dt; enemy.hp -= dt * (h.level * .6 + 2); if (enemy.hp <= 0) g.killEnemy(enemy); }
+      if (enemy.slow) { enemy.slow.remaining -= dt; if (enemy.slow.remaining <= 0) delete enemy.slow; }
+      const curse = this.itemCurses.get(enemy); if (curse) { curse.remaining -= dt; if (curse.remaining <= 0) this.itemCurses.delete(enemy); }
+      if (enemy.bleed > 0 && !enemy.dead) { enemy.hp -= Math.min(dt, enemy.bleed) * openWoundsDps(h.level, enemy.boss); enemy.bleed = Math.max(0, enemy.bleed - dt); if (enemy.hp <= 0) g.killEnemy(enemy); }
       if (enemy.poison && !enemy.dead) {
         enemy.hp -= enemy.poison.dps * Math.min(dt, enemy.poison.remaining);
         enemy.poison.remaining -= dt;
@@ -211,23 +371,25 @@ export class PaladinCombat {
     clampResources(h);
   }
   pulse() {
-    const g = this.game, h = g.hero, s = stats(h), aura = s.aura; if (!aura.id) return;
+    const g = this.game, h = g.hero, s = stats(h);
+    for (const aura of s.auras) {
     if (aura.id === 'prayer' || aura.id === 'cleansing' || aura.id === 'meditation') {
       const prayer = skillValues('prayer', skillLevel(h, 'prayer'), h.skills);
       if (aura.id !== 'prayer' || h.mana >= aura.cost) {
         if (aura.id === 'prayer') h.mana -= aura.cost;
         h.hp = Math.min(s.maxHp, h.hp + prayer.healing);
-        for (const ally of g.enemies) if (ally.converted > 0 && this.inAura(ally)) ally.hp = Math.min(ally.maxHp, ally.hp + prayer.healing);
+        for (const ally of g.enemies) if (ally.converted > 0 && this.auraAt(ally, aura.id, s)) ally.hp = Math.min(ally.maxHp, ally.hp + prayer.healing);
       }
     }
-    if (aura.id === 'redemption') for (const enemy of g.enemies) if (enemy.dead && !enemy.redeemed && this.inAura(enemy) && Math.random() * 100 < aura.percent) {
+    if (aura.id === 'redemption') for (const enemy of g.enemies) if (enemy.dead && !enemy.redeemed && this.auraAt(enemy, aura.id, s) && Math.random() * 100 < aura.percent) {
       enemy.redeemed = true; enemy.actor.group.visible = false; h.hp = Math.min(s.maxHp, h.hp + aura.healing); h.mana = Math.min(s.maxMana, h.mana + aura.healing); g.burst(enemy.actor.group.position.clone().setY(.5), 0xeee1a2, 6);
     }
-    if (['holyFire', 'holyFreeze', 'holyShock', 'sanctuary'].includes(aura.id)) for (const enemy of g.enemies) if (this.hostile(enemy) && this.inAura(enemy) && (aura.id !== 'sanctuary' || isUndead(enemy))) {
+    if (['holyFire', 'holyFreeze', 'holyShock', 'sanctuary'].includes(aura.id)) for (const enemy of g.enemies) if (this.hostile(enemy) && this.auraAt(enemy, aura.id, s) && (aura.id !== 'sanctuary' || isUndead(enemy))) {
       this.damage(enemy, aura.min + Math.random() * (aura.max - aura.min), aura.type); if (aura.id === 'sanctuary') this.knockback(enemy, 1);
     }
+    }
   }
-  slow(enemy: Enemy) { const aura = stats(this.game.hero).aura; return Math.max(.2, 1 - (aura.id === 'holyFreeze' && this.inAura(enemy) ? aura.percent / 100 : enemy.coldTime > 0 ? .5 : 0)); }
+  slow(enemy: Enemy) { const aura = this.auraAt(enemy, 'holyFreeze'); return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, enemy.coldTime > 0 ? .5 : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0)); }
   allyUpdate(enemy: Enemy, dt: number) {
     if (enemy.converted <= 0) return false;
     const g = this.game, target = g.enemies.filter(other => this.hostile(other)).sort((a, b) => a.actor.group.position.distanceToSquared(enemy.actor.group.position) - b.actor.group.position.distanceToSquared(enemy.actor.group.position))[0];

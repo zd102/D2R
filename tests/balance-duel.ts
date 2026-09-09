@@ -19,7 +19,7 @@ export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number
   const dispose = (object: THREE.Object3D) => { object.traverse(node => { if (node instanceof THREE.Mesh) { resources.add(node.geometry); (Array.isArray(node.material) ? node.material : [node.material]).forEach(material => resources.add(material)); } }); object.removeFromParent(); };
   let nextId = 1, minHp = hero.hp;
   const game: any = { hero, enemies, time: 0, started: true, paused: false, dead: false, invincible: 0, position: new THREE.Vector3(), aim: new THREE.Vector3(0, 0, 2), actor: createActor('hero'), body: new CANNON.Body({ mass: 1 }), path: [], effects: [], attackTime: 0, cooldowns: { attack: 0, cleave: 0, nova: 0, dash: 0, bolt: 0 },
-    world: { scene, grid: { isWalkableAt: () => true }, path: (_from: THREE.Vector3, to: THREE.Vector3) => [to.clone()] }, audio: { play() {} }, ui: { floatText() {}, toast() {}, flashDamage() {}, openPanel() {} },
+    world: { scene, grid: { width: 57, height: 57, isWalkableAt: () => true }, path: (_from: THREE.Vector3, to: THREE.Vector3) => [to.clone()] }, audio: { play() {} }, ui: { floatText() {}, toast() {}, flashDamage() {}, openPanel() {} },
     burst() {}, beam() {}, save() {}, begin() {}, releaseInput() {}, disposeObject: dispose,
     nearestEnemy(range: number) { return enemies.find(enemy => !enemy.dead && enemy.converted <= 0 && enemy.actor.group.position.distanceTo(this.position) <= range); },
     killEnemy(enemy: Enemy) { enemy.dead = true; this.monsterCombat.cancel(enemy); },

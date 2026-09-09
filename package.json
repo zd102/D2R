@@ -9,7 +9,17 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "balance:report": "node scripts/balance-report.ts",
-    "test:browser": "node tests/profiles-browser.mjs && node tests/browser-smoke.mjs && node tests/paladin-browser.mjs && node tests/inventory-drag-browser.mjs && node tests/item-economy-browser.mjs && node tests/loot-pickup-browser.mjs && node tests/campaign-browser.mjs && node tests/campaign.mjs && node tests/browser-regressions.mjs && node tests/expansion-browser.mjs && node tests/affixes-browser.mjs && node tests/balance-browser.mjs"
+    "items:report": "node scripts/item-attribute-report.ts",
+    "test:item-effects": "node tests/item-effects-browser.mjs",
+    "test:maps": "node tests/maps-chests-browser.mjs",
+    "test:elites": "node tests/elites-browser.mjs",
+    "test:controls": "node tests/pointer-controls-browser.mjs",
+    "test:item-art": "node tests/item-art-browser.mjs",
+    "test:ranged": "node tests/ranged-browser.mjs",
+    "test:classes": "node tests/classes-browser.mjs",
+    "test:item-rolls": "node tests/item-rolls-browser.mjs",
+    "test:shared-stash": "node tests/shared-stash-browser.mjs",
+    "test:browser": "node tests/profiles-browser.mjs && node tests/character-transfer-browser.mjs && node tests/camp-browser.mjs && node tests/browser-smoke.mjs && node tests/paladin-browser.mjs && node tests/inventory-drag-browser.mjs && node tests/item-economy-browser.mjs && node tests/loot-pickup-browser.mjs && node tests/campaign-browser.mjs && node tests/campaign.mjs && node tests/browser-regressions.mjs && node tests/expansion-browser.mjs && node tests/affixes-browser.mjs && node tests/balance-browser.mjs && node tests/catalog-loot-browser.mjs && node tests/encyclopedia-browser.mjs"
   },
   "dependencies": {
     "cannon-es": "^0.20.0",

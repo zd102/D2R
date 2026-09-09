@@ -5,9 +5,9 @@ import { runePool, rollRune, rollLoot, rollCharm, upgradeRune, runeUpgradeCost }
 import { newHero, stats, parseSave, serializeSave, equipReason } from '../src/model.ts';
 const seeded = (seed = 73) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 
-test('all 33 ordered runes, 25 usable recipes, tiered bases and expanded uniques are present', () => {
+test('all 33 ordered runes, 78 usable LoD recipes, tiered bases and expanded uniques are present', () => {
   assert.equal(RUNE_ORDER.length, 33); assert.deepEqual(Object.keys(RUNES), [...RUNE_ORDER]);
-  assert.equal(RUNEWORDS.length, 25); assert.ok(BASES.length >= 80); assert.ok(SPECIAL_ITEMS.length >= 40);
+  assert.equal(RUNEWORDS.length, 78); assert.ok(BASES.length >= 500); assert.equal(SPECIAL_ITEMS.length, 506);
   assert.equal(new Set(BASES.map(b => b.name)).size, BASES.length);
   for (const id of RUNE_ORDER) for (const slot of ['weapon', 'armor', 'shield'] as const) assert.ok(Object.keys(RUNES[id][slot]).length, `${id}: ${slot}`);
   for (const word of RUNEWORDS) {
@@ -54,7 +54,8 @@ test('boss first-clear guarantees an eligible unique; repeats stay worthwhile wi
   assert.equal(first.items.length, 2); assert.equal(first.items[0].rarity, 'unique'); assert.equal(first.runes.length, 1);
   assert.ok(first.items.every(item => (item.requiredLevel ?? 1) <= 35));
   const repeat = rollLoot(context, () => .5); assert.equal(repeat.items.length, 2); assert.ok(repeat.items.every(i => i.rarity === 'rare'));
-  for (const random of [() => 0, () => .99]) { const countess = rollLoot({ ...context, rank: 'miniboss', countess: true }, random); assert.ok(countess.runes.length >= 2 && countess.runes.length <= 3); }
+  assert.equal(rollLoot({ ...context, rank: 'miniboss', countess: true }, () => 0).runes.length, 4);
+  assert.equal(rollLoot({ ...context, rank: 'miniboss', countess: true }, () => .99).runes.length, 0);
 });
 test('loot level comes from the encounter; MF improves quality but cannot remove white bases', () => {
   const random = seeded(), ordinary = { level: 5, act: 0, difficulty: 0, rank: 'monster' as const };

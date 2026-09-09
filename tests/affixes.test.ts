@@ -15,7 +15,7 @@ const find = (item: Item, name: string, level?: number) => {
 };
 
 test('all current bases map to original quality levels; charm levels use the nonlinear affix formula', () => {
-  assert.equal(Object.keys(BASE_CODES).length, BASES.length);
+  assert.ok(BASES.every(base => base.baseCode || BASE_CODES[base.name]));
   for (const base of BASES) { const profile = affixBase(makeItem(base)); assert.ok(profile.level > 0 && profile.type); }
   assert.equal(affixBase(equipment('幻化之刃')).level, 73);
   assert.equal(affixBase(equipment('饰金盾牌')).level, 51);

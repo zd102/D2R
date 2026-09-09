@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { newHero, stats, serializeSave } from '../src/model.ts';
 import { LEVELS } from '../src/campaign.ts';
-import { enterGame, savedProfile } from './browser-helpers.mjs';
+import { enterGame, openCampaign, savedProfile } from './browser-helpers.mjs';
 
 await mkdir('.verification', { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -17,7 +17,7 @@ async function fight() {
   if (!target || target.screen.x < 160 || target.screen.x > 1180 || target.screen.y < 115 || target.screen.y > 730) return false;
   await page.mouse.click(target.screen.x, target.screen.y); await page.waitForTimeout(300); return true;
 }
-async function travel(kind, id = 0, radius = 3.2) {
+async function travel(kind, id = 0, radius = kind === 'quest' ? 3.35 : 3.2) {
   for (let tries = 0; tries < 200; tries++) {
     if (await fight()) continue;
     const s = await state(); if (s.bossDefeated && kind === 'boss') return;
@@ -65,7 +65,7 @@ try {
   }
   await defeatBoss(); assert.deepEqual((await state()).campaign.cleared, [2, 0, 0]);
   await page.reload(); await enterGame(page); assert.equal((await state()).bossDefeated, false); assert.equal((await state()).area.questReady, true); assert.equal((await state()).enemies.filter(e => e.boss).length, 1); assert.deepEqual((await savedProfile(page)).hero.campaign.cleared, [2, 0, 0]);
-  await page.keyboard.press('Escape'); await page.locator('[data-panel="campaign"]').click(); await page.locator('[data-enter-level="0"]').click();
+  await openCampaign(page); await page.locator('[data-enter-level="0"]').click();
   assert.deepEqual((await state()).campaign.cleared, [2, 0, 0]); assert.equal((await state()).campaign.kills, 8); assert.equal((await state()).bossDefeated, false);
   console.log('Kill quest, guarded interaction quest, two bosses, next level, reload and replay passed');
   for (const index of [4, 9, 14, 19, 24]) {

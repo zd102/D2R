@@ -16,9 +16,15 @@ try {
   for (let tries = 0; tries < 80 && (await state()).kills < 6; tries++) {
     const s = await state(), target = s.enemies.filter(enemy => !enemy.boss).sort((a, b) => Math.hypot(a.x - s.position.x, a.z - s.position.z) - Math.hypot(b.x - s.position.x, b.z - s.position.z))[0];
     if (target && target.screen.x > 120 && target.screen.x < 1180 && target.screen.y > 120 && target.screen.y < 730) await page.mouse.click(target.screen.x, target.screen.y);
+    else {
+      const next = s.objectives.find(point => point.kind === 'boss').route[0];
+      assert.ok(next, 'A route to the next monster pack exists');
+      const dx = next.screen.x - 720, dy = next.screen.y - 480, factor = Math.min(1, 320 / Math.max(1, Math.abs(dx)), 200 / Math.max(1, Math.abs(dy)));
+      await page.mouse.click(720 + dx * factor, 480 + dy * factor);
+    }
     await page.waitForTimeout(250);
   }
-  await page.keyboard.down('s'); await page.waitForTimeout(1000); await page.keyboard.up('s');
+  await page.keyboard.down('ArrowDown'); await page.waitForTimeout(1000); await page.keyboard.up('ArrowDown');
   const s = await state(); assert.ok(s.kills >= 6); assert.ok(s.loot.some(loot => loot.item)); assert.equal(s.inventory, 0, 'Combat and proximity never collect equipment');
   const distant = s.loot.filter(loot => loot.item && Math.hypot(loot.x - s.position.x, loot.z - s.position.z) > 3.5 && loot.screen.x > 180 && loot.screen.x < 1100 && loot.screen.y > 160 && loot.screen.y < 690)[0];
   assert.ok(distant, 'A distant equipment label is available');

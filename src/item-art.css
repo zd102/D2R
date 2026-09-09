@@ -1,0 +1,84 @@
+.item-visual { --quality: #b2bdbf; --item-surface: #182120; position: relative; display: grid; place-items: center; width: 100%; height: 100%; min-width: 0; min-height: 0; pointer-events: none; color: var(--quality); }
+.item-visual.common { --quality: #b2bdbf; --item-surface: #182120; }
+.item-visual.magic { --quality: #70baff; --item-surface: #192e46; }
+.item-visual.rare { --quality: #f5de66; --item-surface: #39381d; }
+.item-visual.set { --quality: #77e19b; --item-surface: #153e2c; }
+.item-visual.unique { --quality: #f4b65d; --item-surface: #45331e; }
+.item-visual.runeword { --quality: #b8fff0; --item-surface: #183d3e; }
+.item-visual.legendary { --quality: #ff877f; --item-surface: #47262e; }
+:is(.bag-item,.gear-slot,.item-showcase,.encyclopedia-art,.encyclopedia-entry-icon) .item-visual>.item-art { width: 100%; height: 100%; max-width: 120px; max-height: 160px; padding: 3px; box-sizing: border-box; filter: drop-shadow(1px 3px 1px #0009); }
+.item-quality-mark { position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; display: grid; place-items: center; background: #0c1514e8; color: var(--quality); border-radius: 1px; }
+:is(.bag-item,.gear-slot,.item-showcase,.encyclopedia-art,.encyclopedia-entry-icon) .item-quality-mark>svg { width: 11px; height: 11px; max-width: none; max-height: none; padding: 0; stroke-width: 1.8; filter: none; }
+.bag-item { padding: 1px; overflow: hidden; }
+:is(.bag-item,.gear-slot):has(.item-visual) { background: #182120; border-color: #7b8c8d; }
+:is(.bag-item,.gear-slot).magic { background: #192e46; border-color: #70baff; box-shadow: inset 0 0 0 1px #70baff26; }
+:is(.bag-item,.gear-slot).rare { background: #39381d; border-color: #f5de66; box-shadow: inset 0 -3px #f5de6670; }
+:is(.bag-item,.gear-slot).set { background: #153e2c; border-color: #77e19b; box-shadow: inset 3px 0 #77e19b66, inset -3px 0 #77e19b66; }
+:is(.bag-item,.gear-slot).unique { background: #45331e; border-color: #f4b65d; box-shadow: inset 0 0 0 2px #f4b65d50; }
+:is(.bag-item,.gear-slot).runeword { background: #183d3e; border-color: #b8fff0; box-shadow: inset 0 3px #b8fff056, inset 0 -3px #b8fff056; }
+:is(.bag-item,.gear-slot).legendary { background: #47262e; border-color: #ff877f; box-shadow: inset 0 0 0 2px #ff877f66; }
+.gear-slot.unusable { border-color: #ea8079; background: #441e24; }
+.gear-slot.unusable .item-art { opacity: .5; }
+.bag-item.selected,.gear-slot.selected { outline: 2px solid #fff3c7; outline-offset: -2px; }
+.bag-item small,.gear-slot>small { z-index: 1; background: #0a1412e8; padding: 0 2px; line-height: 13px; border-radius: 1px; }
+.bag-item .unidentified-mark { z-index: 1; top: 2px; right: 2px; font-size: 12px; line-height: 14px; min-width: 12px; text-align: center; background: #101a17e8; color: #fff1c9; }
+.paladin-inventory .item-showcase { height: 128px; margin: 8px 0; }
+.item-showcase .item-visual { width: 92px; height: 124px; background: var(--item-surface); border-bottom: 2px solid var(--quality); }
+.item-showcase .item-quality-mark { width: 20px; height: 20px; top: 4px; left: 4px; }
+.item-showcase .item-quality-mark>svg { width: 15px; height: 15px; }
+.rarity-tag { padding: 4px 8px; border-bottom: 2px solid currentColor; }
+.runeword { color: #b8e7de; }
+.legendary { color: #ffaaa0; }
+.loot-label.magic { background: #142b43ed; border-color: #70baff; }
+.loot-label.rare { background: #34331aef; border-color: #f5de66; }
+.loot-label.set { background: #153526ef; border-color: #77e19b; }
+.loot-label.unique { background: #392b1cef; border-color: #f4b65d; }
+.loot-label.runeword { background: #163336ef; border-color: #b8e7de; }
+.loot-label.legendary { background: #3e232bee; border-color: #ff877f; }
+.rune-pouch { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 12px; }
+.rune-entry { grid-template-columns: 28px minmax(0,1fr) 17px; padding: 9px 26px 9px 0; min-height: 68px; column-gap: 5px; }
+.rune-entry>.rune-art { width: 28px; height: 43px; grid-column: 1; grid-row: 1/3; }
+.rune-entry>small { white-space: nowrap; color: #c1cabb; font: 10px/1.5 Georgia,serif; }
+.rune-entry>strong { align-self: end; }
+.rune-entry>b { color: #e7dac2; }
+.rune-upgrade { top: 22px; }
+.rune-sequence { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.rune-sequence>span { display: inline-flex; flex-direction: column; align-items: center; min-width: 27px; gap: 2px; white-space: nowrap; }
+.rune-sequence>span>small { color: #d1dccb; font: 10px/1.4 Georgia,serif; }
+.rune-sequence>i { color: #839b8f; font-style: normal; padding-top: 1px; }
+.runeword-list>div { row-gap: 8px; padding: 12px 0; }
+.runeword-list>div>strong { color: #b8e7de; line-height: 1.8; }
+.runeword-list>div>small { grid-column: 2; }
+.socket-row { align-items: center; gap: 5px; }
+.socket-row>span.socket-rune { position: relative; width: 42px; height: 68px; display: flex; flex-direction: column; justify-content: flex-start; border: 0; border-bottom: 1px solid #809e95; border-radius: 0; background: #13211f; }
+.socket-rune>.rune-art { width: 30px; height: 40px; flex-shrink: 0; }
+.socket-rune>b { font: 10px/13px Georgia,serif; color: #e2ead8; }
+.socket-rune>small { font-size: 9px; line-height: 13px; color: #abbfaf; }
+.socket-options button { gap: 6px; padding: 5px; }
+.socket-options button>.rune-art { width: 23px; height: 34px; }
+.socket-options button>span { display: flex; flex-direction: column; gap: 3px; text-align: left; }
+.socket-options button small { color: #d1dccb; font: 10px Georgia,serif; }
+.encyclopedia-entry-icon { width: 44px; height: 58px; }
+.encyclopedia-entry-icon .item-visual { background: var(--item-surface); border-bottom: 2px solid var(--quality); }
+.encyclopedia-entry-icon>.rune-art { width: 34px; height: 50px; }
+.encyclopedia-entry-icon .item-quality-mark { width: 12px; height: 12px; }
+.encyclopedia-entry-icon .item-quality-mark>svg { width: 9px; height: 9px; }
+.encyclopedia-art { width: 92px; height: 128px; }
+.encyclopedia-art .item-visual { background: var(--item-surface); border-bottom: 2px solid var(--quality); }
+.encyclopedia-art>.rune-art { width: 78px; height: 110px; }
+.encyclopedia-rune-number { display: inline-block; color: #e4eacf; font: 14px Georgia,serif; padding: 5px 0; }
+.encyclopedia-entry.runeword strong,.encyclopedia-item-heading.runeword h3 { color: #b8e7de; }
+.encyclopedia-recipe { display: flex; flex-wrap: wrap; gap: 8px; }
+.encyclopedia-recipe>button { position: relative; min-width: 55px; min-height: 92px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 5px; }
+.encyclopedia-recipe>button>.rune-art { width: 29px; height: 41px; }
+.encyclopedia-recipe>button>.rune-order { position: absolute; top: 3px; left: 4px; font: 9px Georgia,serif; color: #89a098; }
+.encyclopedia-recipe>button>span { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; }
+.encyclopedia-recipe>button>span>b { font: 11px Georgia,serif; color: #e2ead8; }
+@media(max-width:700px) {
+  .rune-entry { padding-right: 30px; }
+  .rune-upgrade { top: 20px; }
+  .encyclopedia-art { width: 76px; height: 110px; }
+  .encyclopedia-item-heading { gap: 16px; }
+  .encyclopedia-recipe { gap: 5px; }
+  .encyclopedia-recipe>button { min-width: 50px; }
+}

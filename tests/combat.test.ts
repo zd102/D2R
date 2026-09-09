@@ -5,7 +5,8 @@ import * as CANNON from 'cannon-es';
 import { PaladinCombat } from '../src/combat.ts';
 import { newHero, gainXp, learnSkill, stats, setAura } from '../src/model.ts';
 import { SKILLS, EXPERIENCE } from '../src/paladin.ts';
-import { makeItem, BASES } from '../src/items.ts';
+import { makeItem, BASES, specialItem } from '../src/items.ts';
+import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
 import type { Game, Enemy } from '../src/game.ts';
 import { MONSTERS, BOSSES } from '../src/bestiary.ts';
 import { elementalDamage } from '../src/affixes.ts';
@@ -13,7 +14,7 @@ import { elementalDamage } from '../src/affixes.ts';
 function setup() {
   const hero = newHero(); gainXp(hero, EXPERIENCE[79]); for (const skill of SKILLS) learnSkill(hero, skill.id);
   hero.hp = stats(hero).maxHp; hero.mana = stats(hero).maxMana;
-  const world = { scene: new THREE.Scene(), grid: { isWalkableAt: () => true }, path: () => [] };
+  const world = { scene: new THREE.Scene(), grid: { width: 57, height: 57, isWalkableAt: () => true }, path: () => [] };
   const game: any = { hero, world, position: new THREE.Vector3(), aim: new THREE.Vector3(0, 0, 10), actor: { group: new THREE.Group() }, body: new CANNON.Body({ mass: 1 }), enemies: [], effects: [], paused: false, dead: false, time: 0, invincible: 0, attackTime: 0, target: undefined, path: [], cooldowns: { attack: 0, cleave: 0, nova: 0, dash: 0, bolt: 0 },
     begin() {}, save() {}, releaseInput() {}, burst() {}, beam() {}, audio: { play() {} }, ui: { floatText() {}, toast() {}, flashDamage() {}, openPanel() {} }, killEnemy(enemy: Enemy) { enemy.dead = true; }, disposeObject(mesh: THREE.Mesh) { mesh.removeFromParent(); }, nearestEnemy(range: number) { return this.enemies.find((enemy: Enemy) => !enemy.dead && !enemy.converted && enemy.actor.group.position.distanceTo(this.position) < range); } };
   const combat = new PaladinCombat(game as Game); game.combat = combat;
@@ -25,6 +26,45 @@ function setup() {
   return { game, hero, combat, enemy };
 }
 
+test('mouse-aimed spells and melee face the cursor instead of a previously selected target', t => {
+  t.mock.method(Math, 'random', () => .5);
+  const { game, combat, enemy } = setup(), stale = enemy('demon', -2), forward = enemy('demon', 2);
+  game.target = stale; game.aim.set(0, 0, 8);
+  combat.castAction('holyBolt', true);
+  assert.deepEqual(combat.projectiles[0].direction.toArray(), [0, 0, 1]); assert.equal(game.actor.group.rotation.y, 0);
+  combat.lock = 0; combat.castAction('attack', true);
+  assert.equal(stale.hp, 10000); assert.ok(forward.hp < 10000);
+  game.aim.copy(game.position); game.actor.group.rotation.y = Math.PI / 2;
+  combat.lock = 0; combat.castAction('holyBolt', true);
+  assert.ok(combat.projectiles.at(-1)!.direction.x > .999, 'aiming at the feet retains the current facing');
+});
+
+test('aimed Fist of Heavens selects the pointed enemy and does not consume mana for an empty direction', () => {
+  const { game, hero, combat, enemy } = setup(), stale = enemy('demon', 3), pointed = enemy('demon', 8);
+  game.target = stale; game.aim.set(0, 0, 8); combat.castAction('fistOfHeavens', true);
+  assert.equal(stale.hp, 10000); assert.ok(pointed.hp < 10000);
+  combat.lock = combat.fohDelay = 0; game.aim.set(8, 0, 0); const mana = hero.mana;
+  combat.castAction('fistOfHeavens', true); assert.equal(hero.mana, mana);
+});
+
+test('aimed charge uses the pointer distance and still respects blocked ground', () => {
+  const { game, combat, enemy } = setup(); game.target = enemy('demon', 1); game.aim.set(6, 0, 0);
+  combat.castAction('charge', true); assert.equal(game.position.x, 6); assert.equal(game.position.z, 0);
+  assert.equal(game.actor.group.rotation.y, Math.PI / 2);
+  combat.lock = 0; game.aim.set(10, 0, 0); game.world.grid.isWalkableAt = (x: number) => x < 36;
+  combat.castAction('charge', true); assert.ok(game.position.x < 7.5, 'charge stops before the blocked cell');
+});
+
+test('mouse-aimed zeal tracks the current pointer between hits while auto targeting remains available', t => {
+  t.mock.method(Math, 'random', () => .5);
+  const { game, hero, combat, enemy } = setup(), front = enemy('demon', 2), back = enemy('demon', -2);
+  hero.skills.zeal = 4; game.target = back; game.aim.set(0, 0, 8);
+  combat.castAction('zeal', true); combat.update(.01);
+  assert.ok(front.hp < 10000); assert.equal(back.hp, 10000);
+  const hp = front.hp; game.aim.set(0, 0, -8); combat.update(1);
+  assert.equal(front.hp, hp); assert.ok(back.hp < 10000); assert.ok(Math.abs(game.actor.group.rotation.y) > 3);
+});
+
 test('affix elemental rolls damage physical immunes, while cold immunes do not get chilled', t => {
   t.mock.method(Math, 'random', () => .5);
   const { hero, combat, enemy } = setup(), target = enemy(); target.resistances.physical = 100; target.resistances.cold = 100;
@@ -33,6 +73,65 @@ test('affix elemental rolls damage physical immunes, while cold immunes do not g
   assert.equal(10000 - target.hp, elementalDamage(hero.equipment.weapon!.mods, 'fire', () => .5));
   assert.equal(target.coldTime, 0);
   target.resistances.cold = 0; hero.difficultyLevel = 2; combat.melee('attack', new THREE.Vector3(0, 0, 1)); assert.equal(target.coldTime, 1.5);
+});
+
+test('elemental equipment bonuses affect real spell hits, aura pulses and poison snapshots without breaking immunity alone', t => {
+  t.mock.method(Math, 'random', () => .5);
+  const { hero, combat, enemy } = setup(), target = enemy();
+  hero.equipment.weapon!.mods = { lightningSkillDamage: 20, lightningPierce: 25, poisonSkillDamage: 25, poisonPierce: 20, poisonMinRate: 256, poisonMaxRate: 256, poisonFrames: 100 };
+  target.resistances.lightning = 50; assert.equal(combat.damage(target, 100, 'lightning'), 90);
+  target.resistances.lightning = 110; assert.equal(combat.damage(target, 100, 'lightning'), 0);
+  hero.skills.conviction = 20; setAura(hero, 'conviction'); assert.equal(combat.damage(target, 100, 'lightning'), 48);
+  target.actor.group.position.z = 20; assert.equal(combat.damage(target, 100, 'lightning'), 0);
+  target.actor.group.position.z = 2; setAura(hero, null); target.resistances.poison = 60;
+  combat.melee('attack', new THREE.Vector3(0, 0, 1)); assert.equal(target.poison!.dps, 18.75);
+  hero.equipment.weapon!.mods = { aura_holyFire: 10, fireSkillDamage: 20, firePierce: 25 };
+  target.resistances.fire = 50; const aura = stats(hero).auras.find(aura => aura.id === 'holyFire')!;
+  const hp = target.hp; combat.pulse(); assert.equal(hp - target.hp, Math.floor((aura.min + aura.max) / 2 * 1.2 * .75));
+});
+
+test('percentage and flat absorb heal before damage and do not convert elemental damage into mana', () => {
+  const { hero, combat, game } = setup(); hero.hp = 100; hero.mana = 0;
+  hero.equipment.weapon!.mods = { fireAbsorb: 20, fireAbsorbFlat: 5, damageToMana: 50 };
+  combat.hurt(100, 'fire'); assert.equal(hero.hp, 50); assert.equal(hero.mana, 0);
+  game.invincible = 0; combat.hurt(20, 'physical'); assert.equal(hero.hp, 30); assert.equal(hero.mana, 10);
+});
+
+test('slow-target has a boss cap, expires and never permanently modifies monster base speed', t => {
+  t.mock.method(Math, 'random', () => .5);
+  const { hero, combat, enemy } = setup(), target = enemy(); hero.equipment.weapon!.mods = { slowTarget: 90 };
+  combat.melee('attack', new THREE.Vector3(0, 0, 1)); assert.equal(target.slow!.percent, 90); assert.equal(target.speed, 2);
+  target.boss = true; target.slow = undefined;
+  // This fixture deliberately bypasses the campaign boss gate to exercise the hit effect.
+  combat.hostile = enemy => !enemy.dead;
+  combat.melee('attack', new THREE.Vector3(0, 0, 1)); assert.equal(target.slow!.percent, 50); assert.equal(combat.slow(target), .5);
+  combat.update(30); assert.equal(target.slow, undefined); assert.equal(combat.slow(target), 1);
+});
+
+test('item curses proc from actual named equipment and life tap heals smite even against skeletons', t => {
+  t.mock.method(Math, 'random', () => 0);
+  const { hero, combat, enemy } = setup(), target = enemy('skeleton'); target.definition = MONSTERS.skeleton;
+  const draculs = specialItem(CATALOG_SPECIALS.find(entry => entry.key === "Dracul's Grasp")!.id); draculs.identified = true;
+  hero.strength = 200; hero.equipment.gloves = draculs; hero.hp = 20;
+  combat.melee('smite', new THREE.Vector3(0, 0, 1)); assert.equal(combat.itemCurses.get(target)?.kind, 'lifeTap'); assert.equal(hero.hp, 20);
+  target.actor.group.position.z = 2; combat.melee('smite', new THREE.Vector3(0, 0, 1)); assert.ok(hero.hp > 20);
+  combat.itemCurses.set(target, { kind: 'amplify', remaining: 1 }); target.resistances.physical = 110;
+  assert.equal(combat.damage(target, 100, 'physical'), 10); // Original immunity is reduced by 100 / 5.
+  combat.update(1); assert.equal(combat.damage(target, 100, 'physical'), 0);
+  combat.itemCurses.set(target, { kind: 'decrepify', remaining: 3 }); assert.equal(combat.slow(target), .5);
+});
+
+test('real item auto-repair restores durability over elapsed time without repairing an unrelated item', () => {
+  const { hero, combat } = setup(); hero.equipment.weapon!.mods = { repairDurability: .25 }; hero.equipment.weapon!.durability = 0;
+  const shieldDurability = hero.equipment.shield!.durability; combat.update(3); assert.equal(hero.equipment.weapon!.durability, 0);
+  combat.update(1); assert.equal(hero.equipment.weapon!.durability, 1); assert.equal(hero.equipment.shield!.durability, shieldDurability);
+});
+
+test('light radius changes the live player light and stops increasing after plus five', () => {
+  const { hero, combat, game } = setup(), light = new THREE.PointLight(); light.name = 'hero-light'; game.actor.group.add(light);
+  hero.equipment.weapon!.mods = { lightRadius: 5 }; combat.update(.1); assert.equal(light.distance, 7 * 18 / 13);
+  hero.equipment.weapon!.mods.lightRadius = 20; combat.update(.1); assert.equal(light.distance, 7 * 18 / 13);
+  hero.equipment.weapon!.mods = {}; combat.update(.1); assert.equal(light.distance, 7);
 });
 
 test('affix poison is damage over time with resistance, snapshots on hit, and does not stack on repeated attacks', t => {

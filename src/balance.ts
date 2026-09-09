@@ -18,16 +18,17 @@ export function monsterExperience(playerLevel: number, monsterLevel: number, ran
   if (context.summoned) return 0;
   const factor = experienceFactor(playerLevel, monsterLevel); if (!factor) return 0;
   const rate = context.difficulty === 0 && context.act === 0 ? .065 : .03;
-  const weight = rank === 'actBoss' ? 10 : rank === 'miniboss' ? 4 : Math.max(.7, Math.min(1.4, Math.sqrt((context.baseLife ?? 24) / 24)));
-  const firstClear = rank !== 'monster' && context.firstClear ? 1.35 : 1;
+  const weight = rank === 'actBoss' ? 10 : rank === 'miniboss' ? 4 : rank === 'elite' ? 2 : Math.max(.7, Math.min(1.4, Math.sqrt((context.baseLife ?? 24) / 24)));
+  const firstClear = (rank === 'actBoss' || rank === 'miniboss') && context.firstClear ? 1.35 : 1;
   // Level-99 monsters still reward XP; level 99 has no "next level" threshold.
   const base = xpForLevel(Math.min(98, Math.max(1, Math.floor(monsterLevel))));
   return Math.max(1, Math.floor(base * rate * weight * firstClear * factor));
 }
-export function monsterStats(definition: MonsterDef, area: Level, difficulty: number, boss = false) {
-  const tuning = levelTuning(area, difficulty), level = Math.min(99, tuning.level + (boss ? 2 : 0));
-  const maxHp = boss && definition.hpByDifficulty ? definition.hpByDifficulty[difficulty] : Math.round(definition.hp * tuning.hp * (boss ? 1.25 : 1));
+export function monsterStats(definition: MonsterDef, area: Level, difficulty: number, boss = false, elite = false) {
+  elite = elite && !boss;
+  const tuning = levelTuning(area, difficulty), level = Math.min(99, tuning.level + (boss || elite ? 2 : 0));
+  const maxHp = boss && definition.hpByDifficulty ? definition.hpByDifficulty[difficulty] : Math.round(definition.hp * tuning.hp * (boss ? 1.25 : elite ? 2.5 + difficulty * .5 : 1));
   const resistances: Record<DamageType, number> = { physical: difficulty === 2 ? 15 : 0, magic: boss ? difficulty * 10 : 0, fire: difficulty * 10, cold: difficulty * 10, lightning: difficulty * 10, poison: definition.race === 'undead' ? 65 : difficulty * 10 };
   for (const type of Object.keys(definition.resist ?? {}) as DamageType[]) resistances[type] = Math.min(85, definition.resist![type]! + difficulty * 10);
-  return { level, maxHp, damage: definition.damage * tuning.damage, defense: Math.round(tuning.defense * (boss ? 1.1 : 1)), attackRating: Math.round((25 + level * 7) * (boss ? 1.1 : 1)), resistances };
+  return { level, maxHp, damage: definition.damage * tuning.damage * (elite ? 1.25 + difficulty * .1 : 1), defense: Math.round(tuning.defense * (boss ? 1.1 : elite ? 1.25 : 1)), attackRating: Math.round((25 + level * 7) * (boss ? 1.1 : elite ? 1.2 : 1)), resistances };
 }

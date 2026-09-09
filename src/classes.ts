@@ -1,0 +1,8 @@
+export const CLASS_IDS = ['paladin', 'amazon', 'sorceress'] as const;
+export type ClassId = typeof CLASS_IDS[number];
+export const isClassId = (value: unknown): value is ClassId => typeof value === 'string' && CLASS_IDS.includes(value as ClassId);
+export const CLASSES = {
+  paladin: { name: '圣骑士', english: 'PALADIN', code: 'pal', icon: 'shield-check', color: '#d5bc7b', attributes: { strength: 25, dexterity: 20, vitality: 25, energy: 15 }, life: 55, mana: 15, stamina: 89, lifePerLevel: 2, manaPerLevel: 1.5, lifePerVitality: 3, manaPerEnergy: 1.5, trees: ['combat','offensive','defensive'], fcr: [0,9,18,30,48,75,125], cast: 15, fhr: [0,7,15,27,48,86,200], recovery: 9, fbr: [0,13,32,86,600], block: 5, blockBonus: 0 },
+  amazon: { name: '亚马逊', english: 'AMAZON', code: 'ama', icon: 'crosshair', color: '#a5d28b', attributes: { strength: 20, dexterity: 25, vitality: 20, energy: 15 }, life: 50, mana: 15, stamina: 84, lifePerLevel: 2, manaPerLevel: 1.5, lifePerVitality: 3, manaPerEnergy: 1.5, trees: ['javelin','passive','bow'], fcr: [0,7,14,22,32,48,68,99,152], cast: 19, fhr: [0,6,13,20,32,52,86,174,600], recovery: 11, fbr: [0,13,32,86,600], block: 5, blockBonus: -5 },
+  sorceress: { name: '法师', english: 'SORCERESS', code: 'sor', icon: 'sparkles', color: '#8ecfe0', attributes: { strength: 10, dexterity: 25, vitality: 10, energy: 35 }, life: 40, mana: 35, stamina: 74, lifePerLevel: 1, manaPerLevel: 2, lifePerVitality: 2, manaPerEnergy: 2, trees: ['cold','lightning','fire'], fcr: [0,9,20,37,63,105,200], cast: 13, fhr: [0,5,9,14,20,30,42,60,86,142,280], recovery: 15, fbr: [0,7,15,27,48,86,200], block: 9, blockBonus: -10 },
+} as const;

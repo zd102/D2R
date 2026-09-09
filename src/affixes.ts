@@ -1,7 +1,9 @@
 import { AFFIX_DATA, AFFIX_BASES, AFFIX_TYPES, type AffixDefinition } from './affix-data.ts';
 import type { Item, Modifier, Mods } from './items.ts';
+import { CATALOG_BASES } from './item-catalog-data.ts';
 
 export const AFFIX_MOD_NAMES = {
+  amazonSkills: '亚马逊技能', sorceressSkills: '法师技能', bowSkills: '弓与弩技能', passiveSkills: '被动与魔法技能', javelinSkills: '标枪与长矛技能', fireSkillsTab: '火焰法术技能', lightningSkills: '闪电法术技能', coldSkills: '冰冷法术技能',
   paladinSkills: '圣骑士技能', attackRatingPerLevel: '每级准确率', attackRatingPercentPerLevel: '每级准确率加成 %', maxDamagePerLevel: '每级最大伤害',
   fireMinDamage: '最小火焰伤害', fireMaxDamage: '最大火焰伤害', coldMinDamage: '最小冰冷伤害', coldMaxDamage: '最大冰冷伤害',
   lightningMinDamage: '最小闪电伤害', lightningMaxDamage: '最大闪电伤害', coldDuration: '冰冷持续秒数',
@@ -31,8 +33,8 @@ export function affixLevel(itemLevel: number, qualityLevel: number, magicLevel =
   return Math.max(1, Math.min(99, magicLevel ? level + magicLevel : level < 99 - half ? level - half : 2 * level - 99));
 }
 export function affixBase(item: Item) {
-  const code = item.charm ? CHARM_BASES[item.charmSize ?? (item.height === 3 ? 'grand' : item.height === 2 ? 'large' : 'small')].code : BASE_CODES[item.base ?? item.name];
-  const base = AFFIX_BASES[code];
+  const code = item.baseCode ?? (item.charm ? CHARM_BASES[item.charmSize ?? (item.height === 3 ? 'grand' : item.height === 2 ? 'large' : 'small')].code : BASE_CODES[item.base ?? item.name]);
+  const base = AFFIX_BASES[code] ?? CATALOG_BASES.find(base => base.code === code);
   if (!base) throw new Error(`Missing affix base: ${item.base ?? item.name}`);
   return base;
 }
@@ -59,10 +61,13 @@ const PROPERTY_MODS: Record<string, Modifier> = {
   lifesteal: 'lifeSteal', manasteal: 'manaSteal', 'mag%': 'magicFind', 'gold%': 'goldFind', regen: 'replenishLife', 'mana-kill': 'manaOnKill',
   'red-dmg': 'damageReductionFlat', 'red-mag': 'magicReduction', thorns: 'reflectDamage', knock: 'knockback', noheal: 'preventHeal',
   'ignore-ac': 'ignoreDefense', 'half-freeze': 'halfFreeze', 'regen-stam': 'staminaRegen', stamdrain: 'staminaDrain',
-  'dmg-demon': 'damageDemons', 'dmg-undead': 'damageUndead', 'att-demon': 'attackDemons', 'att-undead': 'attackUndead', 'dmg-to-mana': 'damageToMana', pal: 'paladinSkills',
+  'dmg-demon': 'damageDemons', 'dmg-undead': 'damageUndead', 'att-demon': 'attackDemons', 'att-undead': 'attackUndead', 'dmg-to-mana': 'damageToMana', pal: 'paladinSkills', ama: 'amazonSkills', sor: 'sorceressSkills',
   'fire-min': 'fireMinDamage', 'fire-max': 'fireMaxDamage', 'cold-min': 'coldMinDamage', 'cold-max': 'coldMaxDamage', 'ltng-min': 'lightningMinDamage', 'ltng-max': 'lightningMaxDamage',
 };
 const PER_LEVEL: Record<string, [Modifier, number]> = { 'ac/lvl': ['defensePerLevel', 8], 'hp/lvl': ['lifePerLevel', 8], 'mana/lvl': ['manaPerLevel', 8], 'dmg/lvl': ['maxDamagePerLevel', 8], 'att/lvl': ['attackRatingPerLevel', 2], 'att%/lvl': ['attackRatingPercentPerLevel', 2] };
+export function supportsAffixProperty(code: string) {
+  return Object.hasOwn(PROPERTY_MODS, code) || Object.hasOwn(PER_LEVEL, code) || ['indestruct', 'skilltab', 'ease', 'cold-len', 'sock', 'dmg-pois', 'dmg-fire', 'dmg-cold', 'dmg-ltng'].includes(code);
+}
 const unitRandom = (random: () => number) => Math.max(0, Math.min(1 - Number.EPSILON, random()));
 const integerRoll = (min: number, max: number, random: () => number) => min + Math.floor(unitRandom(random) * (max - min + 1));
 export function rollAffix(affix: AffixDefinition, random = Math.random): { mods: Mods; sockets: number } {
@@ -72,7 +77,7 @@ export function rollAffix(affix: AffixDefinition, random = Math.random): { mods:
     if (PROPERTY_MODS[code]) add(PROPERTY_MODS[code], integerRoll(min, max, random));
     else if (code === 'indestruct') add('indestructible', 1);
     else if (PER_LEVEL[code]) { const [mod, divisor] = PER_LEVEL[code]; add(mod, param / divisor); }
-    else if (code === 'skilltab') add(({ 9: 'combatSkills', 10: 'offensiveSkills', 11: 'defensiveSkills' } as const)[param as 9 | 10 | 11], integerRoll(min, max, random));
+    else if (code === 'skilltab') { const key = ({ 0: 'bowSkills', 1: 'passiveSkills', 2: 'javelinSkills', 3: 'fireSkillsTab', 4: 'lightningSkills', 5: 'coldSkills', 9: 'combatSkills', 10: 'offensiveSkills', 11: 'defensiveSkills' } as Partial<Record<number, Modifier>>)[param]; if(key) add(key, integerRoll(min, max, random)); }
     else if (code === 'ease') add('requirementReduction', -integerRoll(min, max, random));
     else if (code === 'cold-len') add('coldDuration', integerRoll(min, max, random) / 25);
     else if (code === 'sock') sockets = param || integerRoll(min, max, random);
@@ -96,7 +101,7 @@ const NAMES: Record<string, string> = {
   Hibernal: '凛冬', Boreal: '北风', Shivering: '寒颤', Snowflake: '雪花', Flaming: '烈焰', Smoking: '烟熏', Smoldering: '闷烧', Ember: '余烬', Shocking: '雷暴', Arcing: '电弧', Buzzing: '嗡鸣', Glowing: '电光', Static: '静电',
 };
 const MOD_LABELS: Partial<Record<Modifier, string>> = { strength: '力量', dexterity: '灵巧', energy: '精力', life: '生命', mana: '法力', defense: '坚固', enhancedDefense: '守御', attackRating: '精准', minDamage: '猛击', maxDamage: '利刃', magicFind: '寻宝', goldFind: '黄金', lifeSteal: '吸血', manaSteal: '汲取', fireRes: '红玉', coldRes: '蓝玉', lightningRes: '琥珀', poisonRes: '翡翠', runWalk: '疾行', replenishLife: '复苏', stamina: '坚韧', poisonLength: '解毒', damageReductionFlat: '防护', magicReduction: '结界', reflectDamage: '荆棘', fireMinDamage: '火焰', coldMinDamage: '冰霜', lightningMinDamage: '闪电', poisonMinRate: '毒素', knockback: '击退', preventHeal: '恶意', requirementReduction: '简易' };
-export function affixName(affix: AffixDefinition) { return NAMES[affix.name] ?? MOD_LABELS[Object.keys(rollAffix(affix, () => 0).mods)[0] as Modifier] ?? '秘法'; }
+export function affixName(affix: AffixDefinition) { const mod=Object.keys(rollAffix(affix, () => 0).mods)[0] as Modifier;return NAMES[affix.name] ?? ({amazonSkills:'女武神',sorceressSkills:'术士',bowSkills:'弓术',javelinSkills:'枪术',passiveSkills:'猎手',fireSkillsTab:'火焰',coldSkills:'冰霜',lightningSkills:'闪电'} as Partial<Record<Modifier,string>>)[mod]?? MOD_LABELS[mod] ?? '秘法'; }
 export function applyAffixes(item: Item, random = Math.random) {
   if (item.rarity !== 'magic' && item.rarity !== 'rare') return item;
   const pool = eligibleAffixes(item), chosen: AffixDefinition[] = [], groups = new Set<number>();
@@ -129,6 +134,7 @@ export function applyAffixes(item: Item, random = Math.random) {
     if (rolled.sockets) item.sockets = Math.min(rolled.sockets, affixSocketCap(item));
   }
   const baseName = item.base ?? item.name;
+  if (item.slot !== 'weapon' && item.mods?.enhancedDefense) item.power = (CATALOG_BASES.find(base => base.code === (item.baseCode ?? BASE_CODES[item.base ?? item.name]))?.defenseMax ?? item.power) + 1;
   if (item.rarity === 'magic') { const prefix = chosen.find(a => a.kind === 'prefix'), suffix = chosen.find(a => a.kind === 'suffix'); item.name = `${prefix ? affixName(prefix) : ''}${baseName}${suffix ? `之${affixName(suffix)}` : ''}`; }
   else item.name = `${['毁灭', '鲜血', '灵魂', '风暴', '命运', '荣耀'][integerRoll(0, 5, random)]}${['之握', '之眼', '之誓', '之冠', '之触', '之印'][integerRoll(0, 5, random)]}`;
   item.value += chosen.length * 75; item.identified = false;
