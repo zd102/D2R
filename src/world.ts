@@ -5,12 +5,14 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ACTS, LEVELS, FIELD_BOUND, levelLayout, type Level, type QuestProp } from './campaign.ts';
 import { CAMP } from './camp.ts';
 import type { ClassId } from './classes.ts';
+import { clearWalk } from './navigation.ts';
 
 export const BOUNDS = FIELD_BOUND;
 export function gridWalkable(grid: Pick<PF.Grid, 'width' | 'height' | 'isWalkableAt'>, point: { x: number; z: number }) {
   return grid.isWalkableAt(Math.round(point.x) + Math.floor(grid.width / 2), Math.round(point.z) + Math.floor(grid.height / 2));
 }
 export type WorldChest = { id: number; x: number; z: number; opened: boolean; group: THREE.Group; lid: THREE.Group };
+type SearchedNode = PF.Node & { closed?: boolean; parent?: SearchedNode };
 export const SHRINES = [{ x: -16, z: 0 }, { x: 15, z: -2 }, { x: 0, z: -17 }];
 export const COLORS = { common: 0xc3c4bf, magic: 0x73bdf4, rare: 0xe2c775, set: 0x77cf6c, unique: 0xc9b37c, runeword: 0xdacba0, legendary: 0xf19b4f };
 const rng = (seed: number) => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -498,6 +500,8 @@ export class GameWorld {
     body.linearFactor.set(1, 0, 1); body.updateMassProperties(); this.physics.addBody(body); return body;
   }
   path(from: { x: number; z: number }, to: { x: number; z: number }): THREE.Vector3[] {
+    if (![from.x, from.z, to.x, to.z].every(Number.isFinite)) return [];
+    if (this.canWalk(from, to)) return Math.hypot(to.x - from.x, to.z - from.z) > .1 ? [new THREE.Vector3(to.x, 0, to.z)] : [];
     const offset = this.gridOffset, last = this.grid.width - 1;
     const sx = Math.round(from.x) + offset, sy = Math.round(from.z) + offset;
     const ex = Math.max(1, Math.min(last - 1, Math.round(to.x) + offset)), ey = Math.max(1, Math.min(last - 1, Math.round(to.z) + offset));
@@ -507,19 +511,37 @@ export class GameWorld {
       if (this.grid.isWalkableAt(ex + dx, ey + dy)) candidates.push({ x: ex + dx, y: ey + dy, distance: dx * dx + dy * dy + Math.hypot(ex + dx - sx, ey + dy - sy) * .001 });
     }
     candidates.sort((a, b) => a.distance - b.distance);
-    // Clicks on scenery resolve to the closest reachable tile, including enclosed pockets.
-    for (const candidate of candidates) {
-      const grid = this.grid.clone(); grid.setWalkableAt(sx, sy, true);
-      const result = this.finder.findPath(sx, sy, candidate.x, candidate.y, grid);
-      if (result.length) {
-        const path = PF.Util.compressPath(result).slice(1).map(([x, z]) => new THREE.Vector3(x - offset, 0, z - offset));
-        // The actor can round into the destination cell before reaching its interactable center.
-        if (!path.length && Math.hypot(from.x - candidate.x + offset, from.z - candidate.y + offset) > .1) path.push(new THREE.Vector3(candidate.x - offset, 0, candidate.y - offset));
-        return path;
-      }
+    let candidate = candidates[0];
+    if (!candidate) return [];
+    const grid = this.grid.clone(); grid.setWalkableAt(sx, sy, true);
+    let result = this.finder.findPath(sx, sy, candidate.x, candidate.y, grid);
+    if (!result.length) {
+      // A failed A* has already explored the whole reachable region. Reuse its
+      // parent links instead of cloning/searching the map for every nearby tile.
+      const reachable = candidates.find(point => (grid.getNodeAt(point.x, point.y) as SearchedNode).closed);
+      if (!reachable) return [];
+      candidate = reachable;
+      for (let node: SearchedNode | undefined = grid.getNodeAt(candidate.x, candidate.y); node; node = node.parent) result.push([node.x, node.y]);
+      result.reverse();
     }
-    return [];
+    const points = PF.Util.compressPath(result).map(([x, z]) => new THREE.Vector3(x - offset, 0, z - offset));
+    // A collision may push an actor into an inflated obstacle cell. Leave that
+    // cell along the escape route instead of first walking deeper to its center.
+    if (!gridWalkable(this.grid, from)) points.shift();
+    const exact = new THREE.Vector3(to.x, 0, to.z);
+    if (candidate.x === Math.round(to.x) + offset && candidate.y === Math.round(to.z) + offset && this.canWalk(points.at(-1)!, exact)) points.push(exact);
+    const path: THREE.Vector3[] = [];
+    let anchor = from;
+    for (let i = 0; i < points.length;) {
+      let next = i;
+      for (let j = points.length - 1; j > i; j--) if (this.canWalk(anchor, points[j])) { next = j; break; }
+      const point = points[next];
+      if (Math.hypot(point.x - anchor.x, point.z - anchor.z) > .1) { path.push(point); anchor = point; }
+      i = next + 1;
+    }
+    return path;
   }
+  canWalk(from: { x: number; z: number }, to: { x: number; z: number }) { return clearWalk(this.grid, from, to); }
   paving() {
     const texture = stoneTexture();
     const materials = [0x69726c, 0x778077, 0x828379, 0x59665e, 0x7b8176].map(color => new THREE.MeshStandardMaterial({ color, map: texture, bumpMap: texture, bumpScale: .1, roughness: 1 }));

@@ -40,12 +40,16 @@ async function nonblank(page) {
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } }); await seed(page);
   assert.deepEqual(await page.locator('.skill-group kbd').allTextContents(), ['鼠左', 'Q', 'W', 'E', 'R', '鼠右']);
-  await page.mouse.move(930, 470); await page.waitForTimeout(100); facingCursor(await state(page));
+  const idleFacing = (await state(page)).controls.facing;
+  await page.mouse.move(930, 470); await page.waitForTimeout(100);
+  assert.equal((await state(page)).controls.facing, idleFacing, 'hover does not rotate an idle hero');
   const start = await state(page); await page.mouse.down(); await page.waitForTimeout(500);
   const first = await state(page); assert.ok(distance(start.position, first.position) > .4); assert.equal(first.controls.gesture, 'move');
   await page.waitForTimeout(400); assert.ok(distance(first.controls.aim, (await state(page)).controls.aim) > .2, 'stationary pointer is reprojected with the moving camera');
   await page.mouse.move(510, 470, { steps: 8 }); await page.waitForTimeout(250);
-  const turned = await state(page); assert.ok(distance(turned.controls.destination, first.controls.destination) > 3); assert.equal(turned.controls.dragging, true); facingCursor(turned);
+  const turned = await state(page); assert.ok(distance(turned.controls.destination, first.controls.destination) > 3); assert.equal(turned.controls.dragging, true);
+  const direction = turned.controls.destination;
+  assert.ok(Math.sin(turned.controls.facing) * (direction.x - turned.position.x) + Math.cos(turned.controls.facing) * (direction.z - turned.position.z) > 0, 'drag movement faces the route');
   await page.screenshot({ path: `${output}/desktop-drag.png` }); await nonblank(page);
   await page.mouse.up(); assert.equal((await state(page)).controls.gesture, null); await stopped(page);
 

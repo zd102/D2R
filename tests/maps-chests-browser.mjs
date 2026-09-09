@@ -30,13 +30,16 @@ async function choose(page, index) {
   await page.waitForFunction(index => !window.eclipseState.inCamp && window.eclipseState.campaign.current === index && !window.eclipseState.paused, index);
 }
 async function approach(page, id, range = 2.9) {
+  const touch = await page.evaluate(() => navigator.maxTouchPoints > 0);
   for (let tries = 0; tries < 100; tries++) {
     const s = await state(page), chest = s.chests.find(chest => chest.id === id);
-    if (Math.hypot(s.position.x - chest.x, s.position.z - chest.z) <= range) return;
+    if (chest.opened || Math.hypot(s.position.x - chest.x, s.position.z - chest.z) <= range) return;
     const next = chest.route[0]; assert.ok(next, 'Chest route exists');
     const { width, height } = page.viewportSize(), dx = next.screen.x - width / 2, dy = next.screen.y - height / 2;
     const factor = Math.min(1, width * .25 / Math.max(1, Math.abs(dx)), height * .11 / Math.max(1, Math.abs(dy)));
-    await page.mouse.click(width / 2 + dx * factor, height / 2 + dy * factor); await page.waitForTimeout(180);
+    const x = width / 2 + dx * factor, y = height / 2 + dy * factor;
+    if (touch) await page.touchscreen.tap(x, y); else await page.mouse.click(x, y);
+    await page.waitForTimeout(180);
   }
   throw new Error(`Chest ${id} approach timed out: ${JSON.stringify((await state(page)).position)}`);
 }
@@ -88,8 +91,10 @@ try {
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     const mobile = await start(viewport, true);
-    await approach(mobile, 0, viewport.height < 580 ? 2.9 : 7);
-    await mobile.getByRole('button', { name: '打开箱子 1', exact: true }).tap();
+    // In landscape, get the label clear of the bottom HUD before tapping it.
+    await approach(mobile, 0, viewport.height < 580 ? 2.2 : 7);
+    // A touch along a smoothed route can hit and open the chest while approaching.
+    if (!(await state(mobile)).chests[0].opened) await mobile.getByRole('button', { name: '打开箱子 1', exact: true }).tap();
     await mobile.waitForFunction(() => window.eclipseState.chests[0].opened);
     await pixels(mobile); await mobile.screenshot({ path: `${output}/opened-${viewport.width}.png` });
     await mobile.keyboard.press('m'); await expect(mobile.locator('.panel-map')).toBeVisible();

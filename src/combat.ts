@@ -68,33 +68,34 @@ export class PaladinCombat {
       && enemy.actor.group.position.distanceTo(g.aim) <= 2 && enemy.actor.group.position.clone().sub(g.position).dot(direction) > 0 && clearShot(g.world.grid, g.position, enemy.actor.group.position))
       .sort((a, b) => a.actor.group.position.distanceToSquared(g.aim) - b.actor.group.position.distanceToSquared(g.aim))[0];
   }
-  cast(slot: Skill, aimed = false) {
+  cast(slot: Skill, aimed = false): boolean {
     const g = this.game, h = g.hero, id = h.bindings[slot];
-    if (g.paused || g.dead) return; g.begin();
-    if (slot !== 'attack' && id === 'attack') { g.ui.openPanel('skills'); return; }
-    if (isAura(id)) { setAura(h, h.activeAura === id ? null : id as Exclude<ActionId, 'attack'>); this.auraTimer = 0; g.save(false); return; }
-    this.castAction(id, aimed);
+    if (g.paused || g.dead) return false; g.begin();
+    if (slot !== 'attack' && id === 'attack') { g.ui.openPanel('skills'); return false; }
+    if (isAura(id)) { setAura(h, h.activeAura === id ? null : id as Exclude<ActionId, 'attack'>); this.auraTimer = 0; g.save(false); return true; }
+    return this.castAction(id, aimed);
   }
-  castAction(id: ActionId, aimed = false) {
-    if (isAura(id) || isPassive(id)) return;
-    if (classSkillMode(id)) { this.classes.cast(id as ExtraSkillId,aimed); return; }
+  castAction(id: ActionId, aimed = false): boolean {
+    if (isAura(id) || isPassive(id)) return false;
+    if (this.lock > 0 || this.zeal || this.classes.sequence || this.game.paused || this.game.dead) return false;
+    if (classSkillMode(id)) return this.classes.cast(id as ExtraSkillId,aimed);
     const g = this.game, h = g.hero, s = stats(h), rank = skillLevel(h, id, s.mods), v = skillValues(id, rank, h.skills);
-    if (this.lock > 0 || this.zeal || this.classes.sequence || g.paused || g.dead || id !== 'attack' && !rank || id === 'fistOfHeavens' && this.fohDelay > 0) return;
-    if ((id === 'smite' || id === 'holyShield') && !s.hasShield) { g.ui.toast('需要可用的盾牌'); return; }
-    if (s.ranged && !s.ranged.stack && ['sacrifice', 'zeal', 'vengeance', 'conversion', 'charge'].includes(id)) { if (!this.ammoWarning) g.ui.toast('该技能需要近战武器'); this.ammoWarning = 1; return; }
-    if (h.mana < v.cost) { g.ui.toast('法力不足'); return; }
+    if (id !== 'attack' && !rank || id === 'fistOfHeavens' && this.fohDelay > 0) return false;
+    if ((id === 'smite' || id === 'holyShield') && !s.hasShield) { g.ui.toast('需要可用的盾牌'); return false; }
+    if (s.ranged && !s.ranged.stack && ['sacrifice', 'zeal', 'vengeance', 'conversion', 'charge'].includes(id)) { if (!this.ammoWarning) g.ui.toast('该技能需要近战武器'); this.ammoWarning = 1; return false; }
+    if (h.mana < v.cost) { g.ui.toast('法力不足'); return false; }
     const origin = g.position.clone();
     const target = aimed ? this.pointedEnemy() : g.target && this.hostile(g.target) && g.target.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, g.target.actor.group.position) ? g.target : g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, enemy.actor.group.position)).sort((a, b) => a.actor.group.position.distanceToSquared(origin) - b.actor.group.position.distanceToSquared(origin))[0];
-    if (id === 'fistOfHeavens' && (!target || !this.canReach(target, id))) { g.ui.toast('没有可攻击的目标'); return; }
+    if (id === 'fistOfHeavens' && (!target || !this.canReach(target, id))) { g.ui.toast('没有可攻击的目标'); return false; }
     const direction = aimed ? g.aim.clone().sub(origin) : target ? target.actor.group.position.clone().sub(origin) : new THREE.Vector3(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
     direction.y = 0; direction.normalize(); if (!direction.lengthSq()) direction.set(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
     const casting = ['holyBolt', 'blessedHammer', 'holyShield', 'fistOfHeavens'].includes(id);
     const ranged = id === 'attack' && s.ranged && s.weapon;
-    if (ranged && !consumeAmmo(h, s.weapon!, !s.mods.explosiveArrowLevel && !!s.mods.magicArrowLevel)) { if (!this.ammoWarning) g.ui.toast('弹药已用尽', s.ranged?.stack ? '维修可补充投掷武器' : '旅者补给可购买箭矢'); this.ammoWarning = 1; return; }
+    if (ranged && !consumeAmmo(h, s.weapon!, !s.mods.explosiveArrowLevel && !!s.mods.magicArrowLevel)) { if (!this.ammoWarning) g.ui.toast('弹药已用尽', s.ranged?.stack ? '维修可补充投掷武器' : '旅者补给可购买箭矢'); this.ammoWarning = 1; return false; }
     this.lock = (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25;
     h.mana -= v.cost; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
-    if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play('spell'); g.save(false); return; }
-    if (ranged) { this.shootWeapon(origin, direction, target); return; }
+    if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play('spell'); g.save(false); return true; }
+    if (ranged) { this.shootWeapon(origin, direction, target); return true; }
     if (id === 'holyBolt' || id === 'blessedHammer') {
       const hammer = id === 'blessedHammer';
       const mesh = new THREE.Mesh(hammer ? new THREE.BoxGeometry(.48, .22, .22) : new THREE.SphereGeometry(.15, 10, 8), new THREE.MeshBasicMaterial({ color: hammer ? 0xf5d88d : 0xdafff4, transparent: true }));
@@ -105,7 +106,7 @@ export class PaladinCombat {
       const aimDistance = Math.max(1.2, Math.min(4.5, aimed ? g.aim.distanceTo(origin) : target ? target.actor.group.position.distanceTo(origin) : 2));
       const phase = Math.atan2(direction.z, direction.x) - (hammer ? 7 * (aimDistance - .7) / 2.5 : 0);
       this.projectiles.push({ mesh, origin, direction, phase, age: 0, life: hammer ? 2.3 : 1.25, damage: (v.min + Math.random() * (v.max - v.min)) * concentration, healing: v.healing, kind: hammer ? 'hammer' : 'bolt', hit: new Set(), snapshot: this.snapshot(), speed: 14, pierce: 0, magicArrow: 0, explosion: 0 });
-      g.audio.play('spell'); return;
+      g.audio.play('spell'); return true;
     }
     if (id === 'fistOfHeavens' && target) {
       this.fohDelay = 1; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
@@ -117,15 +118,16 @@ export class PaladinCombat {
         // Outgoing bolts must leave the impact target before testing other bodies.
         this.projectiles.push({ mesh, origin: point.clone(), direction: flight, phase: 0, age: 0, life: .75, damage: v.secondary, healing: 0, kind: 'bolt', hit: new Set(enemy === target ? [] : [target.id]), snapshot: this.snapshot(), speed: 16, pierce: 0, magicArrow: 0, explosion: 0 });
       }
-      g.audio.play('spell'); return;
+      g.audio.play('spell'); return true;
     }
     if (id === 'charge') {
       let last = origin.clone(); const distance = aimed ? Math.min(10, Math.max(0, g.aim.distanceTo(origin) - (target ? 1.2 : 0))) : target ? Math.min(10, Math.max(0, target.actor.group.position.distanceTo(origin) - 1.2)) : 8;
       for (let step = .25; step <= distance; step += .25) { const next = origin.clone().addScaledVector(direction, step); if (!gridWalkable(g.world.grid, next)) break; last = next; if (step % 1 === 0) g.burst(next.clone().setY(.4), 0xe5ce84, 2); }
-      g.body.position.set(last.x, .5, last.z); g.position.copy(last); g.path = []; this.melee(id, direction, aimed); g.audio.play('swing'); return;
+      g.body.position.set(last.x, .5, last.z); g.position.copy(last); g.path = []; this.melee(id, direction, aimed); g.audio.play('swing'); return true;
     }
-    if (id === 'zeal') { this.zeal = { hits: v.hits, timer: 0, direction, aimed }; this.lock = (s.attackFrames + s.zealFrames * (v.hits - 1)) / 25; return; }
+    if (id === 'zeal') { this.zeal = { hits: v.hits, timer: 0, direction, aimed }; this.lock = (s.attackFrames + s.zealFrames * (v.hits - 1)) / 25; return true; }
     this.melee(id, direction, aimed);
+    return true;
   }
   shootWeapon(origin: THREE.Vector3, direction: THREE.Vector3, target?: Enemy) {
     const g = this.game, snapshot = this.snapshot(), s = snapshot.stats, base = s.ranged!;
