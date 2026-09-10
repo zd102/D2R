@@ -1,0 +1,257 @@
+{
+  "errors": [],
+  "lockedPanel": "",
+  "portalPanel": "",
+  "cowEntry": {
+    "area": "secret-cow-level",
+    "inCamp": false,
+    "special": "cow",
+    "difficulty": 1,
+    "campaign": {
+      "version": 1,
+      "current": 24,
+      "cleared": [
+        25,
+        25,
+        25
+      ],
+      "kills": 0,
+      "objects": []
+    },
+    "bossDefeated": false,
+    "inventory": [],
+    "enemies": 82,
+    "bosses": [
+      {
+        "name": "奶牛之王",
+        "hp": 4950,
+        "damage": 80.5,
+        "attacks": [
+          "frenzy"
+        ]
+      }
+    ]
+  },
+  "cowGeometry": {
+    "width": 293,
+    "height": 293,
+    "rooms": 10,
+    "floorCells": 10701,
+    "chests": 4,
+    "elites": 5,
+    "failures": []
+  },
+  "cowRender": {
+    "calls": 1,
+    "triangles": 1
+  },
+  "cowQuest": "QUEST JOURNAL\n奶牛之王\n\n追踪目标，领取远征奖励\n\nEsc\n第 5 章 · 第 5 关\n奶牛之王\n隐藏奶牛关\n\n血色牧场中的号角声从未停歇。\n\n清剿地狱奶牛\n0 / 0\n击败奶牛之王\n未现身\n首次通关 1225 金币\n装备与补给掉落\n关卡选择",
+  "cowAfterCampaignClick": {
+    "area": "secret-cow-level",
+    "inCamp": false,
+    "special": "cow",
+    "difficulty": 0,
+    "campaign": {
+      "version": 1,
+      "current": 0,
+      "cleared": [
+        25,
+        25,
+        25
+      ],
+      "kills": 8,
+      "objects": []
+    },
+    "bossDefeated": false,
+    "inventory": [],
+    "enemies": 82,
+    "bosses": [
+      {
+        "name": "奶牛之王",
+        "hp": 825,
+        "damage": 32.199999999999996,
+        "attacks": [
+          "frenzy"
+        ]
+      }
+    ]
+  },
+  "uberEntry": {
+    "area": "uber-diablo",
+    "inCamp": false,
+    "special": "uberDiablo",
+    "difficulty": 2,
+    "campaign": {
+      "version": 1,
+      "current": 24,
+      "cleared": [
+        25,
+        25,
+        25
+      ],
+      "kills": 0,
+      "objects": []
+    },
+    "bossDefeated": false,
+    "inventory": [],
+    "enemies": 1,
+    "bosses": [
+      {
+        "name": "超级迪亚波罗",
+        "hp": 900000,
+        "damage": 486.2,
+        "attacks": [
+          "firestorm",
+          "redLightning",
+          "fireNova",
+          "charge"
+        ]
+      }
+    ]
+  },
+  "uberKill": {
+    "campaignUnchanged": true,
+    "exitVisible": true,
+    "loot": [
+      {},
+      {
+        "item": "不朽之王之柱",
+        "catalog": "set-75"
+      },
+      {
+        "item": "毁灭",
+        "catalog": "unique-382"
+      },
+      {}
+    ]
+  },
+  "uberAfterCampaignClick": {
+    "area": "uber-diablo",
+    "inCamp": false,
+    "special": "uberDiablo",
+    "difficulty": 0,
+    "campaign": {
+      "version": 1,
+      "current": 0,
+      "cleared": [
+        25,
+        25,
+        25
+      ],
+      "kills": 8,
+      "objects": []
+    },
+    "bossDefeated": false,
+    "inventory": [],
+    "enemies": 1,
+    "bosses": [
+      {
+        "name": "超级迪亚波罗",
+        "hp": 900000,
+        "damage": 486.2,
+        "attacks": [
+          "firestorm",
+          "redLightning",
+          "fireNova",
+          "charge"
+        ]
+      }
+    ]
+  },
+  "uberReturn": {
+    "area": "act1-1",
+    "inCamp": true,
+    "difficulty": 0,
+    "campaign": {
+      "version": 1,
+      "current": 0,
+      "cleared": [
+        25,
+        25,
+        25
+      ],
+      "kills": 8,
+      "objects": []
+    },
+    "bossDefeated": false,
+    "inventory": [],
+    "enemies": 0,
+    "bosses": []
+  },
+  "afterReload": {
+    "area": "act5-5",
+    "inCamp": true,
+    "difficulty": 2,
+    "campaign": {
+      "version": 1,
+      "current": 24,
+      "cleared": [
+        25,
+        25,
+        25
+      ],
+      "kills": 0,
+      "objects": []
+    },
+    "bossDefeated": false,
+    "inventory": [],
+    "enemies": 0,
+    "bosses": []
+  },
+  "navigationSweep": [
+    {
+      "area": "secret-cow-level",
+      "seed": 0,
+      "floorCells": 10791,
+      "failures": []
+    },
+    {
+      "area": "secret-cow-level",
+      "seed": 17,
+      "floorCells": 10735,
+      "failures": []
+    },
+    {
+      "area": "secret-cow-level",
+      "seed": 91919,
+      "floorCells": 10560,
+      "failures": []
+    },
+    {
+      "area": "uber-diablo",
+      "seed": 0,
+      "floorCells": 752,
+      "failures": []
+    },
+    {
+      "area": "uber-diablo",
+      "seed": 17,
+      "floorCells": 752,
+      "failures": []
+    },
+    {
+      "area": "uber-diablo",
+      "seed": 91919,
+      "floorCells": 752,
+      "failures": []
+    },
+    {
+      "area": "act1-3",
+      "seed": 0,
+      "floorCells": 4311,
+      "failures": []
+    },
+    {
+      "area": "act1-3",
+      "seed": 17,
+      "floorCells": 4306,
+      "failures": []
+    },
+    {
+      "area": "act1-3",
+      "seed": 91919,
+      "floorCells": 4195,
+      "failures": []
+    }
+  ]
+}

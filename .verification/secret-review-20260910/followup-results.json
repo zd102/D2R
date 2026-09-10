@@ -1,0 +1,221 @@
+{
+  "cowBalance": [
+    {
+      "difficulty": 0,
+      "normal": {
+        "level": 44,
+        "maxHp": 660,
+        "damage": 32.199999999999996,
+        "defense": 169,
+        "attackRating": 333,
+        "resistances": {
+          "physical": 0,
+          "magic": 0,
+          "fire": 0,
+          "cold": 0,
+          "lightning": 0,
+          "poison": 30
+        }
+      },
+      "elite": {
+        "level": 46,
+        "maxHp": 1650,
+        "damage": 40.24999999999999,
+        "defense": 211,
+        "attackRating": 416,
+        "resistances": {
+          "physical": 0,
+          "magic": 0,
+          "fire": 0,
+          "cold": 0,
+          "lightning": 0,
+          "poison": 30
+        }
+      },
+      "king": {
+        "level": 46,
+        "maxHp": 825,
+        "damage": 32.199999999999996,
+        "defense": 186,
+        "attackRating": 382,
+        "resistances": {
+          "physical": 0,
+          "magic": 0,
+          "fire": 0,
+          "cold": 0,
+          "lightning": 0,
+          "poison": 30
+        }
+      }
+    },
+    {
+      "difficulty": 1,
+      "normal": {
+        "level": 70,
+        "maxHp": 3960,
+        "damage": 80.5,
+        "defense": 265,
+        "attackRating": 515,
+        "resistances": {
+          "physical": 0,
+          "magic": 0,
+          "fire": 10,
+          "cold": 10,
+          "lightning": 10,
+          "poison": 40
+        }
+      },
+      "elite": {
+        "level": 72,
+        "maxHp": 11880,
+        "damage": 108.67500000000001,
+        "defense": 331,
+        "attackRating": 635,
+        "resistances": {
+          "physical": 0,
+          "magic": 0,
+          "fire": 10,
+          "cold": 10,
+          "lightning": 10,
+          "poison": 40
+        }
+      },
+      "king": {
+        "level": 72,
+        "maxHp": 4950,
+        "damage": 80.5,
+        "defense": 292,
+        "attackRating": 582,
+        "resistances": {
+          "physical": 0,
+          "magic": 10,
+          "fire": 10,
+          "cold": 10,
+          "lightning": 10,
+          "poison": 40
+        }
+      }
+    },
+    {
+      "difficulty": 2,
+      "normal": {
+        "level": 96,
+        "maxHp": 14520,
+        "damage": 154,
+        "defense": 361,
+        "attackRating": 697,
+        "resistances": {
+          "physical": 15,
+          "magic": 0,
+          "fire": 20,
+          "cold": 20,
+          "lightning": 20,
+          "poison": 50
+        }
+      },
+      "elite": {
+        "level": 98,
+        "maxHp": 50820,
+        "damage": 223.29999999999998,
+        "defense": 452,
+        "attackRating": 853,
+        "resistances": {
+          "physical": 15,
+          "magic": 0,
+          "fire": 20,
+          "cold": 20,
+          "lightning": 20,
+          "poison": 50
+        }
+      },
+      "king": {
+        "level": 98,
+        "maxHp": 18150,
+        "damage": 154,
+        "defense": 397,
+        "attackRating": 782,
+        "resistances": {
+          "physical": 15,
+          "magic": 20,
+          "fire": 20,
+          "cold": 20,
+          "lightning": 20,
+          "poison": 50
+        }
+      }
+    }
+  ],
+  "cowChests": [
+    {
+      "difficulty": 0,
+      "contextLevel": "undefined",
+      "invalidGold": 112,
+      "invalidItems": 85,
+      "examples": [
+        {
+          "roll": 1,
+          "item": "灵魂之印",
+          "level": "undefined"
+        },
+        {
+          "roll": 3,
+          "gold": "NaN"
+        },
+        {
+          "roll": 3,
+          "gold": "NaN"
+        }
+      ]
+    },
+    {
+      "difficulty": 1,
+      "contextLevel": "undefined",
+      "invalidGold": 108,
+      "invalidItems": 78,
+      "examples": [
+        {
+          "roll": 1,
+          "item": "风暴之印",
+          "level": "undefined"
+        },
+        {
+          "roll": 1,
+          "item": "荣耀之握",
+          "level": "undefined"
+        },
+        {
+          "roll": 1,
+          "gold": "NaN"
+        }
+      ]
+    },
+    {
+      "difficulty": 2,
+      "contextLevel": "undefined",
+      "invalidGold": 110,
+      "invalidItems": 70,
+      "examples": [
+        {
+          "roll": 1,
+          "item": "荣耀之冠",
+          "level": "undefined"
+        },
+        {
+          "roll": 1,
+          "gold": "NaN"
+        },
+        {
+          "roll": 1,
+          "gold": "NaN"
+        }
+      ]
+    }
+  ],
+  "annihilusStorage": {
+    "allowed": true,
+    "count": 2,
+    "activeCount": 1
+  },
+  "lockedPanel": "MYSTERIOUS PORTAL\n神秘传送阵\n\nEsc\n维特之腿\n\n未携带维特之腿\n\n乔丹之石",
+  "readyPanel": "MYSTERIOUS PORTAL\n神秘传送阵\n\nEsc\n维特之腿\n维特之腿 · 噩梦\n开启\n乔丹之石\n超级迪亚波罗\n开启"
+}
