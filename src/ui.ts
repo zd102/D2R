@@ -12,9 +12,8 @@ import { CharacterScreen } from './character-ui';
 import { SharedStashScreen } from './shared-stash-ui';
 import { skillLevel, difficulty, difficultyNames } from './model';
 import { skillName, skillIcon, skillValues, type Attribute } from './paladin';
-import { runeLabel } from './items';
+import { runeLabel, groundItemName } from './items';
 import { CAMP } from './camp';
-import { ammunition, ammoKind, buyAmmo, AMMO_NAMES, AMMO_BUNDLE, AMMO_COST, AMMO_LIMIT, type AmmoKind } from './ranged';
 import { EncyclopediaScreen } from './encyclopedia-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
@@ -101,7 +100,6 @@ export class UI {
       if (element.dataset.salvage) this.game.salvage(element.dataset.salvage);
       if (element.dataset.allocate) this.game.allocate(element.dataset.allocate as Attribute, Number(element.dataset.count ?? 1));
       if (element.dataset.buy) this.game.buy(Number(element.dataset.buy) as 0 | 1);
-      if (element.dataset.buyAmmo && !this.game.saveConflict && this.panel === 'shop') { if (buyAmmo(this.game.hero, element.dataset.buyAmmo as AmmoKind)) { this.game.save(false); this.renderPanel(); } }
       if (element.dataset.loot) this.game.pickup(Number(element.dataset.loot));
       if (element.dataset.chest !== undefined) this.game.openChest(Number(element.dataset.chest));
       switch (element.dataset.action) {
@@ -204,7 +202,6 @@ export class UI {
       content = `<div class="pause-sigil"><img src="/sigil.svg" alt="" /></div><button class="primary-button" data-action="close">${icon('play')}继续旅程</button><button class="secondary-button" data-action="save">${icon('save')}保存旅程</button><button class="secondary-button" data-action="profiles">${icon('users')}保存并切换角色</button><div class="settings-row"><label for="volume">${icon('volume-2')}音效</label><input id="volume" type="range" min="0" max="100" value="${Math.round(this.game.audio.volume * 100)}"/><span id="volume-value">${Math.round(this.game.audio.volume * 100)}%</span></div><div class="settings-row"><label for="quality">画质</label><select id="quality"><option value="high" ${this.game.quality === 'high' ? 'selected' : ''}>精细</option><option value="low" ${this.game.quality === 'low' ? 'selected' : ''}>流畅</option></select><button ${tip('切换全屏')} data-action="fullscreen">${icon('maximize')}</button></div><div class="save-state"><i></i>${this.game.storageAvailable ? '本地自动存档' : '本地存档不可用'}</div>`;
     } else if (this.panel === 'shop') {
       content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${([0, 1] as const).map(index => `<div><div class="shop-item-icon ${index === 0 ? 'red-text' : 'blue-text'}">${icon(index === 0 ? 'flame' : 'droplets')}</div><div><h3>${index === 0 ? '生命' : '法力'}药剂</h3><small>持有 ${h.potions[index]}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < 25 ? 'disabled' : ''}>${icon('coins')}25</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
-      content += `<div class="shop-items">${(['arrows', 'bolts'] as const).map(kind => `<div><div class="shop-item-icon">${icon('crosshair')}</div><div><h3>${AMMO_NAMES[kind]} × ${AMMO_BUNDLE}</h3><small>持有 ${h.ammo[kind]} / ${AMMO_LIMIT}</small></div><button class="secondary-button" data-buy-ammo="${kind}" ${tip(`购买${AMMO_NAMES[kind]}`)} ${h.gold < AMMO_COST || h.ammo[kind] >= AMMO_LIMIT ? 'disabled' : ''}>${icon('coins')}${AMMO_COST}</button></div>`).join('')}</div>`;
     } else if (this.panel === 'death') {
       content = `<div class="end-mark death-mark">${icon('skull')}</div><p class="end-story">灰烬尚温，誓约未尽。</p><div class="end-stats"><span>等级 <b>${h.level}</b></span><span>击杀 <b>${h.kills}</b></span></div><p class="death-cost">遗体保留装备 · 遗失 ${h.corpse?.gold ?? 0} 金币</p><button class="primary-button" data-action="revive">${icon('rotate-ccw')}在传送阵重生</button>`;
     } else if (this.panel === 'victory') {
@@ -291,8 +288,7 @@ export class UI {
     auraLabel.title=classBuffs.join(' · ');
     document.getElementById('holy-shield-label')!.textContent = h.holyShield > 0 ? `圣盾 ${Math.ceil(h.holyShield)}s` : h.poison > 0 ? '中毒' : h.curse > 0 ? '伤害加深' : '';
     const ammo = document.getElementById('ammo-label')!;
-    ammo.hidden = !s.ranged; ammo.textContent = s.ranged ? !s.ranged.stack && s.mods.magicArrowLevel && !s.mods.explosiveArrowLevel ? '魔法箭' : `${ammoKind(s.weapon) === 'arrows' ? '箭' : ammoKind(s.weapon) === 'bolts' ? '弩矢' : '投掷'} ${ammunition(h, s.weapon)}` : '';
-    ammo.classList.toggle('empty-ammo', !!s.ranged && !ammunition(h, s.weapon) && !(s.mods.magicArrowLevel && !s.mods.explosiveArrowLevel && !s.ranged.stack));
+    ammo.hidden = !s.ranged; ammo.textContent = s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '';
     document.getElementById('stamina-fill')!.style.width = `${Math.min(100, h.stamina / s.maxStamina * 100)}%`;
     const runButton = document.querySelector<HTMLButtonElement>('[data-action="run-mode"]')!; runButton.setAttribute('aria-pressed', String(h.running)); runButton.dataset.tip = h.running ? '跑步' : '行走';
     const signature = JSON.stringify(h.bindings);
@@ -318,13 +314,18 @@ export class UI {
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
     bar.hidden = !boss; if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; bar.querySelector('span')!.textContent = boss.name; bar.querySelector('small')!.textContent = questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '守关首领') : '完成当前任务后现身'; }
     const aliveKeys = new Set<string>();
+    const controlRects = ['joystick', 'mobile-attack'].map(id => document.getElementById(id)!)
+      .filter(element => element.getClientRects().length).map(element => element.getBoundingClientRect());
     for (const chest of game.world.chests) {
       if (chest.opened || Math.hypot(chest.x - game.position.x, chest.z - game.position.z) > 11) continue;
       const point = game.project(new THREE.Vector3(chest.x, 1.3, chest.z));
       if (!point.visible || point.x < 50 || point.x > innerWidth - 50 || point.y < 95 || point.y > innerHeight - 155) continue;
       const key = `chest-${chest.id}`; aliveKeys.add(key); let label = this.labelNodes.get(key);
       if (!label) { label = document.createElement('button'); label.className = 'world-chest-label'; label.dataset.chest = String(chest.id); label.textContent = '箱子'; label.setAttribute('aria-label', `打开箱子 ${chest.id + 1}`); this.labels.append(label); this.labelNodes.set(key, label); }
-      label.hidden = game.paused; label.style.transform = `translate(${point.x}px, ${point.y}px) translate(-50%, -100%)`;
+      label.hidden = game.paused;
+      let y = point.y;
+      for (const rect of controlRects) if (point.x + label.offsetWidth / 2 > rect.left - 6 && point.x - label.offsetWidth / 2 < rect.right + 6 && y > rect.top - 6 && y - label.offsetHeight < rect.bottom + 6) y = rect.top - 8;
+      label.style.transform = `translate(${point.x}px, ${y}px) translate(-50%, -100%)`;
     }
     if (game.inCamp) {
       const stashPoint = game.project(new THREE.Vector3(CAMP.stash.x, 1.4, CAMP.stash.z));
@@ -353,12 +354,12 @@ export class UI {
       el.classList.toggle('elite-label', !!enemy.elite);
       el.style.transform = `translate(${enemy.elite ? Math.max(60, Math.min(innerWidth - 60, point.x)) : point.x}px,${point.y}px)`; el.classList.toggle('active', !!enemy.elite || enemy.active || this.hoveredEnemy === enemy); el.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, enemy.hp / enemy.maxHp) * 100}%`;
     }
-    const lootRects: { x: number; y: number; width: number; height: number }[] = [];
+    const lootRects: { x: number; y: number; width: number; height: number }[] = controlRects.map(rect => ({ x: rect.x, y: rect.y, width: rect.width, height: rect.height }));
     for (const loot of game.loot) {
       if ((!loot.item && !loot.rune) || Math.hypot(loot.x - game.position.x, loot.z - game.position.z) > 15) continue;
       const point = game.project(new THREE.Vector3(loot.x, .5, loot.z)); if (point.x < 40 || point.x > innerWidth - 40 || point.y < 40 || point.y > innerHeight - 130) continue;
       const key = `l${loot.id}`; aliveKeys.add(key); let el = this.labelNodes.get(key);
-      if (!el) { el = document.createElement('button'); el.className = `loot-label ${loot.item?.rarity ?? 'runeword'}`; el.textContent = loot.item?.name ?? `${runeLabel(loot.rune!)}符文`; el.dataset.loot = String(loot.id); this.labels.append(el); this.labelNodes.set(key, el); }
+      if (!el) { el = document.createElement('button'); el.className = `loot-label ${loot.item?.rarity ?? 'runeword'}`; el.textContent = (loot.item ? groundItemName(loot.item) : undefined) ?? `${runeLabel(loot.rune!)}符文`; el.dataset.loot = String(loot.id); this.labels.append(el); this.labelNodes.set(key, el); }
       el.hidden = false;
       const width = el.offsetWidth, height = el.offsetHeight, x = Math.max(12, Math.min(innerWidth - width - 12, point.x - width / 2));
       const overlaps = (y: number) => lootRects.some(rect => x < rect.x + rect.width + 3 && x + width + 3 > rect.x && y < rect.y + rect.height + 3 && y + height + 3 > rect.y);

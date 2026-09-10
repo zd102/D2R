@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ACTS, LEVELS, FIELD_BOUND, levelLayout, type Level, type QuestProp } from './campaign.ts';
 import { CAMP } from './camp.ts';
 import type { ClassId } from './classes.ts';
-import { clearWalk } from './navigation.ts';
+import { clearWalk, clearObstacles, collisionGrid, NAV_SCALE, PLAYER_RADIUS, type Obstacle } from './navigation.ts';
 
 export const BOUNDS = FIELD_BOUND;
 export function gridWalkable(grid: Pick<PF.Grid, 'width' | 'height' | 'isWalkableAt'>, point: { x: number; z: number }) {
@@ -221,7 +221,8 @@ export class GameWorld {
   portal: THREE.Group;
   rune: THREE.Mesh;
   particles: THREE.Points;
-  obstacles: { x: number; z: number; w: number; d: number }[] = [];
+  obstacles: Obstacle[] = [];
+  navigationGrid?: PF.Grid;
   ground: THREE.Mesh;
   exit: THREE.Group;
   level: Level;
@@ -373,6 +374,16 @@ export class GameWorld {
       }
     }
     this.grid = new PF.Grid(matrix);
+    // Every solid terrain edge has a visible face at exactly the physics edge.
+    // Decorative rocks/ruins sit behind this boundary instead of defining a
+    // second, unrelated silhouette in otherwise traversable ground.
+    if (level.terrain !== 'arcane' && level.terrain !== 'lava') {
+      for (let z = -FIELD_BOUND; z <= FIELD_BOUND; z++) for (let x = -FIELD_BOUND; x <= FIELD_BOUND; x++) {
+        if (walkable(x, z) || ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => walkable(x + dx, z + dz))) continue;
+        const height = level.terrain === 'cave' ? 1.3 : level.terrain === 'field' || level.terrain === 'snow' ? .65 : 1.1;
+        mesh(this.staticGroup, box, level.terrain === 'cave' || level.terrain === 'snow' ? rock : surface, x, height / 2, z, 1, height, 1);
+      }
+    }
     for (const { x, z } of this.floorCells) {
       const slab = mesh(this.staticGroup, box, pathMaterial, x, .015, z, .99, .15, .99);
       if (level.terrain === 'field' || level.terrain === 'snow') slab.material = rock;
@@ -390,6 +401,7 @@ export class GameWorld {
     }
     for (let x = -FIELD_BOUND + 1; x < FIELD_BOUND; x += 2.8) for (let z = -FIELD_BOUND + 1; z < FIELD_BOUND; z += 2.8) {
       if (walkable(x, z) || !segments.some(([a, b]) => distance(x, z, a, b) < width + 5) || random() < .18) continue;
+      if (this.floorCells.some(p => Math.abs(p.x - x) < 2.2 && Math.abs(p.z - z) < 2.2)) continue;
       const h = .6 + random() * 1.4;
       if (level.terrain === 'cave') {
         const crag = mesh(this.staticGroup, new THREE.DodecahedronGeometry(1, 0), rock, x, h / 2, z, 1.5, h, 1.6); crag.rotation.y = random() * 6;
@@ -419,6 +431,7 @@ export class GameWorld {
       for (const side of [-1, 1]) {
         mesh(this.staticGroup, box, surface, layout.boss.x + side * 4.5, 1.8, layout.boss.z - 2, 1, 3.6, 1);
         mesh(this.staticGroup, cone, trim, layout.boss.x + side * 4.5, 4, layout.boss.z - 2, .65, .8, .65);
+        this.addCollider(layout.boss.x + side * 4.5, layout.boss.z - 2, 1, 1);
       }
     }
   }
@@ -447,7 +460,8 @@ export class GameWorld {
       mesh(group, prop === 'forge' ? box : new THREE.OctahedronGeometry(1), accent, 0, 1.55, 0, .65, .45, .65);
     }
     const indicator = makeRing(1.5, theme.accent); indicator.name = 'indicator'; group.add(indicator);
-    this.addCollider(x, z, 1.5, 1.5); return group;
+    const footprint = prop === 'cage' ? [1.7, 1.7] : prop === 'siege' ? [1.8, 1.5] : prop === 'grave' ? [.8, .32] : prop === 'chest' ? [1.3, .95] : prop === 'ice' ? [1.6, 1.6] : [.65, .65];
+    this.addCollider(x, z, footprint[0], footprint[1]); return group;
   }
   makeChest(id: number, x: number, z: number): WorldChest {
     const group = new THREE.Group(); group.position.set(x, 0, z); this.scene.add(group);
@@ -490,30 +504,44 @@ export class GameWorld {
   addCollider(x: number, z: number, w: number, d: number) {
     const body = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(w / 2, 2, d / 2)), position: new CANNON.Vec3(x, 0, z) }); this.physics.addBody(body);
     this.obstacles.push({ x, z, w, d });
-    for (let ix = Math.floor(x - w / 2 - .35); ix <= Math.ceil(x + w / 2 + .35); ix++) for (let iz = Math.floor(z - d / 2 - .35); iz <= Math.ceil(z + d / 2 + .35); iz++) {
+    this.navigationGrid = undefined;
+    for (let ix = Math.ceil(x - w / 2); ix <= Math.floor(x + w / 2); ix++) for (let iz = Math.ceil(z - d / 2); iz <= Math.floor(z + d / 2); iz++) {
       const offset = this.gridOffset;
       if (ix + offset >= 0 && ix + offset < this.grid.width && iz + offset >= 0 && iz + offset < this.grid.height) this.grid.setWalkableAt(ix + offset, iz + offset, false);
     }
   }
-  body(x: number, z: number, radius = .4) {
+  body(x: number, z: number, radius = PLAYER_RADIUS) {
     const body = new CANNON.Body({ mass: 1, shape: new CANNON.Sphere(radius), position: new CANNON.Vec3(x, .5, z), linearDamping: .95, fixedRotation: true });
     body.linearFactor.set(1, 0, 1); body.updateMassProperties(); this.physics.addBody(body); return body;
   }
   path(from: { x: number; z: number }, to: { x: number; z: number }): THREE.Vector3[] {
     if (![from.x, from.z, to.x, to.z].every(Number.isFinite)) return [];
     if (this.canWalk(from, to)) return Math.hypot(to.x - from.x, to.z - from.z) > .1 ? [new THREE.Vector3(to.x, 0, to.z)] : [];
-    const offset = this.gridOffset, last = this.grid.width - 1;
-    const sx = Math.round(from.x) + offset, sy = Math.round(from.z) + offset;
-    const ex = Math.max(1, Math.min(last - 1, Math.round(to.x) + offset)), ey = Math.max(1, Math.min(last - 1, Math.round(to.z) + offset));
+    const scale = this.obstacles ? NAV_SCALE : 1;
+    const source = this.obstacles ? this.navigationGrid ??= collisionGrid(this.obstacles, this.gridOffset) : this.grid;
+    const offset = Math.floor(source.width / 2), last = source.width - 1;
+    let sx = Math.round(from.x * scale) + offset, sy = Math.round(from.z * scale) + offset;
+    const ex = Math.max(1, Math.min(last - 1, Math.round(to.x * scale) + offset)), ey = Math.max(1, Math.min(last - 1, Math.round(to.z * scale) + offset));
     if (sx < 0 || sy < 0 || sx > last || sy > last) return [];
+    // The exact actor position can be clear while its nearest sample is blocked.
+    if (this.obstacles && !source.isWalkableAt(sx, sy)) {
+      const starts: { x: number; y: number; distance: number }[] = [];
+      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+        const point = { x: (sx + dx - offset) / scale, z: (sy + dy - offset) / scale };
+        if (source.isWalkableAt(sx + dx, sy + dy) && this.canWalk(from, point)) starts.push({ x: sx + dx, y: sy + dy, distance: Math.hypot(point.x - from.x, point.z - from.z) });
+      }
+      starts.sort((a, b) => a.distance - b.distance);
+      if (!starts.length) return [];
+      sx = starts[0].x; sy = starts[0].y;
+    }
     const candidates: { x: number; y: number; distance: number }[] = [];
-    for (let dx = -4; dx <= 4; dx++) for (let dy = -4; dy <= 4; dy++) {
-      if (this.grid.isWalkableAt(ex + dx, ey + dy)) candidates.push({ x: ex + dx, y: ey + dy, distance: dx * dx + dy * dy + Math.hypot(ex + dx - sx, ey + dy - sy) * .001 });
+    for (let dx = -4 * scale; dx <= 4 * scale; dx++) for (let dy = -4 * scale; dy <= 4 * scale; dy++) {
+      if (source.isWalkableAt(ex + dx, ey + dy)) candidates.push({ x: ex + dx, y: ey + dy, distance: ((ex + dx - offset) / scale - to.x) ** 2 + ((ey + dy - offset) / scale - to.z) ** 2 + Math.hypot(ex + dx - sx, ey + dy - sy) * .001 });
     }
     candidates.sort((a, b) => a.distance - b.distance);
     let candidate = candidates[0];
     if (!candidate) return [];
-    const grid = this.grid.clone(); grid.setWalkableAt(sx, sy, true);
+    const grid = source.clone(); grid.setWalkableAt(sx, sy, true);
     let result = this.finder.findPath(sx, sy, candidate.x, candidate.y, grid);
     if (!result.length) {
       // A failed A* has already explored the whole reachable region. Reuse its
@@ -524,12 +552,12 @@ export class GameWorld {
       for (let node: SearchedNode | undefined = grid.getNodeAt(candidate.x, candidate.y); node; node = node.parent) result.push([node.x, node.y]);
       result.reverse();
     }
-    const points = PF.Util.compressPath(result).map(([x, z]) => new THREE.Vector3(x - offset, 0, z - offset));
+    const points = PF.Util.compressPath(result).map(([x, z]) => new THREE.Vector3((x - offset) / scale, 0, (z - offset) / scale));
     // A collision may push an actor into an inflated obstacle cell. Leave that
     // cell along the escape route instead of first walking deeper to its center.
-    if (!gridWalkable(this.grid, from)) points.shift();
+    if (!this.obstacles && !gridWalkable(this.grid, from)) points.shift();
     const exact = new THREE.Vector3(to.x, 0, to.z);
-    if (candidate.x === Math.round(to.x) + offset && candidate.y === Math.round(to.z) + offset && this.canWalk(points.at(-1)!, exact)) points.push(exact);
+    if (points.length && this.canWalk(points.at(-1)!, exact)) points.push(exact);
     const path: THREE.Vector3[] = [];
     let anchor = from;
     for (let i = 0; i < points.length;) {
@@ -541,7 +569,11 @@ export class GameWorld {
     }
     return path;
   }
-  canWalk(from: { x: number; z: number }, to: { x: number; z: number }) { return clearWalk(this.grid, from, to); }
+  canWalk(from: { x: number; z: number }, to: { x: number; z: number }) {
+    if (!this.obstacles) return clearWalk(this.grid, from, to);
+    const bound = this.gridOffset - PLAYER_RADIUS;
+    return Math.max(Math.abs(from.x), Math.abs(from.z), Math.abs(to.x), Math.abs(to.z)) < bound && clearObstacles(this.obstacles, from, to);
+  }
   paving() {
     const texture = stoneTexture();
     const materials = [0x69726c, 0x778077, 0x828379, 0x59665e, 0x7b8176].map(color => new THREE.MeshStandardMaterial({ color, map: texture, bumpMap: texture, bumpScale: .1, roughness: 1 }));

@@ -20,6 +20,7 @@ async function fixture(viewport = { width: 1440, height: 960 }, touch = false) {
   hero.alternate.weapon = weapon('lxb', 'test-crossbow');
   hero.inventory = [weapon('jav', 'test-javelin'), weapon('tkf', 'test-knife'), weapon('tax', 'test-axe'),
     { id: 'test-quiver', name: '箭矢', baseCode: 'aqv', misc: true, slot: 'amulet', rarity: 'common', power: 0, level: 1, value: 1 }];
+  hero.ammo = { arrows: 0, bolts: 0 }; hero.inventory.forEach(item => { if (!item.misc) item.quantity = 0; });
   hero.hp = stats(hero).maxHp; hero.mana = stats(hero).maxMana;
   await page.addInitScript(save => {
     if (!sessionStorage.getItem('ranged-fixture')) { localStorage.setItem('eclipse-ii-save-v1', save); sessionStorage.setItem('ranged-fixture', '1'); }
@@ -56,7 +57,7 @@ async function fire(page, kind, file) {
   await page.keyboard.down('Shift'); await page.mouse.down();
   await page.waitForFunction(kind => window.eclipseState.controls.projectiles.some(p => p.kind === kind), kind);
   const first = await state(page); await page.mouse.up(); await page.keyboard.up('Shift');
-  assert.equal(first.ranged.ammo, start.ranged.ammo - 1);
+  assert.equal(first.ranged.ammo, 'infinite');
   assert.ok(distance(start.position, first.position) < .03, 'Shooting does not move the hero');
   await page.waitForTimeout(50); const next = await state(page);
   assert.ok(next.controls.projectiles.length && distance(first.controls.projectiles[0], next.controls.projectiles[0]) > .1, 'Missile travels');
@@ -69,23 +70,22 @@ async function equip(page, id, kind) {
   await page.waitForFunction(kind => window.eclipseState.ranged.model === kind, kind);
 }
 try {
-  const page = await fixture(); await expect(page.locator('#ammo-label')).toHaveText('箭 60');
+  const page = await fixture(); await expect(page.locator('#ammo-label')).toHaveText('箭矢 ∞');
   await fire(page, 'arrow', 'desktop-bow');
   await page.keyboard.press('x'); await page.waitForFunction(() => window.eclipseState.ranged.model === 'crossbow');
   await fire(page, 'arrow', 'desktop-crossbow');
-  assert.deepEqual((await state(page)).ranged.reserves, { arrows: 59, bolts: 59 });
+  assert.deepEqual((await state(page)).ranged.reserves, { arrows: 0, bolts: 0 });
   await page.keyboard.press('x');
   await page.keyboard.press('i'); await page.locator('[data-item="test-quiver"]').click();
-  await page.locator('[data-use-ammo="test-quiver"]').click();
-  assert.equal((await state(page)).ranged.ammo, 119);
-  await expect(page.locator('[data-item="test-quiver"]')).toHaveCount(0); await page.keyboard.press('Escape');
+  await expect(page.locator('[data-use-ammo]')).toHaveCount(0);
+  await expect(page.locator('[data-item="test-quiver"]')).toHaveCount(1); await page.keyboard.press('Escape');
   for (const [id, kind] of [['test-javelin', 'javelin'], ['test-knife', 'knife'], ['test-axe', 'axe']]) {
     await equip(page, id, kind); await fire(page, 'throw', `desktop-${kind}`);
   }
   await page.keyboard.press('i'); await page.locator('[data-item="test-axe"]').click();
-  await expect(page.locator('.item-basics')).toContainText('129 / 130');
-  await page.locator('[data-action="repair"]').click();
-  assert.equal((await state(page)).ranged.ammo, 130); await page.keyboard.press('Escape');
+  await expect(page.locator('.item-basics')).toContainText('无限');
+  await expect(page.locator('[data-action="repair"]')).toBeDisabled();
+  await page.keyboard.press('Escape');
   await equip(page, 'test-bow', 'bow');
 
   // Walk to the existing supply service using its actual navigation route.
@@ -97,15 +97,13 @@ try {
   }
   await page.keyboard.press('f'); await page.locator('.panel-shop').waitFor();
   const gold = (await state(page)).gold;
-  await page.locator('[data-buy-ammo="arrows"]').click();
-  await page.locator('[data-buy-ammo="bolts"]').click();
-  assert.deepEqual((await state(page)).ranged.reserves, { arrows: 179, bolts: 119 });
-  assert.equal((await state(page)).gold, gold - 50);
+  await expect(page.locator('[data-buy-ammo]')).toHaveCount(0);
+  assert.equal((await state(page)).gold, gold);
   await page.screenshot({ path: `${output}/desktop-supply.png` }); await page.keyboard.press('Escape');
-  assert.deepEqual((await savedProfile(page)).hero.ammo, { arrows: 179, bolts: 119 });
+  assert.deepEqual((await savedProfile(page)).hero.ammo, { arrows: 0, bolts: 0 });
   await page.reload(); await page.getByRole('button', { name: '进入旅程', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.inCamp && !window.eclipseState.paused);
-  assert.deepEqual((await state(page)).ranged.reserves, { arrows: 179, bolts: 119 });
+  assert.deepEqual((await state(page)).ranged.reserves, { arrows: 0, bolts: 0 });
 
   await page.getByRole('button', { name: '远征传送阵', exact: true }).click();
   await page.locator('[data-enter-level="0"]').click();
@@ -126,7 +124,7 @@ try {
     const mobile = await fixture(viewport, true);
     const before = await state(mobile);
     await mobile.locator('#mobile-attack').tap();
-    await mobile.waitForFunction(() => window.eclipseState.ranged.ammo === 59);
+    await mobile.waitForFunction(() => window.eclipseState.projectiles > 0);
     assert.ok(distance(before.position, (await state(mobile)).position) < .03);
     await canvasCheck(mobile); await mobile.screenshot({ path: `${output}/mobile-${viewport.width}.png` });
     await mobile.close();

@@ -6,7 +6,7 @@ import { PaladinCombat } from '../src/combat.ts';
 import { newHero, stats, serializeSave, parseSave, repairEquipment, repairCost } from '../src/model.ts';
 import { BASES, makeItem, specialItem, itemMods, maxQuantity, quantityLeft } from '../src/items.ts';
 import { RANGED_BASES } from '../src/ranged-data.ts';
-import { buyAmmo, useAmmoBundle, clearShot } from '../src/ranged.ts';
+import { ammunition, clearShot } from '../src/ranged.ts';
 import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
 import { itemModifierLines, itemWeaponDamage } from '../src/item-description.ts';
 import type { Enemy, Game } from '../src/game.ts';
@@ -52,7 +52,7 @@ test('bows attack at range and apply damage only when the arrow reaches its targ
   const { combat, hero, enemy } = fixture(), target = enemy();
   assert.ok(combat.canReach(target, 'attack')); assert.equal(combat.reach('attack'), 14);
   combat.castAction('attack', true);
-  assert.equal(hero.ammo.arrows, 59); assert.equal(hero.ammo.bolts, 60); assert.equal(target.hp, 10000);
+  assert.equal(hero.ammo.arrows, 60); assert.equal(hero.ammo.bolts, 60); assert.equal(target.hp, 10000);
   combat.update(.1); assert.equal(target.hp, 10000);
   combat.update(.5); assert.ok(target.hp < 10000); assert.equal(combat.projectiles.length, 0);
 });
@@ -74,26 +74,35 @@ test('crossbows use bolts, dexterity scaling and a distinct attack cadence', t =
   const { combat, hero, enemy } = fixture('lxb'); enemy();
   const before = stats(hero).attack; hero.strength += 100; assert.equal(stats(hero).attack, before);
   hero.dexterity += 100; assert.ok(stats(hero).attack > before);
-  combat.castAction('attack', true); assert.equal(hero.ammo.arrows, 60); assert.equal(hero.ammo.bolts, 59);
+  combat.castAction('attack', true); assert.equal(hero.ammo.arrows, 60); assert.equal(hero.ammo.bolts, 60);
   assert.equal(combat.lock, stats(hero).rangedFrames / 25);
 });
 
-test('throwing consumes weapon quantity; repair and replenishment restore it without inventing ammo', t => {
+test('all ranged weapons keep firing with zero legacy reserves and never charge refill fees', t => {
   t.mock.method(Math, 'random', () => .5);
-  for (const code of ['jav', 'tkf', 'tax']) {
+  for (const code of ['sbw', 'lxb', 'jav', 'tkf', 'tax']) {
     const { combat, hero, enemy } = fixture(code), weapon = hero.equipment.weapon!; enemy();
-    const full = maxQuantity(weapon); combat.castAction('attack', true);
-    assert.equal(weapon.quantity, full - 1); assert.equal(hero.ammo.arrows, 60);
-    assert.equal(repairCost(hero), 1); hero.gold = 10; assert.ok(repairEquipment(hero)); assert.equal(weapon.quantity, full); assert.equal(hero.gold, 9);
-    weapon.quantity = full - 2; weapon.mods = { replenishQuantity: .5 }; combat.update(2); assert.equal(weapon.quantity, full - 1);
+    hero.ammo = { arrows: 0, bolts: 0 }; weapon.quantity = 0;
+    for (let shot = 0; shot < 20; shot++) {
+      combat.lock = 0; assert.equal(combat.castAction('attack', true), true);
+      combat.update(.6);
+    }
+    assert.equal(ammunition(hero), Infinity);
+    assert.equal(weapon.quantity, 0); assert.deepEqual(hero.ammo, { arrows: 0, bolts: 0 });
+    assert.equal(repairCost(hero), 0); hero.gold = 10; assert.ok(repairEquipment(hero)); assert.equal(hero.gold, 10);
+    if (weapon.maxDurability) {
+      weapon.durability = weapon.maxDurability - 1;
+      assert.ok(repairCost(hero) > 0, 'real durability still needs repair');
+    }
   }
 });
 
-test('empty ammo and bow-incompatible melee skills cannot create attacks or spend resources', () => {
-  const { combat, hero, enemy, messages } = fixture(); enemy(); hero.ammo.arrows = 0;
-  const mana = hero.mana; combat.castAction('attack', true); assert.equal(combat.projectiles.length, 0); assert.equal(combat.lock, 0); assert.equal(hero.mana, mana);
-  assert.ok(messages.includes('弹药已用尽'));
-  hero.skills.zeal = 4; combat.castAction('zeal', true); assert.equal(combat.zeal, null); assert.equal(hero.mana, mana);
+test('unlimited ammo does not bypass incompatible weapon or mana requirements', () => {
+  const { combat, hero, enemy } = fixture(); enemy(); hero.ammo.arrows = 0;
+  const mana = hero.mana; assert.ok(combat.castAction('attack', true)); assert.equal(hero.mana, mana);
+  combat.lock = 0; hero.skills.zeal = 4; assert.equal(combat.castAction('zeal', true), false);
+  assert.equal(combat.zeal, null); assert.equal(hero.mana, mana);
+  hero.skills.holyBolt = 1; hero.mana = 0; assert.equal(combat.castAction('holyBolt', true), false);
 });
 
 test('arrows hit the first body along the path even when enemy array order is reversed', t => {
@@ -213,13 +222,4 @@ test('Fist of Heavens bolts can leave an undead impact target and hit the surrou
   combat.update(.3); assert.ok(left.hp < 10000); assert.equal(right.hp, left.hp);
   combat.lock = combat.fohDelay = 0; game.aim.set(0, 0, 13); enemy(13);
   const mana = hero.mana; combat.castAction('fistOfHeavens', true); assert.equal(hero.mana, mana);
-});
-
-test('ammo purchases and existing quiver drops refill only their matching reserve', () => {
-  const { hero } = fixture(); hero.gold = 25; hero.ammo.arrows = 590;
-  assert.ok(buyAmmo(hero, 'arrows')); assert.equal(hero.ammo.arrows, 600); assert.equal(hero.gold, 0);
-  assert.equal(buyAmmo(hero, 'bolts'), false);
-  hero.inventory.push({ id: 'quiver', name: 'Bolts', baseCode: 'cqv', misc: true, slot: 'amulet', rarity: 'common', power: 0, level: 1, value: 1 });
-  assert.ok(useAmmoBundle(hero, 'quiver')); assert.equal(hero.ammo.bolts, 120); assert.equal(hero.inventory.length, 0);
-  assert.equal(useAmmoBundle(hero, 'quiver'), false);
 });

@@ -76,11 +76,22 @@ test('all active Amazon and Sorceress skills produce damage, movement, summons o
     tick(3);assert.ok(target.hp<target.maxHp||target.poison,`${skill.id} must hurt its target`);
   }
 });
-test('multi-shot consumes one arrow and never shotguns a single body, magic arrow needs no ammo',t=>{
+test('multi-shot uses unlimited arrows and never shotguns a single body, magic arrow needs no ammo',t=>{
   t.mock.method(Math,'random',()=>.4);const {hero,combat,enemy,tick}=classFixture('amazon');swapWeapons(hero);hero.skills.multipleShot=20;const target=enemy(2),ammo=hero.ammo.arrows;
-  const initial=target.hp;combat.castAction('multipleShot');assert.equal(hero.ammo.arrows,ammo-1);assert.equal(combat.classes.missiles.length,21);tick(1);
+  const initial=target.hp;combat.castAction('multipleShot');assert.equal(hero.ammo.arrows,ammo);assert.equal(combat.classes.missiles.length,21);tick(1);
   const multi=initial-target.hp;combat.lock=0;target.hp=initial;combat.castAction('attack');tick(1);assert.ok(Math.abs(multi-(initial-target.hp)*.75)<2);
   combat.lock=0;hero.ammo.arrows=0;combat.castAction('magicArrow');assert.equal(combat.classes.missiles.length,1);tick(1);assert.ok(target.hp<initial);
+});
+
+test('Amazon bow and javelin skills including strafe work with empty legacy ammunition', () => {
+  for (const id of ['strafe', 'multipleShot', 'guidedArrow', 'lightningFury', 'poisonJavelin'] as const) {
+    const { hero, combat, enemy, tick } = classFixture('amazon');
+    if (['strafe', 'multipleShot', 'guidedArrow'].includes(id)) swapWeapons(hero);
+    hero.ammo = { arrows: 0, bolts: 0 }; hero.equipment.weapon!.quantity = 0; const target = enemy();
+    assert.equal(combat.castAction(id), true, id);
+    tick(.3); assert.ok(combat.classes.missiles.length || combat.classes.fields.length || target.hp < target.maxHp, id);
+    assert.equal(hero.ammo.arrows, 0); assert.equal(hero.equipment.weapon!.quantity, 0);
+  }
 });
 test('static field respects immunity and nightmare/hell floors; mastery does not multiply it',()=>{
   for(const diff of [0,1,2] as const){const {hero,combat,enemy}=classFixture('sorceress');hero.difficultyLevel=diff;hero.skills.lightningMastery=20;hero.equipment.weapon!.mods={aura_conviction:20,lightningPierce:50,lightningSkillDamage:50};const target=enemy(2);target.hp=target.maxHp=1000;

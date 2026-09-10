@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import PF from 'pathfinding';
 import { GameWorld } from '../src/world.ts';
-import { clearWalk, followPath } from '../src/navigation.ts';
+import { clearWalk, clearObstacles, followPath, type Obstacle } from '../src/navigation.ts';
 
 function fixture(size = 31) {
   const world = Object.create(GameWorld.prototype) as GameWorld;
@@ -77,4 +77,45 @@ test('waypoints transition without a zero-velocity frame and short steps never o
   assert.equal(short.length, 0);
   const remaining = [{ x: 0, z: 4 }];
   assert.deepEqual(followPath(position, remaining, 0, .05), { x: 0, z: 0 }); assert.equal(remaining.length, 1);
+});
+
+function collisionFixture(obstacles: Obstacle[]) {
+  const { world } = fixture(); world.obstacles = obstacles; return world;
+}
+
+test('physical clearance allows walking beside small props and through a body-width gap', () => {
+  const prop = { x: 0, z: 0, w: 1, d: 1 }, world = collisionFixture([prop]);
+  assert.equal(world.canWalk({ x: -4, z: 1 }, { x: 4, z: 1 }), true, 'no extra grid tile beside a half-unit edge');
+  assert.equal(world.canWalk({ x: -4, z: .8 }, { x: 4, z: .8 }), false, 'the player radius still collides');
+  const narrow = collisionFixture([{ x: 0, z: -1.1, w: 8, d: 1 }, { x: 0, z: 1.1, w: 8, d: 1 }]);
+  assert.equal(narrow.canWalk({ x: -5, z: 0 }, { x: 5, z: 0 }), true);
+  assert.equal(narrow.path({ x: -5, z: 0 }, { x: 5, z: 0 }).length, 1);
+});
+
+test('swept circles detect thin walls and rounded corners at arbitrary angles', () => {
+  const obstacles = [{ x: 0, z: 0, w: 1, d: 1 }];
+  assert.equal(clearObstacles(obstacles, { x: -2, z: .7 }, { x: 2, z: .7 }), false);
+  assert.equal(clearObstacles(obstacles, { x: .82, z: .82 }, { x: 2, z: 2 }), true, 'rounded corner is traversable');
+  assert.equal(clearObstacles([{ x: 0, z: 0, w: .02, d: 3 }], { x: -6, z: 0 }, { x: 6, z: 0 }), false);
+  assert.equal(clearObstacles(obstacles, { x: .9, z: 0 }, { x: 2, z: 1 }), true, 'can escape a physical contact');
+  assert.equal(clearObstacles(obstacles, { x: .9, z: 0 }, { x: .6, z: 1 }), false);
+});
+
+test('physical routes preserve clearance from off-grid starts and steer around corners continuously', () => {
+  const world = collisionFixture([{ x: 0, z: 0, w: 1.3, d: 4.7 }]);
+  for (const start of [{ x: -5.13, z: .17 }, { x: -1.1, z: 0 }, { x: -3, z: 1.7 }]) {
+    const position = { ...start }, to = { x: 4.73, z: .29 }, path = world.path(position, to);
+    assert.ok(path.length >= 2);
+    let anchor = position;
+    for (const point of path) { assert.ok(world.canWalk(anchor, point), JSON.stringify({ anchor, point })); anchor = point; }
+    let arbitraryAngle = false;
+    for (let frame = 0; frame < 400 && path.length; frame++) {
+      const velocity = followPath(position, path, 5.2, 1 / 60, (a, b) => world.canWalk(a, b));
+      const end = { x: position.x + velocity.x / 60, z: position.z + velocity.z / 60 };
+      assert.ok(world.canWalk(position, end), 'lookahead cannot cut through a building');
+      if (Math.abs(velocity.x) > .1 && Math.abs(velocity.z) > .1 && Math.abs(Math.abs(velocity.x) - Math.abs(velocity.z)) > .1) arbitraryAngle = true;
+      Object.assign(position, end);
+    }
+    assert.ok(arbitraryAngle); assert.ok(Math.hypot(position.x - to.x, position.z - to.z) < .13);
+  }
 });

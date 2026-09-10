@@ -1,6 +1,7 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { newHero, gainXp, learnSkill, stats, serializeSave } from '../src/model.ts';
+import { BASES, makeItem } from '../src/items.ts';
 import { SKILLS, EXPERIENCE } from '../src/paladin.ts';
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -134,6 +135,28 @@ try {
   const detour = await advance(240), arrival = detour.at(-1);
   assert.ok(detour.every(s => !s.path || s.speed > 0), 'detour waypoints never insert an idle frame');
   assert.ok(Math.hypot(arrival.x + 7, arrival.z - 11) < .2, `detour arrives: ${JSON.stringify(arrival)}`);
+
+  // The unrounded corridor beside the camp table is physically clear, even
+  // though the old inflated integer grid marked it as a wall.
+  await reset();
+  await page.evaluate(() => {
+    const g = window.navigationGame;
+    g.body.position.set(3.3, .5, 9.9); g.position.set(3.3, 0, 9.9);
+    g.moveTo(g.position.clone().set(9.6, 0, 9.9));
+  });
+  const besideTable = await advance(110);
+  assert.ok(besideTable.every(s => Math.abs(s.z - 9.9) < .05), 'passes the visible table edge without an air-wall detour');
+  assert.ok(Math.abs(besideTable.at(-1).x - 9.6) < .13, 'real physics permits the same close route as navigation');
+
+  await reset();
+  const item = makeItem(BASES[0]); Object.assign(item, { name: '锐利的短剑之火焰', identified: false, rarity: 'magic', sockets: 2 });
+  const label = await page.evaluate(item => {
+    const g = window.navigationGame, id = g.nextId++;
+    g.addLoot({ id, x: 1, z: 10, item, mesh: g.actor.group.clone(false) });
+    g.ui.update(1 / 60);
+    return document.querySelector(`[data-loot="${id}"]`).textContent;
+  }, item);
+  assert.equal(label, `${item.base} [2孔]`, 'live ground label hides the affix and keeps sockets');
   assert.deepEqual(errors, []);
   console.log('Idle/arrival facing, continuous click and drag, fractional arrival, zero-A* open movement, cast recovery, rejected skills and collider detours passed');
 } finally { await browser.close(); }

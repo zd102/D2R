@@ -94,6 +94,12 @@ export function weaponType(item: Item) { return BASES.find(base => base.name ===
 export function rangedBase(item: Item | null | undefined) { return item?.slot === 'weapon' ? RANGED_BASES[item.baseCode ?? BASES.find(base => base.name === (item.base ?? item.name))?.baseCode ?? ''] : undefined; }
 export function maxQuantity(item: Item) { const base = rangedBase(item); return base?.stack ? base.stack + Math.max(0, itemMods(item).extraQuantity ?? 0) : 0; }
 export function quantityLeft(item: Item) { return Math.max(0, Math.min(maxQuantity(item), item.quantity ?? maxQuantity(item))); }
+export function groundItemName(item: Item) {
+  const name = item.identified === false
+    ? item.base ?? (item.baseCode ? BASES.find(base => base.baseCode === item.baseCode)?.name : undefined) ?? slotNames[item.slot]
+    : item.name;
+  return `${name}${item.sockets ? ` [${item.sockets}孔]` : ''}`;
+}
 export const itemId = () => globalThis.crypto.randomUUID?.() ?? globalThis.crypto.getRandomValues(new Uint32Array(4)).join('-');
 export const footprint = (item: Item): [number, number] => [item.width ?? (['ring', 'ring2', 'amulet'].includes(item.slot) ? 1 : 2), item.height ?? (item.slot === 'weapon' || item.slot === 'armor' || item.slot === 'shield' ? 3 : ['ring', 'ring2', 'amulet', 'belt'].includes(item.slot) ? 1 : 2)];
 export function makeItem(base: ItemBase, id: string = itemId()): Item {

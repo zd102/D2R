@@ -16,6 +16,10 @@ hero.hp = stats(hero).maxHp; hero.equipment.weapon.mods = { attackRating: 3000 }
 async function start(viewport, touch = false) {
   const page = await browser.newPage({ viewport, isMobile: touch, hasTouch: touch });
   page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/src/main.ts*', async route => {
+    const response = await route.fetch(), body = await response.text();
+    await route.fulfill({ response, body: body.replace('const game = new Game();', 'const game = new Game(); window.mapVerification = game;') });
+  });
   await page.addInitScript(({ hero, prefix }) => {
     if (sessionStorage.getItem('maps-fixture')) return;
     localStorage.setItem(prefix + 'map-test', JSON.stringify({ version: 2, id: 'map-test', name: '探索者', createdAt: 1, updatedAt: 1, revision: 1, hero }));
@@ -66,6 +70,18 @@ try {
       assert.ok(p.route.length, `${level.id}: path to ${p.kind ?? 'chest'} ${p.id}`);
       const end = p.route.at(-1); assert.ok(Math.hypot(end.x - p.x, end.z - p.z) <= (p.kind === 'quest' ? 3.4 : 3), `${level.id}: interactable ${p.kind ?? 'chest'} ${p.id}`);
     }
+    const blockedSegments = await page.evaluate(points => {
+      const g = window.mapVerification, failures = [];
+      for (const target of points) {
+        let from = g.position;
+        for (const to of g.world.path(from, target)) {
+          if (!g.world.canWalk(from, to)) failures.push({ from: { x: from.x, z: from.z }, to: { x: to.x, z: to.z }, target });
+          from = to;
+        }
+      }
+      return failures;
+    }, [...s.objectives, ...s.chests].map(p => ({ x: p.x, z: p.z })));
+    assert.deepEqual(blockedSegments, [], `${level.id}: every route segment clears physical building footprints`);
     await pixels(page);
     if ([0, 3, 8, 11, 17, 21].includes(level.index)) {
       await page.keyboard.press('m'); await page.screenshot({ path: `${output}/layout-${level.index}.png` }); await page.keyboard.press('Escape');

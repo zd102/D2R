@@ -4,7 +4,7 @@ import type { PaladinCombat, Projectile, AttackSnapshot } from './combat.ts';
 import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
 import { skillValues, skillName, type SkillValues, type SkillId, type DamageType } from './paladin.ts';
 import { skillLevel, stats, difficulty } from './model.ts';
-import { consumeAmmo, clearShot } from './ranged.ts';
+import { clearShot } from './ranged.ts';
 import { weaponType, itemMods } from './items.ts';
 import { itemDamage } from './item-effects.ts';
 import { createActor, animateActor, gridWalkable, makeRing, type Actor } from './world.ts';
@@ -55,7 +55,6 @@ export class ClassCombat {
     if(['teleport','meteor','fireWall','blizzard','valkyrie','dopplezon','hydra'].includes(id)) { destination=this.destination(point,id==='teleport');if(!destination) {g.ui.toast('该位置不可到达');return false;} }
     if(['chainLightning','telekinesis'].includes(id)&&!target&&!utility) {g.ui.toast('没有可作用的目标');return false;}
     if(h.mana<v.cost) {g.ui.toast('法力不足');return false;}
-    if(rangedSkills(id)&&!consumeAmmo(h,s.weapon!,id==='magicArrow')) {g.ui.toast('弹药已用尽');return false;}
     h.mana-=v.cost;c.lock=(mode==='bow'||mode==='javelin'?s.rangedFrames:mode==='spear'?s.attackFrames:['lightning','chainLightning'].includes(id)?s.lightningFrames:s.castFrames)/25;
     this.delays[id]=delays[id]??0;g.attackTime=1;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.audio.play(rangedSkills(id)?'shot':'spell');
     if(target&&['bow','javelin','spear'].includes(mode??''))c.triggerItems('att-skill',target);
@@ -182,7 +181,7 @@ export class ClassCombat {
     for(const id of Object.keys(this.delays) as ExtraSkillId[])this.delays[id]=Math.max(0,this.delays[id]!-dt);
     for(const [id,buff] of Object.entries(h.buffs??{})) {buff.remaining=Math.max(0,buff.remaining-dt);if(!buff.remaining)delete h.buffs[id as SkillId];}
     for(const enemy of g.enemies){const debuff=this.debuffs.get(enemy);if(debuff){debuff.sight=Math.max(0,debuff.sight-dt);debuff.missiles=Math.max(0,debuff.missiles-dt);}}
-    if(this.sequence){const seq=this.sequence;seq.timer-=dt;if(seq.timer<=0){const {direction,target}=this.aim(seq.aimed);if(seq.id==='strafe'){const s=stats(h);if(!s.weapon||!s.ranged||s.ranged.stack||!seq.first&&!consumeAmmo(h,s.weapon)){this.sequence=undefined;}else this.missile(seq.id,g.position,direction,this.value(seq.id),c.snapshot(),target);}else this.spear(seq.id,direction,seq.id==='fend'?false:seq.aimed,seq.id==='fend'?seq.seen:undefined);seq.first=false;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.attackTime=1;if(--seq.remaining<=0)this.sequence=undefined;else seq.timer=seq.id==='strafe'?Math.max(.08,stats(h).rangedFrames/100):.22;}}
+    if(this.sequence){const seq=this.sequence;seq.timer-=dt;if(seq.timer<=0){const {direction,target}=this.aim(seq.aimed);if(seq.id==='strafe'){const s=stats(h);if(!s.weapon||!s.ranged||s.ranged.stack){this.sequence=undefined;}else this.missile(seq.id,g.position,direction,this.value(seq.id),c.snapshot(),target);}else this.spear(seq.id,direction,seq.id==='fend'?false:seq.aimed,seq.id==='fend'?seq.seen:undefined);seq.first=false;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.attackTime=1;if(--seq.remaining<=0)this.sequence=undefined;else seq.timer=seq.id==='strafe'?Math.max(.08,stats(h).rangedFrames/100):.22;}}
     for(let i=this.missiles.length-1;i>=0;i--)if(!this.updateMissile(this.missiles[i],dt)){g.disposeObject(this.missiles[i].mesh);this.missiles.splice(i,1);}
     for(let i=this.fields.length-1;i>=0;i--){const f=this.fields[i];if(f.delay>0){f.delay-=dt;continue;}f.life-=dt;f.tick-=dt;
       if(f.life<=0){g.disposeObject(f.mesh);this.fields.splice(i,1);continue;}

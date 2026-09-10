@@ -8,7 +8,7 @@ import { affixById } from './affixes.ts';
 import { catalogSetBonuses, CLASS_NAMES } from './item-catalog.ts';
 import { filledSockets } from './items.ts';
 import type { SkillSlot } from './controls.ts';
-import { rangedBase, maxQuantity, quantityLeft } from './items.ts';
+import { rangedBase } from './items.ts';
 import { CLASSES, isClassId, type ClassId } from './classes.ts';
 import { skillsForClass, isPassive } from './paladin.ts';
 export { rarityNames, slotNames, rollItem, SLOTS } from './items.ts';
@@ -228,8 +228,8 @@ export function sellItem(hero: HeroState, id: string) {
   const index = container.findIndex(item => item.id === id);
   hero.gold += container[index].value; container.splice(index, 1); clampResources(hero); return true;
 }
-export function repairCost(hero: HeroState) { return [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item?.maxDurability ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0) + (item ? maxQuantity(item) - quantityLeft(item) : 0), 0); }
-export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item) { if (item.maxDurability) item.durability = item.maxDurability; if (maxQuantity(item)) item.quantity = maxQuantity(item); } return true; }
+export function repairCost(hero: HeroState) { return [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item?.maxDurability ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0), 0); }
+export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item) { if (item.maxDurability) item.durability = item.maxDurability; } return true; }
 export function respec(hero: HeroState) {
   const diff = difficulty(hero); if (hero.respecUsed.includes(diff) || !hero.questRewards.includes(`${diff}:shrine0`)) return false;
   const base = CLASSES[hero.classId].attributes;

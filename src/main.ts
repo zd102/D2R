@@ -9,7 +9,6 @@ import './shared-stash.css';
 import { Game } from './game';
 import { levelLayout, questComplete } from './campaign';
 import { CAMP } from './camp';
-import { ammunition } from './ranged';
 import { stats } from './model';
 import { refreshSharedStorage } from './shared-storage';
 
@@ -34,7 +33,7 @@ try {
     skills: { ...game.hero.skills }, skillPoints: game.hero.skillPoints, points: game.hero.points,
     activeAura: game.hero.activeAura, bindings: { ...game.hero.bindings }, holyShield: game.hero.holyShield,
     stamina: game.hero.stamina, weaponSet: game.hero.weaponSet, projectiles: game.combat.projectiles.length,
-    ranged: { kind: stats(game.hero).ranged?.kind ?? null, ammo: ammunition(game.hero), reserves: { ...game.hero.ammo }, model: game.actor.group.userData.rangedKind ?? null },
+    ranged: { kind: stats(game.hero).ranged?.kind ?? null, ammo: stats(game.hero).ranged ? 'infinite' : 0, reserves: { ...game.hero.ammo }, model: game.actor.group.userData.rangedKind ?? null },
     enemyProjectiles: game.monsterCombat.missiles.length, enemyHazards: game.monsterCombat.hazards.length,
     enemies: game.enemies.filter(e => !e.dead).map(e => ({ id: e.id, name: e.name, species: e.definition?.id, model: e.definition?.model, attacks: e.definition?.attacks, cast: game.monsterCombat.telegraph(e), summoned: !!e.summoned, boss: e.boss, elite: !!e.elite, level: e.level, hp: e.hp, maxHp: e.maxHp, x: e.actor.group.position.x, z: e.actor.group.position.z, screen: game.project(e.actor.group.position.clone().setY(1)), ...(e.elite ? { route: game.world.path(game.position, e.actor.group.position).map(p => ({ x: p.x, z: p.z, screen: game.project(p) })) } : {}) })),
     objectives: (game.inCamp ? [{ ...CAMP.portal, kind: 'camp-portal', id: 0 }, { ...CAMP.supply, kind: 'supply', id: 0 }] : [...levelLayout(game.level).objects.map((p, id) => ({ ...p, kind: 'quest', id })), { ...levelLayout(game.level).boss, kind: 'boss', id: 0 }, { ...levelLayout(game.level).supply, kind: 'supply', id: 0 }, { ...levelLayout(game.level).exit, kind: 'exit', id: 0 }]).map(point => ({ ...point, screen: game.project(game.world.portal.position.clone().set(point.x, .3, point.z)), route: game.world.path(game.position, point).map(p => ({ x: p.x, z: p.z, screen: game.project(p) })) })),

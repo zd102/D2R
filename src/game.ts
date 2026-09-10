@@ -680,11 +680,14 @@ export class Game {
     }
     const locked = this.combat.zeal || this.combat.classes.sequence || this.combat.lock > .1;
     const speed = locked ? 0 : (this.hero.running && this.hero.stamina > 0 ? 5.2 : 3) * s.runSpeed;
-    if (navigating) { const velocity = followPath(this.position, this.path, speed, dt); vx = velocity.x; vz = velocity.z; }
+    if (navigating) { const velocity = followPath(this.position, this.path, speed, dt, (from, to) => this.world.canWalk(from, to)); vx = velocity.x; vz = velocity.z; }
     else { vx *= speed; vz *= speed; }
     this.combat.moving = !!(vx || vz); this.combat.running = this.combat.moving && this.hero.running && this.hero.stamina > 0;
     this.body.velocity.set(vx, 0, vz);
-    if (vx || vz) this.actor.group.rotation.y = Math.atan2(vx, vz);
+    if (vx || vz) {
+      const angle = Math.atan2(vx, vz), facing = this.actor.group.rotation.y;
+      this.actor.group.rotation.y += Math.atan2(Math.sin(angle - facing), Math.cos(angle - facing)) * (1 - Math.exp(-dt * 20));
+    }
     if (this.path.length) this.marker.position.set(this.path.at(-1)!.x, .08, this.path.at(-1)!.z);
     this.marker.visible = this.path.length > 0;
     this.monsterCombat.update(dt); if (this.dead) return;

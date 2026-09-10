@@ -5,8 +5,8 @@ import { skillValues, isAura, tierValue, PALADIN_BALANCE, type ActionId, type Da
 import { makeRing, gridWalkable } from './world.ts';
 import { questComplete } from './campaign.ts';
 import { isUndead, leechEffectiveness } from './bestiary.ts';
-import { itemMods, quantityLeft, maxQuantity, weaponType, type Item } from './items.ts';
-import { consumeAmmo, clearShot } from './ranged.ts';
+import { itemMods, weaponType, type Item } from './items.ts';
+import { clearShot } from './ranged.ts';
 import { elementalDamage, poisonDamage } from './affixes.ts';
 import { itemDamage, absorbDamage, openWoundsDps } from './item-effects.ts';
 import type { SkillId } from './paladin.ts';
@@ -91,7 +91,6 @@ export class PaladinCombat {
     direction.y = 0; direction.normalize(); if (!direction.lengthSq()) direction.set(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
     const casting = ['holyBolt', 'blessedHammer', 'holyShield', 'fistOfHeavens'].includes(id);
     const ranged = id === 'attack' && s.ranged && s.weapon;
-    if (ranged && !consumeAmmo(h, s.weapon!, !s.mods.explosiveArrowLevel && !!s.mods.magicArrowLevel)) { if (!this.ammoWarning) g.ui.toast('弹药已用尽', s.ranged?.stack ? '维修可补充投掷武器' : '旅者补给可购买箭矢'); this.ammoWarning = 1; return false; }
     this.lock = (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25;
     h.mana -= v.cost; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
     if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play('spell'); g.save(false); return true; }
@@ -309,10 +308,6 @@ export class PaladinCombat {
   update(dt: number) {
     const g = this.game, h = g.hero, s = stats(h);
     this.ammoWarning = Math.max(0, this.ammoWarning - dt);
-    for (const item of activeEquipment(h)) if (maxQuantity(item) && itemMods(item).replenishQuantity) {
-      const key = `quantity:${item.id}`, progress = (this.repairTime.get(key) ?? 0) + dt * itemMods(item).replenishQuantity!;
-      item.quantity = Math.min(maxQuantity(item), quantityLeft(item) + Math.floor(progress)); this.repairTime.set(key, progress % 1);
-    }
     const light = g.actor.group.getObjectByName('hero-light');
     if (light instanceof THREE.PointLight) light.distance = 7 * (13 + Math.max(-12, Math.min(5, s.mods.lightRadius ?? 0))) / 13;
     for (const item of Object.values(h.equipment)) if (item?.maxDurability && item.durability !== undefined && itemMods(item).repairDurability) {
