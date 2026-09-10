@@ -5,6 +5,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ACTS, LEVELS, FIELD_BOUND, levelLayout, type Level, type QuestProp } from './campaign.ts';
 import { CAMP } from './camp.ts';
 import type { ClassId } from './classes.ts';
+import { createHeroActor } from './hero-models.ts';
+import { createMonsterActor } from './monster-models.ts';
+import { BOSSES, MONSTERS } from './bestiary.ts';
 import { clearWalk, clearObstacles, collisionGrid, NAV_SCALE, PLAYER_RADIUS, type Obstacle } from './navigation.ts';
 import { sceneDesign } from './scene-design.ts';
 import { buildLevelScenery } from './level-scenery.ts';
@@ -93,123 +96,10 @@ function stoneTexture() {
 }
 export type Actor = { group: THREE.Group; leftLeg: THREE.Group; rightLeg: THREE.Group; leftArm: THREE.Group; rightArm: THREE.Group; cape?: THREE.Mesh; kind: string; animate?: (time: number, moving: boolean, attacking: number) => void };
 export function createActor(kind: 'hero' | 'skeleton' | 'demon' | 'boss', classId: ClassId = 'paladin'): Actor {
-  const group = new THREE.Group(), upper = new THREE.Group(); group.add(upper);
-  const hero = kind === 'hero', skeleton = kind === 'skeleton', boss = kind === 'boss', female = hero && classId !== 'paladin', sorceress = classId === 'sorceress';
-  const flesh=mat(0xc39570), hair=mat(sorceress?0x211c26:0xd1aa55), robe=mat(sorceress?0x277f91:0x766a39,.2);
-  group.userData.classId=hero?classId:undefined;
-  const skin = hero ? female ? robe : steel : skeleton ? bone : boss ? mat(0x533a42, .4) : mat(0x694a46);
-  const torso = mesh(upper, sphere, skin, 0, 1.03, 0, .3, .39, .21);
-  if (hero) {
-    if(!female) {mesh(upper, box, gold, 0, 1.05, .22, .055, .42, .035);
-    mesh(upper, box, gold, 0, 1.19, .23, .4, .055, .035);}
-    else {torso.scale.set(.25,.36,.19);mesh(upper,sphere,gold,0,1.26,.18,.07,.09,.035);}
-    mesh(upper, cylinder, leather, 0, .79, 0, .31, .09, .22);
-    mesh(upper, box, gold, 0, .79, .22, .11, .11, .055);
-    mesh(upper, cone, female?robe:steel, 0, sorceress?.45:.65, 0, sorceress?.37:.31, sorceress?.9:.35, .26);
-  } else if (skeleton) {
-    torso.scale.set(.09, .32, .1);
-    for (let i = 0; i < 4; i++) {
-      const rib = mesh(upper, new THREE.TorusGeometry(.20 - i * .017, .028, 5, 10, Math.PI * 1.75), bone, 0, 1.15 - i * .11, .01);
-      rib.rotation.x = Math.PI / 2;
-    }
-  } else {
-    mesh(upper, cone, black, 0, 1.35, -.06, .4, .45, .25).rotation.x = -.4;
-    for (const side of [-1, 1]) beam(upper, [side * .25, 1.2, 0], [side * .75, 1.4, -.15], .11, skin);
-  }
-  mesh(upper, sphere, hero ? female?flesh:steel : skin, 0, 1.54, 0, female?.17:.205, .245, .185);
-  if (female) {
-    mesh(upper,sphere,hair,0,1.7,-.045,.19,.14,.18);
-    mesh(upper,sphere,hair,0,1.47,-.13,.18,.28,.09);
-    for(const side of [-1,1]) {mesh(upper,box,black,side*.07,1.57,.169,.04,.025,.025);mesh(upper,cylinder,gold,side*.16,1.47,.02,.023,.11,.023);}
-    mesh(upper,box,gold,0,1.7,.14,.3,.025,.04);
-    if(!sorceress)mesh(upper,sphere,hair,0,1.2,-.22,.07,.3,.075);
-  } else if (hero) {
-    mesh(upper, box, black, 0, 1.57, .174, .30, .075, .025);
-    mesh(upper, box, gold, 0, 1.61, .2, .035, .25, .026);
-    mesh(upper, box, gold, 0, 1.76, -.01, .04, .08, .34);
-  } else {
-    mesh(upper, box, skin, 0, 1.38, .07, .23, .09, .20);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: skeleton ? 0x90f9c9 : 0xff592b });
-    for (const side of [-1, 1]) {
-      mesh(upper, sphere, black, side * .087, 1.57, .16, .072, .071, .025);
-      mesh(upper, sphere, eyeMat, side * .087, 1.57, .18, .027, .023, .015);
-      if (!skeleton) {
-        const horn = mesh(upper, cone, bone, side * .22, 1.82, -.05, .09, .45, .10); horn.rotation.z = -side * .6;
-      }
-    }
-    mesh(upper, cone, black, 0, 1.48, .18, .035, .075, .015).rotation.z = Math.PI;
-  }
-  const leftLeg = new THREE.Group(), rightLeg = new THREE.Group();
-  for (const [leg, side] of [[leftLeg, -1], [rightLeg, 1]] as const) {
-    leg.position.set(side * .16, .72, 0); group.add(leg);
-    mesh(leg, cylinder, hero ? leather : skin, 0, -.18, 0, .09, .36, .09);
-    mesh(leg, sphere, hero ? gold : skin, 0, -.36, .025, .105, .105, .10);
-    mesh(leg, cylinder, skin, 0, -.49, 0, hero ? .115 : .07, .28, .095);
-    mesh(leg, box, hero ? iron : skin, 0, -.66, .055, .17, .13, .29);
-  }
-  const leftArm = new THREE.Group(), rightArm = new THREE.Group();
-  for (const [arm, side] of [[leftArm, -1], [rightArm, 1]] as const) {
-    arm.position.set(side * .33, 1.23, 0); upper.add(arm);
-    mesh(arm, sphere, skin, side * .04, -.02, 0, hero && !female ? .18 : .11, .14, .17);
-    if (hero) mesh(arm, cone, gold, side * .04, .08, 0, .16, .07, .16);
-    beam(arm, [0, -.06, 0], [side * .06, -.38, .09], .073, female?flesh:hero ? leather : skin);
-    mesh(arm, sphere, female?flesh:hero ? steel : skin, side * .06, -.4, .10, .10, .12, .09);
-  }
-  if (hero || skeleton) {
-    const sword = new THREE.Group(); sword.position.set(.06, -.35, .18); rightArm.add(sword); if (hero) sword.name = 'hero-weapon';
-    mesh(sword, cylinder, leather, 0, 0, 0, .038, .27, .038).rotation.x = Math.PI / 2;
-    mesh(sword, box, gold, 0, 0, .14, .37, .065, .07);
-    mesh(sword, box, steel, 0, 0, .67, .095, .036, 1.04);
-    mesh(sword, cone, steel, 0, 0, 1.25, .067, .2, .03).rotation.x = Math.PI / 2;
-    if (hero) {
-      const staff=new THREE.Group();staff.name='hero-staff';staff.position.copy(sword.position);rightArm.add(staff);staff.visible=false;
-      beam(staff,[0,-.6,.05],[0,1.4,.05],.04,leather);mesh(staff,new THREE.TorusGeometry(.15,.025,5,12),gold,0,1.5,.05);
-      mesh(staff,new THREE.IcosahedronGeometry(.10,1),new THREE.MeshStandardMaterial({color:0x96dfee,emissive:0x368ba9,emissiveIntensity:.7}),0,1.5,.05);
-      const shape = new THREE.Shape(); shape.moveTo(-.29, .3); shape.lineTo(.29, .3); shape.lineTo(.26, -.08); shape.lineTo(0, -.4); shape.lineTo(-.26, -.08); shape.closePath();
-      const shield = mesh(leftArm, new THREE.ExtrudeGeometry(shape, { depth: .065, bevelEnabled: true, bevelThickness: .025, bevelSize: .02, bevelSegments: 1 }), iron, -.10, -.26, .29);
-      shield.rotation.y = -.25; shield.name = 'hero-shield';
-      mesh(shield, box, gold, 0, -.015, .09, .046, .53, .022);
-      mesh(shield, box, gold, 0, .12, .09, .42, .04, .022);
-      const ranged = new THREE.Group(); ranged.name = 'hero-ranged'; ranged.position.copy(sword.position); rightArm.add(ranged);
-      for (const kind of ['bow', 'crossbow', 'javelin', 'knife', 'axe']) {
-        const weapon = new THREE.Group(); weapon.name = `hero-${kind}`; weapon.visible = false; ranged.add(weapon);
-        if (kind === 'bow') {
-          beam(weapon, [0, -.65, .1], [0, 0, .38], .045, gold); beam(weapon, [0, 0, .38], [0, .65, .1], .045, gold);
-          beam(weapon, [0, -.65, .1], [0, .65, .1], .009, bone);
-        } else if (kind === 'crossbow') {
-          mesh(weapon, box, leather, 0, 0, .25, .12, .1, .8);
-          beam(weapon, [-.45, 0, .35], [0, 0, .5], .04, steel); beam(weapon, [0, 0, .5], [.45, 0, .35], .04, steel);
-          beam(weapon, [-.45, 0, .35], [0, 0, .1], .009, bone); beam(weapon, [0, 0, .1], [.45, 0, .35], .009, bone);
-        } else {
-          const length = kind === 'javelin' ? 1.35 : .45;
-          beam(weapon, [0, 0, -.15], [0, 0, length], .035, leather);
-          if (kind === 'axe') mesh(weapon, box, steel, .12, 0, length, .35, .05, .22);
-          else mesh(weapon, cone, steel, 0, 0, length, .09, .3, .035).rotation.x = Math.PI / 2;
-        }
-      }
-    }
-  } else {
-    beam(rightArm, [.06, -.4, .1], [.1, .45, .12], .07, iron);
-    mesh(rightArm, new THREE.IcosahedronGeometry(.25, 0), iron, .1, .5, .12);
-    for (let i = 0; i < 4; i++) mesh(rightArm, cone, bone, .1 + Math.cos(i * Math.PI / 2) * .22, .5 + Math.sin(i * Math.PI / 2) * .22, .12, .07, .25, .07).rotation.z = i * Math.PI / 2 - Math.PI / 2;
-  }
-  let cape: THREE.Mesh | undefined;
-  if (hero || boss) {
-    const geo = new THREE.PlaneGeometry(.75, 1, 5, 7);
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); pos.setX(i, pos.getX(i) * (1.15 - y * .5)); pos.setZ(i, Math.sin(pos.getX(i) * 22) * .035 - (.5 - y) * .27); }
-    geo.computeVertexNormals();
-    cape = mesh(upper, geo, new THREE.MeshStandardMaterial({ color: boss ? 0x331722 : female ? sorceress?0x1c5868:0x3b5740 : 0x8a2433, side: THREE.DoubleSide, roughness: 1 }), 0, .87, -.24);
-    if(female)cape.scale.set(.7,sorceress?1:.6,1);
-  }
-  if (boss) group.scale.setScalar(2.05);
-  if (kind === 'demon') group.scale.setScalar(.92);
-  if(hero) {
-    // Hero actors survive area reloads and own the resources disposed on class changes.
-    const geometries=new Map<THREE.BufferGeometry,THREE.BufferGeometry>(), materials=new Map<THREE.Material,THREE.Material>();
-    group.traverse(node=>{if(node instanceof THREE.Mesh){if([box,sphere,cylinder,cone].includes(node.geometry)){if(!geometries.has(node.geometry))geometries.set(node.geometry,node.geometry.clone());node.geometry=geometries.get(node.geometry)!;}if([stone,edgeStone,darkStone,iron,gold,bone,cloth,steel,black,bark,moss,leather].includes(node.material)){if(!materials.has(node.material))materials.set(node.material,node.material.clone());node.material=materials.get(node.material)!;}}});
-  }
-  return { group, leftLeg, rightLeg, leftArm, rightArm, cape, kind };
+  if (kind === 'hero') return createHeroActor(classId);
+  const actor = createMonsterActor(kind === 'skeleton' ? MONSTERS.skeleton : kind === 'boss' ? BOSSES[19] : MONSTERS.fallen, kind === 'boss');
+  actor.kind = kind;
+  return actor;
 }
 
 export class GameWorld {

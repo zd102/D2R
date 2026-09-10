@@ -26,6 +26,7 @@ import { GameAudio } from './audio';
 import { UI } from './ui';
 import { keyboardSkills, movementInput, MOVEMENT_MODE_KEY, parseMovementMode, emptyCooldowns, type MovementMode, type SkillSlot } from './controls';
 import { followPath } from './navigation';
+import { createImpact, createLightning, disposeVisual, updateVisual } from './visual-effects';
 
 export type Enemy = { pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
@@ -711,20 +712,18 @@ export class Game {
     this.loadArea(false); this.ui.toast(this.level.name, `第 ${this.level.act + 1} 章 · 第 ${this.level.step + 1} 关`); return true;
   }
   burst(origin: THREE.Vector3, color: number, count: number) {
-    for (let i = 0; i < count; i++) {
-      const particle = new THREE.Mesh(new THREE.IcosahedronGeometry(.035 + Math.random() * .045, 0), new THREE.MeshBasicMaterial({ color, transparent: true })); particle.position.copy(origin);
-      const duration = .35 + Math.random() * .55;
-      this.world.scene.add(particle); this.effects.push({ mesh: particle, life: duration, duration, type: 'burst', velocity: new THREE.Vector3((Math.random() - .5) * 6, Math.random() * 5, (Math.random() - .5) * 6) });
-    }
+    if(count<=0)return;
+    while(this.effects.length>=80)this.disposeObject(this.effects.shift()!.mesh);
+    const {mesh,duration}=createImpact(origin,color,count);
+    this.world.scene.add(mesh);this.effects.push({mesh,duration,life:duration,type:'burst'});
   }
   beam(from: THREE.Vector3, to: THREE.Vector3) {
-    const direction = to.clone().sub(from), length = direction.length();
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(.055, .055, length, 8), new THREE.MeshBasicMaterial({ color: 0xb5ffff, transparent: true }));
-    beam.position.copy(from).add(to).multiplyScalar(.5); beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+    if(from.distanceToSquared(to)<.0001)return;
+    const beam = createLightning(from,to);
     this.world.scene.add(beam); this.effects.push({ mesh: beam, life: .22, duration: .22, type: 'beam' }); this.burst(to, 0x73eddd, 9);
   }
   disposeObject(object: THREE.Object3D) {
-    this.world.scene.remove(object); object.traverse(child => { if (child instanceof THREE.Mesh) { child.geometry.dispose(); (Array.isArray(child.material) ? child.material : [child.material]).forEach(material => material.dispose()); } });
+    disposeVisual(object);
   }
   update(dt: number) {
     this.time += dt; this.world.update(this.time, dt);
@@ -783,6 +782,7 @@ export class Game {
       else if (Math.hypot(this.position.x - chest.x, this.position.z - chest.z) <= 3) this.openChest(chest.id);
     }
     for (const enemy of this.enemies) if (!enemy.dead) enemy.actor.group.position.set(enemy.body.position.x, 0, enemy.body.position.z);
+    this.actor.group.userData.running=this.combat.running;
     animateActor(this.actor, this.time, this.combat.moving, this.attackTime);
     this.playerRing.position.set(this.position.x, .09, this.position.z);
     this.playerRing.visible = !this.invincible || Math.sin(this.time * 15) > 0;
@@ -795,7 +795,8 @@ export class Game {
       const ratio = effect.life / effect.duration;
       if (effect.type === 'ring') effect.mesh.scale.setScalar(1 + (1 - ratio) * 16);
       if (effect.velocity) { effect.mesh.position.addScaledVector(effect.velocity, dt); effect.velocity.y -= dt * 6; }
-      const material = (effect.mesh as THREE.Mesh).material as THREE.MeshBasicMaterial; material.opacity = ratio;
+      const material = (effect.mesh as THREE.Mesh).material as THREE.Material | undefined; if(material)material.opacity=ratio;
+      updateVisual(effect.mesh,effect.duration-effect.life,ratio);
     }
     this.loot.forEach(loot => { loot.mesh.children[0].rotation.y = this.time; loot.mesh.children[0].position.y = .23 + Math.sin(this.time * 2 + loot.id) * .06; });
     this.updateLootPickup();

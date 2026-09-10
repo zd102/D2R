@@ -3,6 +3,8 @@ import type { Game, Enemy, Skill } from './game';
 import { stats, skillLevel, setAura, hitChance, resistedDamage, difficulty, createCorpse, clampResources } from './model.ts';
 import { skillValues, isAura, tierValue, PALADIN_BALANCE, type ActionId, type DamageType } from './paladin.ts';
 import { makeRing, gridWalkable } from './world.ts';
+import { heroAction, playHeroAction } from './hero-models.ts';
+import { createProjectileVisual, decorateAura, updateVisual, updateHeroWards } from './visual-effects.ts';
 import { questComplete } from './campaign.ts';
 import { isUndead, leechEffectiveness } from './bestiary.ts';
 import { itemMods, weaponType, type Item } from './items.ts';
@@ -39,7 +41,7 @@ export class PaladinCombat {
   running = false;
   ammoWarning = 0;
   classes = new ClassCombat(this);
-  constructor(game: Game) { this.game = game; game.world.scene.add(this.auraRing, this.shieldRing, this.corpseRing); this.auraRing.visible = this.shieldRing.visible = this.corpseRing.visible = false; }
+  constructor(game: Game) { this.game = game; decorateAura(this.auraRing); game.world.scene.add(this.auraRing, this.shieldRing, this.corpseRing); this.auraRing.visible = this.shieldRing.visible = this.corpseRing.visible = false; }
   cooldown(id: ActionId) {
     if (isAura(id) || isPassive(id)) return 0;
     return Math.max(this.actionCooldowns[id] ?? 0, this.classes.delays[id as ExtraSkillId] ?? 0, id === 'fistOfHeavens' ? this.fohDelay : 0);
@@ -47,12 +49,15 @@ export class PaladinCombat {
   readyIn(id: ActionId) { return Math.max(this.stagger, this.cooldown(id)); }
   get movementLocked() { return this.stagger > 0 || this.movementRecovery > 0 || !!this.zeal || !!this.classes.sequence; }
   startAction(id: ActionId, duration: number) {
+    const s=stats(this.game.hero);
+    playHeroAction(this.game.actor,heroAction(id,s.ranged?.kind,s.weapon?weaponType(s.weapon):undefined),this.game.time,duration);
     // Switching actions cancels the unfinished combo, but keeps its own cadence.
     this.zeal = null; this.classes.sequence = undefined;
     this.lock = duration; this.actionCooldowns[id] = duration;
     this.movementRecovery = Math.min(.12, duration * .35);
   }
   recover(duration: number) {
+    playHeroAction(this.game.actor,'recover',this.game.time,Math.max(.2,duration));
     this.stagger = Math.max(this.stagger, duration);
     this.lock = Math.max(this.lock, duration);
   }
@@ -116,8 +121,7 @@ export class PaladinCombat {
     if (ranged) { this.shootWeapon(origin, direction, target); return true; }
     if (id === 'holyBolt' || id === 'blessedHammer') {
       const hammer = id === 'blessedHammer';
-      const mesh = new THREE.Mesh(hammer ? new THREE.BoxGeometry(.48, .22, .22) : new THREE.SphereGeometry(.15, 10, 8), new THREE.MeshBasicMaterial({ color: hammer ? 0xf5d88d : 0xdafff4, transparent: true }));
-      if (hammer) { const handle = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, .48, 6), new THREE.MeshBasicMaterial({ color: 0xfff1c2 })); handle.position.y = -.25; mesh.add(handle); }
+      const mesh = createProjectileVisual('magic',hammer?'hammer':'bolt',.15);
       mesh.position.copy(origin).setY(.9); g.world.scene.add(mesh);
       const concentration = hammer ? 1 + (s.auras.find(aura => aura.id === 'concentration')?.damage ?? 0) / 200 : 1;
       // Align one point on the spiral with the aim at cast time, without homing afterward.
@@ -130,7 +134,7 @@ export class PaladinCombat {
       this.fohDelay = 1; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
       this.damage(target, v.min + Math.random() * (v.max - v.min), 'lightning');
       for (const enemy of g.enemies) if (this.hostile(enemy) && isUndead(enemy) && enemy.actor.group.position.distanceTo(point) < 8) {
-        const mesh = new THREE.Mesh(new THREE.SphereGeometry(.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0xe5fff5 }));
+        const mesh = createProjectileVisual('magic','bolt',.12);
         mesh.position.copy(point).setY(.9); g.world.scene.add(mesh);
         const flight = enemy.actor.group.position.clone().sub(point).setY(0).normalize(); if (!flight.lengthSq()) flight.copy(direction);
         // Outgoing bolts must leave the impact target before testing other bodies.
@@ -150,8 +154,7 @@ export class PaladinCombat {
   shootWeapon(origin: THREE.Vector3, direction: THREE.Vector3, target?: Enemy) {
     const g = this.game, snapshot = this.snapshot(), s = snapshot.stats, base = s.ranged!;
     const bow = !base.stack, explosion = bow ? s.mods.explosiveArrowLevel ?? 0 : 0, magicArrow = bow && !explosion ? s.mods.magicArrowLevel ?? 0 : 0;
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(.025, .035, base.kind === 'javelin' ? 1.2 : .7, 6), new THREE.MeshBasicMaterial({ color: explosion ? 0xffaa54 : magicArrow ? 0xaddcff : 0xdac398 }));
-    const head = new THREE.Mesh(new THREE.ConeGeometry(base.kind === 'axe' ? .16 : .075, .22, 4), new THREE.MeshBasicMaterial({ color: 0xe7edf0 })); head.position.y = .45; mesh.add(head);
+    const mesh = createProjectileVisual(explosion?'fire':magicArrow?'magic':'physical',bow?'arrow':base.kind==='javelin'?'javelin':base.kind==='axe'?'axe':'knife');
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction); mesh.position.copy(origin).setY(.9); g.world.scene.add(mesh);
     this.projectiles.push({ mesh, origin, direction, phase: 0, age: 0, life: 1, damage: 0, healing: 0, kind: bow ? 'arrow' : 'throw', hit: new Set(), snapshot, speed: bow ? 20 : 18, pierce: Math.max(0, Math.min(100, s.mods.pierceChance ?? 0)), magicArrow, explosion });
     if (target) this.triggerItems('att-skill', target, snapshot.items);
@@ -164,6 +167,7 @@ export class PaladinCombat {
     const slash = makeRing(1.7, id === 'vengeance' ? 0x96daef : id === 'sacrifice' ? 0xe5948d : 0xe5d6ae, .85);
     slash.geometry.dispose(); slash.geometry = new THREE.RingGeometry(1.4, 1.8, 24, 1, -.8, 1.6); slash.rotation.z = -Math.atan2(direction.x, direction.z) + Math.PI / 2; slash.position.copy(g.position).setY(.25);
     g.world.scene.add(slash); g.effects.push({ mesh: slash, duration: .2, life: .2, type: 'slash' }); g.attackTime = 1; g.audio.play('swing');
+    playHeroAction(g.actor,heroAction(id,undefined,s.weapon?weaponType(s.weapon):undefined),g.time,id==='zeal'?s.zealFrames/25:.35);
     if (!enemy) return;
     this.triggerItems('att-skill', enemy);
     this.weaponHit(enemy, id);
@@ -242,6 +246,8 @@ export class PaladinCombat {
     for (const enemy of g.enemies) if (this.hostile(enemy) && enemy.actor.group.position.distanceTo(point) <= 2.5 && clearShot(g.world.grid, point, enemy.actor.group.position)) this.damage(enemy, amount, 'fire', false, false, projectile.snapshot);
   }
   updateProjectile(projectile: Projectile, dt: number) {
+    updateVisual(projectile.mesh,projectile.age);
+    if(projectile.kind==='bolt')projectile.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),projectile.direction);
     const g = this.game, remaining = Math.min(dt, Math.max(0, projectile.life - projectile.age));
     const steps = Math.max(1, Math.ceil(remaining / .01)), step = remaining / steps;
     for (let i = 0; i < steps; i++) {
@@ -340,13 +346,19 @@ export class PaladinCombat {
       if (remaining <= 1e-6) delete this.actionCooldowns[id]; else this.actionCooldowns[id] = remaining;
     }
     this.classes.update(dt);
+    updateHeroWards(g.actor.group,h.buffs??{},g.time);
     if (!h.holyShield) h.holyShieldLevel = 0;
     const weaponModel = g.actor.group.getObjectByName('hero-weapon'), shieldModel = g.actor.group.getObjectByName('hero-shield');
     const staffModel=g.actor.group.getObjectByName('hero-staff'), staff=!!s.weapon&&['staff','orb'].includes(weaponType(s.weapon)??'');
     if(staffModel)staffModel.visible=staff;
-    if (weaponModel) { weaponModel.visible = !!s.weapon && !s.ranged&&!staff; weaponModel.scale.z = h.equipment.weapon?.twoHanded ? 1.3 : 1; }
+    if (weaponModel) {
+      weaponModel.visible = !!s.weapon && !s.ranged&&!staff; weaponModel.scale.z = h.equipment.weapon?.twoHanded ? 1.3 : 1;
+      const kind=s.weapon?weaponType(s.weapon):undefined,form=kind==='axe'?'axe':['spear','polearm'].includes(kind??'')?'spear':['mace','hammer','scepter'].includes(kind??'')?'mace':'sword';
+      for(const child of weaponModel.children)child.visible=child.name===`melee-${form}`;
+    }
     g.actor.group.userData.rangedKind = s.ranged?.kind;
-    for (const model of g.actor.group.getObjectByName('hero-ranged')?.children ?? []) model.visible = model.name === `hero-${s.ranged?.kind}`;
+    g.actor.group.userData.staff = staff;
+    for (const kind of ['bow','crossbow','javelin','knife','axe']) {const model=g.actor.group.getObjectByName(`hero-${kind}`);if(model)model.visible=kind===s.ranged?.kind;}
     if (shieldModel) shieldModel.visible = s.hasShield;
     for (const slot of Object.keys(g.cooldowns) as Skill[]) g.cooldowns[slot] = this.cooldown(h.bindings[slot]);
     h.mana = Math.min(s.maxMana, h.mana + s.manaRegen * dt); h.hp = Math.min(s.maxHp, h.hp + s.lifeRegen * dt);

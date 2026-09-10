@@ -5,6 +5,7 @@ import { MONSTERS, monsterTactic, type AttackId } from './bestiary.ts';
 import type { DamageType } from './paladin.ts';
 import { questComplete } from './campaign.ts';
 import { animateActor, gridWalkable } from './world.ts';
+import { createProjectileVisual, decorateGround, updateVisual } from './visual-effects.ts';
 
 type Shape = 'melee' | 'bolt' | 'fan' | 'nova' | 'pool' | 'line' | 'wall' | 'summon' | 'revive';
 export type AttackSpec = { name: string; shape: Shape; type: DamageType; range: number; windup: number; cooldown: number; damage: number; radius: number; count?: number; speed?: number; duration?: number; status?: 'curse' | 'mana'; move?: boolean; color?: number };
@@ -130,6 +131,7 @@ export class MonsterCombat {
     enemy.body.velocity.set(0,0,0); return false;
   }
   onHit(enemy: Enemy) {
+    enemy.actor.group.userData.hitFlash=1;
     const state = this.state(enemy);
     if (!enemy.definition?.retaliation || enemy.dead || enemy.converted > 0 || state.retaliation > 0) return;
     state.retaliation = 2.2;
@@ -166,6 +168,7 @@ export class MonsterCombat {
       for (let d = .2; d <= spec.range; d += .2) { const next = origin.clone().addScaledVector(dir,d); if (!this.lineOfSight(origin,next)) break; target.copy(next); }
     }
     this.state(enemy).cast = { id, spec, origin, target, summon, corpse, left: spec.windup, mesh: this.warning(spec, origin, target) };
+    enemy.actor.group.userData.attackShape=spec.shape;
     enemy.attackTime = 1; enemy.body.velocity.set(0, 0, 0);
   }
   hit(source: Enemy, spec: AttackSpec) {
@@ -177,13 +180,13 @@ export class MonsterCombat {
   }
   fire(enemy: Enemy, spec: AttackSpec, origin: THREE.Vector3, direction: THREE.Vector3, volley = { hit: false }) {
     if (this.missiles.length >= 100) return;
-    const material = new THREE.MeshBasicMaterial({ color: ELEMENT_COLORS[spec.type] });
-    const mesh = new THREE.Mesh(spec.type === 'physical' ? new THREE.ConeGeometry(.07, .7, 5) : new THREE.IcosahedronGeometry(spec.radius, 1), material);
+    const mesh = createProjectileVisual(spec.type,spec.type==='physical'?'arrow':'bolt',Math.min(.3,spec.radius));
     mesh.position.copy(origin).setY(.8);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
     this.game.world.scene.add(mesh); this.missiles.push({ source: enemy, spec, mesh, velocity: direction.clone().multiplyScalar(spec.speed ?? 7), life: spec.range / (spec.speed ?? 7) + .5, volley });
   }
   resolve(enemy: Enemy, cast: Cast) {
+    enemy.actor.group.userData.release=1;
     const g = this.game, { spec, id, origin, target } = cast;
     if (spec.shape === 'melee') {
       const point=cast.summon?.actor.group.position??g.position;
@@ -205,7 +208,7 @@ export class MonsterCombat {
       mesh.position.copy(line ? origin.clone().lerp(target, .5) : target).setY(.13); mesh.rotation.x = -Math.PI / 2;
       if (line) mesh.rotation.z = Math.atan2(target.x - origin.x, target.z - origin.z);
       g.world.scene.add(mesh);
-      if (id === 'blizzard') for (let i = 0; i < 6; i++) { const shard = new THREE.Mesh(new THREE.ConeGeometry(.09, .65, 4), material); shard.position.set(Math.sin(i * 2.4) * 1.7, Math.cos(i * 2.4) * 1.7, .5 + i * .15); mesh.add(shard); }
+      decorateGround(mesh,spec.type,spec.radius,line?'line':'pool',origin.distanceTo(target));
       this.hazards.push({ source: enemy, spec, mesh, origin, target, life: spec.duration ?? 1, tick: 0, hit: false, moving: !!spec.move });
     } else this.summon(enemy, id, target, cast.corpse);
   }
@@ -235,6 +238,8 @@ export class MonsterCombat {
   }
   updateEnemy(enemy: Enemy, dt: number) {
     const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, targetPoint=g.combat.classes?.target(enemy)?.actor.group.position??g.position, distance = p.distanceTo(targetPoint);
+    enemy.actor.group.userData.hitFlash=Math.max(0,(enemy.actor.group.userData.hitFlash??0)-dt*7);
+    enemy.actor.group.userData.release=Math.max(0,(enemy.actor.group.userData.release??0)-dt*5);
     state.retaliation = Math.max(0, state.retaliation - dt); state.frenzy = Math.max(0, state.frenzy - dt);
     state.retreat = Math.max(0,state.retreat-dt); state.retreatCooldown = Math.max(0,state.retreatCooldown-dt);
     for (const id of Object.keys(state.abilities) as AttackId[]) state.abilities[id] = Math.max(0,state.abilities[id]!-dt);
@@ -328,6 +333,7 @@ export class MonsterCombat {
     for (const enemy of g.enemies) if (!enemy.dead) this.updateEnemy(enemy, dt); else this.cancel(enemy);
     for (let i = this.missiles.length - 1; i >= 0; i--) {
       const m = this.missiles[i], previous = m.mesh.position.clone(), speed=g.combat.classes?.missileSpeed(m.source)??1; m.life -= dt*speed; m.mesh.position.addScaledVector(m.velocity, dt*speed);
+      updateVisual(m.mesh,g.time);
       const blocked = !this.lineOfSight(previous, m.mesh.position), cancelled = m.source.dead || m.source.converted > 0;
       const heroHit=segmentDistance(g.position,previous,m.mesh.position)<m.spec.radius+.32;
       const summon=g.combat.classes?.summons.filter(s=>s.id!=='hydra'&&s.hp>0&&segmentDistance(s.actor.group.position,previous,m.mesh.position)<m.spec.radius+.32&&(!heroHit||s.actor.group.position.distanceToSquared(previous)<g.position.distanceToSquared(previous))).sort((a,b)=>a.actor.group.position.distanceToSquared(previous)-b.actor.group.position.distanceToSquared(previous))[0];
@@ -341,6 +347,7 @@ export class MonsterCombat {
     }
     for (let i = this.hazards.length - 1; i >= 0; i--) {
       const h = this.hazards[i]; h.life -= dt; h.tick -= dt;
+      updateVisual(h.mesh,g.time,Math.min(1,h.life*3));
       if (h.life <= 0 || h.source.dead || h.source.converted > 0) { g.disposeObject(h.mesh); this.hazards.splice(i, 1); continue; }
       if (h.moving || h.tick > 0) continue;
       h.tick = .65;

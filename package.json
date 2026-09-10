@@ -13,6 +13,7 @@
     "test:item-effects": "node tests/item-effects-browser.mjs",
     "test:maps": "node tests/maps-chests-browser.mjs",
     "test:scenery": "node tests/scenery-browser.mjs",
+    "test:visuals": "node tests/visuals-browser.mjs",
     "test:elites": "node tests/elites-browser.mjs",
     "test:controls": "node tests/pointer-controls-browser.mjs && node tests/navigation-browser.mjs && node tests/combat-input-browser.mjs && node tests/wasd-controls-browser.mjs",
     "test:item-art": "node tests/item-art-browser.mjs",

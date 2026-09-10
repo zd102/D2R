@@ -7,6 +7,8 @@ import { skillLevel, stats, difficulty } from './model.ts';
 import { clearShot } from './ranged.ts';
 import { weaponType, itemMods } from './items.ts';
 import { itemDamage } from './item-effects.ts';
+import { playHeroAction } from './hero-models.ts';
+import { createProjectileVisual, createNova, decorateGround, createMeteor, updateVisual } from './visual-effects.ts';
 import { createActor, animateActor, gridWalkable, makeRing, type Actor } from './world.ts';
 
 type Missile = Projectile & { skill: ExtraSkillId; values: SkillValues; weapon: boolean; radius: number; target?: Enemy; secondary?: boolean; pulse: number; targetHits?:Map<number,number> };
@@ -96,7 +98,7 @@ export class ClassCombat {
     this.missile(id,g.position,direction,v,c.snapshot(),target);
     return true;
   }
-  ring(point:THREE.Vector3,radius:number,color:number) {const g=this.game,mesh=makeRing(radius,color,.7);mesh.position.copy(point).setY(.15);g.world.scene.add(mesh);g.effects.push({mesh,life:.35,duration:.35,type:'slash'});}
+  ring(point:THREE.Vector3,radius:number,color:number) {const g=this.game,type=(Object.keys(colors) as DamageType[]).find(type=>colors[type]===color)??'magic',mesh=createNova(radius,type);mesh.position.copy(point).setY(.15);g.world.scene.add(mesh);g.effects.push({mesh,life:.35,duration:.35,type:'slash'});}
   telekinesisTarget(point:THREE.Vector3) {
     const g=this.game,within=(p:{x:number;z:number})=>Math.hypot(p.x-point.x,p.z-point.z)<1.4&&Math.hypot(p.x-g.position.x,p.z-g.position.z)<=12&&clearShot(g.world.grid,g.position,p);
     const loot=g.loot?.find(l=>within(l)&&(l.gold||l.potion!==undefined||l.item?.misc&&['tsc','isc','key','aqv','cqv'].includes(l.item.baseCode??'')));
@@ -108,7 +110,7 @@ export class ClassCombat {
     if(this.missiles.length>=160)return;
     direction=direction.clone().setY(0);if(direction.lengthSq()<.0001)direction.set(0,0,1);else direction.normalize();
     const weapon=rangedSkills(id)&&!secondary, color=colors[values.type], orb=id==='frozenOrb'&&!secondary;
-    const mesh=new THREE.Mesh(weapon?new THREE.CylinderGeometry(.035,.035,id==='lightningFury'?1.2:.85,5):new THREE.IcosahedronGeometry(orb?.42:values.type==='cold'?.17:.2,1),new THREE.MeshBasicMaterial({color:weapon&&values.type==='physical'?0xe6d4a6:color}));
+    const mesh=createProjectileVisual(values.type,orb?'orb':weapon?classSkillMode(id)==='javelin'?'javelin':'arrow':'bolt',orb?.42:values.type==='cold'?.17:.2);
     mesh.position.copy(origin).setY(.9);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction);this.game.world.scene.add(mesh);
     this.missiles.push({mesh,origin:origin.clone(),direction:direction.clone(),phase:Math.random()*6,age:0,life:orb?1.15:1.1,damage:0,healing:0,kind:weapon?'arrow':'bolt',hit,snapshot,speed:orb?7:weapon?20:id==='chargedBolt'||id==='chargedStrike'?10:15,pierce:id==='guidedArrow'?0:id==='lightning'?100:weapon?snapshot.stats.mods.pierceChance??0:0,magicArrow:0,explosion:0,skill:id,values:{...values},weapon,radius:['fireBall','explodingArrow','immolationArrow','glacialSpike','freezingArrow','plagueJavelin'].includes(id)?values.radius:0,target,secondary,targetHits,pulse:0});
   }
@@ -122,7 +124,7 @@ export class ClassCombat {
   }
   spear(id:ExtraSkillId,direction:THREE.Vector3,aimed:boolean,seen?:Set<number>) {
     const g=this.game,c=this.combat,v=this.value(id),target=this.nearby(g.position,2.6).find(enemy=>!seen?.has(enemy.id)&&(!aimed||enemy.actor.group.position.clone().sub(g.position).normalize().dot(direction)>.2));
-    this.ring(g.position,1.4,colors[v.type]);g.attackTime=1;if(!target)return;seen?.add(target.id);
+    this.ring(g.position,1.4,colors[v.type]);g.attackTime=1;playHeroAction(g.actor,'thrust',g.time,.3);if(!target)return;seen?.add(target.id);
     const hit=c.weaponHit(target,id),snapshot=c.snapshot();
     if(id==='chargedStrike') {const targetHits=new Map<number,number>();for(let i=0;i<v.hits;i++)this.missile(id,g.position,direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),(i-(v.hits-1)/2)*.18),v,snapshot,undefined,undefined,true,targetHits);}
     else if(id==='lightningStrike')this.chain(target,id,v,snapshot);
@@ -139,9 +141,11 @@ export class ClassCombat {
     if(m.skill==='lightningFury'&&!m.secondary&&target) for(const enemy of this.nearby(point,10).filter(enemy=>enemy!==target).slice(0,m.values.hits)) this.missile('lightningFury',point,enemy.actor.group.position.clone().sub(point).normalize(),m.values,m.snapshot,enemy,new Set([target.id]),true);
   }
   updateMissile(m:Missile,dt:number) {
+    updateVisual(m.mesh,m.age);
     const g=this.game,steps=Math.max(1,Math.ceil(dt*m.speed/.2)),step=dt/steps;
     for(let i=0;i<steps;i++) {
       if(m.skill==='guidedArrow'&&m.target&&this.combat.hostile(m.target))m.direction.lerp(m.target.actor.group.position.clone().sub(m.mesh.position).setY(0).normalize(),Math.min(1,step*7)).normalize();
+      m.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),m.direction);
       const previous=m.mesh.position.clone();m.age+=step;m.mesh.position.addScaledVector(m.direction,step*m.speed);
       if(!clearShot(g.world.grid,previous,m.mesh.position)) {this.impact(m,previous.clone().setY(0));return false;}
       if(m.skill==='frozenOrb'&&!m.secondary) {
@@ -160,6 +164,10 @@ export class ClassCombat {
     const line=id==='fireWall'||id==='inferno',radius=values.radius||2;
     const mesh=new THREE.Mesh(line?new THREE.PlaneGeometry(id==='inferno'?1.5:radius*2,id==='inferno'?radius*2:1.5):new THREE.CircleGeometry(radius,28),new THREE.MeshBasicMaterial({color:colors[values.type],transparent:true,opacity:delay?.16:.22,depthWrite:false,side:THREE.DoubleSide}));
     mesh.rotation.x=-Math.PI/2;mesh.rotation.z=Math.atan2(direction.x,direction.z);mesh.position.copy(point).setY(.13);this.game.world.scene.add(mesh);
+    if(id==='inferno')mesh.position.addScaledVector(direction,radius);
+    decorateGround(mesh,values.type,line?.75:radius,id,line?radius*2:undefined);
+    if(delay){const particles=mesh.getObjectByName(`${values.type}-field-particles`);if(particles)particles.visible=false;}
+    if(delay){const meteor=createMeteor(point);this.game.world.scene.add(meteor);this.game.effects.push({mesh:meteor,life:delay,duration:delay,type:'beam'});}
     this.fields.push({mesh,id,point:point.clone(),direction:direction.clone(),values:{...values},snapshot,radius,life:id==='poisonJavelin'?1.2:id==='plagueJavelin'?3:values.duration||3,delay,tick:0,once:!!delay});
   }
   summon(id:ClassSummon['id'],point:THREE.Vector3,rank:number) {
@@ -185,11 +193,11 @@ export class ClassCombat {
     for(const id of Object.keys(this.delays) as ExtraSkillId[])this.delays[id]=Math.max(0,this.delays[id]!-dt);
     for(const [id,buff] of Object.entries(h.buffs??{})) {buff.remaining=Math.max(0,buff.remaining-dt);if(!buff.remaining)delete h.buffs[id as SkillId];}
     for(const enemy of g.enemies){const debuff=this.debuffs.get(enemy);if(debuff){debuff.sight=Math.max(0,debuff.sight-dt);debuff.missiles=Math.max(0,debuff.missiles-dt);}}
-    if(this.sequence){const seq=this.sequence;seq.timer-=dt;if(seq.timer<=0){const {direction,target}=this.aim(seq.aimed);if(seq.id==='strafe'){const s=stats(h);if(!s.weapon||!s.ranged||s.ranged.stack){this.sequence=undefined;}else this.missile(seq.id,g.position,direction,this.value(seq.id),c.snapshot(),target);}else this.spear(seq.id,direction,seq.id==='fend'?false:seq.aimed,seq.id==='fend'?seq.seen:undefined);seq.first=false;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.attackTime=1;if(--seq.remaining<=0)this.sequence=undefined;else seq.timer=seq.id==='strafe'?Math.max(.08,stats(h).rangedFrames/100):.22;}}
+    if(this.sequence){const seq=this.sequence;seq.timer-=dt;if(seq.timer<=0){const {direction,target}=this.aim(seq.aimed);if(seq.id==='strafe'){const s=stats(h);if(!s.weapon||!s.ranged||s.ranged.stack){this.sequence=undefined;}else this.missile(seq.id,g.position,direction,this.value(seq.id),c.snapshot(),target);}else this.spear(seq.id,direction,seq.id==='fend'?false:seq.aimed,seq.id==='fend'?seq.seen:undefined);seq.first=false;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.attackTime=1;playHeroAction(g.actor,seq.id==='strafe'?'shoot':'thrust',g.time,seq.id==='strafe'?.25:.3);if(--seq.remaining<=0)this.sequence=undefined;else seq.timer=seq.id==='strafe'?Math.max(.08,stats(h).rangedFrames/100):.22;}}
     for(let i=this.missiles.length-1;i>=0;i--)if(!this.updateMissile(this.missiles[i],dt)){g.disposeObject(this.missiles[i].mesh);this.missiles.splice(i,1);}
-    for(let i=this.fields.length-1;i>=0;i--){const f=this.fields[i];if(f.delay>0){f.delay-=dt;continue;}f.life-=dt;f.tick-=dt;
+    for(let i=this.fields.length-1;i>=0;i--){const f=this.fields[i];updateVisual(f.mesh,g.time,Math.min(1,f.life*3));const particles=f.mesh.getObjectByName(f.values.type+'-field-particles');if(particles)particles.visible=f.delay<=0;if(f.delay>0){f.delay-=dt;continue;}f.life-=dt;f.tick-=dt;
       if(f.life<=0){g.disposeObject(f.mesh);this.fields.splice(i,1);continue;}
-      if(f.tick<=0){f.tick=f.id==='blizzard'?1:.25;if(f.once){f.once=false;g.beam(f.point.clone().setY(10),f.point.clone().setY(.2));for(const enemy of this.nearby(f.point,f.radius))this.hit(enemy,f.id,f.values,f.snapshot);f.values.min*=.15;f.values.max*=.15;}
+      if(f.tick<=0){f.tick=f.id==='blizzard'?1:.25;if(f.once){f.once=false;g.burst(f.point.clone().setY(.4),colors.fire,32);this.ring(f.point,f.radius,colors.fire);for(const enemy of this.nearby(f.point,f.radius))this.hit(enemy,f.id,f.values,f.snapshot);f.values.min*=.15;f.values.max*=.15;}
         for(const enemy of this.nearby(f.point,f.id==='inferno'?f.radius*2:f.radius)){const delta=enemy.actor.group.position.clone().sub(f.point),along=delta.dot(f.direction),across=Math.abs(delta.x*f.direction.z-delta.z*f.direction.x);if(f.id==='inferno'&&(along<0||across>1.1+along*.15)||f.id==='fireWall'&&Math.abs(along)>1)continue;this.hit(enemy,f.id,f.values,f.snapshot,f.values.type==='poison'||f.id==='blizzard'?1:.25);g.burst(enemy.actor.group.position.clone().setY(f.id==='blizzard'?2:.3),colors[f.values.type],2);}
       }
     }

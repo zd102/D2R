@@ -163,15 +163,26 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   group.scale.setScalar(def.scale);
   group.userData.bodyPlan = model;
   const actor: Actor = { group, leftLeg, rightLeg, leftArm, rightArm, kind: def.id, animate(time, moving, attacking) {
-    const walk = moving ? Math.sin(time * (insect ? 14 : 9)) : 0;
+    const heavy=['mauler','frozen','duriel'].includes(model),cadence=model==='zombie'?4.7:heavy?6.5:insect?14:9;
+    const walk = moving ? Math.sin(time * cadence) : 0;
+    const release=Number(group.userData.release??0),flash=Number(group.userData.hitFlash??0);
+    skin.emissive.setRGB(flash*.24,flash*.13,flash*.06);metal.emissive.setRGB(flash*.12,flash*.12,flash*.10);
     rig.position.y = floating ? .18 + Math.sin(time * 2) * .12 : moving ? Math.abs(walk) * .035 : Math.sin(time * 2) * .012;
+    rig.position.z=release*(heavy?.14:.09);rig.rotation.x=moving?(model==='zombie'?.13:heavy?.07:.025):release*.065;
+    rig.rotation.y=moving&&!insect?walk*(heavy?.045:.025):0;
     leftLeg.rotation.x = walk * .45; rightLeg.rotation.x = -walk * .45;
     leftArm.rotation.x = attacking ? -Math.sin(attacking * Math.PI) * 1.3 : -walk * .25;
     rightArm.rotation.x = attacking ? -Math.sin(attacking * Math.PI) * 1.8 : walk * .25;
     limbs.forEach((limb, i) => { limb.rotation.z = moving ? Math.sin(time * 13 + i * Math.PI / 2) * .15 : 0; limb.rotation.y = Math.sin(time * (moving ? 11 : 2) + i) * (moving ? .2 : .025); });
     tails.forEach((tail, i) => { tail.rotation.y = Math.sin(time * 3 + i) * .12; tail.rotation.x = attacking * Math.sin(time * 8 + i) * .12; });
     if (model === 'zombie') { leftArm.rotation.x -= .7; rightArm.rotation.x -= .7; }
-    if (['archer', 'flayer'].includes(model) && attacking) leftArm.rotation.x = -1.1;
+    if (['archer', 'flayer'].includes(model) && attacking) {leftArm.rotation.x=-1.15;rightArm.rotation.x=-.8;rightArm.rotation.y=-.3*attacking;rig.rotation.y=.2;}
+    else rightArm.rotation.y=0;
+    if (['shaman','mage','council','mummy','mephisto','baal'].includes(model)&&attacking) {
+      leftArm.rotation.x=-.6-attacking*.5;rightArm.rotation.x=-.35-attacking*.7;leftArm.rotation.z=-.25*attacking;rightArm.rotation.z=.2*attacking;
+    } else {leftArm.rotation.z=0;rightArm.rotation.z=0;}
+    if(heavy&&attacking){rightArm.rotation.x=-2*attacking;leftArm.rotation.x=-.9*attacking;rig.rotation.x=-.09*attacking;}
+    if(release>0){rightArm.rotation.x-=release*.5;rig.rotation.y+=(['knight','lord','goat'].includes(model)?-.25:.08)*release;}
   } };
   return actor;
 }
