@@ -263,7 +263,7 @@ export class InventoryDrag {
       if (drag.panel === 'inventory') { this.ui.characterScreen.view = drag.container; this.ui.characterScreen.inventoryPane = 'items'; }
       else { this.ui.sharedStashScreen.view = drag.container; this.ui.sharedStashScreen.pane = 'personal'; }
     }
-    if (slot || drag.sourceSlot) { this.ui.game.audio.play('loot'); this.ui.toast(drag.sourceSlot ? slot ? '已调整戒指位置' : `已卸下至${containerNames[drag.container]}` : '已装备', drag.item.name); }
+    if (slot || drag.sourceSlot) { this.ui.game.audio.play('equip'); this.ui.toast(drag.sourceSlot ? slot ? '已调整戒指位置' : `已卸下至${containerNames[drag.container]}` : '已装备', drag.item.name); }
     this.ui.game.save(false); this.ui.renderPanel();
     const panel = this.ui.overlay.querySelector(`[data-container="${drag.container}"]`)?.closest('.inventory-grid-scroll,.shared-grid-scroll'); if (panel) panel.scrollTop = scrollTop;
     const source = [...this.ui.overlay.querySelectorAll<HTMLButtonElement>('.bag-item')].find(button => (button.dataset.item ?? button.dataset.sharedItem) === drag.item.id);

@@ -11,7 +11,7 @@ import type { Enemy, Game } from '../src/game.ts';
 function setup() {
   const hits: string[] = [], scene = new THREE.Scene(), enemies: Enemy[] = [];
   const game: any = { hero: newHero(), enemies, time: 0, position: new THREE.Vector3(), started: true, invincible: 0, dead: false,
-    world: { scene, grid: { width: 57, height: 57, isWalkableAt: () => true }, path: () => [] },
+    world: { scene, grid: { width: 57, height: 57, isWalkableAt: () => true }, path: () => [] }, audio: { play() {} },
     disposeObject: (object: THREE.Object3D) => object.removeFromParent(), killEnemy: (enemy: Enemy) => { enemy.dead = true; },
     combat: { slow: () => 1, allyUpdate: () => false, hurt: (_damage: number, type: string) => hits.push(type) } };
   const combat = new MonsterCombat(game as Game); game.monsterCombat = combat;
@@ -28,7 +28,7 @@ test('25 encounter pools reference 37 species and all 25 bosses have valid attac
   assert.equal(ENCOUNTERS.length, 25); assert.equal(BOSSES.length, 25); assert.ok(Object.keys(MONSTERS).length >= 35);
   const used = new Set<string>();
   for (const pool of ENCOUNTERS) { assert.ok(pool.length >= 3); for (const id of pool) { assert.ok(MONSTERS[id]); used.add(id); } }
-  assert.equal(used.size, Object.keys(MONSTERS).length);
+  assert.deepEqual(Object.keys(MONSTERS).filter(id => !used.has(id)), ['hellCow'], 'only the secret-area cow is outside campaign encounter pools');
   for (const definition of [...Object.values(MONSTERS), ...BOSSES]) { for (const id of definition.attacks) assert.ok(ATTACKS[id]); if (definition.revive) assert.ok(MONSTERS[definition.revive]); }
   assert.equal(isUndead({ definition: BOSSES[0], kind: 'boss' }), true); assert.equal(isUndead({ definition: BOSSES[4], kind: 'boss' }), false);
 });

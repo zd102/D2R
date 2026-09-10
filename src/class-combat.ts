@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { castSound } from './audio-bank.ts';
 import type { Enemy } from './game.ts';
 import type { PaladinCombat, Projectile, AttackSnapshot } from './combat.ts';
 import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
@@ -63,7 +64,7 @@ export class ClassCombat {
     if(id==='inferno')duration=.6;
     if(id==='impale')duration*=1.8;
     h.mana-=v.cost;c.startAction(id,duration);
-    this.delays[id]=delays[id]??0;g.attackTime=1;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.audio.play(rangedSkills(id)?'shot':'spell');
+    this.delays[id]=delays[id]??0;g.attackTime=1;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.audio.play(castSound(id,v.type,mode), { nativeKey: `cast:${id}` });
     if(target&&['bow','javelin','spear'].includes(mode??''))c.triggerItems('att-skill',target);
     if(utility){g.beam(g.position.clone().setY(1),utility.point.clone().setY(.5));if(utility.chest)g.openChest(utility.chest.id,true);else if(utility.loot)g.collectLoot(utility.loot);return true;}
     if(id==='teleport') {g.burst(g.position.clone().setY(1),0x95cfff,16);g.body.position.set(destination!.x,.5,destination!.z);g.body.velocity.set(0,0,0);g.position.copy(destination!);g.path=[];g.target=undefined;g.marker.visible=false;g.burst(destination!.clone().setY(1),0x95cfff,16);return true;}

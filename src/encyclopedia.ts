@@ -2,7 +2,7 @@ import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS, RUNE_ORDER, RUNES, makeItem,
 import { CATALOG_SPECIALS, CATALOG_RUNEWORDS } from './item-catalog-data.ts';
 import { AFFIX_BASES } from './affix-data.ts';
 import { MONSTERS, BOSSES, ENCOUNTERS, type MonsterDef } from './bestiary.ts';
-import { LEVELS } from './campaign.ts';
+import { LEVELS, SPECIAL_LEVELS } from './campaign.ts';
 import { monsterStats } from './balance.ts';
 import { BOSS_DROP_PROFILES, bossSpecialPool } from './boss-loot.ts';
 import { runePool } from './loot.ts';
@@ -24,9 +24,10 @@ export const ENCYCLOPEDIA_ITEMS: EncyclopediaItem[] = [
   { id: 'supply-life', name: '生命药剂', english: 'Healing Potion', kind: 'supply', level: 1, icon: 'heart-pulse', supply: 0 },
   { id: 'supply-mana', name: '法力药剂', english: 'Mana Potion', kind: 'supply', level: 1, icon: 'droplets', supply: 1 },
 ];
+export const ENCYCLOPEDIA_AREAS = [...LEVELS, ...Object.values(SPECIAL_LEVELS)];
 export const ENCYCLOPEDIA_MONSTERS: EncyclopediaMonster[] = [
   ...BOSSES.map((definition, index) => ({ id: definition.id, name: LEVELS[index].boss, definition, rank: LEVELS[index].actBoss ? 'actBoss' as const : 'miniboss' as const, areas: [index] })),
-  ...Object.values(MONSTERS).map(definition => ({ id: definition.id, name: definition.name, definition, rank: 'monster' as const, areas: ENCOUNTERS.flatMap((pack, index) => pack.includes(definition.id) ? [index] : []) })),
+  ...Object.values(MONSTERS).map(definition => ({ id: definition.id, name: definition.name, definition, rank: 'monster' as const, areas: definition.id === 'hellCow' ? [SPECIAL_LEVELS.cow.index] : ENCOUNTERS.flatMap((pack, index) => pack.includes(definition.id) ? [index] : []) })),
 ];
 const itemsById = new Map(ENCYCLOPEDIA_ITEMS.map(entry => [entry.id, entry]));
 const monstersById = new Map(ENCYCLOPEDIA_MONSTERS.map(entry => [entry.id, entry]));
@@ -47,7 +48,7 @@ export function filterEncyclopediaItems(query = '', kind = 'all', slot = 'all', 
 }
 export function filterEncyclopediaMonsters(query = '', rank = 'all', act = 'all', race = 'all') {
   const terms = normalize(query).split(' ').filter(Boolean);
-  return ENCYCLOPEDIA_MONSTERS.filter(entry => (rank === 'all' || entry.rank === rank) && (race === 'all' || entry.definition.race === race) && (act === 'all' || entry.areas.some(index => LEVELS[index].act === Number(act))) && terms.every(term => normalize(`${entry.name} ${entry.id} ${entry.areas.map(index => LEVELS[index].name).join(' ')}`).includes(term)));
+  return ENCYCLOPEDIA_MONSTERS.filter(entry => (rank === 'all' || entry.rank === rank) && (race === 'all' || entry.definition.race === race) && (act === 'all' || entry.areas.some(index => ENCYCLOPEDIA_AREAS[index].act === Number(act))) && terms.every(term => normalize(`${entry.name} ${entry.id} ${entry.areas.map(index => ENCYCLOPEDIA_AREAS[index].name).join(' ')}`).includes(term)));
 }
 export function recipeBases(word: RuneWord) { return BASES.filter(base => (base.sockets ?? 0) >= word.runes.length && runewordFits({ ...makeItem(base, 'encyclopedia-base'), sockets: word.runes.length }, word)); }
 export function encyclopediaItemPreview(entry: EncyclopediaItem, baseName?: string): Item | undefined {

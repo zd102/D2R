@@ -1,16 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import PF from 'pathfinding';
-import { LEVELS, levelLayout } from '../src/campaign.ts';
+import { LEVELS, SPECIAL_LEVELS, levelLayout } from '../src/campaign.ts';
 import { SCENE_DESIGNS } from '../src/scene-design.ts';
 import { layoutWalkable } from '../src/level-layouts.ts';
 
-test('all 25 areas have independent authored layouts, distinct landmarks and complete scene palettes', () => {
-  assert.equal(SCENE_DESIGNS.length, LEVELS.length);
-  assert.equal(new Set(SCENE_DESIGNS.map(scene => scene.landmark)).size, 25);
+test('campaign and hidden areas have distinct landmarks and complete scene palettes', () => {
+  const areas = [...LEVELS, ...Object.values(SPECIAL_LEVELS)];
+  assert.equal(SCENE_DESIGNS.length, areas.length);
+  assert.equal(new Set(SCENE_DESIGNS.map(scene => scene.landmark)).size, areas.length);
   assert.equal(new Set(LEVELS.map(level => JSON.stringify(levelLayout(level)))).size, 25);
   for (const [index, scene] of SCENE_DESIGNS.entries()) {
-    assert.ok(scene.props.length >= 2, LEVELS[index].name);
+    assert.ok(scene.props.length >= 2, areas[index].name);
     for (const color of Object.values(scene.palette)) assert.ok(Number.isInteger(color) && color >= 0 && color <= 0xffffff);
     assert.ok(scene.ambient > 0 && scene.sunlight > 0 && scene.fog < .02);
   }

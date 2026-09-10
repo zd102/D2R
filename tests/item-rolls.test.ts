@@ -139,9 +139,9 @@ test('monster, chest, boss-special and event-charm drops receive the supplied ra
     const entry = CATALOG_SPECIALS.find(entry => entry.id === item.catalogId)!;
     assert.deepEqual(item.mods, catalogMods(entry.properties, () => 1));
   }
-  const loot = rollLoot({ rank: 'actBoss', act: 4, difficulty: 2, level: 99, levelIndex: 24 }, () => 0);
-  const torch = loot.items.find(item => item.catalogId === 'unique-401')!; assert.ok(torch);
-  assert.equal(torch.mods!.allRes, 10); assert.equal(torch.mods!.strength, 10);
+  const loot = rollLoot({ rank: 'miniboss', act: 4, difficulty: 2, level: 99, uberDiablo: true }, () => 0);
+  const annihilus = loot.items.find(item => item.catalogId === 'unique-382')!; assert.ok(annihilus);
+  assert.equal(annihilus.mods!.allRes, 10); assert.equal(annihilus.mods!.strength, 10);
 });
 
 test('default runtime RNG varies item rolls and malformed saved roll metadata is bounded', t => {

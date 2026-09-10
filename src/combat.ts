@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { castSound, impactSound, weaponSound } from './audio-bank.ts';
 import type { Game, Enemy, Skill } from './game';
 import { stats, skillLevel, setAura, hitChance, resistedDamage, difficulty, createCorpse, clampResources } from './model.ts';
 import { skillValues, isAura, tierValue, PALADIN_BALANCE, type ActionId, type DamageType } from './paladin.ts';
@@ -95,7 +96,7 @@ export class PaladinCombat {
   cast(slot: Skill, aimed = false): boolean {
     const g = this.game, h = g.hero, id = h.bindings[slot];
     if (g.paused || g.dead) return false; g.begin();
-    if (isAura(id)) { setAura(h, h.activeAura === id ? null : id as Exclude<ActionId, 'attack'>); this.auraTimer = 0; g.save(false); return true; }
+    if (isAura(id)) { setAura(h, h.activeAura === id ? null : id as Exclude<ActionId, 'attack'>); this.auraTimer = 0; g.audio.play('aura', { nativeKey: `cast:${id}` }); g.save(false); return true; }
     return this.castAction(id, aimed);
   }
   castAction(id: ActionId, aimed = false): boolean {
@@ -116,7 +117,7 @@ export class PaladinCombat {
     const ranged = id === 'attack' && s.ranged && s.weapon;
     this.startAction(id, id === 'zeal' ? (s.attackFrames + s.zealFrames * (v.hits - 1)) / 25 : (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25);
     h.mana -= v.cost; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
-    if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play('spell'); g.save(false); return true; }
+    if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); g.save(false); return true; }
     if (ranged) { this.shootWeapon(origin, direction, target); return true; }
     if (id === 'holyBolt' || id === 'blessedHammer') {
       const hammer = id === 'blessedHammer';
@@ -127,7 +128,7 @@ export class PaladinCombat {
       const aimDistance = Math.max(1.2, Math.min(4.5, aimed ? g.aim.distanceTo(origin) : target ? target.actor.group.position.distanceTo(origin) : 2));
       const phase = Math.atan2(direction.z, direction.x) - (hammer ? 7 * (aimDistance - .7) / 2.5 : 0);
       this.projectiles.push({ mesh, origin, direction, phase, age: 0, life: hammer ? 2.3 : 1.25, damage: (v.min + Math.random() * (v.max - v.min)) * concentration, healing: v.healing, kind: hammer ? 'hammer' : 'bolt', hit: new Set(), snapshot: this.snapshot(), speed: 14, pierce: 0, magicArrow: 0, explosion: 0 });
-      g.audio.play('spell'); return true;
+      g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); return true;
     }
     if (id === 'fistOfHeavens' && target) {
       this.fohDelay = 1; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
@@ -139,12 +140,12 @@ export class PaladinCombat {
         // Outgoing bolts must leave the impact target before testing other bodies.
         this.projectiles.push({ mesh, origin: point.clone(), direction: flight, phase: 0, age: 0, life: .75, damage: v.secondary, healing: 0, kind: 'bolt', hit: new Set(enemy === target ? [] : [target.id]), snapshot: this.snapshot(), speed: 16, pierce: 0, magicArrow: 0, explosion: 0 });
       }
-      g.audio.play('spell'); return true;
+      g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); return true;
     }
     if (id === 'charge') {
       let last = origin.clone(); const distance = aimed ? Math.min(10, Math.max(0, g.aim.distanceTo(origin) - (target ? 1.2 : 0))) : target ? Math.min(10, Math.max(0, target.actor.group.position.distanceTo(origin) - 1.2)) : 8;
       for (let step = .25; step <= distance; step += .25) { const next = origin.clone().addScaledVector(direction, step); if (!gridWalkable(g.world.grid, next)) break; last = next; if (step % 1 === 0) g.burst(next.clone().setY(.4), 0xe5ce84, 2); }
-      g.body.position.set(last.x, .5, last.z); g.position.copy(last); g.path = []; this.melee(id, direction, aimed); g.audio.play('swing'); return true;
+      g.body.position.set(last.x, .5, last.z); g.position.copy(last); g.path = []; this.melee(id, direction, aimed); return true;
     }
     if (id === 'zeal') { this.zeal = { hits: v.hits, timer: 0, direction, aimed }; return true; }
     this.melee(id, direction, aimed);
@@ -157,7 +158,7 @@ export class PaladinCombat {
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction); mesh.position.copy(origin).setY(.9); g.world.scene.add(mesh);
     this.projectiles.push({ mesh, origin, direction, phase: 0, age: 0, life: 1, damage: 0, healing: 0, kind: bow ? 'arrow' : 'throw', hit: new Set(), snapshot, speed: bow ? 20 : 18, pierce: Math.max(0, Math.min(100, s.mods.pierceChance ?? 0)), magicArrow, explosion });
     if (target) this.triggerItems('att-skill', target, snapshot.items);
-    g.audio.play('shot');
+    g.audio.play(weaponSound(s.weapon ? weaponType(s.weapon) : undefined));
   }
   melee(id: ActionId, direction: THREE.Vector3, aimed = false) {
     const g = this.game, h = g.hero, s = stats(h), v = skillValues(id, skillLevel(h, id, s.mods), h.skills);
@@ -165,7 +166,7 @@ export class PaladinCombat {
     const enemy = (!aimed && g.target && enemies.includes(g.target) ? g.target : enemies.sort((a, b) => a.actor.group.position.distanceToSquared(g.position) - b.actor.group.position.distanceToSquared(g.position))[0]);
     const slash = makeRing(1.7, id === 'vengeance' ? 0x96daef : id === 'sacrifice' ? 0xe5948d : 0xe5d6ae, .85);
     slash.geometry.dispose(); slash.geometry = new THREE.RingGeometry(1.4, 1.8, 24, 1, -.8, 1.6); slash.rotation.z = -Math.atan2(direction.x, direction.z) + Math.PI / 2; slash.position.copy(g.position).setY(.25);
-    g.world.scene.add(slash); g.effects.push({ mesh: slash, duration: .2, life: .2, type: 'slash' }); g.attackTime = 1; g.audio.play('swing');
+    g.world.scene.add(slash); g.effects.push({ mesh: slash, duration: .2, life: .2, type: 'slash' }); g.attackTime = 1; g.audio.play(id === 'smite' ? 'bluntSwing' : weaponSound(s.weapon ? weaponType(s.weapon) : undefined), { nativeKey: `cast:${id}` });
     playHeroAction(g.actor,heroAction(id,undefined,s.weapon?weaponType(s.weapon):undefined),g.time,id==='zeal'?s.zealFrames/25:.35);
     if (!enemy) return;
     this.triggerItems('att-skill', enemy);
@@ -287,6 +288,7 @@ export class PaladinCombat {
     const dealt = Math.max(0, Math.floor(itemDamage(amount, type, s.mods, ignoreResist || sanctuary ? 0 : type === 'physical' ? this.physicalResistance(enemy) : enemy.resistances[type], conviction)));
     enemy.hp -= dealt; enemy.active = true;
     g.ui.floatText(dealt ? String(dealt) : '免疫', enemy.actor.group.position.clone().setY(1.8), critical ? 'critical' : type === 'physical' ? 'damage' : 'magic-damage');
+    if (dealt) g.audio.play(impactSound(type, enemy.definition?.model), { position: enemy.actor.group.position, gain: critical ? 1 : .85 });
     if (dealt) g.burst(enemy.actor.group.position.clone().setY(.8), type === 'fire' ? 0xf09669 : type === 'cold' ? 0x80cfea : 0xe8d79c, 3);
     if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods); else if (dealt) g.monsterCombat?.onHit(enemy); return dealt;
   }
@@ -297,7 +299,7 @@ export class PaladinCombat {
     if (!self && source && type === 'physical') { const curse = this.itemCurses.get(source)?.kind; amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : 1; }
     if (!self && source && type === 'physical') {
       if (!this.running && Math.random() * 100 >= hitChance(source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return; }
-      if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.recover(s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); return; }
+      if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.recover(s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); g.audio.play('block'); return; }
     }
     const shield=h.buffs?.energyShield;
     if(!self&&type!=='poison'&&shield?.remaining){const v=skillValues('energyShield',shield.rank,h.skills),absorbed=Math.min(amount*v.percent/100,h.mana/v.secondary);h.mana-=absorbed*v.secondary;amount-=absorbed;if(h.mana<=0)delete h.buffs.energyShield;}
@@ -312,7 +314,7 @@ export class PaladinCombat {
       if (type === 'poison') h.poison = Math.max(h.poison, 6);
       const armor = h.equipment.armor ?? h.equipment.shield; if (armor?.durability && !itemMods(armor).indestructible && Math.random() < .1) armor.durability--;
     }
-    g.ui.floatText(`-${Math.ceil(damage)}`, g.position.clone().setY(1.8), 'hurt'); g.ui.flashDamage(); g.audio.play('hurt');
+    g.ui.floatText(`-${Math.ceil(damage)}`, g.position.clone().setY(1.8), 'hurt'); g.ui.flashDamage(); if (damage > 0) g.audio.play('hurt', { nativeKey: `hurt:${h.classId}` });
     if (!self && source && h.hp > 0) this.triggerItems('gethit-skill', source);
     if (!self && source && !source.dead && h.hp > 0) {
       const id = missile ? 'chillingArmor' : h.buffs?.shiverArmor ? 'shiverArmor' : 'frozenArmor', buff = h.buffs?.[id];
@@ -327,7 +329,7 @@ export class PaladinCombat {
     if (!self && !missile && source && type === 'physical') { const thorns = this.auraAt(source, 'thorns', s); if (thorns) this.damage(source, damage * thorns.percent / 100, 'physical'); }
     if (!self && !missile && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
     if (!self && !missile && source && type === 'physical' && s.mods.lightningReflect) this.damage(source, s.mods.lightningReflect, 'lightning');
-    if (h.hp <= 0) { createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; this.classes.clear(); g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
+    if (h.hp <= 0) { g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; this.classes.clear(); g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
   }
   update(dt: number) {
     const g = this.game, h = g.hero, s = stats(h);

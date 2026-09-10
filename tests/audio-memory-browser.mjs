@@ -11,10 +11,11 @@ try {
   await cdp.send('WebAudio.enable');
   await page.route('**/src/main.ts*', async route => { const response = await route.fetch(); await route.fulfill({ response, body: (await response.text()).replace('const game = new Game();', 'const game = new Game(); window.audioMemoryGame = game;') }); });
   await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173'); await expect(page.getByRole('dialog', { name: '选择角色', exact: true })).toBeVisible();
-  await page.evaluate(async () => { const g = window.audioMemoryGame; cancelAnimationFrame(g.frameId); g.audio.unlock(); await g.audio.context.resume(); g.audio.volume = .001; });
+  await page.evaluate(async () => { const g = window.audioMemoryGame; cancelAnimationFrame(g.frameId); g.audio.unlock(); await g.audio.context.resume(); await g.audio.preload(); g.audio.volume = .001; });
   for (let round = 0; round < 4; round++) {
     await page.evaluate(() => { const audio = window.audioMemoryGame.audio; for (let i = 0; i < 100; i++) audio.play(['hit', 'swing', 'shot', 'spell', 'loot', 'level', 'hurt', 'portal'][i % 8]); });
-    await page.waitForTimeout(1500); await cdp.send('HeapProfiler.collectGarbage'); await page.waitForTimeout(100);
+    await page.waitForFunction(() => window.audioMemoryGame.audio.diagnostics().voices === 0, null, { timeout: 15000 });
+    await cdp.send('HeapProfiler.collectGarbage'); await page.waitForTimeout(100);
     const byType = Object.fromEntries([...new Set(nodes.values())].map(type => [type, [...nodes.values()].filter(value => value === type).length]));
     const sample = { round, count: nodes.size, byType }; samples.push(sample); console.log(sample);
   }

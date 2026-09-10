@@ -24,6 +24,8 @@ import { SaveStore, SaveError, PROFILE_PREFIX, type SavedProfile } from './saves
 import { SHARED_STASH_KEY } from './shared-stash';
 import { refreshSharedStorage } from './shared-storage';
 import { GameAudio } from './audio';
+import { deathSound, lootSound } from './audio-bank';
+import { nativeAudioManifest } from './audio-native';
 import { UI } from './ui';
 import { keyboardSkills, movementInput, MOVEMENT_MODE_KEY, parseMovementMode, emptyCooldowns, type MovementMode, type SkillSlot } from './controls';
 import { followPath } from './navigation';
@@ -42,7 +44,7 @@ export class Game {
   hero: HeroState;
   actor = createActor('hero');
   body: CANNON.Body;
-  audio = new GameAudio();
+  audio = new GameAudio(nativeAudioManifest);
   ui: UI;
   combat: PaladinCombat;
   monsterCombat = new MonsterCombat(this);
@@ -129,8 +131,9 @@ export class Game {
     this.ui.openPanel('profiles');
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('blur', () => { this.releaseInput(); if (this.started && !this.dead && !this.paused) this.ui.openPanel('pause'); });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { this.releaseInput(); this.save(false); if (this.started && !this.dead && !this.paused) this.ui.openPanel('pause'); } });
-    window.addEventListener('pagehide', () => this.save(false));
+    document.addEventListener('visibilitychange', () => { this.audio.setHidden(document.hidden); if (document.hidden) { this.releaseInput(); this.save(false); if (this.started && !this.dead && !this.paused) this.ui.openPanel('pause'); } });
+    window.addEventListener('pagehide', event => { this.save(false); if (event.persisted) this.audio.setHidden(true); else this.audio.dispose(); });
+    window.addEventListener('pageshow', () => this.audio.setHidden(document.hidden));
     window.addEventListener('storage', async event => {
       if (event.key !== null && event.key !== SHARED_STASH_KEY && !event.key.startsWith(PROFILE_PREFIX)) return;
       if (event.key === null || event.key === SHARED_STASH_KEY) await refreshSharedStorage();
@@ -162,6 +165,7 @@ export class Game {
   get inCamp() { return this.world.isCamp; }
   get areaName() { return this.inCamp ? CAMP.name : this.level.name; }
   loadArea(inCamp: boolean) {
+    this.audio.stopEffects?.();
     this.releaseInput();
     this.combat?.classes.clear();
     this.world.scene.remove(this.actor.group, this.marker, this.selection, this.playerRing);
@@ -183,7 +187,7 @@ export class Game {
     }
     this.renderer.domElement.setAttribute('aria-label', `${this.areaName}游戏场景`);
     document.getElementById('app')!.classList.toggle('is-camp', inCamp);
-    this.spawnEnemies(); this.ui.closePanel(); this.resize();
+    this.spawnEnemies(); this.ui.closePanel(); this.resize(); this.audio.play('portal');
   }
   previewClass(classId: HeroState['classId']) {
     if(this.profile||this.actor.group.userData.classId===classId)return;
@@ -558,13 +562,14 @@ export class Game {
       const point = this.world.path(this.position, desired).at(-1) ?? this.position;
       this.addLoot({ ...drop, id: this.nextId++, x: point.x, z: point.z, mesh: new THREE.Group() });
     }
-    this.audio.play('loot');
+    this.audio.play('chest', { position: chest });
   }
   hurtEnemy(enemy: Enemy, damage: number) { this.combat.damage(enemy, damage, 'physical'); }
   killEnemy(enemy: Enemy, rewardMods?: Mods) {
     if (enemy.dead) return;
     enemy.dead = true; this.monsterCombat.cancel(enemy); this.monsterCombat.onDeath(enemy); this.world.physics.removeBody(enemy.body);
     if (enemy.summoned) { enemy.redeemed = true; enemy.actor.group.visible = false; if (this.target === enemy) { this.target = undefined; this.path = []; } return; }
+    this.audio.play(deathSound(enemy.definition?.model, enemy.boss), { position: enemy.actor.group.position, nativeKey: `monsterDeath:${enemy.definition?.model}` });
     this.hero.kills++;
     const playerStats = stats(this.hero); if (rewardMods) playerStats.mods = rewardMods;
     this.hero.mana = Math.min(playerStats.maxMana, this.hero.mana + (playerStats.mods.manaOnKill ?? 0));
@@ -577,7 +582,7 @@ export class Game {
     if (gainXp(this.hero, xp * (enemy.xpScale ?? 1) * (1 + (playerStats.mods.experienceBonus ?? 0) / 100))) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
     const wasReady = !this.specialArea && questComplete(this.hero.campaign);
     if (!enemy.boss && !this.specialArea) recordQuestKill(this.hero);
-    if (!this.specialArea && !wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.save(false); }
+    if (!this.specialArea && !wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.audio.play('quest'); this.save(false); }
     if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level);
     if (enemy.boss) {
       if (this.specialArea) {
@@ -604,6 +609,7 @@ export class Game {
       loot.mesh.add(makeRing(.38, color, .4));
     }
     loot.mesh.position.set(loot.x, 0, loot.z); this.world.scene.add(loot.mesh); this.loot.push(loot);
+    if (!loot.gold) this.audio.play(lootSound(loot, true), { position: loot });
   }
   pickup(id: number) {
     if (this.paused || this.dead) return;
@@ -628,7 +634,7 @@ export class Game {
     } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`);
     } else if (loot.gold) { this.hero.gold += loot.gold; this.ui.floatText(`+${loot.gold}`, this.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 'gold'); }
     else if (loot.potion !== undefined) this.hero.potions[loot.potion] = Math.min(99, this.hero.potions[loot.potion] + 1);
-    this.disposeObject(loot.mesh); this.loot.splice(this.loot.indexOf(loot), 1); this.audio.play('loot'); this.save(false);
+    this.disposeObject(loot.mesh); this.loot.splice(this.loot.indexOf(loot), 1); this.audio.play(lootSound(loot)); this.save(false);
   }
   updateLootPickup() {
     if (this.paused || this.dead) return;
@@ -647,7 +653,7 @@ export class Game {
     if (this.hero[key] >= max) { this.ui.toast(index === 0 ? '生命值已满' : '法力值已满'); return; }
     if (!this.hero.potions[index]) { this.ui.toast('药剂已用尽'); return; }
     this.hero.potions[index]--; this.combat.regen[index] += index ? 80 : 160;
-    this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), index === 0 ? 0xe25c65 : 0x63c8ed, 15); this.audio.play('loot'); this.save(false);
+    this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), index === 0 ? 0xe25c65 : 0x63c8ed, 15); this.audio.play('potion'); this.save(false);
   }
   contextAction() {
     if (this.dead) return null;
@@ -688,7 +694,7 @@ export class Game {
     if (!activateQuestObject(this.hero, action.id)) return;
     this.world.completeObjective(action.id);
     this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana;
-    this.burst(new THREE.Vector3(p.x, 2, p.z), ACTS[this.level.act].accent, 25); this.audio.play('level');
+    this.burst(new THREE.Vector3(p.x, 2, p.z), ACTS[this.level.act].accent, 25); this.audio.play('quest');
     this.ui.toast(this.level.quest.action, questComplete(this.hero.campaign) ? `任务已完成 · 击败${this.level.boss}` : `${this.hero.campaign.objects.length} / ${this.level.quest.count}`); this.save(false);
   }
   openMysteriousCorpse() {
@@ -710,14 +716,14 @@ export class Game {
   buy(index: 0 | 1) {
     if (this.hero.gold < 25) { this.ui.toast('金币不足'); return; }
     if (this.hero.potions[index] >= 99) return;
-    this.hero.gold -= 25; this.hero.potions[index]++; this.audio.play('loot'); this.ui.renderPanel(); this.save(false);
+    this.hero.gold -= 25; this.hero.potions[index]++; this.audio.play('itemBottle'); this.ui.renderPanel(); this.save(false);
   }
   equip(id: string, slot?: Slot) {
     const container = this.hero.inventory.some(item => item.id === id) ? 'inventory' : 'stash';
-    if (equipItem(this.hero, id, slot, container)) { this.audio.play('loot'); this.save(false); this.ui.renderPanel(); }
+    if (equipItem(this.hero, id, slot, container)) { this.audio.play('equip'); this.save(false); this.ui.renderPanel(); }
     else { const item = this.hero[container].find(item => item.id === id); this.ui.toast(item ? equipReason(this.hero, item, slot) || (container === 'stash' ? '仓库空间不足' : '背包空间不足') : '物品不存在'); }
   }
-  swapWeapons() { swapWeapons(this.hero); this.ui.toast(`武器组 ${this.hero.weaponSet + 1}`); this.save(false); this.ui.renderPanel(); }
+  swapWeapons() { swapWeapons(this.hero); this.audio.play('equip'); this.ui.toast(`武器组 ${this.hero.weaponSet + 1}`); this.save(false); this.ui.renderPanel(); }
   salvage(id: string) {
     if (this.saveConflict || !sellItem(this.hero, id)) return;
     this.ui.selectedItem = undefined; this.save(false); this.ui.renderPanel();
@@ -896,7 +902,9 @@ export class Game {
   }
   loop = () => {
     const now = performance.now(), dt = Math.min((now - this.lastFrame) / 1000, .05); this.lastFrame = now;
-    this.update(dt); this.updateCamera(Math.min(1, dt * 7));
+    this.update(dt);
+    this.audio.updateScene({ position: this.position, terrain: this.inCamp ? 'camp' : this.level.terrain, area: this.inCamp ? 'camp' : this.level.id, paused: this.paused, active: !!this.profile && !this.dead, running: this.combat.running });
+    this.updateCamera(Math.min(1, dt * 7));
     if (this.quality === 'low') this.renderer.render(this.world.scene, this.camera); else this.composer.render();
     this.ui.update(dt); this.frameId = requestAnimationFrame(this.loop);
   };

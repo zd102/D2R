@@ -2,3 +2,5 @@ node_modules/
 dist/
 .verification/
 *.log
+public/audio/local/
+scripts/__pycache__/

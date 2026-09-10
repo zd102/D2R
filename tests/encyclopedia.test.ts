@@ -4,6 +4,7 @@ import { ENCYCLOPEDIA_ITEMS, ENCYCLOPEDIA_MONSTERS, filterEncyclopediaItems, fil
 import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS, RUNE_ORDER, itemMods, isAvailableItem } from '../src/items.ts';
 import { MONSTERS, BOSSES, ENCOUNTERS } from '../src/bestiary.ts';
 import { newHero, serializeSave } from '../src/model.ts';
+import { SPECIAL_LEVELS } from '../src/campaign.ts';
 
 test('encyclopedia covers every current item, rune, recipe, supply and all campaign monsters', () => {
   assert.equal(ENCYCLOPEDIA_ITEMS.length, BASES.filter(isAvailableItem).length + SPECIAL_ITEMS.filter(isAvailableItem).length + AVAILABLE_RUNEWORDS.length + RUNE_ORDER.length + 2);
@@ -12,8 +13,12 @@ test('encyclopedia covers every current item, rune, recipe, supply and all campa
   assert.equal(new Set(ENCYCLOPEDIA_MONSTERS.map(item => item.id)).size, ENCYCLOPEDIA_MONSTERS.length);
   for (const entry of ENCYCLOPEDIA_MONSTERS) {
     assert.ok(entry.areas.length, entry.name);
-    if (entry.rank === 'monster') for (const area of entry.areas) assert.ok(ENCOUNTERS[area].includes(entry.id));
+    if (entry.rank === 'monster') for (const area of entry.areas) {
+      if (entry.id === 'hellCow') assert.equal(area, SPECIAL_LEVELS.cow.index);
+      else assert.ok(ENCOUNTERS[area].includes(entry.id));
+    }
   }
+  assert.equal(filterEncyclopediaMonsters('隐藏奶牛关')[0]?.id, 'hellCow');
 });
 test('item search combines localized and English names, rune recipes, categories and equipment slots', () => {
   assert.equal(filterEncyclopediaItems('乔丹').length, 1);

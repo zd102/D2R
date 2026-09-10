@@ -58,7 +58,7 @@ export class UI {
       <div class="vignette" aria-hidden="true"></div><div id="damage-flash"></div>
       <header class="topbar">
         <div class="identity"><div class="title-row"><img src="/sigil.svg" alt="" class="brand-sigil"/><h1>黯蚀 <span>II</span></h1></div><div class="edition">ECLIPSE <span>·</span> 余烬之誓</div></div>
-        <div class="top-tools"><span class="offline"><b></b>单人旅程</span><button ${tip('保存旅程')} data-action="save">${icon('save')}</button><button ${tip('声音')} id="sound-button" data-action="sound">${icon('volume-2')}</button><button ${tip('设置')} data-panel="pause">${icon('settings')}</button></div>
+        <div class="top-tools"><span class="offline"><b></b>单人旅程</span><button ${tip('保存旅程')} data-action="save">${icon('save')}</button><button ${tip('声音')} id="sound-button" data-action="sound" aria-pressed="${!this.game.audio.volume}">${icon(this.game.audio.volume ? 'volume-2' : 'volume-x')}</button><button ${tip('设置')} data-panel="pause">${icon('settings')}</button></div>
       </header>
       <aside class="world-info"><div class="location"><span class="chapter">第 1 章 · 第 1 关</span><h2>邪恶洞窟</h2><span id="difficulty">普通 · Lv. 1</span></div>
         <button class="minimap-button" ${tip('区域地图')} data-panel="map"><canvas id="minimap" width="200" height="150"></canvas><span class="map-north">N</span><span class="map-expand">${icon('maximize')}</span></button>
@@ -148,7 +148,7 @@ export class UI {
       if (element.dataset.panel) this.togglePanel(element.dataset.panel as Panel);
       if (element.dataset.skill) this.game.useSkill(element.dataset.skill as Skill);
       if (element.dataset.potion) this.game.drink(Number(element.dataset.potion) as 0 | 1);
-      if (element.dataset.item) { this.selectedItem = element.dataset.item; if (innerWidth <= 700 || innerHeight <= 580) this.characterScreen.inventoryPane = 'details'; this.renderPanel(); }
+      if (element.dataset.item) { this.game.audio.play('uiClick'); this.selectedItem = element.dataset.item; if (innerWidth <= 700 || innerHeight <= 580) this.characterScreen.inventoryPane = 'details'; this.renderPanel(); }
       if (element.dataset.equip) this.game.equip(element.dataset.equip);
       if (element.dataset.salvage) this.game.salvage(element.dataset.salvage);
       if (element.dataset.allocate) this.game.allocate(element.dataset.allocate as Attribute, Number(element.dataset.count ?? 1));
@@ -160,7 +160,7 @@ export class UI {
       switch (element.dataset.action) {
         case 'close': this.closePanel(); break;
         case 'save': this.game.save(); break;
-        case 'sound': this.game.audio.volume = this.game.audio.volume ? 0 : .35; element.innerHTML = icon(this.game.audio.volume ? 'volume-2' : 'volume-x'); this.refreshIcons(); break;
+        case 'sound': this.game.audio.toggleMute(); this.refreshAudioButton(); break;
         case 'fullscreen': if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen().catch(() => this.toast('全屏暂不可用')); break;
         case 'revive': this.game.revive(); break;
         case 'profiles': this.game.returnToProfiles(); break;
@@ -174,7 +174,15 @@ export class UI {
       }
     });
     this.overlay.addEventListener('click', event => { if (event.target === this.overlay && !this.isProfilePanel() && this.panel !== 'death') this.closePanel(); });
-    this.overlay.addEventListener('input', event => { const element = event.target as HTMLInputElement; if (element.id === 'volume') { this.game.audio.volume = Number(element.value) / 100; document.getElementById('volume-value')!.textContent = `${element.value}%`; } });
+    this.overlay.addEventListener('input', event => {
+      const element = event.target as HTMLInputElement;
+      if (element.id === 'volume') { this.game.audio.volume = Number(element.value) / 100; this.refreshAudioButton(); }
+      const channel = element.dataset.audioChannel;
+      if (channel === 'effects' || channel === 'ambience' || channel === 'ui') this.game.audio.setChannelVolume(channel, Number(element.value) / 100);
+      if (element.id === 'volume' || channel) {
+        const label = document.getElementById(`${element.id}-value`); if (label) label.textContent = `${element.value}%`;
+      }
+    });
     this.overlay.addEventListener('change', event => {
       const element = event.target as HTMLInputElement;
       if (element.id === 'quality') this.game.setQuality(element.value);
@@ -200,6 +208,13 @@ export class UI {
     attack.addEventListener('pointerup', () => this.game.heldAttack = false);
     attack.addEventListener('pointercancel', () => this.game.heldAttack = false);
   }
+  refreshAudioButton() {
+    const button = document.getElementById('sound-button'); if (!button) return;
+    button.setAttribute('aria-pressed', String(!this.game.audio.volume));
+    button.innerHTML = icon(this.game.audio.volume ? 'volume-2' : 'volume-x'); this.refreshIcons();
+    const slider = document.getElementById('volume') as HTMLInputElement | null;
+    if (slider) { slider.value = String(Math.round(this.game.audio.volume * 100)); document.getElementById('volume-value')!.textContent = `${slider.value}%`; }
+  }
   togglePanel(panel: Panel) { this.panel === panel ? this.closePanel() : this.openPanel(panel); }
   isProfilePanel(panel = this.panel) { return ['profiles', 'new-profile', 'rename-profile', 'delete-profile', 'import-profile', 'save-conflict', 'encyclopedia'].includes(panel ?? ''); }
   openPanel(panel: Panel) {
@@ -209,6 +224,7 @@ export class UI {
     if (this.game.dead && panel !== 'death' && panel !== 'save-conflict') return;
     if (panel === 'shared-stash' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.stash.x, this.game.position.z - CAMP.stash.z) >= 3.5)) return;
     if (panel === 'campaign') this.campaignScreen.reset();
+    if (panel !== this.panel && panel !== 'death') this.game.audio.play(panel === 'shared-stash' ? 'chest' : 'uiOpen');
     this.hideTooltip(); this.panel = panel; this.game.paused = true; this.game.releaseInput(); this.overlay.hidden = false;
     document.getElementById('combat-status')!.hidden = true;
     this.renderPanel();
@@ -225,6 +241,7 @@ export class UI {
       return;
     }
     this.overlay.classList.remove('profile-overlay'); document.getElementById('app')!.classList.remove('is-roster');
+    if (this.panel) this.game.audio.play('uiClose');
     this.panel = undefined; this.game.paused = false; this.overlay.hidden = true; this.overlay.innerHTML = ''; this.game.renderer.domElement.focus({ preventScroll: true });
   }
   renderPanel() {

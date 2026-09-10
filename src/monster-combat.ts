@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { castSound } from './audio-bank.ts';
 import type { ClassSummon } from './class-combat.ts';
 import type { Enemy, Game } from './game.ts';
 import { MONSTERS, monsterTactic, type AttackId } from './bestiary.ts';
@@ -188,6 +189,7 @@ export class MonsterCombat {
   resolve(enemy: Enemy, cast: Cast) {
     enemy.actor.group.userData.release=1;
     const g = this.game, { spec, id, origin, target } = cast;
+    g.audio.play(spec.shape === 'melee' ? 'swing' : spec.type === 'physical' ? 'shot' : castSound(id, spec.type), { position: origin, gain: enemy.boss ? .95 : .65, nativeKey: `cast:${id}` });
     if (spec.shape === 'melee') {
       const point=cast.summon?.actor.group.position??g.position;
       if (point.distanceTo(enemy.actor.group.position) <= spec.radius && this.lineOfSight(enemy.actor.group.position, point)) {

@@ -141,6 +141,7 @@ npm test
 npm run build
 npm run test:browser
 npm run test:ui
+npm run test:audio
 ```
 
 浏览器测试默认使用 Windows 已安装的 Microsoft Edge，需先保持开发服务器运行。可用 `BASE_URL` 环境变量指定其他地址。测试使用独立的临时浏览器环境，不修改日常浏览器存档，截图输出到 `.verification`。
@@ -166,6 +167,6 @@ npm run test:ui
 - `src/inventory-drag.ts`：背包与仓库的鼠标、触摸和键盘拖动交互。
 - `src/saves.ts`：角色存档管理、单角色导入导出、旧存档迁移与冲突检测。
 - `src/profiles-ui.ts`、`src/profiles.css`：角色选择、新建、重命名与删除界面。
-- `src/audio.ts`：本地合成音效。
+- `src/audio.ts`、`src/audio-bank.ts`：采样音库、空间混音、环境声、音量持久化与资源回收；原生素材导入见 [音效系统说明](docs/AUDIO.md)。
 
-渲染使用 [Three.js](https://threejs.org/docs/)，碰撞使用 [Cannon ES](https://github.com/pmndrs/cannon-es)，界面图标使用 Lucide。场景、角色、纹理和音效均随代码本地生成，不依赖 CDN、外部图片或远程 API。
+渲染使用 [Three.js](https://threejs.org/docs/)，碰撞使用 [Cannon ES](https://github.com/pmndrs/cannon-es)，界面图标使用 Lucide。场景、角色和纹理随代码本地生成；音效使用随仓库提供的 CC0 采样与程序生成音色，也可优先读取从本机 D2R 导入的原生录音。运行时不依赖 CDN、外部图片或远程 API。
