@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { newHero, gainXp, learnSkill, stats, serializeSave } from '../src/model.ts';
 import { BASES, makeItem, specialItem, SPECIAL_ITEMS, RUNE_ORDER, placeItems } from '../src/items.ts';
 import { skillsForClass, EXPERIENCE } from '../src/paladin.ts';
+import { itemModifierLines } from '../src/item-description.ts';
 
 const output = process.env.OUTPUT_DIR || '.verification/ui-interactions';
 await mkdir(output, { recursive: true });
@@ -44,12 +45,9 @@ try {
     }
     await page.locator('[data-item="ui-detailed"]').click();
     await clickability('.item-actions button');
-    await page.locator('[data-item-tab="overview"]').click(); await expect(page.locator('.item-basics')).toBeVisible();
-    await page.locator('[data-item-tab="affixes"]').click();
-    assert.ok(await page.locator('.item-affixes li:visible').count() <= 6);
-    const firstAffixes = await page.locator('.item-affixes li:visible').allTextContents();
-    await page.locator('[data-affix-page="1"]').click();
-    assert.notDeepEqual(await page.locator('.item-affixes li:visible').allTextContents(), firstAffixes);
+    await expect(page.locator('.item-basics')).toBeVisible();
+    await expect(page.locator('[data-item-tab],[data-affix-page]')).toHaveCount(0);
+    assert.equal(await page.locator('.item-affixes li:visible').count(), itemModifierLines(hero.inventory[0]).length);
     await page.locator('[data-affix-ranges]').check();
     await page.screenshot({ path: `${output}/item-details-${viewport.width}.png` });
     await page.locator('[data-equip="ui-detailed"]').click();
@@ -174,5 +172,5 @@ try {
   await writeFile(`${output}/status-layouts.json`, JSON.stringify(statusLayouts, null, 2));
   assert.ok(statusLayouts.every(layout => !layout.overlaps.length), JSON.stringify(statusLayouts));
   assert.deepEqual(errors, []);
-  console.log('Item tabs/pages, equipment, rune upgrades, shared transfers, mobile panes, skill bindings, stat allocation, buff/debuff timers and tooltips passed', statusLayouts);
+  console.log('Complete item details, equipment, rune upgrades, shared transfers, mobile panes, skill bindings, stat allocation, buff/debuff timers and tooltips passed', statusLayouts);
 } finally { await browser.close(); }

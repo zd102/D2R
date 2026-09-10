@@ -660,7 +660,11 @@ export class Game {
     if (this.hero.potions[index] >= 99) return;
     this.hero.gold -= 25; this.hero.potions[index]++; this.audio.play('loot'); this.ui.renderPanel(); this.save(false);
   }
-  equip(id: string, slot?: Slot) { if (equipItem(this.hero, id, slot)) { this.audio.play('loot'); this.save(false); this.ui.renderPanel(); } else { const item = this.hero.inventory.find(item => item.id === id); this.ui.toast(item ? equipReason(this.hero, item, slot) || '背包空间不足' : '物品不存在'); } }
+  equip(id: string, slot?: Slot) {
+    const container = this.hero.inventory.some(item => item.id === id) ? 'inventory' : 'stash';
+    if (equipItem(this.hero, id, slot, container)) { this.audio.play('loot'); this.save(false); this.ui.renderPanel(); }
+    else { const item = this.hero[container].find(item => item.id === id); this.ui.toast(item ? equipReason(this.hero, item, slot) || (container === 'stash' ? '仓库空间不足' : '背包空间不足') : '物品不存在'); }
+  }
   swapWeapons() { swapWeapons(this.hero); this.ui.toast(`武器组 ${this.hero.weaponSet + 1}`); this.save(false); this.ui.renderPanel(); }
   salvage(id: string) {
     if (this.saveConflict || !sellItem(this.hero, id)) return;

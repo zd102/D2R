@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave } from '../src/model.ts';
 import { BASES, makeItem, specialItem, socketItem, placeItems } from '../src/items.ts';
 import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
-import { savedProfile, inventoryItems, itemTab } from './browser-helpers.mjs';
+import { savedProfile, inventoryItems, openSocketEditor } from './browser-helpers.mjs';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const output = process.env.OUTPUT_DIR || '.verification/item-rolls-browser';
@@ -30,7 +30,7 @@ try {
     await expect(page.locator('.item-affixes')).toContainText('20 - 35');
     assert.deepEqual((await savedProfile(page)).hero.inventory.find(item => item.id === armor.id).mods, armor.mods);
     await inventoryItems(page); await page.locator('[data-item="rolled-belt"]').click(); await expect(page.locator('.item-affixes')).toContainText('+15');
-    await inventoryItems(page); await page.locator('[data-item="rolled-spirit"]').click(); await itemTab(page, 'sockets');
+    await inventoryItems(page); await page.locator('[data-item="rolled-spirit"]').click(); await openSocketEditor(page);
     await page.locator('[data-socket="amn"]').click();
     const rolled = (await savedProfile(page)).hero.inventory.find(item => item.id === sword.id);
     assert.equal(rolled.rarity, 'runeword'); assert.equal(rolled.catalogVersion, 2);
@@ -38,7 +38,7 @@ try {
     await expect(page.locator('.item-affixes')).toContainText(`+${rolled.mods.fcr} 施法速度`);
     await expect(page.locator('.item-affixes')).toContainText('25 - 35');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    await itemTab(page, 'affixes'); await page.locator('.item-affixes').scrollIntoViewIfNeeded();
+    await page.locator('.item-affixes').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${output}/crafted-${viewport.width}.png` });
     await page.reload(); await page.getByRole('button', { name: '进入旅程', exact: true }).click();
     await page.waitForFunction(() => window.eclipseState?.inCamp && !window.eclipseState.paused);

@@ -39,7 +39,10 @@ export async function inventoryItem(page, id) {
   await inventoryItems(page);
   await page.locator(`[data-item="${id}"]`).click();
 }
-export async function itemTab(page, tab) { await page.locator(`button[data-item-tab="${tab}"]`).click(); }
+export async function openSocketEditor(page) {
+  const editor = page.locator('.socket-editor');
+  if (await editor.count() && await editor.getAttribute('open') === null) await editor.locator('summary').click();
+}
 export async function runeRecipes(page) {
   const tab = page.locator('button[data-rune-pane="recipes"]');
   if (await tab.isVisible()) await tab.click();

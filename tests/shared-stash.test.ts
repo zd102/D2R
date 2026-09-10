@@ -79,6 +79,24 @@ test('shared commit failure leaves all items intact and can be retried exactly o
   assert.equal(result.shared.items.length, 1); await assert.rejects(store.transferShared(a.id, current.hero, current.revision, 0, request), SaveError);
 });
 
+test('direct shared equipment changes commit both records atomically and survive reload', async () => {
+  const { store, storage, lock, a } = fixture(); a.hero.inventory = [gear('wear')];
+  let current = store.save(a.id, a.hero, a.revision);
+  const deposit = await store.transferShared(a.id, current.hero, current.revision, 0, { direction: 'deposit', container: 'inventory', itemId: 'wear' });
+  current = deposit.profile;
+  const before = [...storage.data], unchanged = structuredClone(current.hero);
+  storage.failKey = SHARED_STASH_KEY;
+  await assert.rejects(store.transferShared(a.id, current.hero, current.revision, 1, { direction: 'equip', itemId: 'wear' }), /Quota/);
+  assert.deepEqual([...storage.data], before); assert.deepEqual(current.hero, unchanged);
+  storage.failKey = undefined;
+  const worn = await store.transferShared(a.id, current.hero, current.revision, 1, { direction: 'equip', itemId: 'wear' });
+  const reload = new SaveStore(storage, lock);
+  assert.equal(reload.read(a.id).hero.equipment.ring?.id, 'wear'); assert.equal(reload.readShared().items.length, 0);
+  await assert.rejects(store.transferShared(a.id, current.hero, current.revision, 1, { direction: 'equip', itemId: 'wear' }), SaveError);
+  const removed = await reload.transferShared(a.id, worn.profile.hero, worn.profile.revision, 2, { direction: 'unequip', slot: 'ring' });
+  assert.equal(removed.profile.hero.equipment.ring, null); assert.equal(reload.readShared().items[0].id, 'wear');
+});
+
 test('shared commits survive unavailable character writes, including exports and stale autosaves', async () => {
   const { store, storage, lock, a } = fixture(); a.hero.inventory = [gear('atomic')]; const current = store.save(a.id, a.hero, a.revision);
   storage.failKey = PROFILE_PREFIX + a.id;

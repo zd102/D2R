@@ -190,17 +190,35 @@ export function equipReason(hero: HeroState, item: Item, target: Slot = item.slo
   if (hero.strength + (mods.strength ?? 0) < itemRequirements(item).strength) return `需要力量 ${itemRequirements(item).strength}`;
   if (hero.dexterity + (mods.dexterity ?? 0) < itemRequirements(item).dexterity) return `需要敏捷 ${itemRequirements(item).dexterity}`; return '';
 }
-export function equipItem(hero: HeroState, id: string, target?: Slot): boolean {
-  const item = hero.inventory.find(item => item.id === id); if (!item) return false;
+export function equipFromItems(hero: HeroState, items: Item[], id: string, target?: Slot, rows = 4): boolean {
+  const item = items.find(item => item.id === id); if (!item) return false;
   const slot = target ?? (item.slot === 'ring' && hero.equipment.ring && !hero.equipment.ring2 ? 'ring2' : item.slot);
   if (equipReason(hero, item, slot)) return false;
-  const equipment = { ...hero.equipment }, inventory = hero.inventory.filter(other => other.id !== id);
-  const remove = (key: Slot) => { if (equipment[key]) inventory.push(equipment[key]!); equipment[key] = null; };
+  const equipment = { ...hero.equipment }, remaining = items.filter(other => other.id !== id), removed = new Set<Item>();
+  const remove = (key: Slot) => { if (equipment[key]) { remaining.push(equipment[key]!); removed.add(equipment[key]!); } equipment[key] = null; };
   remove(slot); if (item.twoHanded) remove('shield'); if (slot === 'shield' && equipment.weapon?.twoHanded) remove('weapon');
-  if (!placeItems(inventory)) return false;
-  equipment[slot] = item; delete item.x; delete item.y; hero.equipment = equipment; hero.inventory = inventory; clampResources(hero); return true;
+  const layout = remaining.map(item => { const copy = { ...item }; if (removed.has(item)) { delete copy.x; delete copy.y; } return copy; });
+  const positions = packItems(layout, rows);
+  if (items === hero.stash && remaining.length > 200 || new Set(remaining.map(item => item.id)).size !== remaining.length || !positions) return false;
+  for (const item of remaining) { const position = positions.get(item.id)!; item.x = position.x; item.y = position.y; }
+  equipment[slot] = item; delete item.x; delete item.y;
+  hero.equipment = equipment; items.splice(0, items.length, ...remaining); clampResources(hero); return true;
 }
-export function unequipItem(hero: HeroState, slot: Slot) { const item = hero.equipment[slot]; if (!item || !packItems([...hero.inventory, item])) return false; hero.inventory.push(item); placeItems(hero.inventory); hero.equipment[slot] = null; clampResources(hero); return true; }
+export function equipItem(hero: HeroState, id: string, target?: Slot, container: 'inventory' | 'stash' = 'inventory'): boolean {
+  const items = hero[container];
+  return equipFromItems(hero, items, id, target, container === 'inventory' ? 4 : stashRows(items));
+}
+export function unequipToItems(hero: HeroState, items: Item[], slot: Slot, rows = 4) {
+  const item = hero.equipment[slot]; if (!item || items.some(other => other.id === item.id)) return false;
+  const moved = { ...item }; delete moved.x; delete moved.y;
+  const positions = packItems([...items, moved], rows); if (!positions) return false;
+  items.push(item); for (const entry of items) { const position = positions.get(entry.id)!; entry.x = position.x; entry.y = position.y; }
+  hero.equipment[slot] = null; clampResources(hero); return true;
+}
+export function unequipItem(hero: HeroState, slot: Slot, container: 'inventory' | 'stash' = 'inventory') {
+  if (container === 'stash' && hero.stash.length >= 200) return false;
+  return unequipToItems(hero, hero[container], slot, container === 'inventory' ? 4 : stashRows([...hero.stash, ...(hero.equipment[slot] ? [hero.equipment[slot]!] : [])]));
+}
 export function swapWeapons(hero: HeroState) { [hero.equipment.weapon, hero.alternate.weapon] = [hero.alternate.weapon, hero.equipment.weapon]; [hero.equipment.shield, hero.alternate.shield] = [hero.alternate.shield, hero.equipment.shield]; hero.weaponSet = hero.weaponSet ? 0 : 1; clampResources(hero); }
 export function moveStorage(hero: HeroState, id: string, toStash: boolean) {
   const from = toStash ? hero.inventory : hero.stash, to = toStash ? hero.stash : hero.inventory, item = from.find(item => item.id === id);

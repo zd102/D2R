@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave, stats } from '../src/model.ts';
 import { BASES, RUNE_ORDER, RUNEWORDS, makeItem, placeItems, runeNumber } from '../src/items.ts';
 import { itemArtwork } from '../src/item-art.ts';
-import { savedProfile, inventoryItems, itemTab, recipeNamed } from './browser-helpers.mjs';
+import { savedProfile, inventoryItems, openSocketEditor, recipeNamed } from './browser-helpers.mjs';
 
 const output = '.verification/item-art-check';
 await mkdir(output, { recursive: true });
@@ -78,7 +78,7 @@ try {
     await expect(page.locator('.gear-weapon [data-base-icon]')).toHaveAttribute('data-base-icon','ssd');
     await inventoryItems(page); await fit(page); await page.locator('.diablo-grid').scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/inventory-${viewport.width}.png`});
     if (viewport.width <= 700) await page.locator('button[data-inventory-pane="details"]').click();
-    await itemTab(page, 'sockets');
+    await openSocketEditor(page);
     for(const rune of ['tal','thul','ort','amn']) {
       const button=page.locator(`[data-socket="${rune}"]`); await expect(button).toContainText(runeNumber(rune)); await button.click();
     }

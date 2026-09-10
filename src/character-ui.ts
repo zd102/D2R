@@ -1,20 +1,19 @@
 import type { Game, Skill } from './game';
 import type { UI } from './ui';
-import { stats, skillLevel, learnSkill, learnReason, bindSkill, setAura, activeEquipment, equipItem, equipReason, unequipItem, moveStorage, identifyItem, IDENTIFY_COST, insertRune, repairCost, repairEquipment, respec, difficulty, difficultyNames, damageTypeNames, totalExperience, type Slot } from './model';
+import { stats, activeEquipment, skillLevel, learnSkill, learnReason, bindSkill, setAura, equipItem, equipReason, unequipItem, moveStorage, identifyItem, IDENTIFY_COST, insertRune, repairCost, repairEquipment, respec, difficulty, difficultyNames, damageTypeNames, totalExperience, type Slot } from './model';
 import { skillsForClass, skillById, skillValues, skillName, skillIcon, treeNames, attributeNames, isAura, isPassive, type SkillTree, type SkillId, type ActionId, type Attribute } from './paladin';
 import { CLASSES } from './classes';
-import { SLOTS, slotNames, rarityNames, MOD_NAMES, RUNES, RUNEWORDS, itemMods, packItems, footprint, stashRows, type Item, type Modifier, type RuneId } from './items';
+import { SLOTS, slotNames, rarityNames, MOD_NAMES, RUNES, RUNEWORDS, packItems, footprint, stashRows, type Item, type Modifier, type RuneId } from './items';
 import { InventoryDrag } from './inventory-drag';
-import { filledSockets, itemRequirements } from './items';
+import { filledSockets } from './items';
 import { insertJewel } from './model';
-import { CLASS_NAMES, itemSetName, runewordBaseLabel } from './item-catalog';
+import { runewordBaseLabel } from './item-catalog';
 import { itemVisual, runeArtwork } from './item-art';
 import { RUNE_ORDER, runeNumber, runeLabel } from './items';
 import { runeUpgradeCost, upgradeRune } from './loot';
-import { itemModifierLines, itemWeaponDamage } from './item-description';
-import { CHARM_BASES } from './affixes';
 import { skillSlotNames } from './controls';
-import { rangedBase } from './items';
+import { equipmentPanel } from './equipment-ui';
+import { itemDetails } from './item-details-ui';
 
 const icon = (name: string) => `<i data-lucide="${name}"></i>`;
 const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -29,8 +28,7 @@ export class CharacterScreen {
   showRanges = false;
   sheetTab: 'attributes' | 'combat' = 'attributes';
   skillPane: 'tree' | 'detail' | 'bindings' = 'tree';
-  itemTab: 'overview' | 'affixes' | 'sockets' = 'affixes';
-  affixPage = 0;
+  socketEditorOpen = false;
   detailItem?: string;
   inventoryPane: 'items' | 'equipment' | 'details' = 'items';
   runePane: 'materials' | 'recipes' = 'materials';
@@ -39,6 +37,7 @@ export class CharacterScreen {
     this.game = game; this.ui = ui;
     this.inventoryDrag = new InventoryDrag(ui);
     ui.overlay.addEventListener('click', event => {
+      if (!['inventory', 'character', 'skills'].includes(ui.panel ?? '')) return;
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button'); if (!button || button.disabled) return;
       const data = button.dataset, h = game.hero; let changed = false, render = false;
       if (data.tree) { this.tree = data.tree as SkillTree; this.selectedSkill = skillsForClass(h.classId).find(skill => skill.tree === this.tree)!.id; render = true; }
@@ -51,11 +50,9 @@ export class CharacterScreen {
       if (data.recipePage !== undefined) { this.recipePage = Math.max(0, Number(data.recipePage)); render = true; }
       if (data.sheetTab) { this.sheetTab = data.sheetTab as typeof this.sheetTab; render = true; }
       if (data.skillPane) { this.skillPane = data.skillPane as typeof this.skillPane; render = true; }
-      if (data.itemTab) { this.itemTab = data.itemTab as typeof this.itemTab; render = true; }
-      if (data.affixPage !== undefined) { this.affixPage = Math.max(0, Number(data.affixPage)); render = true; }
       if (data.selectSkill && innerWidth <= 700) this.skillPane = 'detail';
       if (data.tree) this.skillPane = 'tree';
-      if (data.unequip) { changed = unequipItem(h, data.unequip as Slot); if (!changed) ui.toast('背包空间不足'); }
+      if (data.unequip) { const container = data.unequipTo === 'stash' ? 'stash' : 'inventory'; changed = unequipItem(h, data.unequip as Slot, container); if (!changed) ui.toast(container === 'stash' ? '仓库空间不足' : '背包空间不足'); }
       if (data.stash) { changed = moveStorage(h, data.stash, true); if (!changed) ui.toast('仓库空间不足'); }
       if (data.withdraw) { changed = moveStorage(h, data.withdraw, false); if (!changed) ui.toast('背包空间不足'); }
       if (data.identify) { changed = identifyItem(h, data.identify); if (!changed) ui.toast(h.gold < IDENTIFY_COST ? '金币不足' : '该物品无需鉴定'); }
@@ -68,15 +65,16 @@ export class CharacterScreen {
       if (data.action === 'respec') { this.respecPending = true; render = true; }
       if (data.action === 'cancel-respec') { this.respecPending = false; render = true; }
       if (data.action === 'confirm-respec') { changed = respec(h); this.respecPending = false; render = true; if (changed) { game.combat.zeal = null; game.combat.classes.clear(); ui.toast('属性与技能点已返还'); } }
-      if (changed && data.identify) this.itemTab = 'affixes';
       if (changed) game.save(false); if (changed || render) { ui.renderPanel(); if (data.selectSkill && innerWidth < 700) ui.overlay.querySelector('.skill-inspector')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
     });
     ui.overlay.addEventListener('change', event => {
+      if (!['inventory', 'character', 'skills'].includes(ui.panel ?? '')) return;
       const select = event.target as HTMLSelectElement;
       if (select.dataset.recipeFilter) { this.recipeFilter = select.value; this.recipePage = 0; ui.renderPanel(); }
       if (select.dataset.affixRanges !== undefined) { this.showRanges = (select as unknown as HTMLInputElement).checked; ui.renderPanel(); }
       if (select.dataset.binding) { bindSkill(game.hero, select.dataset.binding as Skill, select.value as ActionId); game.save(false); ui.renderPanel(); }
     });
+    ui.overlay.addEventListener('toggle', event => { if (event.target instanceof HTMLDetailsElement && event.target.classList.contains('socket-editor')) this.socketEditorOpen = event.target.open; }, true);
   }
   character() {
     const h = this.game.hero, s = stats(h), diff = difficulty(h), canRespec = h.questRewards.includes(`${diff}:shrine0`) && !h.respecUsed.includes(diff), c = CLASSES[h.classId];
@@ -144,28 +142,22 @@ export class CharacterScreen {
   inventory() {
     const h = this.game.hero, items = this.view === 'stash' ? h.stash : h.inventory, selected = [...h.inventory, ...h.stash, ...Object.values(h.equipment)].find(item => item?.id === this.ui.selectedItem);
     if (!selected && this.inventoryPane === 'details') this.inventoryPane = 'items';
-    const equippedSlot = SLOTS.find(slot => h.equipment[slot]?.id === selected?.id), inStash = selected && h.stash.includes(selected), active = activeEquipment(h);
+    const equippedSlot = SLOTS.find(slot => h.equipment[slot]?.id === selected?.id), inStash = selected && h.stash.includes(selected);
     const occupied = h.inventory.reduce((sum, item) => { const [w, height] = footprint(item); return sum + w * height; }, 0);
     const rows = this.view === 'stash' ? stashRows(items) : 4;
     const positions = packItems(items, rows);
-    const equipment = `<div class="equipment-heading"><span>武器组 ${h.weaponSet + 1}</span><button data-action="swap-weapons" ${tip('切换武器组')}>${icon('arrow-left-right')}</button></div><div class="paperdoll">${SLOTS.map(slot => { const item = h.equipment[slot]; return `<div class="gear-position gear-${slot}"><span>${({ shield: '副手', ring: '左戒指', ring2: '右戒指' } as Partial<Record<Slot, string>>)[slot] ?? slotNames[slot]}</span><button class="gear-slot ${item?.rarity ?? ''} ${item && !active.includes(item) ? 'unusable' : ''} ${item?.id === this.ui.selectedItem ? 'selected' : ''}" ${item ? `data-item="${escape(item.id)}" ${tip(item.name)}` : `aria-label="${slotNames[slot]}未装备" disabled`}>${item ? itemVisual(item) : icon(({ weapon: 'sword', shield: 'shield', armor: 'shirt', helm: 'crown', gloves: 'hand', belt: 'rectangle-ellipsis', boots: 'footprints', amulet: 'gem', ring: 'circle', ring2: 'circle' })[slot])}${item?.durability === 0 ? `<small>损坏</small>` : ''}</button></div>`; }).join('')}</div>`;
+    const equipment = equipmentPanel(h, this.ui.selectedItem);
     const tabs = `<div class="character-tabs bag-tabs" role="tablist" aria-label="物品容器">${(['inventory', 'stash', 'runes'] as const).map(view => `<button role="tab" aria-selected="${this.view === view}" data-bag-view="${view}">${icon(view === 'inventory' ? 'backpack' : view === 'stash' ? 'archive' : 'gem')}${({ inventory: '背包', stash: '私人仓库', runes: '符文' })[view]}</button>`).join('')}</div>`;
     const grid = this.view === 'runes' ? this.runes() : `<div class="section-label"><span>${this.view === 'stash' ? '私人仓库' : '背包'}</span><span>${this.view === 'stash' ? `${items.length} 件` : `${occupied} / 40 格`}</span></div><div class="inventory-grid-scroll"><div class="diablo-grid" data-container="${this.view}" data-rows="${rows}" style="--rows:${rows}" aria-label="${this.view === 'stash' ? '仓库' : '背包'}物品">${items.map((item, i) => { const p = positions?.get(item.id) ?? { x: i % 10, y: Math.floor(i / 10), width: 1, height: 1 }; return `<button draggable="false" aria-roledescription="可移动装备" aria-keyshortcuts="Space Enter ArrowLeft ArrowRight ArrowUp ArrowDown Escape" class="bag-item ${item.rarity} ${item.id === this.ui.selectedItem ? 'selected' : ''}" style="grid-column:${p.x + 1}/span ${p.width};grid-row:${p.y + 1}/span ${p.height}" data-item="${escape(item.id)}" ${tip(item.identified === false ? `未鉴定 ${item.base ?? item.name}` : item.name)}>${itemVisual(item)}${item.identified === false ? '<b class="unidentified-mark">?</b>' : ''}${item.sockets ? `<small>${filledSockets(item)}/${item.sockets}</small>` : ''}</button>`; }).join('')}</div></div><span class="inventory-move-status" role="status" aria-live="polite" aria-atomic="true"></span>`;
     let details = `<div class="empty-detail">${icon('shield-check')}<span>选择一件物品</span><small>点击查看属性、装备或存取<br>按住物品拖动即可整理位置</small></div>`;
     if (selected) {
-      const identified = selected.identified !== false, reason = equipReason(h, selected), mods = identified ? itemMods(selected) : {}, slot = equippedSlot;
-      const affixes = identified ? itemModifierLines(selected) : [], affixPages = Math.max(1, Math.ceil(affixes.length / 6));
-      if (this.detailItem !== selected.id) { this.detailItem = selected.id; this.affixPage = 0; this.itemTab = affixes.length ? 'affixes' : 'overview'; }
-      this.affixPage = Math.min(this.affixPage, affixPages - 1);
+      const identified = selected.identified !== false, reason = equipReason(h, selected), slot = equippedSlot;
+      if (this.detailItem !== selected.id) { this.detailItem = selected.id; this.socketEditorOpen = false; }
       let comparison = '';
-      if (!slot && !inStash && identified && !selected.charm && !reason) { const clone = structuredClone(h); if (equipItem(clone, selected.id)) { const current = stats(h), next = stats(clone); comparison = `<div class="item-comparison">${([['伤害', next.attack - current.attack], ['防御', next.defense - current.defense], ['生命', next.maxHp - current.maxHp], ['格挡', next.block - current.block]] as [string, number][]).filter(([, value]) => Math.abs(value) > .01).map(([label, value]) => `<span class="${value > 0 ? 'positive' : 'negative'}">${label} ${value > 0 ? '+' : ''}${number(value)}</span>`).join('')}</div>`; } }
-      details = `<nav class="item-detail-tabs" aria-label="物品详情分类">${(['overview','affixes','sockets'] as const).map(tab => `<button data-item-tab="${tab}" aria-pressed="${this.itemTab === tab}" ${tab === 'affixes' && !identified || tab === 'sockets' && !selected.sockets ? 'disabled' : ''}>${({overview:'属性',affixes:'词缀',sockets:'镶嵌'})[tab]}</button>`).join('')}</nav><div class="item-detail-scroll"><span class="rarity-tag ${selected.rarity}">${rarityNames[selected.rarity]} · ${selected.misc ? '杂物' : selected.charm ? selected.charmSize ? CHARM_BASES[selected.charmSize].name : '护身符' : selected.jewel ? '珠宝' : slotNames[selected.slot]}</span><div class="item-showcase ${selected.rarity}">${itemVisual(selected)}</div><h3 class="${selected.rarity}">${escape(identified ? selected.name : `未鉴定 ${selected.base ?? selected.name}`)}</h3>${selected.base && selected.base !== selected.name ? `<small>${escape(selected.base)}</small>` : ''}
-      <dl class="item-basics" ${this.itemTab === 'overview' ? '' : 'hidden'}>${selected.slot === 'weapon' ? `<div><dt>${rangedBase(selected)?.stack ? '投掷' : selected.twoHanded ? '双手' : '单手'}伤害</dt><dd>${itemWeaponDamage(selected, h.level, mods)}</dd></div>` : !selected.charm && !['ring', 'ring2', 'amulet'].includes(selected.slot) ? `<div><dt>防御</dt><dd>${Math.floor(selected.power * (1 + (mods.enhancedDefense ?? 0) / 100) + (mods.defense ?? 0) + (mods.defensePerLevel ?? 0) * h.level)}</dd></div>` : ''}${selected.block ? `<div><dt>盾牌格挡</dt><dd>${selected.block + (mods.block ?? 0)}%</dd></div>` : ''}${selected.maxDurability ? `<div><dt>耐久度</dt><dd>${mods.indestructible ? '无法破坏' : `${selected.durability} / ${selected.maxDurability}`}</dd></div>` : ''}${rangedBase(selected) ? '<div><dt>弹药</dt><dd>无限</dd></div>' : ''}<div><dt>物品等级</dt><dd>${selected.level}</dd></div><div><dt>需要等级</dt><dd>${selected.requiredLevel ?? 1}</dd></div>${selected.requiredStrength ? `<div><dt>需要力量</dt><dd>${identified ? itemRequirements(selected).strength : selected.requiredStrength}</dd></div>` : ''}${selected.requiredDexterity ? `<div><dt>需要敏捷</dt><dd>${identified ? itemRequirements(selected).dexterity : selected.requiredDexterity}</dd></div>` : ''}</dl>
-      ${selected.requiredClass ? `<small>仅限${CLASS_NAMES[selected.requiredClass]}</small>` : ''}
-      ${identified ? `<div class="item-affix-panel" ${this.itemTab === 'affixes' ? '' : 'hidden'}><label class="affix-range-toggle"><input type="checkbox" data-affix-ranges ${this.showRanges ? 'checked' : ''}/>显示词缀浮动范围</label><ul class="item-affixes">${affixes.map((line, index) => `<li ${Math.floor(index / 6) === this.affixPage ? '' : 'hidden'}>${escape(line.text)}${line.range ? `<small class="affix-range">变量 ${escape(line.range)}</small>` : ''}</li>`).join('')}</ul><nav class="affix-pagination" aria-label="词缀分页" ${affixPages > 1 ? '' : 'hidden'}><button data-affix-page="${this.affixPage - 1}" ${this.affixPage === 0 ? 'disabled' : ''}>上一页</button><span>${this.affixPage + 1} / ${affixPages}</span><button data-affix-page="${this.affixPage + 1}" ${this.affixPage + 1 === affixPages ? 'disabled' : ''}>下一页</button></nav></div>${selected.setId ? `<div class="set-bonuses">${escape(itemSetName(selected) ?? '')}${selected.setId === 'sigon' ? '<br>2 件：10% 生命偷取<br>3 件：100 防御<br>6 件：20 法力、12% 火抗、7 点物理减伤' : ''}</div>` : ''}` : ''}
-      ${selected.sockets ? `<div class="item-socket-panel" ${this.itemTab === 'sockets' ? '' : 'hidden'}><div class="socket-row">${(selected.runes ?? []).map(id => `<span class="socket-rune" ${tip(runeLabel(id))}>${runeArtwork(id)}<b>${runeNumber(id)}</b><small>${RUNES[id].name}</small></span>`).join('')}${(selected.socketedJewels ?? []).map(jewel => `<span ${tip(jewel.name)}>${icon('gem')}</span>`).join('')}${Array(Math.max(0, selected.sockets - filledSockets(selected))).fill('<span class="socket-empty">空</span>').join('')}</div>${!slot && identified && filledSockets(selected) < selected.sockets ? `<label class="socket-label">镶嵌符文</label><div class="socket-options">${[...new Set(h.runes)].map(id => `<button data-socket="${id}" ${tip(`镶嵌${runeLabel(id)}`)}>${runeArtwork(id)}<span>${RUNES[id].name}<small>${runeNumber(id)}</small></span></button>`).join('') || '<small>尚无符文</small>'}</div><div class="socket-options">${[...h.inventory, ...h.stash].filter(item => item.jewel && item.identified !== false).map(item => `<button data-socket-jewel="${escape(item.id)}" ${tip(`镶嵌${item.name}`)}>${icon('gem')}${escape(item.name)}</button>`).join('')}</div>` : ''}</div>` : ''}${comparison}</div><div class="item-actions">
+      if (!slot && identified && !selected.charm && !reason) { const clone = structuredClone(h); if (equipItem(clone, selected.id, undefined, inStash ? 'stash' : 'inventory')) { const current = stats(h), next = stats(clone); comparison = `<div class="item-comparison">${([['伤害', next.attack - current.attack], ['防御', next.defense - current.defense], ['生命', next.maxHp - current.maxHp], ['格挡', next.block - current.block]] as [string, number][]).filter(([, value]) => Math.abs(value) > .01).map(([label, value]) => `<span class="${value > 0 ? 'positive' : 'negative'}">${label} ${value > 0 ? '+' : ''}${number(value)}</span>`).join('')}</div>`; } }
+      details = `${itemDetails(h, selected, { equipped: !!slot, editable: true, showRanges: this.showRanges, socketEditorOpen: this.socketEditorOpen, comparison })}<div class="item-actions">
       ${!identified ? `<button class="primary-button" data-identify="${escape(selected.id)}" ${h.gold >= IDENTIFY_COST ? '' : 'disabled'}>${icon('scan-eye')}鉴定 · ${IDENTIFY_COST} 金币</button>` : ''}
-      ${slot ? `<span class="equipped-label">已装备${!active.includes(selected) ? ' · 需求未满足' : ''}</span><button class="secondary-button" data-unequip="${slot}">${icon('backpack')}卸下</button>` : inStash ? `<button class="primary-button" data-withdraw="${escape(selected.id)}">${icon('arrow-down')}取回背包</button><button class="text-button" data-salvage="${escape(selected.id)}">${icon('coins')}出售 · ${selected.value}</button>` : `<button class="primary-button" data-equip="${escape(selected.id)}" ${reason ? 'disabled' : ''}>${icon('sword')}装备</button>${selected.slot === 'ring' ? `<button class="secondary-button" data-equip-ring="${escape(selected.id)}" ${reason ? 'disabled' : ''}>${icon('circle')}装备到右戒指</button>` : ''}<small class="learn-reason">${reason}</small><button class="secondary-button" data-stash="${escape(selected.id)}">${icon('archive')}存入仓库</button><button class="text-button" data-salvage="${escape(selected.id)}">${icon('coins')}出售 · ${selected.value}</button>`}</div>`;
+      ${slot ? `<span class="equipped-label">已装备${!activeEquipment(h).includes(selected) ? ' · 需求未满足' : ''}</span><button class="secondary-button" data-unequip="${slot}" data-unequip-to="${this.view === 'stash' ? 'stash' : 'inventory'}">${icon('backpack')}${this.view === 'stash' ? '卸下至仓库' : '卸下'}</button>` : inStash ? `<button class="primary-button" data-equip="${escape(selected.id)}" ${reason ? 'disabled' : ''}>${icon('sword')}装备</button>${selected.slot === 'ring' ? `<button class="secondary-button" data-equip-ring="${escape(selected.id)}" ${reason ? 'disabled' : ''}>${icon('circle')}装备到右戒指</button>` : ''}<small class="learn-reason">${reason}</small><button class="secondary-button" data-withdraw="${escape(selected.id)}">${icon('arrow-down')}取回背包</button><button class="text-button" data-salvage="${escape(selected.id)}">${icon('coins')}出售 · ${selected.value}</button>` : `<button class="primary-button" data-equip="${escape(selected.id)}" ${reason ? 'disabled' : ''}>${icon('sword')}装备</button>${selected.slot === 'ring' ? `<button class="secondary-button" data-equip-ring="${escape(selected.id)}" ${reason ? 'disabled' : ''}>${icon('circle')}装备到右戒指</button>` : ''}<small class="learn-reason">${reason}</small><button class="secondary-button" data-stash="${escape(selected.id)}">${icon('archive')}存入仓库</button><button class="text-button" data-salvage="${escape(selected.id)}">${icon('coins')}出售 · ${selected.value}</button>`}</div>`;
     }
     return `<div class="inventory-screen" data-inventory-pane="${this.inventoryPane}"><nav class="compact-tabs inventory-pane-tabs" aria-label="行囊视图">${(['items','equipment','details'] as const).map(pane => `<button data-inventory-pane="${pane}" aria-pressed="${this.inventoryPane === pane}" ${pane === 'details' && !selected ? 'disabled' : ''}>${({items:'物品',equipment:'装备',details:'详情'})[pane]}</button>`).join('')}</nav><div class="paladin-inventory" data-view="${this.view}"><div class="gear-column">${equipment}<div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}</div></div><div class="bag-column">${tabs}${grid}<div class="bag-utilities"><button class="text-button" data-action="repair" ${h.gold >= repairCost(h) && repairCost(h) > 0 ? '' : 'disabled'}>${icon('wrench')}修理 ${repairCost(h)}</button></div></div><div class="item-details ${this.showRanges ? 'show-ranges' : ''}">${details}</div></div></div>`;
   }
