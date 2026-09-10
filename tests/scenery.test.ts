@@ -4,6 +4,7 @@ import PF from 'pathfinding';
 import { LEVELS, SPECIAL_LEVELS, levelLayout } from '../src/campaign.ts';
 import { SCENE_DESIGNS } from '../src/scene-design.ts';
 import { layoutWalkable } from '../src/level-layouts.ts';
+import { rotateMapPoint } from '../src/map-orientation.ts';
 
 test('campaign and hidden areas have distinct landmarks and complete scene palettes', () => {
   const areas = [...LEVELS, ...Object.values(SPECIAL_LEVELS)];
@@ -30,7 +31,8 @@ test('expanded geography preserves four arcane arms, narrow nests, a moat and th
   assert.equal(finder.findPath(offset-35,offset,offset+35,offset,grid.clone()).length,0,'west and east arms only connect through the hub');
   assert.equal(finder.findPath(offset,offset+35,offset,offset-35,grid.clone()).length,0,'south and north arms only connect through the hub');
   assert.ok(levelLayout(LEVELS[7]).corridorWidth <= 1.4);
-  assert.equal(layoutWalkable(levelLayout(LEVELS[14]),0,-23),false,'moat keeps the central approach closed');
+  const durance = levelLayout(LEVELS[14]), moat = rotateMapPoint({ x: 0, z: -23 }, durance.rotation);
+  assert.equal(layoutWalkable(durance,moat.x,moat.z),false,'moat keeps the central approach closed');
   assert.ok(levelLayout(LEVELS[23]).bossRadius >= 14);
   assert.equal(levelLayout(LEVELS[19]).objects.length + levelLayout(LEVELS[18]).objects.length,5);
 });
@@ -38,7 +40,7 @@ test('expanded geography preserves four arcane arms, narrow nests, a moat and th
 test('authored maps keep every room, task, chest, supply and exit connected to the saved entrance', () => {
   for (const level of LEVELS) {
     const layout = levelLayout(level), offsetX=layout.bounds.x+1,offsetZ=layout.bounds.z+1;
-    assert.deepEqual(layout.spawn, { x: 0, z: 11 });
+    assert.deepEqual(layout.spawn, layout.route[0]);
     assert.equal(layout.objects.length, level.quest.kind === 'interact' ? level.quest.count : 0);
     assert.deepEqual(layout.chests.map(chest => chest.id), Array.from({ length: 4 + Math.floor(level.act / 2) }, (_, i) => i));
     const matrix = Array.from({length:layout.height}, (_, z) => Array.from({length:layout.width}, (_, x) => layoutWalkable(layout, x-offsetX, z-offsetZ) ? 0 : 1));
@@ -47,7 +49,7 @@ test('authored maps keep every room, task, chest, supply and exit connected to t
     for (const target of [layout.boss, layout.exit, layout.supply, ...layout.objects, ...layout.chests, ...layout.rooms]) {
       const x = Math.round(target.x), z = Math.round(target.z);
       assert.ok(grid.isWalkableAt(x+offsetX,z+offsetZ), `${level.name}: target ${x},${z} has floor`);
-      const path = finder.findPath(offsetX,11+offsetZ,x+offsetX,z+offsetZ,grid.clone());
+      const path = finder.findPath(layout.spawn.x+offsetX,layout.spawn.z+offsetZ,x+offsetX,z+offsetZ,grid.clone());
       assert.ok(path.length, `${level.name}: target ${x},${z} is reachable`);
     }
     assert.equal(layoutWalkable(layout, layout.bounds.x, 0), false);

@@ -42,7 +42,12 @@ async function approach(page, id, range = 2.9) {
   const touch = await page.evaluate(() => navigator.maxTouchPoints > 0);
   for (let tries = 0; tries < 220; tries++) {
     const s = await state(page), chest = s.chests.find(chest => chest.id === id);
-    if (chest.opened || Math.hypot(s.position.x - chest.x, s.position.z - chest.z) <= range) return;
+    if (chest.opened || Math.hypot(s.position.x - chest.x, s.position.z - chest.z) <= range) {
+      // Stop the outstanding move before waiting for a stable world-space label.
+      // Rotated approaches can otherwise carry the hero past it and out of view.
+      await page.evaluate(() => { const g = window.mapVerification; g.releaseInput(); g.updateCamera(1); g.ui.update(0); });
+      return;
+    }
     const next = chest.route[0]; assert.ok(next, 'Chest route exists');
     const { width, height } = page.viewportSize(), dx = next.screen.x - width / 2, dy = next.screen.y - height / 2;
     const factor = Math.min(1, width * .25 / Math.max(1, Math.abs(dx)), height * .11 / Math.max(1, Math.abs(dy)));
@@ -67,7 +72,7 @@ try {
   let minFloor = Infinity, maxFloor = 0;
   for (const level of LEVELS) {
     if (level.index) await choose(page, level.index);
-    const s = await state(page), layout = levelLayout(level);
+    const s = await state(page), layout = levelLayout(level, s.area.seed);
     assert.equal(s.area.gridWidth, layout.width); assert.equal(s.area.gridHeight, layout.height); assert.ok(s.area.gridWidth <= 300 && s.area.gridHeight <= 300); minFloor = Math.min(minFloor, s.area.floorCells); maxFloor = Math.max(maxFloor, s.area.floorCells);
     assert.equal(s.chests.length, layout.chests.length); assert.equal(s.enemies.filter(e => e.boss).length, 1);
     const inaccessibleEnemies = await page.evaluate(() => {

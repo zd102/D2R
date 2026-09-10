@@ -12,6 +12,7 @@
     "items:report": "node scripts/item-attribute-report.ts",
     "test:item-effects": "node tests/item-effects-browser.mjs",
     "test:maps": "node tests/maps-chests-browser.mjs",
+    "test:map-orientation": "node tests/map-orientation-browser.mjs",
     "test:scenery": "node tests/scenery-browser.mjs",
     "test:visuals": "node tests/visuals-browser.mjs",
     "test:elites": "node tests/elites-browser.mjs",

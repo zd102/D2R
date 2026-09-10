@@ -4,6 +4,7 @@ import { type Level, type MapPoint } from './campaign.ts';
 import { distanceToSegment, layoutWalkable, type LevelLayout } from './level-layouts.ts';
 import { sceneDesign, type SceneryProp } from './scene-design.ts';
 import { sceneryRandom, sceneryTexture, sceneryDecal } from './scenery-textures.ts';
+import { rotateLayout, rotateMapPoint } from './map-orientation.ts';
 
 type SceneHost = {
   level: Level; layout: LevelLayout; scene: THREE.Scene; staticGroup: THREE.Group; ground: THREE.Mesh; grid: PF.Grid; floorCells: MapPoint[];
@@ -12,6 +13,34 @@ type SceneHost = {
 };
 
 export function buildLevelScenery(world: SceneHost) {
+  const turns = world.layout.rotation;
+  if (!turns) { buildAuthoredScenery(world); return; }
+  // Build scenery in the template's frame, then turn meshes and collision footprints
+  // together. Boss arches, approach lanes and entrance props retain their alignment.
+  const layout = rotateLayout(world.layout, -turns), scene = new THREE.Scene(), root = new THREE.Group();
+  const transform = new THREE.Matrix4().makeRotationY(-turns * Math.PI / 2);
+  const host: SceneHost = {
+    level: world.level, layout, scene, staticGroup: root, ground: world.ground, floorCells: [],
+    get grid() { return world.grid; },
+    set grid(grid: PF.Grid) {
+      const offsetX = Math.floor(grid.width / 2), offsetZ = Math.floor(grid.height / 2);
+      const oriented = world.layout;
+      world.grid = new PF.Grid(Array.from({ length: oriented.height }, (_, row) => Array.from({ length: oriented.width }, (_, column) => {
+        const p = rotateMapPoint({ x: column - oriented.bounds.x - 1, z: row - oriented.bounds.z - 1 }, -turns);
+        return grid.isWalkableAt(p.x + offsetX, p.z + offsetZ) ? 0 : 1;
+      })));
+    },
+    addCollider(x, z, width, depth) { const p = rotateMapPoint({ x, z }, turns); world.addCollider(p.x, p.z, turns % 2 ? depth : width, turns % 2 ? width : depth); },
+    torch(x, z, y, light) { const p = rotateMapPoint({ x, z }, turns); world.torch(p.x, p.z, y, light); },
+  };
+  buildAuthoredScenery(host);
+  root.applyMatrix4(transform); world.staticGroup.add(root);
+  for (const object of [...scene.children]) { object.applyMatrix4(transform); world.scene.add(object); }
+  world.floorCells.push(...host.floorCells.map(p => rotateMapPoint(p, turns)));
+  Object.assign(world.scene.userData, scene.userData);
+}
+
+function buildAuthoredScenery(world: SceneHost) {
   const level = world.level, design = sceneDesign(level), palette = design.palette, layout = world.layout;
   const random = sceneryRandom(3817 + level.index * 793 + layout.seed), root = world.staticGroup;
   const geometry = {

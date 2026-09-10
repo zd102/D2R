@@ -1,12 +1,13 @@
 import type { Level, MapPoint } from './campaign.ts';
 import { mapRandom, shuffled } from './map-random.ts';
 import { areaMapProfile, MAP_SIZE_LIMIT } from './area-map-profiles.ts';
+import { rotateLayout, type MapRotation } from './map-orientation.ts';
 
 type Pair = [number, number];
 type LayoutDraft = { path: Pair[]; wings: Pair[]; width: number; room: number; shape?: 'round' | 'rect' | 'octagon'; axis?: boolean; boss?: Pair; links?: [number, number][]; loops?: boolean; objectives?: Pair[]; arena?: number };
 // Save-file coordinate ceiling only. Live map bounds belong to each layout.
 export const MAP_BOUND = Math.floor((MAP_SIZE_LIMIT - 3) / 2);
-// Authored room graphs follow each area's identity; all share the saved entrance.
+// Templates use a common local entrance; each expedition rotates the complete graph.
 const drafts: LayoutDraft[] = [
   { path: [[-11,2],[-20,-12],[-6,-20],[12,-25]], wings: [[17,15],[-29,3],[23,-9],[-25,-27],[27,-25],[-15,26]], width: 3.2, room: 11, shape: 'round' },
   { path: [[0,0],[-14,-8],[-14,-22],[0,-25]], wings: [[-20,15],[21,2],[22,-16],[-29,-10],[20,-27],[16,26]], width: 4.3, room: 12 },
@@ -38,7 +39,7 @@ const drafts: LayoutDraft[] = [
     links: [[0,1],[1,2],[2,3],[3,4],[4,5],[0,6],[0,7],[2,8],[2,9],[4,10],[4,11],[6,8],[7,9],[8,10],[9,11]] },
 ];
 const point = ([x, z]: Pair): MapPoint => ({ x, z });
-// Expand the authored geography without stretching doorways, actors or the saved entrance.
+// Expand the authored geography without stretching doorways, actors or the entrance.
 // Fixed set pieces below replace generic loops with the corresponding area's topology.
 const expanded: LayoutDraft[] = drafts.map(draft => ({ ...draft,
   path: draft.path.map(([x,z]) => [Math.round(x*1.27), Math.round(z*1.27)]),
@@ -135,7 +136,7 @@ function authoredLayout(level: Level) {
   return { route, rooms, connections, objects, chests, spawn, boss, exit, supply, corridorWidth: draft.width, bossRadius: draft.arena ?? 7 };
 }
 /** Authored geography supplies the identity; each visit builds its own room graph. */
-export function campaignLayout(level: Level, seed = 0) {
+export function campaignLayout(level: Level, seed = 0): LevelLayout {
   const random = mapRandom(seed ^ Math.imul(level.index + 1, 7919));
   const base = authoredLayout(level), draft = expanded[level.index], profile = areaMapProfile(level);
   const bounds = { x: (profile.width - 3) / 2, z: (profile.height - 3) / 2 };
@@ -185,13 +186,13 @@ export function campaignLayout(level: Level, seed = 0) {
   // Keep one early cache; the rest reward searching distant rooms without raising the loot budget.
   const chestSites = [wings[0], ...shuffled([...wings.slice(1), ...branches], random)];
   const chests = chestSites.slice(0, base.chests.length).map((p,id) => ({ id, x: p.x + 2, z: p.z + 2 }));
-  const layout = { ...base, seed: seed >>> 0, bounds, width: profile.width, height: profile.height, route, spawn, supply, boss, exit, rooms, connections, branches, objects, chests };
+  const layout: LevelLayout = { ...base, rotation: 0, seed: seed >>> 0, bounds, width: profile.width, height: profile.height, route, spawn, supply, boss, exit, rooms, connections, branches, objects, chests };
   if (level.index === 8) buildArcaneArms(layout, random);
-  return layout;
+  return orientExpedition(layout, level);
 }
 
 /** Hidden areas use authored footprints too, but remain separate from the 25-level campaign graph. */
-export function specialLayout(level: Level, seed = 0) {
+export function specialLayout(level: Level, seed = 0): LevelLayout {
   const random = mapRandom(seed ^ Math.imul(level.index + 1, 7919));
   const cow = level.special === 'cow';
   const width = cow ? 293 : 61, height = cow ? 293 : 61;
@@ -201,12 +202,12 @@ export function specialLayout(level: Level, seed = 0) {
   const exit = { x: boss.x, z: boss.z - 4 };
   if (!cow) {
     const route = [spawn, { x: 0, z: -3 }, boss];
-    return {
-      seed: seed >>> 0, bounds, width, height, route, spawn, supply, boss, exit,
+    return orientExpedition({
+      rotation: 0, seed: seed >>> 0, bounds, width, height, route, spawn, supply, boss, exit,
       rooms: [{ x: 0, z: -3, width: 22, depth: 18, shape: 'octagon' as const }, { x: 0, z: -18, width: 20, depth: 18, shape: 'octagon' as const }],
       connections: [[spawn, supply], [spawn, route[1]], [route[1], boss], [boss, exit]] as [MapPoint, MapPoint][],
       branches: [], objects: [], chests: [], corridorWidth: 4.8, bossRadius: 8,
-    };
+    }, level);
   }
   const sites = [
     { x: -42, z: -8 }, { x: 35, z: -17 }, { x: -72, z: -48 }, { x: 5, z: -57 }, { x: 76, z: -61 },
@@ -217,10 +218,16 @@ export function specialLayout(level: Level, seed = 0) {
   const rooms = sites.map((point, index) => ({ ...point, width: 26 + index % 3 * 5, depth: 24 + (index + 1) % 3 * 5, shape: 'round' as const }));
   const connections: [MapPoint, MapPoint][] = [[spawn, supply], [spawn, route[1]], [route[1], route[2]], [route[2], route[3]], [route[3], boss], [boss, exit]];
   for (const [a, b] of [[0, 1], [1, 3], [3, 4], [4, 6], [6, 7], [0, 2], [2, 5], [5, 8], [1, 9], [9, 4]] as const) connections.push([sites[a], sites[b]]);
-  return {
-    seed: seed >>> 0, bounds, width, height, route, spawn, supply, boss, exit, rooms, connections,
+  return orientExpedition({
+    rotation: 0, seed: seed >>> 0, bounds, width, height, route, spawn, supply, boss, exit, rooms, connections,
     branches: sites.slice(4), objects: [], chests: sites.slice(0, 4).map((point, id) => ({ id, x: point.x + 3, z: point.z + 2 })), corridorWidth: 5.5, bossRadius: 10,
-  };
+  }, level);
+}
+
+function orientExpedition(layout: LevelLayout, level: Level) {
+  // Separate stream: orientation must not change the generated room or loot budgets.
+  const random = mapRandom(layout.seed ^ Math.imul(level.index + 1, 0x45d9f3b) ^ 0x73a29c51);
+  return rotateLayout(layout, Math.floor(random() * 4));
 }
 
 function buildArcaneArms(layout: LevelLayout, random: () => number) {
@@ -247,7 +254,9 @@ function buildArcaneArms(layout: LevelLayout, random: () => number) {
   layout.connections.push([layout.spawn, layout.supply], [layout.boss, layout.exit]);
   layout.chests = shuffled(arms, random).map((arm,id) => ({ id, x: arm[2].x + 2, z: arm[2].z + 2 }));
 }
-export type LevelLayout = ReturnType<typeof campaignLayout>;
+export type LevelLayout = ReturnType<typeof authoredLayout> & {
+  rotation: MapRotation; seed: number; bounds: MapPoint; width: number; height: number; branches: MapPoint[];
+};
 export function distanceToSegment(x: number, z: number, a: MapPoint, b: MapPoint) {
   const length = (b.x - a.x) ** 2 + (b.z - a.z) ** 2;
   const t = length ? Math.max(0, Math.min(1, ((x - a.x) * (b.x - a.x) + (z - a.z) * (b.z - a.z)) / length)) : 0;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LEVELS, levelLayout, eliteCount, levelTuning } from '../src/campaign.ts';
+import { LEVELS, SPECIAL_LEVELS, levelLayout, eliteCount, levelTuning } from '../src/campaign.ts';
 import { AREA_MAP_PROFILES, areaMapProfile, MAP_SIZE_LIMIT } from '../src/area-map-profiles.ts';
 import { layoutWalkable } from '../src/level-layouts.ts';
 import { nextMapSeed } from '../src/map-random.ts';
@@ -8,6 +8,7 @@ import { encounterPlan } from '../src/encounter-plan.ts';
 import { MONSTERS } from '../src/bestiary.ts';
 import { monsterExperience } from '../src/balance.ts';
 import { simulateProgression } from './balance-fixtures.ts';
+import { rotateLayout, rotateMapPoint } from '../src/map-orientation.ts';
 
 const seeds = [0, 1, 17, 20260910, 0x7fffffff, 0xffffffff, 811, 91919];
 test('200 generated maps connect every objective, room, boss, chest and encounter to a safe entrance', () => {
@@ -16,12 +17,13 @@ test('200 generated maps connect every objective, room, boss, chest and encounte
     const {width,height}=layout, offsetX=layout.bounds.x+1,offsetZ=layout.bounds.z+1;
     const reachable = new Uint8Array(width*height);
     for (let z=1;z<height-1;z++) for(let x=1;x<width-1;x++) reachable[z*width+x] = Number(layoutWalkable(layout,x-offsetX,z-offsetZ));
-    const queue = [offsetX+(offsetZ+11)*width]; reachable[queue[0]] = 2;
+    const queue = [layout.spawn.x+offsetX+(layout.spawn.z+offsetZ)*width];
+    assert.equal(reachable[queue[0]], 1, `${label}: entrance has floor`); reachable[queue[0]] = 2;
     for (let i=0;i<queue.length;i++) for(const neighbor of [queue[i]-1,queue[i]+1,queue[i]-width,queue[i]+width]) {
       if(reachable[neighbor]===1){reachable[neighbor]=2;queue.push(neighbor);}
     }
     assert.ok(queue.length>1000 && queue.length<25000, `${label}: floor area ${queue.length}`);
-    assert.deepEqual(layout.spawn,{x:0,z:11});
+    assert.deepEqual(layout.spawn, layout.route[0]);
     assert.equal(layout.objects.length,level.quest.kind==='interact'?level.quest.count:0,label);
     assert.equal(layout.chests.length,4+Math.floor(level.act/2),label);
     const plan = encounterPlan(level,layout,2);
@@ -30,7 +32,7 @@ test('200 generated maps connect every objective, room, boss, chest and encounte
       assert.equal(reachable[cell],2,`${label}: reachable ${point.x},${point.z}`);
     }
     for(const pack of plan.packs) {
-      assert.ok(Math.hypot(pack.x,pack.z-11)>=15,label);
+      assert.ok(Math.hypot(pack.x-layout.spawn.x,pack.z-layout.spawn.z)>=15,label);
       assert.ok(Math.hypot(pack.x-layout.boss.x,pack.z-layout.boss.z)>=10,label);
     }
     assert.equal(plan.eliteSites.length,eliteCount(level,2),label);
@@ -56,7 +58,33 @@ test('25 distinct regional footprints stay below 300 and produce measurably diff
       const layout=levelLayout(LEVELS[index],seed);
       const xSpan=Math.max(...layout.rooms.map(p=>p.x))-Math.min(...layout.rooms.map(p=>p.x));
       const zSpan=Math.max(...layout.rooms.map(p=>p.z))-Math.min(...layout.rooms.map(p=>p.z));
-      assert.ok(zSpan>xSpan*1.5,`${LEVELS[index].name}: actual traversable layout is elongated`);
+      assert.ok(Math.max(xSpan,zSpan)>Math.min(xSpan,zSpan)*1.5,`${LEVELS[index].name}: actual traversable layout is elongated`);
+    }
+  }
+});
+
+test('every campaign and hidden area varies its entrance and boss direction across seeds', () => {
+  for (const level of [...LEVELS, ...Object.values(SPECIAL_LEVELS)]) {
+    const layouts = Array.from({ length: 64 }, (_, seed) => levelLayout(level, seed));
+    assert.equal(new Set(layouts.map(layout => layout.rotation)).size, 4, level.name);
+    assert.equal(new Set(layouts.map(layout => `${layout.spawn.x},${layout.spawn.z}`)).size, 4, level.name);
+    const quadrants = layouts.map(({ spawn, boss }) => { const dx = boss.x - spawn.x, dz = boss.z - spawn.z; return `${Math.sign(dx - dz)},${Math.sign(dx + dz)}`; });
+    assert.equal(new Set(quadrants).size, 4, `${level.name}: boss appears in all four camera quadrants`);
+  }
+});
+
+test('quarter turns preserve floor connectivity, local set pieces and rectangular bounds', () => {
+  for (const level of [LEVELS[7], LEVELS[14], LEVELS[23], SPECIAL_LEVELS.cow, SPECIAL_LEVELS.uberDiablo]) {
+    const source = levelLayout(level, 17);
+    for (const turns of [0, 1, 2, 3]) {
+      const rotated = rotateLayout(source, turns);
+      assert.deepEqual(rotateLayout(rotated, -turns), source);
+      assert.equal(rotated.width, turns % 2 ? source.height : source.width);
+      assert.equal(rotated.height, turns % 2 ? source.width : source.height);
+      for (let x = -source.bounds.x; x <= source.bounds.x; x += 2) for (let z = -source.bounds.z; z <= source.bounds.z; z += 2) {
+        const point = rotateMapPoint({ x, z }, turns);
+        assert.equal(layoutWalkable(rotated, point.x, point.z), layoutWalkable(source, x, z), `${level.name}: ${turns}/${x},${z}`);
+      }
     }
   }
 });

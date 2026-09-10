@@ -40,7 +40,7 @@ try {
     assert.equal(await page.evaluate(() => window.portalGame.hero.campaign.current), index, 'inactive portal cannot advance');
     await page.evaluate(() => {
       const g = window.portalGame; g.ui.closePanel(); g.releaseInput();
-      g.body.position.set(0, .5, 11); g.position.set(0, 0, 11);
+      const spawn = g.world.layout.spawn; g.body.position.set(spawn.x, .5, spawn.z); g.position.set(spawn.x, 0, spawn.z);
       const quest = g.level.quest;
       if (quest.kind === 'kill') g.hero.campaign.kills = quest.count;
       else { g.hero.campaign.objects = Array.from({ length: quest.count }, (_, i) => i); g.hero.campaign.objects.forEach(id => g.world.completeObjective(id)); }

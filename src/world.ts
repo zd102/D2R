@@ -13,6 +13,7 @@ import { sceneDesign } from './scene-design.ts';
 import { buildLevelScenery } from './level-scenery.ts';
 import { nextMapSeed } from './map-random.ts';
 import type { LevelLayout } from './level-layouts.ts';
+import { rotateMapPoint } from './map-orientation.ts';
 import { weatherTexture } from './scenery-textures.ts';
 
 export const BOUNDS = FIELD_BOUND;
@@ -162,10 +163,11 @@ export class GameWorld {
       this.portal = this.makeWaypoint(); this.mysteryPortal = this.makeMysteryPortal(); this.exit = new THREE.Group();
     } else {
       const layout = this.layout;
+      this.rune.position.set(layout.spawn.x, .16, layout.spawn.z);
       this.portal = this.makePortal(layout.supply.x, layout.supply.z);
       layout.objects.forEach((p, i) => this.shrineMeshes.push(this.makeObjective(p.x, p.z, i, level.quest.prop)));
       layout.chests.forEach(p => this.chests.push(this.makeChest(p.id, p.x, p.z)));
-      if (level.index === 2) { const point = layout.route[Math.min(2, layout.route.length - 1)]!; this.mysteryCorpse = this.makeMysteriousCorpse(point.x + 2.6, point.z + 1.8); }
+      if (level.index === 2) { const point = layout.route[Math.min(2, layout.route.length - 1)]!, offset = rotateMapPoint({ x: 2.6, z: 1.8 }, layout.rotation); this.mysteryCorpse = this.makeMysteriousCorpse(point.x + offset.x, point.z + offset.z); }
       this.exit = this.makePortal(layout.exit.x, layout.exit.z);
     }
     this.exit.visible = false;

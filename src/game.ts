@@ -175,9 +175,12 @@ export class Game {
     }
     this.world.dispose(); this.world = new GameWorld(this.level, inCamp);
     (this.composer.passes[0] as RenderPass).scene = this.world.scene;
-    this.body = this.world.body(0, 11); this.actor.group.position.set(0, 0, 11); this.actor.group.scale.setScalar(1); this.actor.group.rotation.set(0, Math.PI, 0);
+    const spawn = inCamp ? CAMP.spawn : this.world.layout.spawn;
+    this.body = this.world.body(spawn.x, spawn.z); this.actor.group.position.set(spawn.x, 0, spawn.z); this.actor.group.scale.setScalar(1);
+    const next = inCamp ? CAMP.portal : this.world.layout.route[1];
+    this.actor.group.rotation.set(0, Math.atan2(next.x - spawn.x, next.z - spawn.z), 0);
     this.world.scene.add(this.actor.group, this.marker, this.selection, this.playerRing);
-    this.marker.visible = this.selection.visible = false; this.playerRing.position.set(0, .09, 11);
+    this.marker.visible = this.selection.visible = false; this.playerRing.position.set(spawn.x, .09, spawn.z);
     this.enemies = []; this.loot = []; this.effects = []; this.visited.clear(); this.combat = new PaladinCombat(this);
     this.monsterCombat = new MonsterCombat(this);
     this.cooldowns = emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
@@ -749,7 +752,8 @@ export class Game {
   }
   revive() {
     this.dead = false; this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana; this.hero.stamina = stats(this.hero).maxStamina;
-    this.body.position.set(0, .5, 11); this.actor.group.position.set(0, 0, 11); this.actor.group.rotation.z = 0;
+    const spawn = this.inCamp ? CAMP.spawn : this.world.layout.spawn;
+    this.releaseInput(); this.body.position.set(spawn.x, .5, spawn.z); this.actor.group.position.set(spawn.x, 0, spawn.z); this.actor.group.rotation.z = 0;
     this.invincible = 4; this.enemies.forEach(e => { e.active = false; }); this.ui.closePanel(); this.save(false);
   }
   get exitLabel() {
