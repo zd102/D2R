@@ -30,6 +30,7 @@ import { nativeAudioManifest } from './audio-native';
 import { UI } from './ui';
 import { keyboardSkills, movementInput, MOVEMENT_MODE_KEY, parseMovementMode, emptyCooldowns, type MovementMode, type SkillSlot } from './controls';
 import { followPath } from './navigation';
+import { FrameClock } from './frame-clock';
 import { createImpact, createLightning, disposeVisual, updateVisual } from './visual-effects';
 
 export type Enemy = { xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
@@ -92,6 +93,7 @@ export class Game {
   quality = 'high';
   visited = new Set<string>();
   lastFrame = performance.now();
+  frameClock = new FrameClock();
   frameId = 0;
   nextId = 0;
   storageAvailable = true;
@@ -905,8 +907,8 @@ export class Game {
     this.combat.hurt(damage);
   }
   loop = () => {
-    const now = performance.now(), dt = Math.min((now - this.lastFrame) / 1000, .05); this.lastFrame = now;
-    this.update(dt);
+    const now = performance.now(), elapsed = (now - this.lastFrame) / 1000; this.lastFrame = now;
+    const dt = this.frameClock.advance(elapsed, step => this.update(step));
     this.audio.updateScene({ position: this.position, terrain: this.inCamp ? 'camp' : this.level.terrain, area: this.inCamp ? 'camp' : this.level.id, paused: this.paused, active: !!this.profile && !this.dead, running: this.combat.running });
     this.updateCamera(Math.min(1, dt * 7));
     if (this.quality === 'low') this.renderer.render(this.world.scene, this.camera); else this.composer.render();
