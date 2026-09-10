@@ -7,7 +7,8 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GameWorld, createActor, animateActor, makeRing, gridWalkable, COLORS, type Actor } from './world';
 import { newHero, stats, skillLevel, gainXp, equipItem, equipReason, sellItem, allocateAttribute, swapWeapons, difficulty, recoverCorpse, selectCampaignLevel, completeCampaignLevel, activateQuestObject, recordQuestKill, type HeroState, type Item, type Slot } from './model';
 import { clearShot } from './ranged';
-import { ACTS, LEVELS, levelLayout, levelTuning, eliteCount, questComplete, canEnterLevel } from './campaign';
+import { ACTS, LEVELS, levelTuning, questComplete, canEnterLevel } from './campaign';
+import { encounterPlan } from './encounter-plan';
 import { CAMP, prepareCampArrival } from './camp';
 import { isAura, isPassive, type ActionId, type Attribute, type DamageType } from './paladin';
 import { classSkillMode } from './class-skills';
@@ -28,7 +29,7 @@ import { keyboardSkills, movementInput, MOVEMENT_MODE_KEY, parseMovementMode, em
 import { followPath } from './navigation';
 import { createImpact, createLightning, disposeVisual, updateVisual } from './visual-effects';
 
-export type Enemy = { pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
+export type Enemy = { xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 type PointerGesture = { id: number; button: number; x: number; y: number; started: number; dragging: boolean; stationary: boolean; mode: 'move' | 'attack' | 'interact' | 'cast' };
@@ -243,24 +244,22 @@ export class Game {
   }
   spawnEnemies() {
     if (this.inCamp) return;
-    const layout = levelLayout(this.level), tuning = levelTuning(this.level, difficulty(this.hero));
-    const points = [layout.route[1], layout.rooms[4], layout.route[2], layout.rooms[5], layout.route[3], layout.rooms[6], layout.route[4], layout.rooms[7], layout.rooms[8], layout.rooms[9], ...layout.objects];
-    const packs = Array.from({ length: tuning.packs }, (_, i) => points[i % points.length]);
-    packs.forEach(({ x, z }, pack) => {
-      const count = 3;
-      for (let i = 0; i < count; i++) {
-        const pool = ENCOUNTERS[this.level.index];
-        const definition = MONSTERS[pool[(pack * 3 + i) % pool.length]], tactic = monsterTactic(definition);
+    const layout = this.world.layout, plan = encounterPlan(this.level, layout, difficulty(this.hero));
+    plan.packs.forEach(({ x, z, species }, pack) => {
+      for (let i = 0; i < species.length; i++) {
+        const definition = MONSTERS[species[i]], tactic = monsterTactic(definition);
         const rear = ['support','caster','ranged','brood'].includes(tactic);
         const approach = new THREE.Vector3(x-layout.spawn.x,0,z-layout.spawn.z).normalize();
         const desired = { x: x + Math.cos(i*2.4)*1.5 + approach.x*(rear?2:-1), z: z + Math.sin(i*2.4)*1.5 + approach.z*(rear?2:-1) };
-        const point = this.world.path(layout.spawn,desired).at(-1) ?? {x,z};
+        const point = this.world.path(layout.spawn,desired).at(-1);
+        if (!point) throw new Error(`Unreachable encounter in ${this.level.id}, seed ${layout.seed}`);
         const enemy = this.spawnEnemy(point.x, point.z, 'demon', definition); enemy.pack = pack;
+        enemy.xpScale = plan.xpScale; enemy.lootScale = plan.lootScale;
       }
     });
-    for (let i = 0; i < eliteCount(this.level, difficulty(this.hero)); i++) {
-      const room = layout.rooms[[4, 7, 6, 5, 8, 9][i]], desired = { x: room.x - 2, z: room.z - 2 };
-      const point = this.world.path(layout.spawn, desired).at(-1) ?? room;
+    for (const [i, desired] of plan.eliteSites.entries()) {
+      const point = this.world.path(layout.spawn, desired).at(-1);
+      if (!point) throw new Error(`Unreachable elite in ${this.level.id}, seed ${layout.seed}`);
       const pool = ENCOUNTERS[this.level.index];
       this.spawnEnemy(point.x, point.z, 'demon', MONSTERS[pool[(this.level.index + i) % pool.length]], true);
     }
@@ -550,11 +549,11 @@ export class Game {
     if (this.target === enemy) { this.target = undefined; this.path = []; }
     const rank: DropRank = enemy.boss ? this.level.actBoss ? 'actBoss' : 'miniboss' : enemy.elite ? 'elite' : 'monster';
     const xp = monsterExperience(this.hero.level, enemy.level, rank, { difficulty: difficulty(this.hero), act: this.level.act, baseLife: enemy.definition?.hp, firstClear: this.hero.campaign.cleared[difficulty(this.hero)] === this.level.index });
-    if (gainXp(this.hero, xp * (1 + (playerStats.mods.experienceBonus ?? 0) / 100))) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
+    if (gainXp(this.hero, xp * (enemy.xpScale ?? 1) * (1 + (playerStats.mods.experienceBonus ?? 0) / 100))) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
     const wasReady = questComplete(this.hero.campaign);
     if (!enemy.boss) recordQuestKill(this.hero);
     if (!wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.save(false); }
-    this.dropLoot(enemy.actor.group.position, rank, enemy.level);
+    if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level);
     if (enemy.boss) {
       if (!completeCampaignLevel(this.hero)) return;
       this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, this.level.actBoss ? '本章已通关' : '下一关已解锁');
@@ -631,7 +630,7 @@ export class Game {
     }
     const chest = this.world.chests?.find(chest => !chest.opened && Math.hypot(this.position.x - chest.x, this.position.z - chest.z) <= 3);
     if (chest) return { name: '打开箱子', kind: 'chest', id: chest.id };
-    const layout = levelLayout(this.level), shrine = layout.objects.findIndex(p => Math.hypot(this.position.x - p.x, this.position.z - p.z) < 3.4);
+    const layout = this.world.layout, shrine = layout.objects.findIndex(p => Math.hypot(this.position.x - p.x, this.position.z - p.z) < 3.4);
     if (shrine >= 0 && !this.hero.campaign.objects.includes(shrine)) return { name: this.level.quest.action, kind: 'objective', id: shrine };
     if (this.hero.bossDefeated && Math.hypot(this.position.x - layout.exit.x, this.position.z - layout.exit.z) < 3.5) return { name: this.level.index === 24 ? '战役结算' : this.level.actBoss ? '前往下一章' : '前往下一关', kind: 'exit', id: 0 };
     if (this.position.distanceTo(new THREE.Vector3(-5.8, 0, 12)) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
@@ -648,7 +647,7 @@ export class Game {
     if (action.kind === 'chest') { this.openChest(action.id); return; }
     if (action.kind === 'exit') { this.ui.openPanel('victory'); return; }
     if (action.kind === 'loot') { [...this.loot].filter(l => !l.item && Math.hypot(l.x - this.position.x, l.z - this.position.z) < 3).forEach(l => this.collectLoot(l)); return; }
-    const p = levelLayout(this.level).objects[action.id];
+    const p = this.world.layout.objects[action.id];
     if (this.enemies.some(e => !e.dead && !e.boss && Math.hypot(e.actor.group.position.x - p.x, e.actor.group.position.z - p.z) < 5)) { this.ui.toast('附近仍有守卫'); return; }
     if (!activateQuestObject(this.hero, action.id)) return;
     this.world.completeObjective(action.id);

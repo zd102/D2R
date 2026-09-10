@@ -24,8 +24,8 @@ try {
   for (let index = 0; index < 25; index++) {
     const result = await page.evaluate(index => {
       const state = window.scenery, { GameWorld, LEVELS, levelLayout, renderer, camera } = state;
-      state.world?.dispose(); const start = performance.now(), world = state.world = new GameWorld(LEVELS[index]);
-      const layout = levelLayout(LEVELS[index]), failures = [];
+      state.world?.dispose(); const start = performance.now(), world = state.world = new GameWorld(LEVELS[index], false, 20260910 + index);
+      const layout = world.layout, failures = [];
       for (const target of [layout.boss,layout.exit,layout.supply,...layout.objects,...layout.chests,...layout.rooms]) {
         const route = world.path(layout.spawn,target); let from = layout.spawn;
         for (const to of route) { if(!world.canWalk(from,to))failures.push({target,reason:'blocked segment'}); from=to; }
@@ -43,13 +43,29 @@ try {
     await page.screenshot({ path: `${output}/area-${String(index+1).padStart(2,'0')}.png` });
     console.log(JSON.stringify(result));
     if ([0,5,8,10,17,22,24].includes(index)) {
-      await page.evaluate(()=>{const {world,renderer,camera,levelLayout}=window.scenery;const p=levelLayout(world.level).route[1];camera.position.set(p.x+20,27,p.z+20);camera.lookAt(p.x,.6,p.z);renderer.render(world.scene,camera);});
+      await page.evaluate(()=>{const {world,renderer,camera,levelLayout}=window.scenery;const p=world.layout.route[1];camera.position.set(p.x+20,27,p.z+20);camera.lookAt(p.x,.6,p.z);renderer.render(world.scene,camera);});
       await page.screenshot({path:`${output}/approach-${index+1}.png`});
     }
   }
+  // Validate additional seeds with real scenery colliders, beyond the pure floor-grid tests.
+  for (const seed of [17, 91919]) {
+    const failures = await page.evaluate(seed => {
+      const s=window.scenery,failures=[];
+      for(const level of s.LEVELS) {
+        s.world.dispose();const world=s.world=new s.GameWorld(level,false,seed),layout=world.layout;
+        for(const target of [layout.boss,layout.exit,...layout.rooms,...layout.objects,...layout.chests]) {
+          let from=layout.spawn;
+          for(const to of world.path(from,target)){if(!world.canWalk(from,to))failures.push({index:level.index,seed,target,reason:'blocked'});from=to;}
+          if(Math.hypot(from.x-target.x,from.z-target.z)>3)failures.push({index:level.index,seed,target,reason:'unreachable'});
+        }
+      }
+      return failures;
+    },seed);
+    assert.deepEqual(failures,[],`scenery collision sweep, seed ${seed}`);
+  }
   await page.setViewportSize({width:390,height:844});
   for(const index of [0,8,14,17,22,24]) {
-    await page.evaluate(index=>{const s=window.scenery;s.world.dispose();s.world=new s.GameWorld(s.LEVELS[index]);s.renderer.setSize(390,844);Object.assign(s.camera,{left:-7,right:7,top:15.15,bottom:-15.15});s.camera.updateProjectionMatrix();const p=s.levelLayout(s.LEVELS[index]).boss;s.camera.position.set(p.x+20,27,p.z+20);s.camera.lookAt(p.x,1,p.z);s.renderer.render(s.world.scene,s.camera);},index);
+    await page.evaluate(index=>{const s=window.scenery;s.world.dispose();s.world=new s.GameWorld(s.LEVELS[index]);s.renderer.setSize(390,844);Object.assign(s.camera,{left:-7,right:7,top:15.15,bottom:-15.15});s.camera.updateProjectionMatrix();const p=s.world.layout.boss;s.camera.position.set(p.x+20,27,p.z+20);s.camera.lookAt(p.x,1,p.z);s.renderer.render(s.world.scene,s.camera);},index);
     await page.screenshot({path:`${output}/mobile-${index+1}.png`});
   }
   await writeFile(`${output}/results.json`,JSON.stringify(results,null,2));

@@ -6,7 +6,7 @@ import { LEVELS, levelLayout } from '../src/campaign.ts';
 import { PROFILE_PREFIX } from '../src/saves.ts';
 import { enterGame, openCampaign } from './browser-helpers.mjs';
 
-const output = '.verification/maps-chests';
+const output = process.env.OUTPUT_DIR || '.verification/maps-chests';
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173', errors = [];
@@ -35,7 +35,7 @@ async function choose(page, index) {
 }
 async function approach(page, id, range = 2.9) {
   const touch = await page.evaluate(() => navigator.maxTouchPoints > 0);
-  for (let tries = 0; tries < 100; tries++) {
+  for (let tries = 0; tries < 220; tries++) {
     const s = await state(page), chest = s.chests.find(chest => chest.id === id);
     if (chest.opened || Math.hypot(s.position.x - chest.x, s.position.z - chest.z) <= range) return;
     const next = chest.route[0]; assert.ok(next, 'Chest route exists');
@@ -63,7 +63,7 @@ try {
   for (const level of LEVELS) {
     if (level.index) await choose(page, level.index);
     const s = await state(page), layout = levelLayout(level);
-    assert.equal(s.area.gridSize, 101); minFloor = Math.min(minFloor, s.area.floorCells); maxFloor = Math.max(maxFloor, s.area.floorCells);
+    assert.equal(s.area.gridSize, 149); minFloor = Math.min(minFloor, s.area.floorCells); maxFloor = Math.max(maxFloor, s.area.floorCells);
     assert.equal(s.chests.length, layout.chests.length); assert.equal(s.enemies.filter(e => e.boss).length, 1);
     const inaccessibleEnemies = await page.evaluate(() => {
       const g=window.mapVerification;
@@ -97,6 +97,29 @@ try {
   }
   console.log('25 expanded layouts: routes to every quest, boss, exit, supply and chest; floor range', minFloor, maxFloor);
   await choose(page, 0);
+  const visit = await page.evaluate(() => {
+    const g=window.mapVerification;
+    return {seed:g.world.layout.seed,shape:JSON.stringify(g.world.layout.rooms)};
+  });
+  await choose(page, 0);
+  const refreshed = await page.evaluate(() => {
+    const g=window.mapVerification;
+    const seed=g.world.layout.seed,shape=JSON.stringify(g.world.layout.rooms);
+    g.revive();
+    return {seed,shape,reviveSeed:g.world.layout.seed};
+  });
+  assert.notEqual(visit.seed,refreshed.seed);assert.notEqual(visit.shape,refreshed.shape);
+  assert.equal(refreshed.seed,refreshed.reviveSeed,'reviving retains the current map');
+  const fog = await page.evaluate(() => {
+    const g=window.mapVerification,visited=new Set(g.visited),canvas=document.createElement('canvas');
+    canvas.width=700;canvas.height=570;
+    const floorPixels=()=>{g.ui.drawMap(canvas,true);const data=canvas.getContext('2d').getImageData(0,0,700,570).data;let count=0;for(let i=0;i<data.length;i+=4)if(data[i]===105&&data[i+1]===118&&data[i+2]===103)count++;return count;};
+    const initial=floorPixels();
+    g.world.floorCells.forEach(p=>g.visited.add(`${Math.floor(p.x/3)},${Math.floor(p.z/3)}`));
+    const revealed=floorPixels();g.visited=visited;
+    return {initial,revealed};
+  });
+  assert.ok(fog.initial>0&&fog.revealed>fog.initial*5,`unexplored floors are hidden: ${JSON.stringify(fog)}`);
   await approach(page, 0, 8);
   const target = page.getByRole('button', { name: '打开箱子 1', exact: true });
   await target.click();
@@ -111,6 +134,7 @@ try {
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: '返回营地', exact: true }).click();
   assert.equal((await state(page)).chests.length, 0);
   await choose(page, 0); assert.ok((await state(page)).chests.every(chest => !chest.opened));
+  assert.notEqual((await state(page)).area.seed,refreshed.seed,'returning from camp creates a new expedition');
   await page.close();
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {

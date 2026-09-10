@@ -1,19 +1,21 @@
 import { newHero, gainXp, learnSkill, allocateAttribute, stats, skillLevel, activeEquipment, hitChance, resistedDamage, selectCampaignLevel, completeCampaignLevel, type HeroState } from '../src/model.ts';
 import { EXPERIENCE, skillById, skillValues, type SkillId, type DamageType } from '../src/paladin.ts';
 import { BASES, makeItem, RUNEWORDS, socketItem, itemRequirements, type Item, type Mods } from '../src/items.ts';
-import { LEVELS, levelTuning, eliteCount } from '../src/campaign.ts';
+import { LEVELS, levelLayout, eliteCount } from '../src/campaign.ts';
+import { encounterPlan } from '../src/encounter-plan.ts';
 import { BOSSES, MONSTERS, ENCOUNTERS, type MonsterDef } from '../src/bestiary.ts';
 import { monsterExperience, monsterStats } from '../src/balance.ts';
 import { ATTACKS } from '../src/monster-combat.ts';
 
-export function simulateProgression(clearFraction = 1) {
+export function simulateProgression(clearFraction = 1, seed = 20260910) {
   const hero = newHero(), rows: { difficulty: number; act: number; level: number; hero: HeroState }[] = [];
   for (const difficulty of [0, 1, 2] as const) for (const area of LEVELS) {
     selectCampaignLevel(hero, area.index, difficulty);
-    const pool = ENCOUNTERS[area.index], count = Math.max(area.quest.kind === 'kill' ? area.quest.count : 0, Math.round(levelTuning(area, difficulty).packs * 3 * clearFraction));
+    const pool = ENCOUNTERS[area.index], plan = encounterPlan(area, levelLayout(area, seed + area.index + difficulty * 25), difficulty);
+    const species = plan.packs.flatMap(pack => pack.species), count = Math.max(area.quest.kind === 'kill' ? area.quest.count : 0, Math.round(species.length * clearFraction));
     for (let i = 0; i < count; i++) {
-      const definition = MONSTERS[pool[i % pool.length]], enemy = monsterStats(definition, area, difficulty);
-      gainXp(hero, monsterExperience(hero.level, enemy.level, 'monster', { difficulty, act: area.act, baseLife: definition.hp }));
+      const definition = MONSTERS[species[i]], enemy = monsterStats(definition, area, difficulty);
+      gainXp(hero, monsterExperience(hero.level, enemy.level, 'monster', { difficulty, act: area.act, baseLife: definition.hp }) * plan.xpScale);
     }
     for (let i = 0; i < Math.round(eliteCount(area, difficulty) * clearFraction); i++) {
       const definition = MONSTERS[pool[(area.index + i) % pool.length]], elite = monsterStats(definition, area, difficulty, false, true);

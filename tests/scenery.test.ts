@@ -22,17 +22,17 @@ test('all 25 areas have independent authored layouts, distinct landmarks and com
 });
 
 test('expanded geography preserves four arcane arms, narrow nests, a moat and the summit arena', () => {
-  assert.equal(FIELD_BOUND,49);
+  assert.equal(FIELD_BOUND,73);
   for (const level of LEVELS) {
     const layout = levelLayout(level);
-    assert.ok(Array.from({length:97},(_,i)=>i-48).some(x=>layoutWalkable(layout,x,-41)),level.name);
+    assert.ok(layout.rooms.some(room=>Math.max(Math.abs(room.x),Math.abs(room.z))>49),level.name);
   }
-  const arcane=levelLayout(LEVELS[8]), offset=50;
-  const grid = new PF.Grid(Array.from({length:101},(_,z)=>Array.from({length:101},(_,x)=>
+  const arcane=levelLayout(LEVELS[8]), offset=FIELD_BOUND+1, size=offset*2+1;
+  const grid = new PF.Grid(Array.from({length:size},(_,z)=>Array.from({length:size},(_,x)=>
     layoutWalkable(arcane,x-offset,z-offset) && !(Math.abs(x-offset)<=6&&Math.abs(z-offset)<=6) ? 0:1)));
   const finder = new PF.AStarFinder({diagonalMovement:PF.DiagonalMovement.OnlyWhenNoObstacles});
-  assert.equal(finder.findPath(11,50,89,50,grid.clone()).length,0,'west and east arms only connect through the hub');
-  assert.equal(finder.findPath(50,89,50,9,grid.clone()).length,0,'south and north arms only connect through the hub');
+  assert.equal(finder.findPath(offset-35,offset,offset+35,offset,grid.clone()).length,0,'west and east arms only connect through the hub');
+  assert.equal(finder.findPath(offset,offset+35,offset,offset-35,grid.clone()).length,0,'south and north arms only connect through the hub');
   assert.ok(levelLayout(LEVELS[7]).corridorWidth <= 1.4);
   assert.equal(layoutWalkable(levelLayout(LEVELS[14]),0,-23),false,'moat keeps the central approach closed');
   assert.ok(levelLayout(LEVELS[23]).bossRadius >= 14);
@@ -47,7 +47,7 @@ test('authored maps keep every room, task, chest, supply and exit connected to t
     assert.deepEqual(layout.chests.map(chest => chest.id), Array.from({ length: 4 + Math.floor(level.act / 2) }, (_, i) => i));
     const matrix = Array.from({length:size}, (_, z) => Array.from({length:size}, (_, x) => layoutWalkable(layout, x-offset, z-offset) ? 0 : 1));
     const grid = new PF.Grid(matrix), finder = new PF.AStarFinder({ diagonalMovement: PF.DiagonalMovement.OnlyWhenNoObstacles });
-    const cells = matrix.flat().filter(cell => !cell).length; assert.ok(cells > 1200 && cells < 6500, `${level.name}: ${cells}`);
+    const cells = matrix.flat().filter(cell => !cell).length; assert.ok(cells > 1700 && cells < 10000, `${level.name}: ${cells}`);
     for (const target of [layout.boss, layout.exit, layout.supply, ...layout.objects, ...layout.chests, ...layout.rooms]) {
       const x = Math.round(target.x), z = Math.round(target.z);
       assert.ok(grid.isWalkableAt(x+offset,z+offset), `${level.name}: target ${x},${z} has floor`);

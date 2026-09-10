@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import PF from 'pathfinding';
-import { FIELD_BOUND, levelLayout, type Level, type MapPoint } from './campaign.ts';
-import { distanceToSegment, layoutWalkable } from './level-layouts.ts';
+import { FIELD_BOUND, type Level, type MapPoint } from './campaign.ts';
+import { distanceToSegment, layoutWalkable, type LevelLayout } from './level-layouts.ts';
 import { sceneDesign, type SceneryProp } from './scene-design.ts';
 import { sceneryRandom, sceneryTexture, sceneryDecal } from './scenery-textures.ts';
 
 type SceneHost = {
-  level: Level; scene: THREE.Scene; staticGroup: THREE.Group; ground: THREE.Mesh; grid: PF.Grid; floorCells: MapPoint[];
+  level: Level; layout: LevelLayout; scene: THREE.Scene; staticGroup: THREE.Group; ground: THREE.Mesh; grid: PF.Grid; floorCells: MapPoint[];
   addCollider(x: number, z: number, width: number, depth: number): void;
   torch(x: number, z: number, y: number, light?: boolean): void;
 };
 
 export function buildLevelScenery(world: SceneHost) {
-  const level = world.level, design = sceneDesign(level), palette = design.palette, layout = levelLayout(level);
-  const random = sceneryRandom(3817 + level.index * 793), root = world.staticGroup;
+  const level = world.level, design = sceneDesign(level), palette = design.palette, layout = world.layout;
+  const random = sceneryRandom(3817 + level.index * 793 + layout.seed), root = world.staticGroup;
   const geometry = {
     box: new THREE.BoxGeometry(1,1,1), column: new THREE.CylinderGeometry(1,1,1,10), cone: new THREE.ConeGeometry(1,1,7),
     rock: new THREE.SphereGeometry(1,9,7), orb: new THREE.SphereGeometry(1,12,8), ring: new THREE.TorusGeometry(1,.018,5,64),

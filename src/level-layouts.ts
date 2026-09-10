@@ -1,8 +1,9 @@
 import type { Level, MapPoint } from './campaign.ts';
+import { mapRandom, shuffled } from './map-random.ts';
 
 type Pair = [number, number];
 type LayoutDraft = { path: Pair[]; wings: Pair[]; width: number; room: number; shape?: 'round' | 'rect' | 'octagon'; axis?: boolean; boss?: Pair; links?: [number, number][]; loops?: boolean; objectives?: Pair[]; arena?: number };
-export const MAP_BOUND = 49;
+export const MAP_BOUND = 73;
 // Authored room graphs follow each area's identity; all share the saved entrance.
 const drafts: LayoutDraft[] = [
   { path: [[-11,2],[-20,-12],[-6,-20],[12,-25]], wings: [[17,15],[-29,3],[23,-9],[-25,-27],[27,-25],[-15,26]], width: 3.2, room: 11, shape: 'round' },
@@ -108,7 +109,7 @@ Object.assign(expanded[24], { // Long throne aisle, paired galleries and a separ
   path: [[0,-2],[0,-14],[0,-26],[0,-33]], wings: [[-25,17],[25,17],[-25,-12],[25,-12],[-25,-32],[25,-32]],
   width: 3, room: 15, arena: 8,
 });
-export function campaignLayout(level: Level) {
+function authoredLayout(level: Level) {
   const draft = expanded[level.index], spawn = { x: 0, z: 11 }, supply = { x: -5.8, z: 12 };
   const boss = point(draft.boss ?? [0, -33]), exit = { x: boss.x, z: boss.z - 4 };
   const route = [spawn, ...draft.path.map(point), boss], wings = draft.wings.map(point);
@@ -130,6 +131,83 @@ export function campaignLayout(level: Level) {
   const objects = Array.from({ length: level.quest.kind === 'interact' ? level.quest.count : 0 }, (_, i) => draft.objectives ? point(draft.objectives[i]) : ({ ...wings[[2, 3, 4][i]] }));
   const chests = wings.slice(0, 4 + Math.floor(level.act / 2)).map((p, id) => ({ id, x: p.x + (id % 2 ? -2 : 2), z: p.z + 2 }));
   return { route, rooms, connections, objects, chests, spawn, boss, exit, supply, corridorWidth: draft.width, bossRadius: draft.arena ?? 7 };
+}
+/** Authored geography supplies the identity; each visit builds its own room graph. */
+export function campaignLayout(level: Level, seed = 0) {
+  const random = mapRandom(seed ^ Math.imul(level.index + 1, 7919));
+  const base = authoredLayout(level), draft = expanded[level.index];
+  const scaleX = 1.4 + random() * .12, scaleZ = 1.4 + random() * .12;
+  const organic = draft.shape === 'round';
+  const transformed = new Map<string, MapPoint>();
+  const transform = (p: MapPoint): MapPoint => {
+    if (p === base.spawn || p === base.supply) return { ...p };
+    const key = `${p.x},${p.z}`;
+    let result = transformed.get(key);
+    if (!result) {
+      result = { x: Math.round(p.x * scaleX + (organic ? (random() - .5) * 4 : 0)), z: Math.round(p.z * scaleZ + (organic ? (random() - .5) * 4 : 0)) };
+      transformed.set(key, result);
+    }
+    return result;
+  };
+  const route = base.route.map(transform), spawn = route[0], supply = { ...base.supply }, boss = route.at(-1)!;
+  const exit = { x: boss.x, z: boss.z - 4 };
+  // Exit direction belongs to the boss set piece, and is not independently warped.
+  transformed.set(`${base.exit.x},${base.exit.z}`, exit);
+  const rooms = base.rooms.map(room => ({ ...room, ...transform(room), width: room.width * (1.02 + random() * .2), depth: room.depth * (1.02 + random() * .2) }));
+  const connections: [MapPoint, MapPoint][] = base.connections.map(([a,b]) => [transform(a), transform(b)]);
+  const wings = rooms.slice(4), branches: MapPoint[] = [];
+  // Outward pockets vary both the graph and the floor plan. Their parent is always connected.
+  const branchCount = (level.index === 23 ? 2 : 3) + Math.floor(random() * 3);
+  for (const parent of shuffled(wings, random).slice(0, branchCount)) {
+    const length = Math.hypot(parent.x, parent.z) || 1;
+    const reach = 12 + random() * 6;
+    const p = { x: Math.round(Math.max(-64, Math.min(64, parent.x + parent.x / length * reach))), z: Math.round(Math.max(-64, Math.min(62, parent.z + parent.z / length * reach))) };
+    branches.push(p);
+    rooms.push({ ...p, width: 10 + random() * 4, depth: 10 + random() * 4, shape: draft.shape ?? 'rect' });
+    if (draft.axis) {
+      const bend = random() < .5 ? { x: parent.x, z: p.z } : { x: p.x, z: parent.z };
+      connections.push([parent, bend], [bend, p]);
+    } else connections.push([parent, p]);
+  }
+  // Preserve islands, nests, moats and seal wings. Towns and open plains get variable shortcuts.
+  if (draft.loops !== false && !draft.links && level.index !== 23 && level.index !== 24) {
+    const choices = shuffled([[0,2],[1,4],[3,5]] as const, random);
+    for (const [a,b] of choices.slice(0, 1 + Math.floor(random() * 2))) connections.push([wings[a], wings[b]]);
+  }
+  const objects = draft.objectives ? base.objects.map(transform) : shuffled([...wings.slice(2), ...branches], random).slice(0, base.objects.length).map(p => ({ x: p.x, z: p.z }));
+  if (level.index === 23) objects.splice(0, objects.length, ...base.objects.map(p => ({ x: boss.x + p.x - base.boss.x, z: boss.z + p.z - base.boss.z })));
+  const chestSites = shuffled([...wings, ...branches], random);
+  // Keep one early cache; the rest reward searching distant rooms without raising the loot budget.
+  chestSites[0] = wings[0];
+  const uniqueSites = [...new Set(chestSites)];
+  const chests = uniqueSites.slice(0, base.chests.length).map((p,id) => ({ id, x: p.x + 2, z: p.z + 2 }));
+  const layout = { ...base, seed: seed >>> 0, route, spawn, supply, boss, exit, rooms, connections, branches, objects, chests };
+  if (level.index === 8) buildArcaneArms(layout, random);
+  return layout;
+}
+
+function buildArcaneArms(layout: LevelLayout, random: () => number) {
+  const hub = { x: 0, z: 0 }, arms: MapPoint[][] = [];
+  layout.rooms = []; layout.connections = []; layout.branches = [];
+  for (const [dx,dz] of [[0,-1],[-1,0],[1,0],[0,1]]) {
+    const arm: MapPoint[] = [];
+    for (let step = 1; step <= 3; step++) {
+      const distance = step * (17 + random() * 2);
+      const p = { x: Math.round(dx * distance), z: Math.round(dz * distance) };
+      layout.connections.push([arm.at(-1) ?? hub, p]); arm.push(p);
+      layout.rooms.push({ ...p, width: 11 + random() * 3, depth: 11 + random() * 3, shape: 'octagon' });
+    }
+    arms.push(arm); layout.branches.push(arm[2]);
+  }
+  layout.rooms.push({ ...hub, width: 13, depth: 13, shape: 'octagon' });
+  const selected = arms[Math.floor(random() * arms.length)];
+  layout.boss = { ...selected[2] };
+  layout.objects = [{ ...selected[1] }];
+  const direction = { x: Math.sign(layout.boss.x), z: Math.sign(layout.boss.z) };
+  layout.exit = { x: layout.boss.x + direction.x * 4, z: layout.boss.z + direction.z * 4 };
+  layout.route = [layout.spawn, hub, ...selected, layout.boss];
+  layout.connections.push([layout.spawn, layout.supply], [layout.boss, layout.exit]);
+  layout.chests = shuffled(arms, random).map((arm,id) => ({ id, x: arm[2].x + 2, z: arm[2].z + 2 }));
 }
 export type LevelLayout = ReturnType<typeof campaignLayout>;
 export function distanceToSegment(x: number, z: number, a: MapPoint, b: MapPoint) {

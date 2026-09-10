@@ -11,6 +11,8 @@ import { BOSSES, MONSTERS } from './bestiary.ts';
 import { clearWalk, clearObstacles, collisionGrid, NAV_SCALE, PLAYER_RADIUS, type Obstacle } from './navigation.ts';
 import { sceneDesign } from './scene-design.ts';
 import { buildLevelScenery } from './level-scenery.ts';
+import { nextMapSeed } from './map-random.ts';
+import type { LevelLayout } from './level-layouts.ts';
 import { weatherTexture } from './scenery-textures.ts';
 
 export const BOUNDS = FIELD_BOUND;
@@ -119,11 +121,13 @@ export class GameWorld {
   ground: THREE.Mesh;
   exit: THREE.Group;
   level: Level;
+  layout: LevelLayout;
   isCamp: boolean;
   sharedStash?: THREE.Group;
   floorCells: { x: number; z: number }[] = [];
-  constructor(level = LEVELS[0], isCamp = false) {
+  constructor(level = LEVELS[0], isCamp = false, seed = nextMapSeed()) {
     this.level = level; this.isCamp = isCamp;
+    this.layout = levelLayout(level, seed);
     if (!isCamp) this.grid = new PF.Grid((FIELD_BOUND + 1) * 2 + 1, (FIELD_BOUND + 1) * 2 + 1);
     const theme = ACTS[isCamp ? 0 : level.act];
     const design = isCamp ? undefined : sceneDesign(level);
@@ -155,7 +159,7 @@ export class GameWorld {
       this.rune.position.set(CAMP.portal.x, .24, CAMP.portal.z); this.rune.scale.setScalar(.75);
       this.portal = this.makeWaypoint(); this.exit = new THREE.Group();
     } else {
-      const layout = levelLayout(level);
+      const layout = this.layout;
       this.portal = this.makePortal(layout.supply.x, layout.supply.z);
       layout.objects.forEach((p, i) => this.shrineMeshes.push(this.makeObjective(p.x, p.z, i, level.quest.prop)));
       layout.chests.forEach(p => this.chests.push(this.makeChest(p.id, p.x, p.z)));

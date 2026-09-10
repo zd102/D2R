@@ -85,12 +85,5 @@ export function levelTuning(level: Level, difficulty: number) {
 export type MapPoint = { x: number; z: number };
 export const eliteCount = (level: Level, difficulty: number) => 1 + Math.max(0, Math.min(2, Math.floor(difficulty))) * 2 + Number(level.step >= 3);
 export const FIELD_BOUND = MAP_BOUND;
-function makeLevelLayout(level: Level) {
-  return campaignLayout(level);
-}
-const layoutCache = new Map<number, ReturnType<typeof makeLevelLayout>>();
-export function levelLayout(level: Level) {
-  let layout = layoutCache.get(level.index);
-  if (!layout) { layout = makeLevelLayout(level); layoutCache.set(level.index, layout); }
-  return layout;
-}
+// Deterministic previews and tests. Live worlds own their freshly seeded layout.
+export function levelLayout(level: Level, seed = 0) { return campaignLayout(level, seed); }

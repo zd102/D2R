@@ -5,7 +5,7 @@ import { createIcons, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, Use
 import type { Game, Enemy, Skill } from './game';
 import { SKILL_SLOTS, skillKeys, skillSlotNames, MOVEMENT_HINTS } from './controls';
 import { stats, rarityNames, slotNames, type Item } from './model';
-import { ACTS, levelLayout, levelTuning, questProgress, questComplete } from './campaign';
+import { ACTS, levelTuning, questProgress, questComplete } from './campaign';
 import { CampaignScreen } from './campaign-ui';
 import { ProfileScreen, type ProfilePanel } from './profiles-ui';
 import { CharacterScreen } from './character-ui';
@@ -259,6 +259,11 @@ export class UI {
       content = this.characterScreen.skills();
     } else if (this.panel === 'map') {
       content = `<canvas id="large-map" width="700" height="570"></canvas><div class="map-legend"><span><i class="legend-player"></i>${CLASSES[h.classId].name}</span>${this.game.inCamp ? '' : '<span><i class="legend-shrine"></i>任务目标</span><span><i class="legend-enemy"></i>敌人</span>'}<span><i class="legend-portal"></i>${this.game.inCamp ? '远征传送阵' : '传送门'}</span></div>`;
+      if (!this.game.inCamp) {
+        const floor = this.game.world.floorCells;
+        const explored = floor.filter(p => this.game.visited.has(`${Math.floor(p.x / 3)},${Math.floor(p.z / 3)}`)).length;
+        content += `<p class="quest-story">已探索 ${Math.floor(explored / Math.max(1, floor.length) * 100)}% · 道路与目标随探索显露，支路中可找到宝箱与精英。</p>`;
+      }
     } else if (this.panel === 'quest') {
       content = this.campaignScreen.quest();
     } else if (this.panel === 'pause') {
@@ -293,26 +298,25 @@ export class UI {
     const ctx = canvas.getContext('2d')!, w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h); ctx.fillStyle = large ? '#131c1c' : 'rgba(12,20,20,.68)'; ctx.fillRect(0, 0, w, h);
     const mapSize = this.game.world.grid.width - 2;
-    const scale = Math.min(w / (mapSize * 1.55), h / (mapSize * 1.3)), point = (x: number, z: number) => ({ x: w / 2 + (x - z) * .707 * scale, y: h / 2 + (x + z) * .48 * scale });
+    const extent = large || this.game.inCamp ? mapSize : 44;
+    const center = large || this.game.inCamp ? { x: 0, z: 0 } : this.game.position;
+    const scale = Math.min(w / (extent * 1.55), h / (extent * 1.3)), point = (x: number, z: number) => ({ x: w / 2 + (x - center.x - z + center.z) * .707 * scale, y: h / 2 + (x - center.x + z - center.z) * .48 * scale });
+    const explored = (x: number, z: number) => this.game.inCamp || this.game.visited.has(`${Math.floor(x / 3)},${Math.floor(z / 3)}`);
     const poly = (x: number, z: number, width: number, depth: number, color: string) => {
       ctx.fillStyle = color; ctx.beginPath(); [[x - width / 2, z - depth / 2], [x + width / 2, z - depth / 2], [x + width / 2, z + depth / 2], [x - width / 2, z + depth / 2]].forEach(([px, pz], index) => { const p = point(px, pz); index ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.closePath(); ctx.fill();
     };
     poly(0, 0, mapSize, mapSize, '#24302b');
-    this.game.world.floorCells.forEach(p => poly(p.x, p.z, 1.05, 1.05, '#697667'));
-    if (large && !this.game.inCamp) {
-      const edge = Math.ceil(mapSize / 6);
-      for (let x = -edge; x <= edge; x++) for (let z = -edge; z <= edge; z++) if (!this.game.visited.has(`${x},${z}`)) poly(x * 3, z * 3, 3.05, 3.05, 'rgba(5,11,11,.48)');
-    }
+    this.game.world.floorCells.forEach(p => { if (explored(p.x, p.z)) poly(p.x, p.z, 1.05, 1.05, '#697667'); });
     const dot = (x: number, z: number, color: string, radius: number, diamond = false) => { const p = point(x, z); ctx.fillStyle = color; ctx.beginPath(); if (diamond) { ctx.moveTo(p.x, p.y - radius); ctx.lineTo(p.x + radius, p.y); ctx.lineTo(p.x, p.y + radius); ctx.lineTo(p.x - radius, p.y); } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill(); };
-    this.game.enemies.forEach(e => { if (!e.dead && (e.boss || e.actor.group.position.distanceTo(this.game.position) < 12)) dot(e.actor.group.position.x, e.actor.group.position.z, e.boss ? '#ef846b' : e.elite ? '#eac66c' : '#c56456', e.boss ? 4 : e.elite ? 3 : 2); });
+    this.game.enemies.forEach(e => { if (!e.dead && explored(e.actor.group.position.x, e.actor.group.position.z) && (e.boss ? questComplete(this.game.hero.campaign) : e.actor.group.position.distanceTo(this.game.position) < 12)) dot(e.actor.group.position.x, e.actor.group.position.z, e.boss ? '#ef846b' : e.elite ? '#eac66c' : '#c56456', e.boss ? 4 : e.elite ? 3 : 2); });
     if (this.game.inCamp) {
       dot(CAMP.portal.x, CAMP.portal.z, '#63c8c8', large ? 6 : 4, true);
       dot(CAMP.supply.x, CAMP.supply.z, '#d6c492', large ? 5 : 3);
       dot(CAMP.stash.x, CAMP.stash.z, '#e7c273', large ? 5 : 3);
     } else {
-      const layout = levelLayout(this.game.level);
-      layout.objects.forEach((p, i) => { const complete = this.game.hero.campaign.objects.includes(i); dot(p.x, p.z, complete ? '#81d1b5' : ACTS[this.game.level.act].color, large ? 6 : 3.7, true); });
-      if (this.game.hero.bossDefeated) dot(layout.exit.x, layout.exit.z, '#cfe69b', large ? 6 : 4, true);
+      const layout = this.game.world.layout;
+      layout.objects.forEach((p, i) => { const complete = this.game.hero.campaign.objects.includes(i); if (explored(p.x, p.z)) dot(p.x, p.z, complete ? '#81d1b5' : ACTS[this.game.level.act].color, large ? 6 : 3.7, true); });
+      if (this.game.hero.bossDefeated && explored(layout.exit.x, layout.exit.z)) dot(layout.exit.x, layout.exit.z, '#cfe69b', large ? 6 : 4, true);
       dot(layout.supply.x, layout.supply.z, '#63c8c8', large ? 5 : 3);
       for (const chest of this.game.world.chests) if (this.game.visited.has(`${Math.floor(chest.x / 3)},${Math.floor(chest.z / 3)}`)) dot(chest.x, chest.z, chest.opened ? '#686b60' : '#e1b968', large ? 4 : 2.5);
     }
