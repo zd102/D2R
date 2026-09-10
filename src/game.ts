@@ -13,7 +13,7 @@ import { encounterPlan } from './encounter-plan';
 import { CAMP, prepareCampArrival } from './camp';
 import { isAura, isPassive, type ActionId, type Attribute, type DamageType } from './paladin';
 import { classSkillMode } from './class-skills';
-import { createWirtsLeg, isAnnihilus, isStoneOfJordan, isWirtsLeg, packItems, placeItems, runeLabel, type DropRank, type RuneId, type Mods } from './items';
+import { createWirtsLeg, groundItemName, isAnnihilus, isStoneOfJordan, isWirtsLeg, packItems, placeItems, runeLabel, type DropRank, type RuneId, type Mods } from './items';
 import { rollLoot } from './loot';
 import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat } from './combat';
@@ -618,7 +618,7 @@ export class Game {
     if (this.paused || this.dead) return;
     const loot = this.loot.find(l => l.id === id); if (!loot) return;
     this.begin(); this.target = undefined; this.heldAttack = false; this.pendingPickup = undefined; this.pendingChest = undefined; this.pendingPortal = false; this.path = [];
-    if (loot.item && isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast('背包中已有毁灭'); return; }
+    if (loot.item && isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast(loot.item.identified === false ? '背包中已有同类唯一物品' : '背包中已有毁灭'); return; }
     if (loot.item && !packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
     if (Math.hypot(this.position.x - loot.x, this.position.z - loot.z) > 3) {
       this.moveTo(new THREE.Vector3(loot.x, 0, loot.z));
@@ -631,9 +631,9 @@ export class Game {
   collectLoot(loot: Loot) {
     if (this.paused || this.dead || !this.loot.includes(loot)) return;
     if (loot.item) {
-      if (isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast('背包中已有毁灭'); return; }
+      if (isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast(loot.item.identified === false ? '背包中已有同类唯一物品' : '背包中已有毁灭'); return; }
       if (!packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
-      this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.name, '已收入背包');
+      this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.identified === false ? `未鉴定 · ${groundItemName(loot.item)}` : loot.item.name, '已收入背包');
     } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`);
     } else if (loot.gold) { this.hero.gold += loot.gold; this.ui.floatText(`+${loot.gold}`, this.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 'gold'); }
     else if (loot.potion !== undefined) this.hero.potions[loot.potion] = Math.min(99, this.hero.potions[loot.potion] + 1);
