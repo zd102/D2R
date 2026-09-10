@@ -1,0 +1,181 @@
+/* The inventory owns one stable navigation bar, workspace and utility footer.
+   Scope every rule here to the inventory; shared-stash and drag docks retain their layouts. */
+.panel-inventory { width: min(1280px, 100%); height: min(740px, calc(100dvh - 32px)); }
+.panel-inventory .panel-body { padding: 14px 16px; }
+.inventory-screen { gap: 12px; }
+.inventory-screen > .inventory-primary-tabs { margin: 0; flex: none; }
+.inventory-primary-tabs button { min-height: 40px; }
+.inventory-screen > .inventory-pane-tabs { margin: 0; flex: none; }
+.inventory-screen > .paladin-inventory {
+  display: grid; grid-template-columns: 230px minmax(0, 1.15fr) minmax(320px, 1fr);
+  grid-template-rows: minmax(0, 1fr); gap: 12px; min-height: 0; overflow: hidden;
+}
+.inventory-screen .paladin-inventory > :is(.gear-column, .bag-column, .item-details) {
+  min-width: 0; max-width: none; width: 100%; min-height: 0; padding: 12px;
+  border: 1px solid var(--ui-border); border-radius: 2px; background: #100e0b80;
+}
+.inventory-screen .paladin-inventory > .gear-column { padding-top: 0; }
+.inventory-screen .paladin-inventory > .bag-column { padding-top: 0; display: flex; }
+.inventory-screen .paladin-inventory > .item-details { padding-top: 0; grid-column: auto; border-left: 1px solid var(--ui-border); }
+.inventory-screen .equipment-heading, .inventory-screen .inventory-section-heading, .inventory-screen .recipe-heading {
+  display: flex; flex: none; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 45px; padding: 6px 0; margin: 0 0 12px; border-bottom: 1px solid var(--ui-border);
+  font-size: 12px; color: #d8bf93;
+}
+.inventory-section-heading > :is(small, span:last-child) { color: var(--ui-muted); font-size: 11px; }
+.inventory-section-heading > span:first-child { color: #d8bf93; font-size: 12px; }
+.inventory-screen .equipment-heading button { width: 30px; min-height: 28px; height: 28px; }
+.inventory-screen .paperdoll { grid-template-rows: 72px 92px 80px 64px; gap: 10px 8px; }
+.inventory-screen .gear-slot { max-height: none; }
+.inventory-screen .gear-armor { height: 166px; }
+.inventory-screen .gear-armor .gear-slot { max-height: none; }
+.inventory-screen .gear-position > span { font-size: 10px; }
+.inventory-screen .inventory-grid-scroll {
+  flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable both-edges; padding: 3px;
+}
+.inventory-screen .inventory-grid-scroll .diablo-grid {
+  width: 100%; min-width: 0; max-width: none; margin: 0;
+}
+.inventory-storage-note { flex: none; margin: 10px 0 0; padding-top: 9px; border-top: 1px solid #4b403080; font-size: 11px; line-height: 1.6; color: var(--ui-muted); }
+.inventory-screen .item-detail-scroll { padding-right: 6px; scrollbar-gutter: stable; }
+.inventory-screen .item-summary { grid-template-columns: 50px minmax(0, 1fr); gap: 10px; padding-bottom: 10px; margin-bottom: 10px; }
+.inventory-screen .item-summary .item-showcase { width: 50px; height: 58px; }
+.inventory-screen .item-summary h3 { font-size: 19px; line-height: 1.5; }
+.inventory-screen .item-detail-scroll .item-basics { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 6px 9px; column-gap: 12px; }
+.inventory-screen .item-basics > div { padding: 4px 0; gap: 10px; }
+.inventory-screen .item-basics dt, .inventory-screen .item-basics dd { font-size: 11px; }
+.inventory-screen .item-detail-scroll .item-affixes { grid-template-columns: minmax(0, 1fr); font-size: 12px; line-height: 1.75; }
+.inventory-screen .item-detail-scroll .item-affixes li { margin: 2px 0; }
+.inventory-screen .item-actions { padding-top: 10px; margin-top: 10px; background: transparent; gap: 7px; }
+.inventory-screen .item-actions > button { min-height: 38px; }
+.inventory-screen .item-actions > [data-identify], .inventory-screen .item-actions > [data-salvage] { grid-column: 1 / -1; }
+.inventory-screen .item-actions > [data-salvage] { min-height: 32px; border-color: #5c4a30; background: #211a10; }
+.inventory-screen .empty-detail { min-height: 0; padding: 20px 8px; }
+.inventory-footer { display: flex; flex: none; align-items: center; flex-wrap: wrap; gap: 8px 18px; min-height: 36px; border-top: 1px solid var(--ui-border); padding-top: 8px; }
+.inventory-footer-hint { color: var(--ui-muted); font-size: 11px; margin-right: auto; }
+.inventory-footer .inventory-gold { display: flex; align-items: center; gap: 7px; margin: 0 0 0 auto; padding: 0; font-size: 15px; background: none; }
+.inventory-footer .inventory-gold small { color: var(--ui-muted); font-size: 11px; }
+.inventory-footer .inventory-gold svg { width: 15px; height: 15px; }
+.inventory-footer .text-button { display: flex; flex: none; width: auto; align-items: center; gap: 6px; min-height: 32px; margin: 0; padding: 5px 10px; border: 1px solid #695335; border-radius: 2px; font-size: 11px; }
+.inventory-footer .text-button svg { width: 15px; height: 15px; }
+
+/* Materials and recipes share the same section headings and bounded scrolling. */
+.inventory-screen[data-inventory-view=runes] > .inventory-pane-tabs { display: none; }
+.inventory-screen > .paladin-inventory[data-view=runes] { grid-template-columns: minmax(0, 1fr); }
+.inventory-screen .paladin-inventory[data-view=runes] > :is(.gear-column, .item-details) { display: none; }
+.inventory-screen .paladin-inventory[data-view=runes] > .bag-column { border: 0; background: none; padding: 0; }
+.inventory-screen .rune-layout { margin: 0; overflow: hidden; gap: 12px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+.inventory-screen .rune-layout > section { padding: 0 12px 12px; border: 1px solid var(--ui-border); border-radius: 2px; background: #100e0b80; overflow: hidden; min-height: 0; }
+.inventory-screen .rune-layout .section-label { min-height: 45px; margin: 0 0 12px; }
+.inventory-screen .rune-layout .recipe-heading select { min-height: 30px; padding: 3px 8px; font-size: 11px; }
+.inventory-screen .rune-layout .rune-pouch { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 66px; align-content: start; gap: 8px; padding-right: 3px; }
+.inventory-screen .rune-layout .rune-entry {
+  display: grid; grid-template-columns: 24px minmax(0, 1fr) 26px; grid-template-rows: 22px 26px;
+  align-items: center; gap: 2px 5px; min-height: 66px; padding: 7px; margin: 0;
+}
+.inventory-screen .rune-layout .rune-entry > .rune-art { grid-column: 1; grid-row: 1 / 3; width: 24px; height: 34px; }
+.inventory-screen .rune-layout .rune-entry > strong { grid-column: 2; grid-row: 1; font-size: 12px; line-height: 1.4; white-space: nowrap; }
+.inventory-screen .rune-layout .rune-entry > small { grid-column: 1 / 3; grid-row: 2; align-self: end; font: 10px/1.4 Georgia, serif; color: var(--ui-muted); }
+.inventory-screen .rune-layout .rune-entry > .rune-art { align-self: start; height: 24px; }
+.inventory-screen .rune-layout .rune-entry > b { position: static; grid-column: 3; grid-row: 1; font: 12px Georgia, serif; color: #e7c58b; }
+.inventory-screen .rune-layout .rune-upgrade { position: static; grid-column: 3; grid-row: 2; width: 26px; height: 26px; display: grid; place-items: center; padding: 4px; }
+.inventory-screen .rune-layout .rune-upgrade svg { width: 16px; height: 16px; }
+.inventory-screen .rune-layout .runeword-list { grid-auto-rows: max-content; gap: 8px; padding-right: 3px; }
+.inventory-screen .rune-layout .runeword-list > div { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; min-height: 94px; }
+.runeword-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.inventory-screen .runeword-heading strong { font-size: 15px; }
+.recipe-availability { color: var(--ui-muted); font-size: 10px; flex: none; }
+.recipe-availability.positive { color: var(--ui-good); }
+.inventory-screen .rune-sequence { display: flex; flex-wrap: wrap; gap: 3px 8px; font-size: 12px; }
+.inventory-screen .rune-sequence > span { display: inline-flex; flex-direction: row; gap: 4px; align-items: baseline; }
+.inventory-screen .rune-sequence small { display: inline; font-size: 10px; }
+.inventory-screen .runeword-base { font-size: 11px; margin-top: auto; }
+.inventory-screen .recipe-pagination { margin: 10px 0 0; gap: 12px; }
+.inventory-screen .recipe-pagination button { min-height: 32px; padding: 5px 12px; }
+.recipe-note { flex: none; color: var(--ui-muted); font-size: 11px; line-height: 1.6; margin: 9px 0 0; }
+
+@media (min-width: 961px) and (max-width: 1150px) {
+  .inventory-screen > .paladin-inventory { grid-template-columns: 200px minmax(0, 1fr) 310px; gap: 10px; }
+  .inventory-screen .rune-layout .rune-pouch { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .inventory-footer-hint { max-width: 48%; }
+}
+@media (max-width: 960px) and (min-width: 701px) {
+  .inventory-screen > .inventory-pane-tabs { display: flex; }
+  .inventory-screen > .inventory-pane-tabs [data-inventory-pane=details] { display: none; }
+  .inventory-screen > .paladin-inventory { grid-template-columns: minmax(0, 1fr) minmax(290px, 1fr); }
+  .inventory-screen .paladin-inventory > .gear-column { display: none; }
+  .inventory-screen[data-inventory-pane=equipment] > .paladin-inventory { display: block; }
+  .inventory-screen[data-inventory-pane=equipment] .paladin-inventory > .gear-column { display: block; height: 100%; }
+  .inventory-screen[data-inventory-pane=equipment] .paladin-inventory > :is(.bag-column, .item-details) { display: none; }
+  .inventory-screen[data-inventory-pane=equipment] .paperdoll { max-width: 350px; margin: auto; }
+  .inventory-screen .rune-layout .rune-pouch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-footer-hint { display: none; }
+}
+@media (max-width: 700px) {
+  .panel-inventory { height: calc(100dvh - 16px); }
+  .panel-inventory .panel-body { padding: 9px; }
+  .inventory-screen { gap: 8px; }
+  .inventory-primary-tabs button { min-height: 36px; padding: 6px 4px; }
+  .inventory-screen > .inventory-pane-tabs { min-height: 34px; }
+  .inventory-screen > .paladin-inventory { display: block; }
+  .inventory-screen .paladin-inventory > :is(.gear-column, .bag-column, .item-details) { padding: 0 9px 9px; height: 100%; }
+  .inventory-screen[data-inventory-pane=items] .paladin-inventory > :is(.gear-column, .item-details),
+  .inventory-screen[data-inventory-pane=equipment] .paladin-inventory > :is(.bag-column, .item-details),
+  .inventory-screen[data-inventory-pane=details] .paladin-inventory > :is(.gear-column, .bag-column) { display: none; }
+  .inventory-screen[data-inventory-pane=equipment] .paladin-inventory > .gear-column { display: block; overflow: auto; }
+  .inventory-screen .inventory-section-heading, .inventory-screen .equipment-heading { min-height: 38px; margin-bottom: 9px; }
+  .inventory-screen .inventory-detail-heading { display: none; }
+  .inventory-screen .paladin-inventory > .item-details { padding-top: 10px; }
+  .inventory-screen .item-detail-scroll .item-basics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; padding: 5px 7px; }
+  .inventory-screen .item-basics dt, .inventory-screen .item-basics dd { font-size: 11px; }
+  .inventory-screen .item-actions { gap: 5px; margin-top: 7px; padding-top: 7px; }
+  .inventory-screen .item-actions > button { font-size: 11px; min-height: 36px; }
+  .inventory-screen .inventory-grid-scroll { scrollbar-gutter: auto; }
+  .inventory-screen[data-inventory-pane=equipment] .paperdoll { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: 72px 92px 80px 64px; max-width: 300px; margin: auto; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-helm { grid-column: 2 / 4; grid-row: 1; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-amulet { grid-column: 4; grid-row: 1; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-weapon { grid-column: 1; grid-row: 2; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-armor { grid-column: 2 / 4; grid-row: 2 / 4; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-shield { grid-column: 4; grid-row: 2; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-gloves { grid-column: 1; grid-row: 3; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-boots { grid-column: 4; grid-row: 3; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-ring { grid-column: 1; grid-row: 4; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-belt { grid-column: 2 / 4; grid-row: 4; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-ring2 { grid-column: 4; grid-row: 4; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-slot { height: 100%; }
+  .inventory-footer { padding-top: 6px; gap: 8px; flex-wrap: nowrap; min-height: 32px; }
+  .inventory-footer-hint { display: none; }
+  .inventory-footer .inventory-gold { margin: 0 auto 0 0; font-size: 14px; }
+  .inventory-storage-note { font-size: 10px; margin-top: 7px; padding-top: 7px; }
+  .inventory-screen .rune-pane-tabs { margin: 0 0 8px; min-height: 34px; }
+  .inventory-screen .rune-layout { grid-template-columns: minmax(0, 1fr); }
+  .inventory-screen .rune-layout > section { padding: 0 9px 9px; }
+  .inventory-screen .rune-layout .rune-pouch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-screen .rune-layout .runeword-list { grid-auto-rows: max-content; }
+  .inventory-screen .rune-layout .runeword-list > div { min-height: 88px; padding: 9px; }
+}
+@media (max-height: 580px) and (min-width: 701px) {
+  .panel-inventory { height: calc(100dvh - 16px); }
+  .panel-inventory .panel-body { padding: 7px 10px; }
+  .inventory-screen { gap: 6px; }
+  .inventory-screen > .paladin-inventory { grid-template-columns: minmax(0, 1fr) minmax(310px, 1fr); }
+  .inventory-primary-tabs button { min-height: 32px; padding: 4px; }
+  .inventory-screen > .inventory-pane-tabs { min-height: 28px; padding: 1px; }
+  .inventory-screen > .inventory-pane-tabs button { min-height: 26px; padding: 3px; }
+  .inventory-screen .paladin-inventory > :is(.bag-column, .item-details, .gear-column) { padding: 0 8px 8px; }
+  .inventory-screen .inventory-section-heading, .inventory-screen .equipment-heading, .inventory-screen .rune-layout .section-label { min-height: 32px; margin-bottom: 6px; padding: 3px 0; }
+  .inventory-screen .inventory-detail-heading, .inventory-storage-note, .inventory-footer-hint, .recipe-note { display: none; }
+  .inventory-screen .paladin-inventory > .item-details { padding-top: 7px; }
+  .inventory-screen .item-actions { margin-top: 5px; padding-top: 5px; gap: 4px; }
+  .inventory-screen .item-actions > button { min-height: 30px; padding: 4px; font-size: 11px; }
+  .inventory-screen .item-actions > [data-salvage] { min-height: 26px; }
+  .inventory-screen .item-actions > [data-identify], .inventory-screen .item-actions > [data-salvage] { grid-column: auto; }
+  .inventory-footer { padding-top: 4px; min-height: 28px; }
+  .inventory-footer .text-button { min-height: 26px; padding: 3px 8px; }
+  .inventory-screen[data-inventory-pane=equipment] .paperdoll { max-width: none; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, 60px); gap: 5px; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-position { grid-column: auto; grid-row: auto; width: 100%; height: auto; max-height: none; gap: 3px; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-slot { height: 42px; }
+  .inventory-screen .rune-layout .rune-pouch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-screen .rune-layout .runeword-list > div { min-height: 84px; }
+  .inventory-screen .recipe-pagination { margin-top: 6px; }
+}

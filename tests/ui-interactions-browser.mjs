@@ -45,9 +45,9 @@ try {
     }
     await page.locator('[data-item="ui-detailed"]').click();
     await clickability('.item-actions button');
-    await expect(page.locator('.item-basics')).toBeVisible();
+    await expect(page.locator('.panel-inventory .item-basics')).toBeVisible();
     await expect(page.locator('[data-item-tab],[data-affix-page]')).toHaveCount(0);
-    assert.equal(await page.locator('.item-affixes li:visible').count(), itemModifierLines(hero.inventory[0]).length);
+    assert.equal(await page.locator('.panel-inventory .item-affixes li:visible').count(), itemModifierLines(hero.inventory[0]).length);
     await page.locator('[data-affix-ranges]').check();
     await page.screenshot({ path: `${output}/item-details-${viewport.width}.png` });
     await page.locator('[data-equip="ui-detailed"]').click();

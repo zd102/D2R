@@ -1,0 +1,27 @@
+/* Read-only item inspection, shared by inventory, equipment, storage and ground loot. */
+#ui-tooltip.item-tooltip {
+  width: 360px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px);
+  padding: 12px; overflow: auto; overscroll-behavior: contain; touch-action: pan-y;
+  pointer-events: auto; border-color: #be995b; background: #100c07fa;
+  box-shadow: 0 10px 35px #000d, inset 0 0 0 2px #93713c22; font-size: 12px;
+}
+#ui-tooltip.item-tooltip .item-detail-scroll { overflow: visible; padding: 0; }
+#ui-tooltip.item-tooltip .item-summary { grid-template-columns: 46px minmax(0, 1fr); gap: 10px; margin: 0 0 9px; padding-bottom: 9px; }
+#ui-tooltip.item-tooltip .item-showcase { display: grid; place-items: center; width: 46px; height: 54px; margin: 0; float: none; }
+#ui-tooltip.item-tooltip .item-showcase .item-visual { width: 42px; height: 50px; }
+#ui-tooltip.item-tooltip .rarity-tag { text-align: left; font-size: 10px; }
+#ui-tooltip.item-tooltip h3 { font: 19px/1.5 var(--ui-heading); margin: 3px 0; text-align: left; overflow-wrap: anywhere; }
+#ui-tooltip.item-tooltip .item-basics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; padding: 5px 8px; margin: 8px 0; }
+#ui-tooltip.item-tooltip .item-basics > div { padding: 3px 0; gap: 6px; min-width: 0; }
+#ui-tooltip.item-tooltip .item-basics dt, #ui-tooltip.item-tooltip .item-basics dd { font-size: 11px; }
+#ui-tooltip.item-tooltip .item-affixes { grid-template-columns: minmax(0, 1fr); gap: 2px; font-size: 12px; line-height: 1.65; margin: 8px 0 0; }
+#ui-tooltip.item-tooltip .item-affixes li { margin: 0; }
+#ui-tooltip.item-tooltip .item-socket-panel { margin-top: 9px; padding-top: 8px; }
+#ui-tooltip.item-tooltip .socket-row { justify-content: flex-start; margin: 7px 0 0; }
+#ui-tooltip.item-tooltip .set-bonuses { margin: 9px 0 0; font-size: 11px; }
+#ui-tooltip.item-tooltip .unidentified-note { padding: 5px 0; margin: 0; }
+#ui-tooltip.item-tooltip .item-summary small { font-size: 11px; }
+@media (max-height: 580px) and (min-width: 701px) {
+  #ui-tooltip.item-tooltip { width: 410px; padding: 10px; }
+  #ui-tooltip.item-tooltip .item-affixes { font-size: 11px; line-height: 1.6; }
+}

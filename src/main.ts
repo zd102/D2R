@@ -9,6 +9,8 @@ import './shared-stash.css';
 import './ui-layout.css';
 import './item-details.css';
 import './ui-theme.css';
+import './inventory-layout.css';
+import './item-tooltip.css';
 import { Game } from './game';
 import { questComplete } from './campaign';
 import { CAMP } from './camp';

@@ -74,7 +74,7 @@ try {
     await page.goto(base); await page.getByRole('button',{name:'进入旅程',exact:true}).click();
     await page.waitForFunction(()=>window.eclipseState.inCamp&&!window.eclipseState.paused);
     await page.keyboard.press('i'); await page.locator('.bag-item[data-item="socket-base"]').click();
-    await expect(page.locator('.item-showcase [data-base-icon]')).toHaveAttribute('data-base-icon','crs');
+    await expect(page.locator('.panel-inventory .item-showcase [data-base-icon]')).toHaveAttribute('data-base-icon','crs');
     await expect(page.locator('.gear-weapon [data-base-icon]')).toHaveAttribute('data-base-icon','ssd');
     await inventoryItems(page); await fit(page); await page.locator('.diablo-grid').scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/inventory-${viewport.width}.png`});
     if (viewport.width <= 700) await page.locator('button[data-inventory-pane="details"]').click();

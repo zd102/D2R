@@ -18,6 +18,7 @@ import { EncyclopediaScreen } from './encyclopedia-ui';
 import { heroStatuses, statusTime } from './status-effects';
 import { panelFrame, rememberDialogFocus, navigateDialogTabs } from './ui-components';
 import { settingsPanel } from './settings-ui';
+import { itemDetails } from './item-details-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
@@ -27,6 +28,7 @@ const icon = (name: string, cls = '') => `<i data-lucide="${name}" class="${cls}
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
 const itemIcon = (item: Item) => icon(item.slot === 'weapon' ? 'sword' : item.slot === 'armor' ? 'shield' : 'gem');
 const tip = (label: string) => `aria-label="${label}" data-tip="${label}"`;
+const tooltipItemKey = (element?: HTMLElement) => element?.dataset.item ?? element?.dataset.sharedItem ?? (element?.dataset.loot !== undefined ? `loot:${element.dataset.loot}` : undefined);
 
 export class UI {
   panel?: Panel;
@@ -51,6 +53,9 @@ export class UI {
   statusSignature = '';
   statusDurations = new Map<string, number>();
   tooltipTarget?: HTMLElement;
+  tooltipHideTimer?: ReturnType<typeof setTimeout>;
+  tooltipTouch = false;
+  tooltipDismissedKey?: string;
   panelOpener?: HTMLElement;
   constructor(game: Game) {
     this.game = game;
@@ -98,12 +103,51 @@ export class UI {
     this.bind(); this.refreshIcons();
   }
   refreshIcons() { createIcons({ icons, attrs: { 'stroke-width': 1.5 } }); }
-  hideTooltip() { this.tooltipTarget = undefined; const tooltip = document.getElementById('ui-tooltip'); if (tooltip) tooltip.hidden = true; }
+  hideTooltip() {
+    clearTimeout(this.tooltipHideTimer);
+    const target = this.tooltipTarget;
+    if (target) {
+      const ids = (target.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(id => id && id !== 'ui-tooltip');
+      if (ids.length) target.setAttribute('aria-describedby', ids.join(' ')); else target.removeAttribute('aria-describedby');
+    }
+    this.tooltipTarget = undefined;
+    const tooltip = document.getElementById('ui-tooltip');
+    if (tooltip) { tooltip.hidden = true; tooltip.replaceChildren(); tooltip.classList.remove('item-tooltip'); }
+  }
+  tooltipItem(target: HTMLElement) {
+    const h = this.game.hero, id = target.dataset.item ?? target.dataset.sharedItem;
+    if (target.dataset.loot !== undefined) return this.game.loot.find(loot => loot.id === Number(target.dataset.loot))?.item;
+    if (!id) return undefined;
+    if (target.dataset.sharedSide === 'shared') return this.sharedStashScreen.state?.items.find(item => item.id === id);
+    return [...h.inventory, ...h.stash, ...Object.values(h.equipment)].find((item): item is Item => !!item && item.id === id);
+  }
   updateTooltip() {
     const target = this.tooltipTarget, tooltip = document.getElementById('ui-tooltip')!;
-    if (!target?.isConnected || !target.dataset.tip || !target.getClientRects().length) { this.hideTooltip(); return; }
-    tooltip.textContent = target.dataset.tip; tooltip.hidden = false;
+    if (!target?.isConnected || !target.getClientRects().length || document.documentElement.classList.contains('is-dragging-item')) { this.hideTooltip(); return; }
+    const item = this.tooltipItem(target);
+    if (!item && !target.dataset.tip) { this.hideTooltip(); return; }
+    tooltip.style.maxHeight = '';
+    tooltip.classList.toggle('item-tooltip', !!item);
+    if (item) { tooltip.innerHTML = itemDetails(this.game.hero, item, { tooltip: true }); this.refreshIcons(); }
+    else tooltip.textContent = target.dataset.tip!;
+    tooltip.hidden = false;
+    const describedBy = new Set((target.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean));
+    describedBy.add('ui-tooltip'); target.setAttribute('aria-describedby', [...describedBy].join(' '));
     const rect = target.getBoundingClientRect(), width = tooltip.offsetWidth, height = tooltip.offsetHeight;
+    if (item) {
+      const workspace = target.closest('.paperdoll, .diablo-grid')?.getBoundingClientRect() ?? rect;
+      const right = workspace.right + 10, left = workspace.left - width - 10;
+      const beside = right + width <= innerWidth - 8 || left >= 8;
+      tooltip.style.left = `${Math.max(8, Math.min(innerWidth - width - 8, right + width <= innerWidth - 8 ? right : left >= 8 ? left : rect.left))}px`;
+      let top = rect.top;
+      if (!beside) {
+        const below = innerHeight - rect.bottom - 18, above = rect.top - 18;
+        tooltip.style.maxHeight = `${Math.max(48, Math.max(below, above))}px`;
+        top = below >= above ? rect.bottom + 10 : rect.top - tooltip.offsetHeight - 10;
+      }
+      tooltip.style.top = `${Math.max(8, Math.min(innerHeight - tooltip.offsetHeight - 8, top))}px`;
+      return;
+    }
     tooltip.style.left = `${Math.max(8, Math.min(innerWidth - width - 8, rect.left + rect.width / 2 - width / 2))}px`;
     tooltip.style.top = `${Math.max(8, Math.min(innerHeight - height - 8, rect.top >= height + 16 ? rect.top - height - 8 : rect.bottom + 8))}px`;
   }
@@ -134,15 +178,60 @@ export class UI {
   bind() {
     this.overlay.addEventListener('keydown', event => navigateDialogTabs(this.overlay, event));
     const showTooltip = (target: EventTarget | null) => {
-      this.tooltipTarget = target instanceof Element ? target.closest<HTMLElement>('[data-tip]') ?? undefined : undefined;
+      if (document.documentElement.classList.contains('is-dragging-item')) return;
+      const tooltip = document.getElementById('ui-tooltip')!;
+      if (target instanceof Node && tooltip.contains(target)) { clearTimeout(this.tooltipHideTimer); return; }
+      const next = target instanceof Element ? target.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot], [data-tip]') ?? undefined : undefined;
+      if (tooltipItemKey(next) && tooltipItemKey(next) === this.tooltipDismissedKey) return;
+      if (tooltipItemKey(next)) this.tooltipDismissedKey = undefined;
+      if (next === this.tooltipTarget && !tooltip.hidden) { clearTimeout(this.tooltipHideTimer); return; }
+      this.hideTooltip(); this.tooltipTarget = next;
       this.updateTooltip();
     };
-    document.addEventListener('pointerover', event => { if (event.pointerType !== 'touch') showTooltip(event.target); });
-    document.addEventListener('focusin', event => showTooltip(event.target));
-    document.addEventListener('pointerout', event => { if (this.tooltipTarget && !this.tooltipTarget.contains(event.relatedTarget as Node | null)) this.hideTooltip(); });
+    document.addEventListener('pointerover', event => { if (event.pointerType !== 'touch' && !event.buttons) showTooltip(event.target); });
+    document.addEventListener('pointermove', event => {
+      if (!this.tooltipDismissedKey || !(event.target instanceof Element)) return;
+      const item = event.target.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot]');
+      if (tooltipItemKey(item ?? undefined) !== this.tooltipDismissedKey) this.tooltipDismissedKey = undefined;
+    });
+    document.addEventListener('focusin', event => {
+      if (!this.tooltipTouch && event.target instanceof HTMLElement && event.target.matches(':focus-visible')) showTooltip(event.target);
+    });
+    document.addEventListener('pointerout', event => {
+      const next = event.relatedTarget as Node | null, tooltip = document.getElementById('ui-tooltip')!;
+      if (!this.tooltipTarget || this.tooltipTarget.contains(next) || tooltip.contains(next)) return;
+      clearTimeout(this.tooltipHideTimer);
+      if (tooltip.classList.contains('item-tooltip')) this.tooltipHideTimer = setTimeout(() => this.hideTooltip(), 140);
+      else this.hideTooltip();
+    });
     document.addEventListener('focusout', () => this.hideTooltip());
-    document.addEventListener('pointerdown', () => this.hideTooltip(), true);
-    document.addEventListener('scroll', () => this.hideTooltip(), true);
+    document.addEventListener('pointerdown', event => {
+      this.tooltipTouch = event.pointerType === 'touch';
+      const item = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot]') : undefined;
+      this.tooltipDismissedKey = tooltipItemKey(item ?? undefined);
+      if (!(event.target instanceof Node) || !document.getElementById('ui-tooltip')!.contains(event.target)) this.hideTooltip();
+    }, true);
+    document.addEventListener('pointerup', event => {
+      // A completed drop replaces the item buttons under a stationary pointer.
+      // Wait for the next deliberate hover before showing the moved item's details.
+      const item = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot]');
+      if (item) this.tooltipDismissedKey = tooltipItemKey(item);
+    }, true);
+    document.addEventListener('keydown', event => {
+      this.tooltipTouch = false;
+      if (event.key === 'Tab' || event.key.startsWith('Arrow')) this.tooltipDismissedKey = undefined;
+      const tooltip = document.getElementById('ui-tooltip')!;
+      if ([' ', 'Enter'].includes(event.key) && event.target instanceof Element) {
+        const item = event.target.closest<HTMLElement>('[data-item], [data-shared-item]');
+        if (item) { this.tooltipDismissedKey = tooltipItemKey(item); this.hideTooltip(); }
+      }
+      if (event.key === 'Escape' && !tooltip.hidden && tooltip.classList.contains('item-tooltip')) {
+        this.hideTooltip();
+      }
+    }, true);
+    document.addEventListener('scroll', event => {
+      if (!(event.target instanceof Node) || !document.getElementById('ui-tooltip')!.contains(event.target)) this.hideTooltip();
+    }, true);
     window.addEventListener('resize', () => this.hideTooltip());
     document.addEventListener('click', event => {
       const element = (event.target as HTMLElement).closest<HTMLElement>('button'); if (!element) return;
@@ -239,6 +328,7 @@ export class UI {
   }
   closePanel() {
     if (this.sharedStashScreen.busy) return;
+    this.hideTooltip();
     this.characterScreen.inventoryDrag.cancel();
     if (this.game.dead || this.game.saveConflict) return;
     if (this.panel === 'encyclopedia') { this.openPanel('profiles'); this.overlay.querySelector<HTMLButtonElement>('[data-profile-action="encyclopedia"]')?.focus(); return; }
@@ -257,6 +347,7 @@ export class UI {
     const restoreFocus = rememberDialogFocus(this.overlay);
     this.renderPanelContent();
     restoreFocus();
+    this.hideTooltip();
   }
   renderPanelContent() {
     this.hideTooltip();
