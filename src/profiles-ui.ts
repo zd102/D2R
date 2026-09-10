@@ -3,7 +3,7 @@ import type { UI } from './ui';
 import { SaveError, NAME_LIMIT, CHARACTER_FILE_LIMIT, parseCharacterFile, type SavedProfile } from './saves';
 import { LEVELS } from './campaign';
 import { difficultyNames } from './model';
-import { CLASSES, CLASS_IDS, isClassId } from './classes';
+import { CLASSES, CLASS_IDS, isClassId, type ClassId } from './classes';
 import { treeNames } from './paladin';
 
 export type ProfilePanel = 'profiles' | 'new-profile' | 'rename-profile' | 'delete-profile' | 'import-profile' | 'save-conflict' | 'encyclopedia';
@@ -22,6 +22,11 @@ export class ProfileScreen {
   importFileName = '';
   importPending = false;
   importRequest = 0;
+  creatingClass: ClassId = 'paladin';
+  classPreview() {
+    const c = CLASSES[this.creatingClass];
+    return `<span>初始生命<b>${c.life}</b></span><span>初始法力<b>${c.mana}</b></span><span>起始等级<b>1</b></span>`;
+  }
   constructor(game: Game, ui: UI) {
     this.game = game; this.ui = ui;
     ui.overlay.addEventListener('click', event => {
@@ -34,7 +39,7 @@ export class ProfileScreen {
         }
         const profile = this.profiles.find(p => p.id === this.selectedId);
         switch (button.dataset.profileAction) {
-          case 'new': this.editing = undefined; ui.openPanel('new-profile'); break;
+          case 'new': this.editing = undefined; this.creatingClass = 'paladin'; ui.openPanel('new-profile'); break;
           case 'back': this.editing = undefined; ui.openPanel('profiles'); break;
           case 'play': if (profile) game.startProfile(profile.id); break;
           case 'encyclopedia': ui.openPanel('encyclopedia'); break;
@@ -78,7 +83,11 @@ export class ProfileScreen {
     });
     ui.overlay.addEventListener('change', event => {
       const input = event.target;
-      if(input instanceof HTMLInputElement&&input.name==='class'&&isClassId(input.value))game.previewClass(input.value);
+      if (input instanceof HTMLInputElement && input.name === 'class' && isClassId(input.value)) {
+        this.creatingClass = input.value; game.previewClass(input.value);
+        const preview = ui.overlay.querySelector('.profile-class-preview');
+        if (preview) preview.innerHTML = this.classPreview();
+      }
       if (input instanceof HTMLInputElement && input.id === 'profile-file' && input.files?.[0]) {
         const file = input.files[0]; input.value = ''; void this.readFile(file);
       }
@@ -143,7 +152,7 @@ export class ProfileScreen {
     } catch { this.profiles = []; warning = '本地存储不可用，暂时无法读取角色。'; }
     const selected = this.profiles.find(p => p.id === this.selectedId);
     if(ui.panel==='profiles'&&selected)game.previewClass(selected.hero.classId);
-    if(ui.panel==='new-profile')game.previewClass('paladin');
+    if(ui.panel==='new-profile')game.previewClass(this.creatingClass);
     const error = `<p id="profile-error" class="profile-error" role="alert" hidden></p>`;
     let title = '选择角色', subtitle = 'YOUR CHARACTERS', body = '';
     if (ui.panel === 'profiles') {
@@ -170,7 +179,7 @@ export class ProfileScreen {
       const creating = ui.panel === 'new-profile'; title = creating ? '新建角色' : '重命名角色'; subtitle = creating ? 'A NEW OATH' : 'RENAME CHARACTER';
       const selectedClass = CLASSES[this.editing?.hero.classId ?? 'paladin'];
       body = `${creating ? '' : `<div class="profile-class">${icon(selectedClass.icon)}<div><h3>${selectedClass.name}</h3><span>${selectedClass.trees.map(tree => treeNames[tree]).join(' / ')}</span></div><b>Lv. ${this.editing?.hero.level ?? 1}</b></div>`}
-        <form id="profile-form">${creating ? `<fieldset class="class-picker"><legend>选择职业</legend>${CLASS_IDS.map(id => { const c=CLASSES[id]; return `<label class="class-option" style="--class-color:${c.color}"><input type="radio" name="class" value="${id}" ${id==='paladin'?'checked':''}/><span class="class-option-icon">${icon(c.icon)}</span><span><strong>${c.name}<small>${c.english}</small></strong><span>${c.trees.map(tree=>treeNames[tree]).join(' · ')}</span><small>${({paladin:'剑盾近战，灵气庇护',amazon:'弓箭与标枪，召唤女武神',sorceress:'冰火雷法术，传送与护盾'})[id]}</small></span></label>`; }).join('')}</fieldset>` : ''}<label for="profile-name">角色名称</label><input id="profile-name" name="name" type="text" required maxlength="${NAME_LIMIT}" autocomplete="off" value="${escape(creating ? '' : this.editing?.name ?? '')}" aria-describedby="profile-error"/>${error}<button class="primary-button" type="submit">${icon(creating ? 'user-plus' : 'check')}${creating ? '创建并进入' : '保存名称'}</button></form><button class="text-button" data-profile-action="back">${icon('arrow-left')}返回角色选择</button>`;
+        <form id="profile-form">${creating ? `<fieldset class="class-picker"><legend>选择职业</legend>${CLASS_IDS.map(id => { const c=CLASSES[id]; return `<label class="class-option" style="--class-color:${c.color}"><input type="radio" name="class" value="${id}" ${id===this.creatingClass?'checked':''}/><span class="class-option-icon">${icon(c.icon)}</span><span><strong>${c.name}<small>${c.english}</small></strong><span>${c.trees.map(tree=>treeNames[tree]).join(' · ')}</span><small>${({paladin:'近战守护 · 以灵气强化自身，适合稳步探索',amazon:'远程猎手 · 弓箭与标枪，兼顾机动和召唤',sorceress:'元素施法 · 冰火雷与传送，需要留意法力'})[id]}</small></span></label>`; }).join('')}</fieldset><div class="profile-class-preview" aria-live="polite" aria-atomic="true">${this.classPreview()}</div>` : ''}<label for="profile-name">角色名称</label><input id="profile-name" name="name" type="text" required maxlength="${NAME_LIMIT}" autocomplete="off" value="${escape(creating ? '' : this.editing?.name ?? '')}" aria-describedby="profile-error profile-name-hint" placeholder="为你的冒险者命名"/><small class="profile-name-hint" id="profile-name-hint">最多 ${NAME_LIMIT} 个字符 · ${creating ? '每位角色拥有独立的装备与进度' : '更改名称会保留装备与进度'}</small>${error}<button class="primary-button" type="submit">${icon(creating ? 'user-plus' : 'check')}${creating ? '创建并进入' : '保存名称'}</button></form><button class="text-button" data-profile-action="back">${icon('arrow-left')}返回角色选择</button>`;
     } else if (ui.panel === 'delete-profile') {
       title = '删除角色'; subtitle = 'DELETE CHARACTER';
       body = `<div class="profile-delete-mark">${icon('trash-2')}</div><h3 class="profile-delete-name">${escape(this.editing?.name ?? '')}</h3><p class="profile-delete-copy">此角色的等级、装备与远征进度将永久删除。</p>${error}<button class="primary-button danger-button" data-profile-action="confirm-delete">${icon('trash-2')}确认删除</button><button class="secondary-button" data-profile-action="back">保留角色</button>`;
@@ -178,7 +187,7 @@ export class ProfileScreen {
       title = '存档已变更'; subtitle = 'SAVE UPDATED';
       body = `<div class="profile-delete-mark">${icon('save')}</div><p class="profile-delete-copy">当前角色存档已在其他窗口更新或删除。游戏已暂停，本页未保存的变更不会覆盖现有存档。</p>${error}<button class="primary-button" data-profile-action="reload-profiles">${icon('users')}返回角色选择</button>`;
     }
-    ui.overlay.innerHTML = `<section class="profile-screen ${ui.panel === 'import-profile' ? 'profile-import' : ''}" role="dialog" aria-modal="true" aria-label="${title}"><header class="profile-header"><small>${subtitle}</small><h2>${title}</h2>${ui.panel === 'profiles' ? `<button class="profile-encyclopedia" data-profile-action="encyclopedia" aria-label="打开百科">${icon('book-open')}<span>百科</span></button>` : ''}</header>${body}<div class="profile-footer"><span></span><img src="/sigil.svg" alt=""/><span></span></div></section>`;
+    ui.overlay.innerHTML = `${ui.panel === 'profiles' || ui.panel === 'new-profile' ? '<div class="roster-atmosphere" aria-hidden="true"><small>ECLIPSE II · THE EMBER OATH</small><h2>长夜将至<br/>誓火不熄</h2><p>穿越五幕暗影，追寻失落的光。<br/>你的下一段传说，由此启程。</p></div>' : ''}<section class="profile-screen ${ui.panel === 'import-profile' ? 'profile-import' : ui.panel === 'delete-profile' ? 'profile-delete' : ''}" role="dialog" aria-modal="true" aria-label="${title}"><header class="profile-header"><small>${subtitle}</small><h2>${title}</h2>${ui.panel === 'profiles' ? `<button class="profile-encyclopedia" data-profile-action="encyclopedia" aria-label="打开百科">${icon('book-open')}<span>百科</span></button>` : ''}</header>${body}<div class="profile-footer"><span></span><img src="/sigil.svg" alt=""/><span></span></div></section>`;
     ui.refreshIcons();
     ui.overlay.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }

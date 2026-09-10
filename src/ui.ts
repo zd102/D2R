@@ -16,7 +16,7 @@ import { runeLabel, groundItemName } from './items';
 import { CAMP } from './camp';
 import { EncyclopediaScreen } from './encyclopedia-ui';
 import { heroStatuses, statusTime } from './status-effects';
-import { panelFrame } from './ui-components';
+import { panelFrame, rememberDialogFocus, navigateDialogTabs } from './ui-components';
 import { settingsPanel } from './settings-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
@@ -51,6 +51,7 @@ export class UI {
   statusSignature = '';
   statusDurations = new Map<string, number>();
   tooltipTarget?: HTMLElement;
+  panelOpener?: HTMLElement;
   constructor(game: Game) {
     this.game = game;
     const keys = skillKeys(game.movementMode);
@@ -81,7 +82,7 @@ export class UI {
             <button class="skill mana-potion" data-potion="1" ${tip('法力药剂 · 2')}><kbd>2</kbd>${icon('droplets')}<b id="mana-potions">4</b></button>
           </div></div>
           <div class="paladin-status"><span id="active-aura-label">无灵气</span><span id="holy-shield-label"></span><span id="ammo-label" hidden></span><button data-action="run-mode" ${tip('切换跑步与行走')}><i data-lucide="footprints"></i></button><div class="stamina-track" ${tip('耐力')}><i id="stamina-fill"></i></div></div>
-          <nav class="bottom-nav"><button data-panel="character" ${tip('角色 · C')}>${icon('user-round')}<span>角色</span><b id="points-badge" hidden></b></button><button data-panel="skills" ${tip('技能 · T')}>${icon('book-open')}<span>技能</span><b id="skill-points-badge" hidden></b></button><button data-panel="inventory" ${tip('背包 · I')}>${icon('backpack')}<span>背包</span></button><button data-panel="quest" ${tip('任务 · J')}>${icon('scroll-text')}<span>任务</span></button><button data-panel="map" ${tip('地图 · Tab')}>${icon('map')}<span>地图</span></button><span class="gold-count">${icon('coins')}<b id="gold-value">0</b></span><button data-panel="pause" ${tip('暂停 · Esc')}>${icon('pause')}</button></nav>
+          <nav class="bottom-nav"><button data-panel="character" ${tip('角色 · C')}>${icon('user-round')}<span>角色</span><kbd class="nav-key" aria-hidden="true">C</kbd><b id="points-badge" hidden></b></button><button data-panel="skills" ${tip('技能 · T')}>${icon('book-open')}<span>技能</span><kbd class="nav-key" aria-hidden="true">T</kbd><b id="skill-points-badge" hidden></b></button><button data-panel="inventory" ${tip('背包 · I')}>${icon('backpack')}<span>背包</span><kbd class="nav-key" aria-hidden="true">I</kbd></button><button data-panel="quest" ${tip('任务 · J')}>${icon('scroll-text')}<span>任务</span><kbd class="nav-key" aria-hidden="true">J</kbd></button><button data-panel="map" ${tip('地图 · Tab')}>${icon('map')}<span>地图</span><kbd class="nav-key" aria-hidden="true">Tab</kbd></button><span class="gold-count">${icon('coins')}<b id="gold-value">0</b></span><button data-panel="pause" ${tip('暂停 · Esc')}>${icon('pause')}</button></nav>
         </div>
         <div class="resource mana"><div class="orb-frame"><div class="orb"><div class="orb-fill" id="mana-fill"></div><div class="orb-shine"></div><span id="mana-value">15<small>/ 15</small></span></div></div><div class="resource-caption"><span>法力</span><small id="mana-percent">100%</small></div></div>
       </footer>
@@ -131,6 +132,7 @@ export class UI {
     }
   }
   bind() {
+    this.overlay.addEventListener('keydown', event => navigateDialogTabs(this.overlay, event));
     const showTooltip = (target: EventTarget | null) => {
       this.tooltipTarget = target instanceof Element ? target.closest<HTMLElement>('[data-tip]') ?? undefined : undefined;
       this.updateTooltip();
@@ -223,12 +225,16 @@ export class UI {
     if (this.game.saveConflict && panel !== 'save-conflict') return;
     if (this.game.dead && panel !== 'death' && panel !== 'save-conflict') return;
     if (panel === 'shared-stash' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.stash.x, this.game.position.z - CAMP.stash.z) >= 3.5)) return;
+    if (!this.panel) {
+      const focused = document.activeElement;
+      this.panelOpener = focused instanceof HTMLElement && focused.tabIndex >= 0 ? focused : undefined;
+    }
     if (panel === 'campaign') this.campaignScreen.reset();
     if (panel !== this.panel && panel !== 'death') this.game.audio.play(panel === 'shared-stash' ? 'chest' : 'uiOpen');
     this.hideTooltip(); this.panel = panel; this.game.paused = true; this.game.releaseInput(); this.overlay.hidden = false;
     document.getElementById('combat-status')!.hidden = true;
     this.renderPanel();
-    (this.overlay.querySelector<HTMLInputElement>('#profile-name') ?? this.overlay.querySelector<HTMLButtonElement>('[aria-selected="true"]') ?? this.overlay.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
+    (this.overlay.querySelector<HTMLButtonElement>('.profile-delete [data-profile-action="back"]') ?? this.overlay.querySelector<HTMLInputElement>('#profile-name') ?? this.overlay.querySelector<HTMLButtonElement>('[aria-selected="true"]') ?? this.overlay.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
     this.hideTooltip();
   }
   closePanel() {
@@ -242,9 +248,17 @@ export class UI {
     }
     this.overlay.classList.remove('profile-overlay'); document.getElementById('app')!.classList.remove('is-roster');
     if (this.panel) this.game.audio.play('uiClose');
-    this.panel = undefined; this.game.paused = false; this.overlay.hidden = true; this.overlay.innerHTML = ''; this.game.renderer.domElement.focus({ preventScroll: true });
+    this.panel = undefined; this.game.paused = false; this.overlay.hidden = true; this.overlay.innerHTML = '';
+    const opener = this.panelOpener;
+    (opener?.isConnected && opener.getClientRects().length ? opener : this.game.renderer.domElement).focus({ preventScroll: true });
+    this.panelOpener = undefined;
   }
   renderPanel() {
+    const restoreFocus = rememberDialogFocus(this.overlay);
+    this.renderPanelContent();
+    restoreFocus();
+  }
+  renderPanelContent() {
     this.hideTooltip();
     this.characterScreen.inventoryDrag.cancel();
     if (!this.panel) return;

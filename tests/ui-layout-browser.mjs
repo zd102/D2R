@@ -30,7 +30,7 @@ try {
   await page.evaluate(() => cancelAnimationFrame(window.layoutGame.frameId));
   for (const [width, height] of [[1440, 900], [1366, 768], [1280, 720], [1024, 768], [390, 844], [360, 740], [844, 390]]) {
     await page.setViewportSize({ width, height });
-    for (const panel of ['inventory', 'inventory-detail', 'stash', 'runes', 'rune-recipes', 'character', 'character-combat', 'skills', 'skill-detail', 'bindings', 'quest', 'map', 'shop', 'pause', 'campaign', 'shared-stash', 'shared-detail']) {
+    for (const panel of ['inventory', 'inventory-detail', 'stash', 'runes', 'rune-recipes', 'character', 'character-combat', 'skills', 'skill-detail', 'bindings', 'quest', 'map', 'shop', 'pause', 'campaign', 'mystery-portal', 'shared-stash', 'shared-detail']) {
       await page.evaluate(panel => {
         const g = window.layoutGame; g.ui.closePanel();
         g.ui.selectedItem = 'layout-detailed';

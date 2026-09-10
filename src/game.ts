@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { cycleDialogFocus } from './ui-components';
 import type * as CANNON from 'cannon-es';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -444,19 +445,18 @@ export class Game {
     window.addEventListener('pointercancel', cancelPointer); canvas.addEventListener('lostpointercapture', cancelPointer);
     canvas.addEventListener('wheel', event => { event.preventDefault(); this.zoom = THREE.MathUtils.clamp(this.zoom + event.deltaY * .007, 12, 24); this.resize(); }, { passive: false });
     window.addEventListener('keydown', event => {
+      if (event.defaultPrevented) return;
       const key = event.key.toLowerCase();
       if (this.ui.panel && key === 'tab') {
         if (this.ui.panel === 'map') { event.preventDefault(); this.ui.closePanel(); return; }
-        const buttons = [...this.ui.overlay.querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].filter(element => element.getClientRects().length);
-        if (!buttons.length) return;
-        const index = buttons.indexOf(document.activeElement as HTMLElement);
-        event.preventDefault(); buttons[(index + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length].focus(); return;
+        event.preventDefault(); cycleDialogFocus(this.ui.overlay, event.shiftKey); return;
       }
       if (this.ui.isProfilePanel()) {
         if (key === 'escape') { event.preventDefault(); this.ui.closePanel(); }
         return;
       }
       if (key !== 'escape' && (event.target as HTMLElement)?.matches('input, select, textarea')) return;
+      if (this.ui.panel && [' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'home', 'end'].includes(key)) return;
       if (['tab', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) event.preventDefault();
       if (event.repeat) return;
       if (key === 'escape') { this.ui.panel ? this.ui.closePanel() : this.ui.openPanel('pause'); return; }

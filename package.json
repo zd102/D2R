@@ -22,7 +22,7 @@
     "test:classes": "node tests/classes-browser.mjs",
     "test:item-rolls": "node tests/item-rolls-browser.mjs",
     "test:shared-stash": "node tests/shared-stash-browser.mjs && node tests/storage-equipment-browser.mjs",
-    "test:ui": "node tests/ui-layout-browser.mjs && node tests/ui-interactions-browser.mjs",
+    "test:ui": "node tests/ui-layout-browser.mjs && node tests/ui-interactions-browser.mjs && node tests/ui-accessibility-browser.mjs",
     "test:inventory-drag": "node tests/inventory-drag-browser.mjs && node tests/drag-exchange-browser.mjs && node tests/equipment-drag-browser.mjs",
     "test:memory": "node tests/memory-browser.mjs && node tests/audio-memory-browser.mjs",
     "test:audio": "node tests/audio-browser.mjs && node tests/audio-memory-browser.mjs",
