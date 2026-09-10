@@ -144,7 +144,31 @@ try {
     });
     statusLayouts.push(stress);
     await page.screenshot({ path: `${output}/sorceress-statuses-${viewport.width}.png` });
+    await page.evaluate(() => {
+      const g = window.uiGame; g.loadArea(false);
+      const boss = g.enemies.find(enemy => enemy.boss);
+      g.position.copy(boss.actor.group.position); g.position.x += 2;
+      g.body.position.set(g.position.x, .5, g.position.z);
+      g.hero.poison = 8; g.hero.cold = 4; g.hero.curse = 12; g.ui.update(0);
+    });
+    await expect(page.locator('#boss-bar')).toBeVisible();
+    statusLayouts.push(await page.evaluate(() => {
+      const root = document.getElementById('combat-status').getBoundingClientRect();
+      const overlaps = [...document.querySelectorAll('.hud,.world-info,.topbar,#boss-bar,#joystick,#mobile-attack')].filter(node => node.getClientRects().length).filter(node => { const r = node.getBoundingClientRect(); return root.right > r.left && root.left < r.right && root.bottom > r.top && root.top < r.bottom; }).map(node => node.id || node.className);
+      return { width: innerWidth, height: innerHeight, overlaps, encounter: 'boss' };
+    }));
+    await page.screenshot({ path: `${output}/boss-statuses-${viewport.width}.png` });
     await page.keyboard.press('Escape'); await paint(); await expect(page.locator('#combat-status')).toBeHidden();
+    await page.locator('#movement-mode').selectOption('wasd');
+    assert.equal(await page.evaluate(() => window.uiGame.movementMode), 'wasd');
+    await expect(page.locator('#movement-hint')).toContainText('Q / E / R / 空格');
+    await page.locator('#volume').focus(); await page.keyboard.press('End');
+    assert.equal(await page.evaluate(() => window.uiGame.audio.volume), 1);
+    await page.locator('#quality').selectOption('low');
+    assert.equal(await page.evaluate(() => window.uiGame.quality), 'low');
+    await page.screenshot({ path: `${output}/settings-${viewport.width}.png` });
+    await page.locator('.panel-close').click();
+    assert.equal(await page.evaluate(() => window.uiGame.paused), false);
     await page.close();
   }
   await writeFile(`${output}/status-layouts.json`, JSON.stringify(statusLayouts, null, 2));

@@ -16,6 +16,8 @@ import { runeLabel, groundItemName } from './items';
 import { CAMP } from './camp';
 import { EncyclopediaScreen } from './encyclopedia-ui';
 import { heroStatuses, statusTime } from './status-effects';
+import { panelFrame } from './ui-components';
+import { settingsPanel } from './settings-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
@@ -210,6 +212,7 @@ export class UI {
     document.getElementById('combat-status')!.hidden = true;
     this.renderPanel();
     (this.overlay.querySelector<HTMLInputElement>('#profile-name') ?? this.overlay.querySelector<HTMLButtonElement>('[aria-selected="true"]') ?? this.overlay.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
+    this.hideTooltip();
   }
   closePanel() {
     if (this.sharedStashScreen.busy) return;
@@ -259,7 +262,7 @@ export class UI {
     } else if (this.panel === 'quest') {
       content = this.campaignScreen.quest();
     } else if (this.panel === 'pause') {
-      content = `<div class="pause-sigil"><img src="/sigil.svg" alt="" /></div><button class="primary-button" data-action="close">${icon('play')}继续旅程</button><button class="secondary-button" data-action="save">${icon('save')}保存旅程</button><button class="secondary-button" data-action="profiles">${icon('users')}保存并切换角色</button><div class="settings-row"><label for="volume">${icon('volume-2')}音效</label><input id="volume" type="range" min="0" max="100" value="${Math.round(this.game.audio.volume * 100)}"/><span id="volume-value">${Math.round(this.game.audio.volume * 100)}%</span></div><div class="settings-row"><label for="quality">画质</label><select id="quality"><option value="high" ${this.game.quality === 'high' ? 'selected' : ''}>精细</option><option value="low" ${this.game.quality === 'low' ? 'selected' : ''}>流畅</option></select><button ${tip('切换全屏')} data-action="fullscreen">${icon('maximize')}</button></div><div class="save-state"><i></i>${this.game.storageAvailable ? '本地自动存档' : '本地存档不可用'}</div>`;
+      content = settingsPanel(this.game);
     } else if (this.panel === 'shop') {
       content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${([0, 1] as const).map(index => `<div><div class="shop-item-icon ${index === 0 ? 'red-text' : 'blue-text'}">${icon(index === 0 ? 'flame' : 'droplets')}</div><div><h3>${index === 0 ? '生命' : '法力'}药剂</h3><small>持有 ${h.potions[index]}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < 25 ? 'disabled' : ''}>${icon('coins')}25</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
     } else if (this.panel === 'death') {
@@ -267,13 +270,9 @@ export class UI {
     } else if (this.panel === 'victory') {
       content = this.campaignScreen.victory();
     }
-    this.overlay.innerHTML = `<section class="panel panel-${this.panel}" role="dialog" aria-modal="true" aria-label="${panelTitle[0]}"><header class="panel-header"><div><small>${panelTitle[1]}</small><h2>${panelTitle[0]}</h2></div>${this.panel !== 'death' ? `<button ${tip('关闭')} data-action="close">${icon('x')}</button>` : ''}</header><div class="panel-body">${content}</div><div class="panel-footer"><span></span><img src="/sigil.svg" alt=""/><span></span></div></section>`;
+    this.overlay.innerHTML = panelFrame(this.panel, panelTitle, content);
     const characterName = this.overlay.querySelector('.character-banner h3');
     if (characterName) characterName.textContent = this.game.profile?.name ?? '灰烬行者';
-    if (this.panel === 'pause') {
-      this.overlay.querySelector('.save-state')!.insertAdjacentHTML('beforebegin', `<div class="settings-row"><label for="movement-mode">移动方式</label><select id="movement-mode" aria-describedby="movement-hint"><option value="mouse" ${this.game.movementMode === 'mouse' ? 'selected' : ''}>鼠标移动</option><option value="wasd" ${this.game.movementMode === 'wasd' ? 'selected' : ''}>WASD 移动</option></select></div><p class="movement-hint" id="movement-hint">${MOVEMENT_HINTS[this.game.movementMode]}</p>`);
-      this.overlay.querySelector('.panel-body')!.insertAdjacentHTML('beforeend', `${this.game.inCamp ? '' : `<button class="secondary-button" data-action="camp">${icon('compass')}返回营地</button>`}${!this.game.inCamp && h.bossDefeated ? `<button class="secondary-button" data-panel="victory">${icon('chevron-right')}通关结算</button>` : ''}`);
-    }
     this.refreshIcons();
     if (this.panel === 'map') this.drawMap(document.getElementById('large-map') as HTMLCanvasElement, true);
   }

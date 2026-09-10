@@ -1,0 +1,363 @@
+/* Shared visual language: charcoal, parchment, brass and clear semantic colors. */
+:root {
+  --ui-bg: #0d121a;
+  --ui-panel: #151d28;
+  --ui-raised: #1d2836;
+  --ui-inset: #101720;
+  --ui-border: #344251;
+  --ui-text: #e6e9ed;
+  --ui-muted: #a4b1bf;
+  --ui-gold: #e4bd7c;
+  --ui-gold-dark: #a17a43;
+  --ui-good: #8cddbc;
+  --ui-danger: #f3a29b;
+  --gold: var(--ui-gold);
+  --muted: var(--ui-muted);
+  --line: #344251;
+  --surface: var(--ui-panel);
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  color: var(--ui-text);
+}
+button, input, select { transition: background-color .15s, border-color .15s, box-shadow .15s; }
+button:disabled { opacity: .43; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--ui-gold); outline-offset: -2px; }
+button:hover:not(:disabled) { color: #fff2d7; }
+::selection { background: #8b713b; color: white; }
+* { scrollbar-color: #586677 var(--ui-inset); }
+#overlay { background: #05090fbf; backdrop-filter: blur(7px); }
+.panel {
+  border: 1px solid #647080;
+  border-radius: 10px;
+  color: var(--ui-text);
+  background: radial-gradient(ellipse at 15% 0%, #34435540, transparent 45%), var(--ui-panel);
+  box-shadow: 0 25px 100px #000b, 0 0 0 5px #070d1480, inset 0 1px #ffffff12;
+}
+.panel::before, .panel::after { display: none; }
+.panel .panel-header { min-height: 72px; padding: 12px 20px; border-bottom: 1px solid var(--ui-border); background: #1d2732a6; }
+.panel-title-group { display: flex; align-items: center; gap: 13px; }
+.panel-emblem { display: grid; place-items: center; flex: none; width: 42px; height: 42px; border: 1px solid #ae8b514d; border-radius: 9px; color: var(--ui-gold); background: #9e784416; }
+.panel-emblem svg { width: 23px; height: 23px; }
+.panel-heading { min-width: 0; }
+.panel .panel-header small { color: #aab7c5; font: 9px/1.5 Georgia, serif; letter-spacing: 1.4px; }
+.panel .panel-header h2 { font-family: inherit; font-size: 21px; font-weight: 600; line-height: 1.4; margin: 2px 0 0; color: #f0e2c7; }
+.panel-description { margin-left: auto; padding-left: 16px; color: var(--ui-muted); font-size: 12px; }
+.panel .panel-close { display: flex; width: auto; align-items: center; justify-content: center; gap: 8px; padding: 8px; border: 1px solid transparent; border-radius: 6px; color: #b7c1cc; }
+.panel-close:hover { background: #354151; border-color: #526073; }
+.panel-close kbd { font-family: inherit; font-size: 10px; line-height: 1.3; color: #9daaba; padding: 3px; }
+.panel-body { font-size: 13px; line-height: 1.6; }
+.panel h3, .profile-screen h3, .encyclopedia-screen h3 { font-family: inherit; font-weight: 500; }
+.panel :is(input[type=text], select), .profile-screen input[type=text] {
+  background: var(--ui-inset); color: var(--ui-text); border: 1px solid #536172; border-radius: 5px;
+}
+.panel select { min-height: 34px; padding: 6px 10px; }
+.panel :is(.primary-button, .secondary-button), .profile-screen :is(.primary-button, .secondary-button) {
+  min-height: 40px; border-radius: 6px; font-size: 13px; font-weight: 500; box-shadow: none;
+}
+.primary-button { border-color: #c49b5d; color: #19150f; background: linear-gradient(110deg, #e1bd7f, #b89157); box-shadow: 0 3px 12px #0003; }
+.primary-button:hover:not(:disabled) { color: #15110b; background: linear-gradient(110deg, #f3d399, #d0a364); box-shadow: 0 0 0 2px #d1a56833; }
+.secondary-button { border-color: #556476; background: #263240; color: #dbe3eb; }
+.secondary-button:hover:not(:disabled) { background: #344254; border-color: #8a9aad; }
+.text-button { color: #b9c6d3; font-size: 12px; }
+.danger-button { background: #693e40; border-color: #ad6e6d; color: #ffe2dd; }
+.danger-button:hover:not(:disabled) { background: #82504f; color: #fff0eb; }
+.section-label { font-size: 12px; color: #c5d0db; font-weight: 500; }
+.section-label > span:last-child { font-family: inherit; font-size: 11px; line-height: 1.5; color: var(--ui-muted); }
+.character-tabs, .compact-tabs, .item-detail-tabs { border: 0; padding: 3px; gap: 4px; background: #0c141db3; border-radius: 7px; }
+.character-tabs button, .compact-tabs button, .item-detail-tabs button { border: 1px solid transparent; border-radius: 5px; color: #afbecd; background: transparent; }
+.character-tabs button[aria-selected=true], .compact-tabs button[aria-pressed=true], .item-detail-tabs button[aria-pressed=true] {
+  background: #354354; border-color: #78879577; color: #f3d49d; box-shadow: 0 2px 5px #0004;
+}
+.character-tabs button:hover:not(:disabled), .compact-tabs button:hover:not(:disabled), .item-detail-tabs button:hover:not(:disabled) { background: #293646; }
+.positive { color: var(--ui-good); }.negative, .learn-reason { color: var(--ui-danger); }
+
+/* Inventory reads left-to-right: loadout, items, selected item. */
+.paladin-inventory { gap: 20px; }
+.paladin-inventory > .gear-column { padding: 9px; background: #0b141c70; border: 1px solid #344454; border-radius: 7px; }
+.equipment-heading { color: #c1ced9; font-size: 12px; }
+.equipment-heading button { border-color: #637284; border-radius: 5px; background: #273544; }
+.gear-position > span { color: #aebdcc; font-size: 10px; }
+.gear-slot { background: #121c28; border-color: #657284; border-radius: 5px; }
+.gear-slot:disabled { opacity: .7; color: #758596; border-color: #39495a; }
+.gear-slot:not(:disabled):hover { background: #293849; border-color: var(--ui-gold); }
+.bag-tabs { margin-bottom: 2px; }
+.bag-tabs button { font-size: 12px; }
+.diablo-grid { background-color: #0c131c; border: 1px solid #46586a; border-radius: 4px; box-shadow: inset 0 0 40px #0006; }
+.bag-item { border-color: #54606c; border-radius: 3px; transition: border-color .12s, box-shadow .12s; }
+.bag-item:hover { z-index: 1; border-color: #efdaa8; box-shadow: inset 0 0 0 1px #efdaa8; }
+.bag-item.selected, .gear-slot.selected { outline: 2px solid #ffe2a4; outline-offset: -2px; box-shadow: inset 0 0 16px #d9b26a22; }
+.bag-utilities { border-top: 1px solid #344454; }
+.bag-utilities .text-button { justify-content: flex-start; padding: 6px 2px; min-height: 30px; color: #c0cedb; }
+.inventory-gold { font-size: 16px; color: var(--ui-gold); }
+.paladin-inventory .item-details { border-color: #435363; padding-left: 18px; text-align: left; font-size: 12px; }
+.item-detail-tabs button { font-size: 12px; }
+.item-detail-scroll { padding-right: 8px; }
+.rarity-tag { display: block; font-size: 11px; text-align: center; }
+.paladin-inventory .item-details h3 { text-align: center; font-size: 20px; margin: 7px 0; }
+.item-detail-scroll > small { display: block; text-align: center; color: #adbdca; font-size: 11px; }
+.item-basics { background: #101923; border: 1px solid #344454; border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+.item-basics > div { padding: 5px 0; gap: 12px; border-color: #3b495744; }
+.item-basics dt { color: #a5b6c5; }.item-basics dd { color: #ecedf0; }
+.item-affixes { color: #a7d2fa; font-size: 12px; line-height: 1.6; gap: 4px; }
+.item-affixes li { padding-left: 10px; position: relative; }
+.item-affixes li::before { content: ''; position: absolute; left: 0; top: .72em; width: 3px; height: 3px; background: #7eacd3; }
+.affix-range { color: #a4b4c4; font-size: 11px; }
+.affix-range-toggle { font-size: 11px; color: #c0ccda; padding: 5px 0; }
+.item-actions { background: var(--ui-panel); border-color: #435363; }
+.item-actions .primary-button { color: #1a160e; }
+.item-actions .text-button { border: 1px solid #46596a; border-radius: 5px; background: #202c38; }
+.item-actions .learn-reason { font-size: 11px; line-height: 1.45; }
+.item-comparison { justify-content: flex-start; font-size: 11px; gap: 8px 12px; border-color: #435363; }
+.empty-detail { color: #a3b3c2; text-align: center; gap: 12px; }
+.empty-detail svg { color: var(--ui-gold); opacity: .7; }
+.empty-detail span { font-family: inherit; font-size: 16px; font-weight: 500; line-height: 1.5; color: #d6e0e9; }
+.empty-detail small { max-width: 230px; color: #a0b1c0; font-size: 12px; line-height: 1.8; }
+.socket-options button { background: #233143; border: 1px solid #526780; border-radius: 5px; padding: 6px; }
+.socket-empty { border-style: dashed !important; }
+.affix-pagination button, .recipe-pagination button { border-color: #566b80; border-radius: 5px; background: #223043; color: #d2dce5; }
+.affix-pagination span, .recipe-pagination span { color: #d5bd94; font-variant-numeric: tabular-nums; }
+.rune-layout .rune-entry { border: 1px solid #3c4d60; border-radius: 5px; background: #1c2835; }
+.rune-layout .rune-entry.muted { opacity: .6; background: #111c28; }
+.rune-layout .rune-entry > strong { color: #dde5e9; }
+.rune-layout .rune-upgrade { border-color: #6f817f; background: #344d48; border-radius: 3px; }
+.rune-layout .runeword-list { align-content: start; grid-auto-rows: minmax(90px, auto); }
+.rune-layout .runeword-list > div { background: #1c2836; border: 1px solid #3e5062; border-radius: 6px; padding: 12px; grid-template-columns: 78px minmax(0, 1fr); column-gap: 10px; }
+.runeword-list strong { font-size: 13px; color: #e8c68d !important; }
+.runeword-list small { color: #b4c1ce; }
+.rune-sequence { color: #d8e2e9; }
+.shared-intro { border: 1px solid #3b5061; border-radius: 6px; padding: 9px 12px; background: #1b2b39; color: #cfdeea; }
+.shared-intro small { color: #a6b8c8; }
+.shared-tabs button, .shared-mobile-tabs button { border-radius: 5px; color: #b7c7d6; }
+.shared-tabs button[aria-selected=true], .shared-mobile-tabs button[aria-pressed=true] { color: #f2d198; background: #334457; border-color: #7a8c9e; }
+.shared-heading h3 { font-size: 15px; color: #e7d0a4; }
+.shared-item-details { border-color: #435768; }
+.shared-item-details h3 { font-size: 18px; }
+.shared-caption { color: #b0bfcd; }
+
+/* Character, skills and campaign share readable rows and selection states. */
+.character-banner { border-color: #435364; }
+.paladin-sheet .class-mark { border-radius: 8px; background: #283748; padding: 9px; }
+.character-banner h3 { color: #f1dfbc; }.character-banner small, .character-banner span { color: #bac7d3; }
+.attribute-list > div, .sheet-stats > div, .breakpoint-list > div, .resistance-list > div { border-color: #344557; }
+.attribute-list > div { border-radius: 5px; padding-left: 8px !important; background: #1b28354d; margin-bottom: 3px; }
+.attribute-list > div > b { color: #f0d49b; font-size: 21px; }
+.attribute-list button { background: #344960; color: #e4c58c; border-radius: 4px; border-color: #63788c; }
+.attribute-list span, .sheet-stats dt, .breakpoint-list span { color: #bac9d7; }
+.attribute-list small, .breakpoint-list small { color: #a1b3c4; }
+.sheet-stats dd { color: #f0eadf; font-variant-numeric: tabular-nums; }
+.advanced-stats { border: 1px solid #405266; border-radius: 5px; padding: 0 10px; background: #152130; }
+.advanced-stats summary { color: #d3c09c; padding: 9px 0; font-size: 12px; }
+.sheet-actions { border-color: #435567; }
+.skill-node { border: 1px solid #52667b; border-radius: 6px; background: #1c2b3a; color: #c7d6e3; }
+.skill-node.learned { border-color: #9a825b; background: #3b382c; }
+.skill-node.selected { outline: 2px solid #e8c68c; outline-offset: 1px; background: #3b463f; }
+.skill-node.locked { opacity: .55; }
+.skill-rank { color: #c2cfd9; }
+.tree-level { color: #a8b8c6; }
+.skill-inspector { border-color: #43566a; }
+.skill-detail-heading { color: #ecd3a6; }
+.skill-inspector p, .skill-description { color: #c1ced9; font-size: 13px; line-height: 1.7; }
+.skill-inspector small { color: #a4b5c5; }
+.skill-values { color: #d3deea; font-size: 12px; }
+.skill-values strong, .skill-values b { color: #a8d5f0; }
+.skill-points { color: #becbd9; }.skill-points b { color: #eed2a0; }
+.binding-grid label > span { color: #b9c9d8; }
+.binding-grid select { border-color: #586c80; background: #142130; color: #e0e9ef; border-radius: 5px; min-height: 34px; }
+.campaign-acts > button { background: #1b2937; border: 1px solid #344b61; border-radius: 6px; color: #b8c6d3; }
+.campaign-acts > button.active, .campaign-acts > button[aria-selected=true] { color: #efd5a6; background: #324252; border-color: #b29664; }
+.campaign-level { border: 1px solid #374c60; background: #172330; border-radius: 6px; margin-bottom: 7px; padding: 9px 12px; }
+.campaign-level.current { background: #293c4c; border-color: #c1a36d; }
+.campaign-level.locked { opacity: .6; }
+.campaign-level strong { color: #e5e9ec; font-size: 14px; }
+.stage-info > span, .campaign-level small { color: #aebed0; }
+.campaign-level button { border-radius: 5px; }
+.campaign-heading h3, .campaign-quest-heading h3 { color: #f1d9ab; }
+.campaign-heading p, .quest-story { color: #c1ceda; font-family: inherit; font-size: 13px; }
+.quest-objectives > div { background: #1c2a38; border: 1px solid #3e5268; border-radius: 6px; padding: 12px; margin-bottom: 8px; }
+.quest-objectives > div.complete { background: #18392f; border-color: #426e5d; color: var(--ui-good); }
+.objective-check { border-color: #6c8191; border-radius: 50%; }
+.quest-rewards { color: #e2c792; background: #453b2326; border-radius: 6px; padding: 12px; }
+.map-legend { color: #d0dbe4; }
+#large-map { border: 1px solid #43576a; border-radius: 6px; }
+.end-mark { margin: 0 auto; color: #ebc78a; }.death-mark { color: #ee9b91; }
+.end-story { font-family: inherit; color: #d7e0e7; }.death-cost { color: #e3afa3; }
+.end-stats b { color: #f4d6a0; }.end-stats span { color: #b8c7d5; }
+.shop-intro p { font-family: inherit; color: #b7c8d7; }.shop-items h3 { color: #ebdfca; }
+
+/* Settings become two understandable groups instead of a long flat list. */
+.panel-pause { width: 800px; }
+.pause-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+.pause-intro { display: flex; align-items: center; gap: 13px; margin: 2px 0 22px; }
+.pause-intro img { width: 46px; height: 55px; opacity: .9; }
+.pause-intro small { color: var(--ui-gold); font-size: 11px; }
+.pause-intro h3 { font-size: 17px; color: #eee0c7; margin: 4px 0; }
+.pause-intro p { color: var(--ui-muted); font-size: 12px; }
+.pause-actions { display: grid; gap: 8px; margin-top: 12px; }
+.pause-actions .secondary-button { margin: 0; }
+.pause-settings { border-left: 1px solid #42546a; padding-left: 25px; }
+.pause-settings h3 { display: flex; align-items: center; gap: 9px; color: #d8e2e9; font-size: 15px; }
+.pause-settings h3 svg { width: 18px; height: 18px; color: var(--ui-gold); }
+.pause-settings .settings-row { font-size: 12px; color: #b8c8d5; padding-top: 20px; gap: 12px; }
+.pause-settings .settings-row label { min-width: 60px; }
+.pause-settings .settings-row select { font-size: 12px; }
+.pause-settings .movement-hint { color: #b2c3d2; background: #0e1926; border: 1px solid #374b60; border-radius: 5px; padding: 10px; font-size: 11px; line-height: 1.8; margin: 12px 0 0; }
+.pause-settings .fullscreen-setting { margin-top: 18px; }
+.save-state { color: #a6c6b5; font-size: 11px; padding-top: 18px; }
+
+/* Character management and the encyclopedia belong to the same game. */
+#overlay.profile-overlay { background: linear-gradient(90deg, #08101a10 10%, #101927bb 52%, #0b121bee); padding: 28px 6%; }
+.profile-screen { width: 460px; padding: 22px; max-height: calc(100dvh - 56px); background: #111d2bea; border: 1px solid #5a6c7e; border-radius: 10px; box-shadow: 0 20px 80px #0009; color: #d4dfe8; }
+.profile-header { padding-bottom: 20px; }
+.profile-header h2 { font-family: inherit; font-weight: 600; font-size: 28px; color: #efdab5; margin-top: 6px; }
+.profile-header small { color: #9eafc2; letter-spacing: 1px; font-size: 10px; }
+.profile-encyclopedia { bottom: 18px; color: #d8c293; padding: 8px; border: 1px solid #516479; border-radius: 5px; }
+.roster-label { color: #b5c6d6; }.roster-label span:last-child { color: #a7b9c9; }
+.profile-row { border: 1px solid #42576b; border-radius: 7px; background: #1a293a; }
+.profile-row.selected { background: linear-gradient(110deg, #394b56, #243545); border-color: #cfb17a; box-shadow: inset 3px 0 #e0bd7e; }
+.profile-row:hover { background: #2a3a4c; }
+.profile-emblem { background: #0c172666; border-radius: 6px; }
+.profile-info strong { color: #f0e4ce; font-size: 15px; }
+.profile-info > span { color: #bccbda; }.profile-info small { color: #a4b7c9; }
+.profile-info b { color: #ebca8f; }
+.profile-summary { color: #c7d8e5; border-color: #40566c; }
+.profile-tools button, .roster-storage button { border: 1px solid #465c71; border-radius: 4px; background: #213145; }
+.profile-summary { flex-wrap: wrap; row-gap: 10px; }
+.profile-tools { gap: 6px; }
+.profile-tools button, .roster-storage button { display: flex; align-items: center; justify-content: center; gap: 5px; width: auto; min-height: 32px; padding: 5px 8px; }
+.profile-tools button span, .roster-storage button span { font-size: 11px; color: #c4d4e1; }
+.profile-tools button[data-profile-action=delete] { border-color: #805456; }
+.profile-commands { gap: 10px; }.profile-notice { color: #dfc08d; }
+.profile-empty { color: #a4bbcb; }.profile-empty h3 { color: #e1d0ad; }
+.profile-footer { display: none; }
+.class-option { border-radius: 6px; background: #1b2939; border: 1px solid #42596e; }
+.class-option:has(input:checked) { background: #30424e; border-color: #c6a76f; }
+.class-option strong { color: #eadcc0; }.class-option small, .class-option > span > span { color: #afc1d2; }
+.profile-screen .text-button { min-height: 34px; }
+#overlay.encyclopedia-overlay { background: #0b121aef; }
+.encyclopedia-screen { color: #d8e3ed; }
+.encyclopedia-header h2 { font-family: inherit; font-weight: 600; color: #eddbb8; }
+.encyclopedia-header small { color: #9aafc2; }
+.encyclopedia-exit { border: 1px solid #4a6278; border-radius: 6px; background: #213146; color: #d5e1eb; }
+.encyclopedia-tabs { border-color: #42596d; padding: 3px; background: #152333; border-radius: 7px; }
+.encyclopedia-tabs > button { border-radius: 5px; color: #afc3d5; }
+.encyclopedia-tabs > button[aria-selected=true] { color: #ecd09d; background: #304357; border-color: #c9ac78; }
+.encyclopedia-filter select, .encyclopedia-base-select select { background: #18283a; border-color: #536d86; color: #d6e4ee; border-radius: 5px; }
+.encyclopedia-search { background: #132235; border: 1px solid #526c83; border-radius: 6px; padding: 0 10px; }
+.encyclopedia-search input { color: #e1ebf1; }
+.encyclopedia-columns, .encyclopedia-index { border-color: #38516a; }
+.encyclopedia-entry { border-color: #354b61; border-radius: 5px; margin-bottom: 4px; background: #172537; }
+.encyclopedia-entry[aria-current=true] { border-left-color: #e4c287; background: #2b3c50; }
+.encyclopedia-entry small { color: #a3b9cd; }
+.encyclopedia-detail { padding-left: 24px; }
+.encyclopedia-detail h3 { font-size: 25px; }
+.encyclopedia-stats dt, .encyclopedia-muted { color: #afc3d4; }
+.encyclopedia-mods { color: #a2d0ef; }
+.encyclopedia-pagination > button { border: 1px solid #445e77; border-radius: 5px; background: #21344b; }
+
+/* Combat controls remain in familiar positions, with stronger contrast. */
+.top-tools { padding: 4px; border: 1px solid #53616d55; border-radius: 7px; background: #0d1822b5; }
+.top-tools button { color: #c5d3df; border-radius: 4px; }
+.top-tools button:hover { background: #3d4d5f; }
+.offline { color: #bcd3c5; padding-left: 8px; }
+.location h2 { color: #f0e5d2; }.chapter, .location > span:last-child { color: #c0ccd5; }
+.minimap-button { border-color: #9dabba80; border-radius: 5px; clip-path: none; box-shadow: 0 4px 16px #0007; }
+.quest-track { padding: 12px; background: #101c29cf; border: 1px solid #68768a6b; border-radius: 6px; text-shadow: none; }
+.quest-track strong { color: #efd6a7; }.quest-eyebrow, .quest-track > span { color: #b8cbda; }
+.hud-center { background: linear-gradient(0deg, #0c141ff5, #142332e8); border: 1px solid #8c9caa88; border-radius: 8px; padding: 0 12px; box-shadow: 0 10px 36px #0008; }
+.hero-strip { border-color: #566c7b; }.hero-name { color: #ebd4aa; }.hero-name b { color: #c4d5e2; }
+.xp-track { background: #304052; }.xp-track i { background: linear-gradient(90deg, #7aa6a4, #dec787); }
+#xp-value { color: #c7d5df; }
+.skill { border-color: #758494; border-radius: 5px; background: linear-gradient(150deg, #344455, #122333); box-shadow: inset 0 0 0 2px #081725; }
+.skill:hover { border-color: #edd09b; background: #3c5264; }
+.skill kbd { color: #fff0d0; background: #121b26cc; border-radius: 2px; padding: 0 2px; }
+.skill-name { color: #dbe6ee; font-family: inherit; font-size: 9px; }
+.skill .cooldown { border-radius: 4px; }
+.bottom-nav { gap: 10px; }
+.bottom-nav button { min-height: 30px; color: #cad6e1; border-radius: 4px; padding: 3px; }
+.bottom-nav button:hover { background: #405269; }
+.bottom-nav button svg { color: #d0b27f; }
+.paladin-status { color: #c1d1dd; }.paladin-status button { color: #d8c497; }
+.orb-frame { border-color: #b8a27c; background: #253343; box-shadow: 0 4px 20px #0008, inset 0 0 0 2px #060f19; }
+.orb-frame::before { border-color: #b1a18470; }.orb-frame::after { background: #d1b77e; }
+.resource-caption { color: #e2d4b5; }
+.status-chip { border-radius: 5px; background: #163932f5; box-shadow: 0 2px 7px #0007; }
+.debuffs .status-chip { background: #562c30f5; border-color: #f1a098; color: #ffe3dd; }
+.status-heading { color: #a5e5c9; }.debuffs .status-heading { color: #ffc2b8; }
+#ui-tooltip { border-radius: 6px; border-color: #8799ad; color: #e4edf5; background: #142231fa; font-size: 12px; box-shadow: 0 6px 24px #0009; }
+.toast { background: #1b2d3ef5; border: 1px solid #8ba99d88; border-left: 3px solid #c4b286; border-radius: 6px; color: #ecdebd; box-shadow: 0 4px 20px #0006; }
+.toast span { color: #b5c9d9; }
+#context-action { border-radius: 6px; background: #243749f2; border-color: #af986d; color: #f0dab1; }
+
+@media (max-width: 1050px) {
+  .panel-description { display: none; }
+  .panel-close { margin-left: auto; }
+  .paladin-inventory { gap: 12px; }
+  .paladin-inventory > .gear-column { padding: 5px; }
+}
+@media (max-width: 700px) {
+  .panel { border-radius: 8px; }
+  .panel .panel-header { min-height: 62px; padding: 9px 12px; gap: 8px; }
+  .panel-title-group { gap: 9px; }
+  .panel-emblem { width: 34px; height: 34px; border-radius: 6px; }
+  .panel-emblem svg { width: 19px; height: 19px; }
+  .panel .panel-header h2 { font-size: 19px; }
+  .panel .panel-header small { font-size: 8px; letter-spacing: .7px; }
+  .panel-close kbd { display: none; }
+  .panel-body { font-size: 12px; }
+  .paladin-inventory .item-details { padding-left: 0; }
+  .paladin-inventory .item-details h3 { font-size: 19px; }
+  .item-affixes { font-size: 13px; }
+  .item-details .item-actions :is(.primary-button, .secondary-button, .text-button) { font-size: 12px; min-height: 38px; }
+  .inventory-pane-tabs, .rune-pane-tabs, .skill-pane-tabs, .sheet-tabs { min-height: 36px; }
+  .gear-position > span { font-size: 9px; }
+  .rune-layout .runeword-list { grid-auto-rows: minmax(92px, auto); }
+  .rune-layout .runeword-list > div { padding: 9px; grid-template-columns: 68px minmax(0, 1fr); column-gap: 8px; }
+  .runeword-list strong { font-size: 12px; }
+  .shared-intro { padding: 7px 9px; }
+  .shared-item-details h3 { font-size: 16px; }
+  .pause-layout { grid-template-columns: 1fr; gap: 20px; }
+  .pause-intro { margin-bottom: 14px; }
+  .pause-settings { border-left: 0; border-top: 1px solid #42546a; padding: 15px 0 0; }
+  .pause-settings .settings-row { padding-top: 12px; }
+  .pause-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pause-actions .secondary-button { font-size: 11px; padding: 8px 5px; }
+  .save-state { padding-top: 12px; }
+  #overlay.profile-overlay { padding: 12px; background: #091321da; }
+  .profile-screen { padding: 16px; max-height: calc(100dvh - 24px); border-radius: 8px; }
+  .profile-header { padding-bottom: 15px; }
+  .profile-header h2 { font-size: 25px; }
+  .profile-encyclopedia { bottom: 13px; }
+  .profile-header small { font-size: 9px; }
+  .encyclopedia-header h2 { font-size: 22px; }
+  .encyclopedia-detail { padding-left: 0; }
+  .encyclopedia-exit { padding: 7px; }
+  .hud-center { padding: 0 7px; border-radius: 7px 7px 0 0; }
+  .bottom-nav { gap: 7px; justify-content: space-between; }
+  .bottom-nav button { font-size: 10px; padding: 2px 0; gap: 3px; }
+  .skill-name { font-size: 8px; }
+  .top-tools { padding: 2px; }
+  .quest-track { padding: 8px; }
+  #boss-bar { top: 90px; left: 12px; width: calc(100vw - 164px); }
+  #boss-bar:not([hidden]) ~ #combat-status { top: 164px; }
+}
+@media (max-height: 580px) and (min-width: 701px) {
+  .panel .panel-header { min-height: 56px; padding: 7px 12px; }
+  .panel .panel-header h2 { font-size: 18px; }
+  .panel-emblem { width: 32px; height: 32px; }
+  .panel-close kbd, .panel-description { display: none; }
+  .panel-pause { width: 790px; }
+  .pause-layout { gap: 20px; }
+  .pause-intro { margin: 0 0 10px; }
+  .pause-intro img { width: 30px; height: 36px; }
+  .pause-intro h3 { font-size: 14px; }
+  .pause-settings .settings-row { padding-top: 10px; }
+  .pause-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .pause-actions .secondary-button { margin: 0; font-size: 11px; }
+  .pause-settings .movement-hint { padding: 6px 8px; margin-top: 8px; }
+  .pause-settings .fullscreen-setting { margin-top: 10px; }
+  .paladin-inventory > .gear-column { padding: 4px; }
+  .rune-layout .runeword-list { grid-auto-rows: minmax(90px, auto); }
+  #overlay.profile-overlay { padding: 12px 24px; }
+  .profile-screen { max-height: calc(100dvh - 24px); padding: 14px 18px; }
+  #boss-bar { top: 12px; width: 260px; }
+}
+@media (prefers-reduced-motion: reduce) { button, input, select { transition: none; } }
