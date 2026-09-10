@@ -82,7 +82,7 @@ test('legacy miscellaneous items survive saves and storage, cannot be equipped a
   const restored = parseSave(serializeSave(hero))!; assert.deepEqual(restored.stash, hero.stash);
   assert.ok(sellItem(restored, item.id)); assert.equal(restored.gold, item.value); assert.equal(restored.stash.length, 0);
 });
-test('expanded layouts keep stable IDs, side rooms, loops and 4-6 separated chests', () => {
+test('expanded layouts keep stable IDs, side rooms and 4-6 separated chests', () => {
   for (const level of LEVELS) {
     const map = levelLayout(level); assert.deepEqual(map, levelLayout(level));
     assert.ok(map.chests.length >= 4 && map.chests.length <= 6); assert.ok(map.rooms.length >= 8);
@@ -94,7 +94,8 @@ test('expanded layouts keep stable IDs, side rooms, loops and 4-6 separated ches
     }
     // The Worldstone procession is deliberately straight; exploration also uses its side galleries.
     assert.ok(map.route.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - map.route[i].x, p.z - map.route[i].z), 0) >= 40);
-    assert.ok(map.connections.reduce((sum, [a,b]) => sum + Math.hypot(a.x-b.x,a.z-b.z), 0) > 200);
+    // Arcane's four independent arms deliberately omit the old perimeter shortcuts.
+    assert.ok(map.connections.reduce((sum, [a,b]) => sum + Math.hypot(a.x-b.x,a.z-b.z), 0) > (level.index === 8 ? 190 : 250));
   }
 });
 test('large-grid pathfinding and projectile checks use the real grid origin beyond the old boundary', () => {

@@ -145,7 +145,7 @@ export function buildLevelScenery(world: SceneHost) {
   };
 
   const walkable = (x: number,z: number) => layoutWalkable(layout,x,z);
-  const offset = 40, size = 81;
+  const offset = FIELD_BOUND + 1, size = offset * 2 + 1;
   const matrix = Array.from({length:size},(_,row)=>Array.from({length:size},(_,column)=>walkable(column-offset,row-offset)?0:1));
   for(let z=-FIELD_BOUND;z<=FIELD_BOUND;z++) for(let x=-FIELD_BOUND;x<=FIELD_BOUND;) {
     if(walkable(x,z)) { world.floorCells.push({x,z}); x++; continue; }
@@ -201,7 +201,7 @@ export function buildLevelScenery(world: SceneHost) {
     if(design.edge==='bank'&&level.act===2){const tuft=mesh(geometry.plane,leaves,p.x,.22,p.z,.7,.6,1,random()*6);tuft.castShadow=false;}
   }
   // Dense silhouettes belong beyond the solid edge, never in an invisible collider.
-  for(let x=-37;x<38;x+=3)for(let z=-37;z<35;z+=3) {
+  for(let x=-FIELD_BOUND+2;x<FIELD_BOUND-1;x+=3)for(let z=-FIELD_BOUND+2;z<FIELD_BOUND-1;z+=3) {
     if(design.edge==='void')continue;
     if(random()<.22||walkable(x,z))continue;
     if(world.floorCells.some(p=>Math.abs(p.x-x)<1.8&&Math.abs(p.z-z)<1.8))continue;
@@ -211,6 +211,7 @@ export function buildLevelScenery(world: SceneHost) {
   // Low relief clutter remains traversable; substantial furniture gets real collision.
   for(const room of layout.rooms) {
     const x=room.x+room.width*.32,z=room.z-room.depth*.3;
+    if(layout.connections.some(([a,b])=>distanceToSegment(x,z,a,b)<layout.corridorWidth+1.2))continue;
     if([layout.spawn,layout.supply,layout.boss,...layout.objects,...layout.chests].some(p=>Math.hypot(p.x-x,p.z-z)<4))continue;
     if(!walkable(x,z)||!walkable(x+1,z)||!walkable(x,z+1))continue;
     const kind=design.props[Math.floor(random()*design.props.length)];
@@ -248,6 +249,7 @@ export function buildLevelScenery(world: SceneHost) {
   // Each encounter gets a recognizable silhouette and a distinct approach.
   switch(design.landmark) {
     case 'den':
+      for(const side of [-1,1])world.torch(bx+side*4,bz+1,.55,true);
       for(let i=0;i<6;i++)prop('crag',bx-6+i*2,bz-5,1.5);
       for(const side of [-1,1])for(let i=0;i<3;i++){mesh(geometry.cone,stone,bx+side*(5+i*.4),1.2+i*.5,bz+i, .42,2.4+i,.42);solid(bx+side*(5+i*.4),bz+i,.85,.85);}
       prop('bones',bx+3,bz+2,2);decal(stain,bx,bz,6);break;
@@ -265,7 +267,7 @@ export function buildLevelScenery(world: SceneHost) {
     case 'burial-hall':
       dais();pillars();for(const side of [-1,1])prop('coffin',bx+side*5,bz+3,1.2);arch(bx,bz-5,5.8,4);break;
     case 'hive':
-      mesh(geometry.orb,foliage,bx,.1,bz,4.7,.25,4);ribs(bx,bz-1);for(let i=0;i<9;i++){const a=i*.7;prop('egg',bx+Math.cos(a)*5.6,bz+Math.sin(a)*5,1.3);}break;
+      mesh(geometry.orb,foliage,bx,.1,bz,4.7,.25,4);ribs(bx,bz-1);for(let i=0;i<9;i++){const a=i*.7,x=bx+Math.cos(a)*5.6,z=bz+Math.sin(a)*5;if(!layout.connections.some(([from,to])=>distanceToSegment(x,z,from,to)<layout.corridorWidth+1.4))prop('egg',x,z,1.3);}break;
     case 'orrery':
       dais();sigil(bx,bz,3.4,6);pillars();for(const r of [1.8,2.5,3.1]){const orbit=mesh(geometry.ring,trim,bx,5,bz-6,r,r,r);orbit.rotation.set(.4+r,.3,r*.5);}
       mesh(geometry.orb,glow,bx,5,bz-6,.55,.55,.55);for(const p of layout.route.slice(1,-1)){ring(p.x,.1,p.z,1.5);for(const side of [-1,1])prop('obelisk',p.x+side*3.8,p.z,.8);}break;

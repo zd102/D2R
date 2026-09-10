@@ -63,8 +63,16 @@ try {
   for (const level of LEVELS) {
     if (level.index) await choose(page, level.index);
     const s = await state(page), layout = levelLayout(level);
-    assert.equal(s.area.gridSize, 81); minFloor = Math.min(minFloor, s.area.floorCells); maxFloor = Math.max(maxFloor, s.area.floorCells);
+    assert.equal(s.area.gridSize, 101); minFloor = Math.min(minFloor, s.area.floorCells); maxFloor = Math.max(maxFloor, s.area.floorCells);
     assert.equal(s.chests.length, layout.chests.length); assert.equal(s.enemies.filter(e => e.boss).length, 1);
+    const inaccessibleEnemies = await page.evaluate(() => {
+      const g=window.mapVerification;
+      return g.enemies.filter(enemy=>{
+        const p=enemy.actor.group.position,end=g.world.path(g.position,p).at(-1);
+        return !g.world.canWalk(p,p) || !end || Math.hypot(end.x-p.x,end.z-p.z)>1;
+      }).map(enemy=>enemy.name);
+    });
+    assert.deepEqual(inaccessibleEnemies,[],`${level.id}: every monster spawns on accessible ground`);
     assert.ok(s.area.floorCells > 900, `${level.id}: larger navigable area`);
     for (const p of [...s.objectives, ...s.chests]) {
       assert.ok(p.route.length, `${level.id}: path to ${p.kind ?? 'chest'} ${p.id}`);

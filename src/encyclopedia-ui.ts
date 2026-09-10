@@ -10,6 +10,7 @@ import { ACTS, LEVELS } from './campaign.ts';
 import { difficultyNames, damageTypeNames } from './model.ts';
 import { monsterStats } from './balance.ts';
 import { ATTACKS } from './monster-combat.ts';
+import { monsterTactic, TACTIC_DESCRIPTIONS } from './bestiary.ts';
 import { BOSS_DROP_PROFILES, bossDropLabel, bossSpecialPool } from './boss-loot.ts';
 import { runeUpgradeCost } from './loot.ts';
 
@@ -209,6 +210,7 @@ export class EncyclopediaScreen {
     body += statsList([['等级', values.level], ['生命', values.maxHp], ['基础伤害', Number(values.damage.toFixed(1))], ['防御', values.defense], ['准确率', values.attackRating], ['移动速度', entry.definition.speed]]);
     body += `<h4>抗性</h4><div class="encyclopedia-resistances">${Object.entries(values.resistances).map(([type, value]) => `<div class="resist-${type}"><span>${damageTypeNames[type as keyof typeof damageTypeNames]}</span><b>${value}%</b></div>`).join('')}</div>`;
     body += `<h4>战斗招式</h4><dl class="encyclopedia-attacks">${entry.definition.attacks.map(id => { const attack = ATTACKS[id]; return `<div><dt>${escape(attack.name)}<small>${damageTypeNames[attack.type]}</small></dt><dd>预警 ${attack.windup} 秒 · 间隔 ${attack.cooldown} 秒${attack.damage ? ` · ${number(values.damage * attack.damage)} 伤害` : ''}</dd></div>`; }).join('')}</dl>`;
+    body += `<h4>行为模式</h4><p class="encyclopedia-muted">${TACTIC_DESCRIPTIONS[monsterTactic(entry.definition)]}</p>`;
     if (entry.definition.revive) body += this.link(entry.definition.revive, `复活：${encyclopediaMonster(entry.definition.revive)?.name ?? entry.definition.revive}`, 'monsters');
     if (entry.definition.retaliation) body += `<p class="encyclopedia-muted">受击反击：闪电</p>`;
     body += `<h4>基础战利品</h4>${statsList([['装备判定', entry.rank === 'actBoss' ? '2 件基础装备' : percent(rates.equipment)], ['符文判定', percent(rates.rune)], ['魔法护符', percent(rates.charm)]])}`;

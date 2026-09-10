@@ -1,7 +1,8 @@
 import type { Level, MapPoint } from './campaign.ts';
 
 type Pair = [number, number];
-type LayoutDraft = { path: Pair[]; wings: Pair[]; width: number; room: number; shape?: 'round' | 'rect' | 'octagon'; axis?: boolean; boss?: Pair; links?: [number, number][] };
+type LayoutDraft = { path: Pair[]; wings: Pair[]; width: number; room: number; shape?: 'round' | 'rect' | 'octagon'; axis?: boolean; boss?: Pair; links?: [number, number][]; loops?: boolean; objectives?: Pair[]; arena?: number };
+export const MAP_BOUND = 49;
 // Authored room graphs follow each area's identity; all share the saved entrance.
 const drafts: LayoutDraft[] = [
   { path: [[-11,2],[-20,-12],[-6,-20],[12,-25]], wings: [[17,15],[-29,3],[23,-9],[-25,-27],[27,-25],[-15,26]], width: 3.2, room: 11, shape: 'round' },
@@ -34,8 +35,81 @@ const drafts: LayoutDraft[] = [
     links: [[0,1],[1,2],[2,3],[3,4],[4,5],[0,6],[0,7],[2,8],[2,9],[4,10],[4,11],[6,8],[7,9],[8,10],[9,11]] },
 ];
 const point = ([x, z]: Pair): MapPoint => ({ x, z });
+// Expand the authored geography without stretching doorways, actors or the saved entrance.
+// Fixed set pieces below replace generic loops with the corresponding area's topology.
+const expanded: LayoutDraft[] = drafts.map(draft => ({ ...draft,
+  path: draft.path.map(([x,z]) => [Math.round(x*1.27), Math.round(z*1.27)]),
+  wings: draft.wings.map(([x,z]) => [Math.round(x*1.27), Math.round(z*1.27)]),
+  boss: [0,-41], room: draft.room*1.12,
+}));
+Object.assign(expanded[0], { width: 2.5, loops: false, room: 13 }); // Branching cave pockets.
+Object.assign(expanded[1], { // Cemetery enclosure, two crypt wings and a central burial field.
+  path: [[0,-2],[-13,-12],[0,-22],[13,-30]], wings: [[-26,9],[26,9],[-30,-19],[30,-19],[-24,-36],[24,32]],
+  room: 17, width: 4, boss: [0,-34], arena: 12,
+  links: [[0,1],[1,2],[2,3],[3,4],[4,5],[1,6],[1,7],[2,8],[4,9],[3,10],[7,11],[6,8],[7,9]],
+});
+Object.assign(expanded[2], { // Ruined streets surrounding Cain's square.
+  path: [[0,-3],[-17,-3],[-17,-22],[0,-22]], wings: [[22,14],[-34,5],[22,-8],[-33,-30],[26,-30],[-20,32]],
+  width: 3.3, room: 15, objectives: [[0,-3]],
+});
+Object.assign(expanded[3], { width: 2, room: 13, loops: false }); // Tower cellars and dead-end treasury rooms.
+Object.assign(expanded[4], { path: [[0,-3],[-20,-3],[-20,-25],[0,-25]], width: 2.5, room: 13, arena: 9 });
+Object.assign(expanded[5], { // Parallel sewer galleries joined across the drainage channel.
+  path: [[14,3],[14,-15],[-14,-15],[-14,-32]], wings: [[-18,19],[34,3],[34,-30],[-34,-7],[15,-36],[20,34]],
+  width: 2.4, room: 13, loops: false,
+});
+Object.assign(expanded[6], { width: 2.3, room: 14, loops: false });
+Object.assign(expanded[7], { // Long single-file worm tunnels; side nests never reconnect.
+  path: [[-12,0],[-27,-12],[-11,-24],[20,-28]], wings: [[21,18],[-37,4],[29,-7],[-32,-35],[37,-31],[-19,32]],
+  width: 1.35, room: 12, loops: false, boss: [6,-41], arena: 7,
+});
+Object.assign(expanded[8], { // Four independent arms from a central platform, no perimeter shortcut.
+  path: [[0,0],[0,-15],[-13,-15],[-13,-33]], wings: [[-20,0],[-39,0],[20,0],[39,0],[0,29],[0,39]],
+  width: 1.7, room: 12, boss: [0,-41], objectives: [[-13,-33]],
+  links: [[0,1],[1,2],[2,3],[3,4],[4,5],[1,6],[6,7],[1,8],[8,9],[0,10],[10,11]],
+});
+Object.assign(expanded[9], { width: 2.4, room: 14, arena: 8, loops: false });
+Object.assign(expanded[10], { width: 3, room: 17, loops: false });
+Object.assign(expanded[11], { // Meandering river banks, short crossings and isolated village clearings.
+  path: [[-15,0],[3,-12],[25,-21],[9,-35]], wings: [[23,20],[-35,9],[-29,-19],[37,-3],[-20,-36],[-22,34]],
+  width: 2.7, room: 16, loops: false,
+});
+Object.assign(expanded[12], { width: 3.2, room: 16 });
+Object.assign(expanded[13], { // Symmetric temple approach and council courtyards.
+  path: [[0,-2],[-17,-11],[0,-22],[17,-31]], wings: [[-26,19],[26,19],[-30,-12],[30,-12],[-24,-35],[24,-35]],
+  width: 3.5, room: 15, arena: 10,
+  links: [[0,1],[1,2],[2,3],[3,4],[4,5],[0,6],[0,7],[2,8],[4,9],[3,10],[4,11],[6,8],[7,9],[10,5],[11,5]],
+});
+Object.assign(expanded[14], { // A moat separates Mephisto's dais from the entry galleries.
+  path: [[-18,0],[-18,-17],[-27,-29],[-17,-38]], wings: [[23,20],[-35,6],[18,-10],[33,-26],[-33,-32],[-23,33]],
+  width: 2.8, room: 15, boss: [0,-36], arena: 8, loops: false,
+  links: [[0,1],[1,2],[2,3],[3,4],[4,5],[0,6],[1,7],[6,8],[8,9],[9,5],[3,10],[0,11]],
+});
+Object.assign(expanded[15], { room: 20, width: 5.5 });
+Object.assign(expanded[16], { room: 19, width: 5 });
+Object.assign(expanded[17], { width: 2.6, room: 13, loops: false }); // Basalt islands over lava.
+for (const index of [18,19]) Object.assign(expanded[index], { // Three seal wings around a cruciform nave.
+  path: [[0,-2],[0,-15],[-20,-15],[-20,-33]], wings: [[-24,15],[24,15],[-38,-22],[38,-22],[20,-33],[0,-39]],
+  width: 3.2, room: index===19 ? 15 : 13, axis: true, boss: index===19 ? [0,-15] : [0,-39], arena: index===19 ? 10 : 7,
+  objectives: index===19 ? [[-20,-33],[20,-33],[0,-39]] : [[-38,-22],[38,-22]],
+  links: [[0,1],[1,2],[2,3],[3,4],[2,5],[0,6],[0,7],[3,8],[2,9],[9,10],[2,11]],
+});
+Object.assign(expanded[20], { // Long uphill lanes with staggered barricade clearings.
+  path: [[-10,-1],[10,-13],[-10,-25],[10,-36]], wings: [[-29,17],[30,5],[-33,-12],[33,-23],[-28,-36],[20,34]],
+  width: 3.5, room: 15, loops: false,
+});
+Object.assign(expanded[21], { width: 3.2, room: 17, loops: false });
+Object.assign(expanded[22], { width: 2.2, room: 14, loops: false });
+Object.assign(expanded[23], { // A single summit arena reached by an approach, with peripheral ledges.
+  path: [[-10,0],[-16,-12],[0,-22],[16,-29]], wings: [[23,20],[-33,5],[33,-7],[-32,-27],[32,-33],[-21,34]],
+  room: 11, boss: [0,-30], arena: 15, objectives: [[-8,-29],[0,-39],[8,-29]],
+});
+Object.assign(expanded[24], { // Long throne aisle, paired galleries and a separate chamber beyond it.
+  path: [[0,-2],[0,-14],[0,-26],[0,-33]], wings: [[-25,17],[25,17],[-25,-12],[25,-12],[-25,-32],[25,-32]],
+  width: 3, room: 15, arena: 8,
+});
 export function campaignLayout(level: Level) {
-  const draft = drafts[level.index], spawn = { x: 0, z: 11 }, supply = { x: -5.8, z: 12 };
+  const draft = expanded[level.index], spawn = { x: 0, z: 11 }, supply = { x: -5.8, z: 12 };
   const boss = point(draft.boss ?? [0, -33]), exit = { x: boss.x, z: boss.z - 4 };
   const route = [spawn, ...draft.path.map(point), boss], wings = draft.wings.map(point);
   const rooms = [...route.slice(1, -1), ...wings].map((p, i) => ({ ...p, width: draft.room + i % 3, depth: draft.room - 1 + (i + level.step) % 3, shape: draft.shape ?? 'rect' }));
@@ -50,12 +124,12 @@ export function campaignLayout(level: Level) {
   } else {
     route.slice(1).forEach((p, i) => connect(route[i], p));
     wings.forEach((p, i) => connect(route[[0, 1, 3, 2, 4, 0][i]], p));
-    connect(wings[0], wings[5]); connect(wings[1], wings[3]); connect(wings[2], wings[4]);
+    if (draft.loops !== false) { connect(wings[0], wings[5]); connect(wings[1], wings[3]); connect(wings[2], wings[4]); }
   }
   connect(spawn, supply); connect(boss, exit);
-  const objects = Array.from({ length: level.quest.kind === 'interact' ? level.quest.count : 0 }, (_, i) => ({ ...wings[[2, 3, 4][i]] }));
+  const objects = Array.from({ length: level.quest.kind === 'interact' ? level.quest.count : 0 }, (_, i) => draft.objectives ? point(draft.objectives[i]) : ({ ...wings[[2, 3, 4][i]] }));
   const chests = wings.slice(0, 4 + Math.floor(level.act / 2)).map((p, id) => ({ id, x: p.x + (id % 2 ? -2 : 2), z: p.z + 2 }));
-  return { route, rooms, connections, objects, chests, spawn, boss, exit, supply, corridorWidth: draft.width, bossRadius: [19,23,24].includes(level.index) ? 7 : 6 };
+  return { route, rooms, connections, objects, chests, spawn, boss, exit, supply, corridorWidth: draft.width, bossRadius: draft.arena ?? 7 };
 }
 export type LevelLayout = ReturnType<typeof campaignLayout>;
 export function distanceToSegment(x: number, z: number, a: MapPoint, b: MapPoint) {
@@ -63,7 +137,7 @@ export function distanceToSegment(x: number, z: number, a: MapPoint, b: MapPoint
   const t = length ? Math.max(0, Math.min(1, ((x - a.x) * (b.x - a.x) + (z - a.z) * (b.z - a.z)) / length)) : 0;
   return Math.hypot(x - a.x - t * (b.x - a.x), z - a.z - t * (b.z - a.z));
 }
-export function layoutWalkable(layout: LevelLayout, x: number, z: number, bound = 39) {
+export function layoutWalkable(layout: LevelLayout, x: number, z: number, bound = MAP_BOUND) {
   return Math.abs(x) < bound && Math.abs(z) < bound && (
     layout.connections.some(([a, b]) => distanceToSegment(x, z, a, b) < layout.corridorWidth) ||
     Math.hypot(x - layout.spawn.x, z - layout.spawn.z) < 6 || Math.hypot(x - layout.boss.x, z - layout.boss.z) < layout.bossRadius ||

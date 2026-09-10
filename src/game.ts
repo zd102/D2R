@@ -15,7 +15,7 @@ import { packItems, placeItems, runeLabel, type DropRank, type RuneId, type Mods
 import { rollLoot } from './loot';
 import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat } from './combat';
-import { BOSSES, ENCOUNTERS, MONSTERS, type MonsterDef } from './bestiary';
+import { BOSSES, ENCOUNTERS, MONSTERS, monsterTactic, type MonsterDef } from './bestiary';
 import { createMonsterActor } from './monster-models';
 import { MonsterCombat } from './monster-combat';
 import { monsterExperience, monsterStats } from './balance';
@@ -27,7 +27,7 @@ import { UI } from './ui';
 import { keyboardSkills, movementInput, MOVEMENT_MODE_KEY, parseMovementMode, emptyCooldowns, type MovementMode, type SkillSlot } from './controls';
 import { followPath } from './navigation';
 
-export type Enemy = { id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
+export type Enemy = { pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 type PointerGesture = { id: number; button: number; x: number; y: number; started: number; dragging: boolean; stationary: boolean; mode: 'move' | 'attack' | 'interact' | 'cast' };
@@ -243,18 +243,18 @@ export class Game {
   spawnEnemies() {
     if (this.inCamp) return;
     const layout = levelLayout(this.level), tuning = levelTuning(this.level, difficulty(this.hero));
-    const points = [...layout.route.slice(1, -1), ...layout.objects, ...layout.rooms.slice(4, 7)];
+    const points = [layout.route[1], layout.rooms[4], layout.route[2], layout.rooms[5], layout.route[3], layout.rooms[6], layout.route[4], layout.rooms[7], layout.rooms[8], layout.rooms[9], ...layout.objects];
     const packs = Array.from({ length: tuning.packs }, (_, i) => points[i % points.length]);
     packs.forEach(({ x, z }, pack) => {
       const count = 3;
       for (let i = 0; i < count; i++) {
-        let px = x + Math.cos(i * 2.4) * 1.8, pz = z + Math.sin(i * 2.4) * 1.8;
-        if (!gridWalkable(this.world.grid, { x: px, z: pz })) {
-          const route = this.world.path({ x: 0, z: 11 }, { x: px, z: pz });
-          if (route.length) { const end = route[route.length - 1]; px = end.x; pz = end.z; }
-        }
         const pool = ENCOUNTERS[this.level.index];
-        this.spawnEnemy(px, pz, 'demon', MONSTERS[pool[(pack * 3 + i) % pool.length]]);
+        const definition = MONSTERS[pool[(pack * 3 + i) % pool.length]], tactic = monsterTactic(definition);
+        const rear = ['support','caster','ranged','brood'].includes(tactic);
+        const approach = new THREE.Vector3(x-layout.spawn.x,0,z-layout.spawn.z).normalize();
+        const desired = { x: x + Math.cos(i*2.4)*1.5 + approach.x*(rear?2:-1), z: z + Math.sin(i*2.4)*1.5 + approach.z*(rear?2:-1) };
+        const point = this.world.path(layout.spawn,desired).at(-1) ?? {x,z};
+        const enemy = this.spawnEnemy(point.x, point.z, 'demon', definition); enemy.pack = pack;
       }
     });
     for (let i = 0; i < eliteCount(this.level, difficulty(this.hero)); i++) {
@@ -538,7 +538,7 @@ export class Game {
   hurtEnemy(enemy: Enemy, damage: number) { this.combat.damage(enemy, damage, 'physical'); }
   killEnemy(enemy: Enemy, rewardMods?: Mods) {
     if (enemy.dead) return;
-    enemy.dead = true; this.monsterCombat.cancel(enemy); this.world.physics.removeBody(enemy.body);
+    enemy.dead = true; this.monsterCombat.cancel(enemy); this.monsterCombat.onDeath(enemy); this.world.physics.removeBody(enemy.body);
     if (enemy.summoned) { enemy.redeemed = true; enemy.actor.group.visible = false; if (this.target === enemy) { this.target = undefined; this.path = []; } return; }
     this.hero.kills++;
     const playerStats = stats(this.hero); if (rewardMods) playerStats.mods = rewardMods;

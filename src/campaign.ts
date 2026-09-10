@@ -1,5 +1,5 @@
 import type { DamageType } from './paladin.ts';
-import { campaignLayout } from './level-layouts.ts';
+import { campaignLayout, MAP_BOUND } from './level-layouts.ts';
 
 export type CampaignState = { version: 1; current: number; cleared: [number, number, number]; kills: number; objects: number[] };
 export type QuestProp = 'grave' | 'cage' | 'chest' | 'altar' | 'forge' | 'ice' | 'seal' | 'siege';
@@ -84,7 +84,7 @@ export function levelTuning(level: Level, difficulty: number) {
 }
 export type MapPoint = { x: number; z: number };
 export const eliteCount = (level: Level, difficulty: number) => 1 + Math.max(0, Math.min(2, Math.floor(difficulty))) * 2 + Number(level.step >= 3);
-export const FIELD_BOUND = 39;
+export const FIELD_BOUND = MAP_BOUND;
 function makeLevelLayout(level: Level) {
   return campaignLayout(level);
 }

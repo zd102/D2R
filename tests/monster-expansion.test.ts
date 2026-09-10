@@ -51,7 +51,7 @@ test('ranged attacks warn first, lock their aim, travel, hit or can be dodged', 
   step(.1); assert.equal(hits.length, 0); assert.equal(combat.telegraph(enemy)?.name, '箭矢');
   step(.55); assert.ok(combat.missiles.length > 0); assert.equal(hits.length, 0);
   game.position.x = 3; step(.8); assert.equal(hits.length, 0);
-  game.position.x = 0; enemy.cooldown = 0; step(1.4); assert.ok(hits.includes('physical'));
+  game.position.x = 0; enemy.cooldown = 0; combat.state(enemy).abilities.arrow = 0; step(1.4); assert.ok(hits.includes('physical'));
 });
 
 test('a projectile volley hits only once across frames, while a separate cast and persistent ground effects still hurt', () => {
@@ -111,4 +111,95 @@ test('diagonal ground telegraphs align with the real line hit region', () => {
   assert.ok(Math.abs(axis.dot(direction)) > .999);
   step(1.25); const hazard = combat.hazards[0]; assert.ok(hazard);
   assert.ok(Math.abs(new THREE.Vector3(0, 1, 0).applyQuaternion(hazard.mesh.quaternion).dot(direction)) > .999);
+});
+
+test('dormant packs need sight, alert nearby pack mates, and forget a lost target', () => {
+  const { spawn, combat, game, step } = setup();
+  const scout = spawn(MONSTERS.fallen,0,6), ally = spawn(MONSTERS.shaman,1,12), other = spawn(MONSTERS.zombie,2,12);
+  scout.pack = ally.pack = 3; other.pack = 4;
+  scout.active = ally.active = other.active = false;
+  game.world.grid.isWalkableAt = (_x: number,z: number) => z !== 31;
+  step(.1); assert.equal(scout.active,false); assert.equal(ally.active,false);
+  game.world.grid.isWalkableAt = () => true;
+  step(.1); assert.equal(scout.active,true); assert.equal(ally.active,true); assert.equal(other.active,false);
+  const remembered = combat.state(scout).lastSeen!.clone();
+  game.world.grid.isWalkableAt = (_x: number,z: number) => z !== 31; game.position.x = 5;
+  step(.5); assert.deepEqual(combat.state(scout).lastSeen,remembered);
+  step(5); assert.equal(scout.active,false); assert.equal(combat.telegraph(scout),null);
+});
+
+test('fallen panic is local and blocked by walls; elites and converted allies hold their ground', () => {
+  const { spawn, combat, game, step } = setup();
+  const corpse = spawn(MONSTERS.fallen,0,6), runner = spawn(MONSTERS.fallen,1,7), elite = spawn(MONSTERS.fallen,2,7), converted = spawn(MONSTERS.fallen,3,7), hidden = spawn(MONSTERS.fallen,0,2);
+  elite.elite = true; converted.converted = 5; corpse.dead = true;
+  game.world.grid.isWalkableAt = (_x: number,z: number) => z !== 32;
+  combat.onDeath(corpse);
+  assert.ok(runner.flee! > 0); assert.ok(!elite.flee && !converted.flee && !hidden.flee);
+  combat.updateEnemy(runner,.05); assert.ok(runner.body.velocity.z > 0);
+  step(2.5); assert.equal(runner.flee,0);
+});
+
+test('support prioritizes a visible corpse, marks that corpse and never invents a fallback spell', () => {
+  const { spawn, combat, game, step } = setup(), shaman = spawn(MONSTERS.shaman), corpse = spawn(MONSTERS.fallen,2,5);
+  corpse.dead = true; step(.05);
+  const cast = combat.state(shaman).cast!;
+  assert.equal(cast.id,'revive'); assert.equal(cast.corpse,corpse); assert.equal(cast.mesh.position.x,2); assert.equal(cast.mesh.position.z,5);
+  corpse.redeemed = true; step(1.2); assert.equal(game.enemies.length,2);
+  const mummy = spawn(MONSTERS.unraveler,0,7);
+  assert.equal(combat.selectAttack(mummy,7,true),'skull');
+  combat.state(mummy).abilities.skull = 2; assert.equal(combat.selectAttack(mummy,7,true),undefined);
+});
+
+test('ranged retreats are bounded and blocked retreats still allow a shot', () => {
+  const { spawn, combat, game, step } = setup(), archer = spawn(MONSTERS.rogue,0,2);
+  step(.05); assert.ok(archer.body.velocity.z > 0); assert.equal(combat.telegraph(archer),null);
+  step(.8); assert.equal(combat.state(archer).cast?.id,'arrow');
+  const cornered = spawn(MONSTERS.rogue,2,0); game.world.canWalk = () => false;
+  combat.updateEnemy(cornered,.05); assert.equal(combat.state(cornered).cast?.id,'arrow'); assert.equal(cornered.body.velocity.length(),0);
+});
+
+test('distance and independent ability cooldowns control charges, close attacks and boss phases', () => {
+  const { spawn, combat } = setup(), viper = spawn(MONSTERS.viper), baal = spawn(BOSSES[24]);
+  assert.equal(combat.selectAttack(viper,6,true),'charge'); assert.equal(combat.selectAttack(viper,1,true),'strike');
+  combat.state(viper).abilities.charge = 4;
+  assert.equal(combat.selectAttack(viper,6,true),undefined); assert.equal(combat.selectAttack(viper,1,true),'strike');
+  assert.notEqual(combat.selectAttack(baal,7,true),'clone'); baal.hp = 49;
+  assert.equal(combat.selectAttack(baal,7,true),'clone');
+});
+
+test('breath stops at a wall, locks the caster during the channel and is interrupted by stun', () => {
+  const { spawn, combat, game, step, hits } = setup(), enemy = spawn(MONSTERS.venomLord,0,6);
+  game.world.grid.isWalkableAt = (_x: number,z: number) => z!==31;
+  combat.startCast(enemy,'inferno');
+  assert.ok(combat.state(enemy).cast!.target.z > 3.5);
+  // Keep the caster aware while testing interruption of an already committed cast.
+  combat.state(enemy).memory = 5;
+  step(.9); assert.equal(combat.hazards.length,1); assert.equal(enemy.body.velocity.length(),0); assert.equal(hits.length,0);
+  enemy.stunned = 1; step(.05); assert.equal(combat.hazards.length,0);
+});
+
+test('broods are bounded melee young and missed frenzy swings do not grant acceleration', () => {
+  const { spawn, combat, game, step } = setup(), parent = spawn(MONSTERS.maggot);
+  combat.summon(parent,'brood',game.position); combat.summon(parent,'brood',game.position); combat.summon(parent,'brood',game.position);
+  const young = game.enemies.filter((e: Enemy)=>e.owner===parent.id);
+  assert.equal(young.length,2); assert.ok(young.every((e: Enemy)=>e.summoned&&e.definition!.attacks.join() === 'strike'));
+  const lord = spawn(MONSTERS.bloodLord,0,1); combat.startCast(lord,'frenzy'); game.position.x = 7;
+  step(.4); assert.equal(combat.state(lord).frenzy,0);
+});
+
+test('fire walls cross the locked target point and only damage bodies in their strip', () => {
+  const { spawn, combat, game, step, hits } = setup(), caster=spawn(MONSTERS.vampire,0,6);
+  combat.startCast(caster,'fireWall');
+  const cast=combat.state(caster).cast!;
+  assert.ok(cast.origin.x*cast.target.x < -4); assert.equal(cast.origin.z,0); assert.equal(cast.target.z,0);
+  game.position.z=2; step(1.1); assert.equal(hits.length,0); assert.equal(combat.hazards.length,1);
+  game.position.set(1,0,0); step(.7); assert.ok(hits.includes('fire'));
+  caster.cooldown=100; game.position.z=2; const previous=hits.length; step(.7); assert.equal(hits.length,previous);
+});
+
+test('two resurrection casts cannot consume the same corpse twice', () => {
+  const {spawn,combat,game}=setup(), first=spawn(MONSTERS.shaman,0,6),second=spawn(MONSTERS.shaman,2,6),corpse=spawn(MONSTERS.fallen,1,5);
+  corpse.dead=true;combat.startCast(first,'revive');combat.startCast(second,'revive');
+  combat.resolve(first,combat.state(first).cast!);combat.resolve(second,combat.state(second).cast!);
+  assert.equal(game.enemies.filter((e:Enemy)=>e.summoned).length,1);assert.equal(corpse.redeemed,true);
 });
