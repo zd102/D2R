@@ -95,7 +95,6 @@ export class PaladinCombat {
   cast(slot: Skill, aimed = false): boolean {
     const g = this.game, h = g.hero, id = h.bindings[slot];
     if (g.paused || g.dead) return false; g.begin();
-    if (slot !== 'attack' && id === 'attack') { g.ui.openPanel('skills'); return false; }
     if (isAura(id)) { setAura(h, h.activeAura === id ? null : id as Exclude<ActionId, 'attack'>); this.auraTimer = 0; g.save(false); return true; }
     return this.castAction(id, aimed);
   }

@@ -18,7 +18,12 @@ async function start(viewport, touch = false) {
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/src/main.ts*', async route => {
     const response = await route.fetch(), body = await response.text();
-    await route.fulfill({ response, body: body.replace('const game = new Game();', 'const game = new Game(); window.mapVerification = game;') });
+    await route.fulfill({ response, body: body.replace('const game = new Game();', `const game = new Game(); window.mapVerification = game;
+      const spawn = game.spawnEnemies;
+      game.spawnEnemies = function() {
+        spawn.call(this);
+        window.mapSpawns = this.enemies.map(enemy => ({ name: enemy.name, x: enemy.actor.group.position.x, z: enemy.actor.group.position.z }));
+      };`) });
   });
   await page.addInitScript(({ hero, prefix }) => {
     if (sessionStorage.getItem('maps-fixture')) return;
@@ -67,10 +72,12 @@ try {
     assert.equal(s.chests.length, layout.chests.length); assert.equal(s.enemies.filter(e => e.boss).length, 1);
     const inaccessibleEnemies = await page.evaluate(() => {
       const g=window.mapVerification;
-      return g.enemies.filter(enemy=>{
-        const p=enemy.actor.group.position,end=g.world.path(g.position,p).at(-1);
+      // Test the spawn before live physics moves a monster against a wall.
+      // Monster bodies are smaller than the hero's navigation clearance.
+      return window.mapSpawns.filter(p=>{
+        const end=g.world.path(g.world.layout.spawn,p).at(-1);
         return !g.world.canWalk(p,p) || !end || Math.hypot(end.x-p.x,end.z-p.z)>1;
-      }).map(enemy=>enemy.name);
+      }).map(p=>({name:p.name,x:p.x,z:p.z,seed:g.world.layout.seed}));
     });
     assert.deepEqual(inaccessibleEnemies,[],`${level.id}: every monster spawns on accessible ground`);
     assert.ok(s.area.floorCells > 900, `${level.id}: larger navigable area`);

@@ -8,7 +8,6 @@ export class CampaignScreen {
   private ui: UI;
   act = 0;
   difficulty = 0;
-  replayConfirm = false;
   constructor(ui: UI) {
     this.ui = ui;
     ui.overlay.addEventListener('click', event => {
@@ -23,11 +22,6 @@ export class CampaignScreen {
         if (!ui.game.inCamp && index === hero.campaign.current && this.difficulty === hero.difficultyLevel && !hero.bossDefeated && index >= hero.campaign.cleared[this.difficulty]) ui.closePanel();
         else ui.game.enterLevel(index, this.difficulty);
       }
-      if (button.dataset.replayCurrent !== undefined && ui.panel === 'victory' && ui.game.hero.bossDefeated) {
-        if (ui.game.loot.length && button.dataset.replayCurrent !== 'confirm') { this.replayConfirm = true; ui.renderPanel(); }
-        else { this.replayConfirm = false; ui.game.enterLevel(ui.game.hero.campaign.current); }
-      }
-      if (button.dataset.cancelReplay !== undefined) { this.replayConfirm = false; ui.renderPanel(); }
     });
   }
   reset() {
@@ -46,11 +40,6 @@ export class CampaignScreen {
   }
   quest() {
     const { game } = this.ui, { hero, level } = game, ready = questComplete(hero.campaign);
-    return `<div class="campaign-quest-heading"><small>第 ${level.act + 1} 章 · 第 ${level.step + 1} 关</small><h3>${level.quest.name}</h3><span>${level.name}</span></div><p class="quest-story">${level.quest.description}</p><div class="quest-objectives"><div class="${ready ? 'complete' : ''}"><span class="objective-check">${ready ? icon('check') : icon(level.quest.kind === 'kill' ? 'swords' : 'gem')}</span><span>${level.quest.action}<b>${questProgress(hero.campaign)} / ${level.quest.count}</b></span></div><div class="${hero.bossDefeated ? 'complete' : ''}"><span class="objective-check">${icon(hero.bossDefeated ? 'check' : 'skull')}</span><span>击败${level.boss}<b>${hero.bossDefeated ? '已完成' : ready ? '已现身' : '未现身'}</b></span></div></div><div class="quest-rewards"><span>${icon('coins')}首次通关 ${100 + level.index * 35 + hero.difficultyLevel * 250} 金币</span><span>${icon('gem')}${level.actBoss ? '暗金装备掉落' : '装备与补给掉落'}</span></div><button class="secondary-button" data-panel="campaign">${icon('map')}关卡选择</button>${!game.inCamp && hero.bossDefeated ? `<button class="primary-button" data-panel="victory">${icon('chevron-right')}通关结算</button>` : ''}`;
-  }
-  victory() {
-    const { hero, level } = this.ui.game, final = level.index === 24, canAdvance = !final || hero.difficultyLevel < 2 && hero.unlockedDifficulty > hero.difficultyLevel;
-    const next = final ? `${difficultyNames[Math.min(2, hero.difficultyLevel + 1)]} · 邪恶洞窟` : `${LEVELS[level.index + 1].name}`;
-    return `<div class="end-mark victory-mark">${icon(level.actBoss ? 'crown' : 'swords')}</div><div class="campaign-quest-heading"><small>${difficultyNames[hero.difficultyLevel]} · 第 ${level.act + 1} 章 · 第 ${level.step + 1} 关</small><h3>${level.name}</h3></div><p class="end-story">${level.boss}已被击败。</p><div class="end-stats"><span>战役进度 <b>${hero.campaign.cleared[hero.difficultyLevel]} / 25</b></span><span>${final ? hero.difficultyLevel === 2 ? '地狱战役全部完成' : `${difficultyNames[hero.difficultyLevel + 1]}难度已解锁` : level.actBoss ? `第 ${level.act + 2} 章已解锁` : '下一关已解锁'}</span></div><button class="primary-button" data-action="close">${icon('backpack')}收集战利品</button>${canAdvance ? `<button class="secondary-button" data-action="next">${icon('chevron-right')}${next}</button>` : ''}${this.replayConfirm ? `<div class="respec-confirm" role="alert"><strong>刷新本关？</strong><p>地上未拾取的战利品将消失。</p><button class="secondary-button" data-replay-current="confirm">${icon('rotate-ccw')}确认重刷</button><button class="text-button" data-cancel-replay>取消</button></div>` : `<button class="secondary-button" data-replay-current>${icon('rotate-ccw')}再刷本关</button>`}<button class="text-button" data-panel="campaign">${icon('map')}关卡选择</button>`;
+    return `<div class="campaign-quest-heading"><small>第 ${level.act + 1} 章 · 第 ${level.step + 1} 关</small><h3>${level.quest.name}</h3><span>${level.name}</span></div><p class="quest-story">${level.quest.description}</p><div class="quest-objectives"><div class="${ready ? 'complete' : ''}"><span class="objective-check">${ready ? icon('check') : icon(level.quest.kind === 'kill' ? 'swords' : 'gem')}</span><span>${level.quest.action}<b>${questProgress(hero.campaign)} / ${level.quest.count}</b></span></div><div class="${hero.bossDefeated ? 'complete' : ''}"><span class="objective-check">${icon(hero.bossDefeated ? 'check' : 'skull')}</span><span>击败${level.boss}<b>${hero.bossDefeated ? '已完成' : ready ? '已现身' : '未现身'}</b></span></div></div><div class="quest-rewards"><span>${icon('coins')}首次通关 ${100 + level.index * 35 + hero.difficultyLevel * 250} 金币</span><span>${icon('gem')}${level.actBoss ? '暗金装备掉落' : '装备与补给掉落'}</span></div><button class="secondary-button" data-panel="campaign">${icon('map')}关卡选择</button>${!game.inCamp && hero.bossDefeated ? `<p class="quest-story">传送门已激活 · 靠近后按 F ${game.exitLabel}</p>` : ''}`;
   }
 }

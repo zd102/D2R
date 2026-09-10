@@ -68,8 +68,26 @@ try {
   const drag = await advance(25); await page.mouse.move(870, 445, { steps: 4 }); const redirected = await advance(25);
   assert.ok([...drag, ...redirected].every(s => s.speed > 1), 'click-to-drag motion has no waypoint or repath stalls');
   assert.equal(await page.evaluate(() => window.navigationSearches), searchCount, 'clear drag uses no A*');
+  const destination = await page.evaluate(() => window.navigationGame.path.at(-1).toArray());
   await page.mouse.up(); const released = await advance(10);
-  assert.ok(released.every(s => s.speed === 0), 'release stops held movement');
+  assert.ok(released.every(s => s.speed > 1), 'release keeps the committed route moving');
+  await page.mouse.move(420, 400);
+  const settled = (await advance(180)).at(-1);
+  assert.ok(Math.hypot(settled.x - destination[0], settled.z - destination[2]) < .13, 'released movement reaches its last destination without following hover');
+  assert.equal(settled.speed, 0);
+
+  await reset();
+  for (let click = 0; click < 12; click++) {
+    const x = 920 - click % 3 * 12, y = 450 + click % 2 * 10;
+    await page.mouse.move(x, y); await page.mouse.down();
+    // Include small pointer drift and presses long enough to enter held mode.
+    if (click % 2) await page.mouse.move(x + 8, y);
+    if (click % 3 === 0) await page.evaluate(() => window.navigationGame.pointerGesture.started -= 250);
+    assert.ok((await advance(3)).every(s => s.speed > 1), 'retargeting keeps moving');
+    await page.mouse.up();
+    assert.ok(await page.evaluate(() => Math.hypot(window.navigationGame.body.velocity.x, window.navigationGame.body.velocity.z) > 1), 'pointerup never zeroes velocity');
+    assert.ok((await advance(3)).every(s => s.speed > 1), 'no idle frame between consecutive clicks');
+  }
 
   for (const input of ['keyboard', 'right-click']) {
     await reset();

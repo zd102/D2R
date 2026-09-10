@@ -3,6 +3,23 @@ import assert from 'node:assert/strict';
 import { classFixture } from './class-fixture.ts';
 import { stats } from '../src/model.ts';
 
+test('unconfigured slots use normal attacks and share their cooldown across all classes', t => {
+  for (const classId of ['paladin', 'amazon', 'sorceress'] as const) {
+    const { hero, game, combat } = classFixture(classId, false);
+    const panel = t.mock.method(game.ui, 'openPanel');
+    for (const slot of ['cleave', 'ward', 'nova', 'dash', 'bolt'] as const) hero.bindings[slot] = 'attack';
+    const mana = hero.mana;
+    for (const slot of ['cleave', 'ward', 'nova', 'dash', 'bolt'] as const) {
+      assert.equal(combat.cast(slot, true), true, `${classId} ${slot}`);
+      assert.equal(combat.cast('attack', true), false, 'fallback cannot bypass normal attack cadence');
+      assert.equal(combat.cast('bolt', true), false);
+      combat.update(combat.cooldown('attack') + .01);
+    }
+    assert.equal(hero.mana, mana);
+    assert.equal(panel.mock.callCount(), 0);
+  }
+});
+
 test('all three classes can switch from attack to a skill immediately without resetting either cadence', () => {
   for (const [classId, skill] of [['paladin', 'holyBolt'], ['amazon', 'poisonJavelin'], ['sorceress', 'fireBolt']] as const) {
     const { hero, game, combat } = classFixture(classId);

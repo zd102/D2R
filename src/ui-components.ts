@@ -11,7 +11,6 @@ const panelInfo: Record<string, [string, string]> = {
   pause: ['settings', '调整设置，随时继续冒险'],
   shop: ['heart-pulse', '恢复状态，补充旅途所需'],
   death: ['skull', '重整旗鼓，取回你的装备'],
-  victory: ['crown', '收集战利品，迎接新的挑战'],
 };
 
 /** A shared frame keeps headings, close controls and accessibility consistent. */

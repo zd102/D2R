@@ -3,7 +3,7 @@ import type { SkillId } from './paladin';
 import * as THREE from 'three';
 import { createIcons, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, UserRound, Users, UserPlus, Pencil, ArrowLeft, Map as MapIcon, ScrollText, Settings, Pause, Volume2, VolumeX, Maximize, Save, X, ChevronRight, Plus, Coins, Shield, Gem, Heart, Skull, Check, RotateCcw, Play, Trash2, ArrowUp, Droplets, Sparkles, Compass, Crosshair } from 'lucide';
 import type { Game, Enemy, Skill } from './game';
-import { SKILL_SLOTS, skillKeys, skillSlotNames, MOVEMENT_HINTS } from './controls';
+import { SKILL_SLOTS, skillKeys, MOVEMENT_HINTS } from './controls';
 import { stats, rarityNames, slotNames, type Item } from './model';
 import { ACTS, levelTuning, questProgress, questComplete } from './campaign';
 import { CampaignScreen } from './campaign-ui';
@@ -21,7 +21,7 @@ import { settingsPanel } from './settings-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
-type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'death' | 'victory' | 'campaign' | 'shared-stash' | ProfilePanel;
+type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'death' | 'campaign' | 'shared-stash' | ProfilePanel;
 const icons = { KeyRound, Package, Search, FilterX, ChevronLeft, Undo2, Upload, Download, FileJson, FolderOpen, Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, UserRound, Users, UserPlus, Pencil, ArrowLeft, Map: MapIcon, ScrollText, Settings, Pause, Volume2, VolumeX, Maximize, Save, X, ChevronRight, Plus, Coins, Shield, Gem, Heart, Skull, Check, RotateCcw, Play, Trash2, ArrowUp, Droplets, Sparkles, Compass, Crosshair };
 const icon = (name: string, cls = '') => `<i data-lucide="${name}" class="${cls}"></i>`;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -75,7 +75,7 @@ export class UI {
         <div class="resource health"><div class="orb-frame"><div class="orb"><div class="orb-fill" id="health-fill"></div><div class="orb-shine"></div><span id="health-value">55<small>/ 55</small></span></div></div><div class="resource-caption"><span>生命</span><small id="health-percent">100%</small></div></div>
         <div class="hud-center"><div class="hero-strip"><span class="hero-name"><span id="hero-profile-name">圣骑士</span><b id="hero-level">Lv. 1</b></span><div class="xp-track" ${tip('经验')}><i id="xp-fill"></i></div><span id="xp-value">0 / 80</span></div>
           <div class="action-row"><div class="skill-group">
-            ${SKILL_SLOTS.map((key, index) => `<button class="skill ${key}-skill" data-skill="${key}" ${tip(index ? '配置技能' : '普通攻击')}><kbd>${keys[key]}</kbd>${icon(index ? 'plus' : 'sword')}<span class="skill-name">${index ? '未配置' : '普通攻击'}</span><span class="cooldown"></span></button>`).join('')}
+            ${SKILL_SLOTS.map(key => `<button class="skill ${key}-skill" data-skill="${key}" ${tip('普通攻击')}><kbd>${keys[key]}</kbd>${icon('sword')}<span class="skill-name">普通攻击</span><span class="cooldown"></span></button>`).join('')}
           </div><span class="belt-divider"></span><div class="potion-group">
             <button class="skill health-potion" data-potion="0" ${tip('生命药剂 · 1')}><kbd>1</kbd>${icon('flame')}<b id="health-potions">6</b></button>
             <button class="skill mana-potion" data-potion="1" ${tip('法力药剂 · 2')}><kbd>2</kbd>${icon('droplets')}<b id="mana-potions">4</b></button>
@@ -161,7 +161,6 @@ export class UI {
         case 'sound': this.game.audio.volume = this.game.audio.volume ? 0 : .35; element.innerHTML = icon(this.game.audio.volume ? 'volume-2' : 'volume-x'); this.refreshIcons(); break;
         case 'fullscreen': if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen().catch(() => this.toast('全屏暂不可用')); break;
         case 'revive': this.game.revive(); break;
-        case 'next': this.game.nextJourney(); break;
         case 'profiles': this.game.returnToProfiles(); break;
         case 'camp': this.game.returnToCamp(); break;
         case 'camp-portal': this.game.useCampPortal(); break;
@@ -170,7 +169,7 @@ export class UI {
         case 'restore': this.game.hero.hp = stats(this.game.hero).maxHp; this.game.hero.mana = stats(this.game.hero).maxMana; this.toast('生命与法力已恢复'); this.game.save(false); break;
       }
     });
-    this.overlay.addEventListener('click', event => { if (event.target === this.overlay && !this.isProfilePanel() && !['death', 'victory'].includes(this.panel ?? '')) this.closePanel(); });
+    this.overlay.addEventListener('click', event => { if (event.target === this.overlay && !this.isProfilePanel() && this.panel !== 'death') this.closePanel(); });
     this.overlay.addEventListener('input', event => { const element = event.target as HTMLInputElement; if (element.id === 'volume') { this.game.audio.volume = Number(element.value) / 100; document.getElementById('volume-value')!.textContent = `${element.value}%`; } });
     this.overlay.addEventListener('change', event => {
       const element = event.target as HTMLInputElement;
@@ -206,8 +205,6 @@ export class UI {
     if (this.game.dead && panel !== 'death' && panel !== 'save-conflict') return;
     if (panel === 'shared-stash' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.stash.x, this.game.position.z - CAMP.stash.z) >= 3.5)) return;
     if (panel === 'campaign') this.campaignScreen.reset();
-    if (panel === 'victory' && (this.game.inCamp || !this.game.hero.bossDefeated)) return;
-    if (panel === 'victory') this.campaignScreen.replayConfirm = false;
     this.hideTooltip(); this.panel = panel; this.game.paused = true; this.game.releaseInput(); this.overlay.hidden = false;
     document.getElementById('combat-status')!.hidden = true;
     this.renderPanel();
@@ -238,13 +235,12 @@ export class UI {
     const titles: Record<Exclude<Panel, ProfilePanel>, [string, string]> = {
       'shared-stash': ['本地共享仓库', 'SHARED STASH'],
       campaign: [this.game.inCamp ? '远征传送阵' : '章节关卡', 'CAMPAIGN'],
-      inventory: ['行囊', 'INVENTORY'], character: ['圣骑士', 'PALADIN'], skills: ['圣骑士技能', 'PALADIN SKILLS'], map: ['区域地图', 'AREA MAP'], quest: ['当前任务', 'QUEST JOURNAL'], pause: ['旅程暂歇', 'PAUSED'], shop: ['旅者补给', 'WAYFARER'], death: ['你已陨落', 'YOU HAVE FALLEN'], victory: ['长夜将尽', 'THE OATH FULFILLED'],
+      inventory: ['行囊', 'INVENTORY'], character: ['圣骑士', 'PALADIN'], skills: ['圣骑士技能', 'PALADIN SKILLS'], map: ['区域地图', 'AREA MAP'], quest: ['当前任务', 'QUEST JOURNAL'], pause: ['旅程暂歇', 'PAUSED'], shop: ['旅者补给', 'WAYFARER'], death: ['你已陨落', 'YOU HAVE FALLEN'],
     };
     titles.character = [CLASSES[h.classId].name, CLASSES[h.classId].english];
     titles.skills = [`${CLASSES[h.classId].name}技能`, `${CLASSES[h.classId].english} SKILLS`];
     titles.quest = [this.game.level.quest.name, 'QUEST JOURNAL'];
     titles.map = [this.game.areaName, 'AREA MAP'];
-    titles.victory = [this.game.level.index === 24 ? '难度通关' : this.game.level.actBoss ? '章节完成' : '关卡完成', 'AREA COMPLETE'];
     const panelTitle = titles[this.panel as keyof typeof titles];
     let content = '';
     if (this.panel === 'shared-stash') {
@@ -272,8 +268,6 @@ export class UI {
       content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${([0, 1] as const).map(index => `<div><div class="shop-item-icon ${index === 0 ? 'red-text' : 'blue-text'}">${icon(index === 0 ? 'flame' : 'droplets')}</div><div><h3>${index === 0 ? '生命' : '法力'}药剂</h3><small>持有 ${h.potions[index]}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < 25 ? 'disabled' : ''}>${icon('coins')}25</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
     } else if (this.panel === 'death') {
       content = `<div class="end-mark death-mark">${icon('skull')}</div><p class="end-story">灰烬尚温，誓约未尽。</p><div class="end-stats"><span>等级 <b>${h.level}</b></span><span>击杀 <b>${h.kills}</b></span></div><p class="death-cost">遗体保留装备 · 遗失 ${h.corpse?.gold ?? 0} 金币</p><button class="primary-button" data-action="revive">${icon('rotate-ccw')}在传送阵重生</button>`;
-    } else if (this.panel === 'victory') {
-      content = this.campaignScreen.victory();
     }
     this.overlay.innerHTML = panelFrame(this.panel, panelTitle, content);
     const characterName = this.overlay.querySelector('.character-banner h3');
@@ -348,7 +342,7 @@ export class UI {
     document.querySelector('.area-caption>span:last-of-type')!.textContent = game.areaName;
     document.querySelector('.area-caption>small')!.textContent = game.inCamp ? CAMP.english : game.level.english;
     document.getElementById('quest-step')!.textContent = `${game.level.quest.action} ${questProgress(h.campaign)} / ${game.level.quest.count}`;
-    const questFinal = document.querySelector('.quest-final')!; questFinal.textContent = h.bossDefeated ? `${game.level.boss}已被击败` : `${questComplete(h.campaign) ? '击败' : '完成任务后挑战'}${game.level.boss}`; questFinal.classList.toggle('complete', h.bossDefeated);
+    const questFinal = document.querySelector('.quest-final')!; questFinal.textContent = h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `${questComplete(h.campaign) ? '击败' : '完成任务后挑战'}${game.level.boss}`; questFinal.classList.toggle('complete', h.bossDefeated);
     const badge = document.getElementById('points-badge')!; badge.hidden = !h.points; badge.textContent = String(h.points);
     const skillBadge = document.getElementById('skill-points-badge')!; skillBadge.hidden = !h.skillPoints; skillBadge.textContent = String(h.skillPoints);
     const classBuffs=Object.entries(h.buffs).map(([id,buff])=>`${skillName(id as SkillId)} ${Math.ceil(buff.remaining)}秒`);
@@ -363,13 +357,13 @@ export class UI {
     const signature = JSON.stringify([game.movementMode, h.bindings]);
     if (signature !== this.bindingsSignature) {
       this.bindingsSignature = signature;
-      const keys = skillKeys(game.movementMode), names = skillSlotNames(game.movementMode);
+      const keys = skillKeys(game.movementMode);
       document.querySelectorAll<HTMLButtonElement>('.skill[data-skill]').forEach(button => {
-        const key = button.dataset.skill as Skill, id = h.bindings[key], unbound = key !== 'attack' && id === 'attack';
-        button.querySelector('svg')?.remove(); button.insertAdjacentHTML('beforeend', icon(unbound ? 'plus' : skillIcon(id)));
-        button.querySelector('.skill-name')!.textContent = unbound ? '未配置' : skillName(id);
+        const key = button.dataset.skill as Skill, id = h.bindings[key];
+        button.querySelector('svg')?.remove(); button.insertAdjacentHTML('beforeend', icon(skillIcon(id)));
+        button.querySelector('.skill-name')!.textContent = skillName(id);
         button.querySelector('kbd')!.textContent = keys[key];
-        const label = unbound ? `${names[key]} · 配置技能` : `${skillName(id)} · ${keys[key]}`;
+        const label = `${skillName(id)} · ${keys[key]}`;
         button.setAttribute('aria-label', label); button.dataset.tip = label;
       }); this.refreshIcons();
     }

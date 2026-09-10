@@ -95,7 +95,6 @@ export class Game {
   profile?: SavedProfile;
   profileNotice = '';
   saveConflict = false;
-  victoryTimer = 0;
   constructor() {
     try { this.movementMode = parseMovementMode(localStorage.getItem(MOVEMENT_MODE_KEY)); } catch { /* Use mouse controls when settings storage is unavailable. */ }
     this.hero = newHero();
@@ -175,7 +174,7 @@ export class Game {
     this.marker.visible = this.selection.visible = false; this.playerRing.position.set(0, .09, 11);
     this.enemies = []; this.loot = []; this.effects = []; this.visited.clear(); this.combat = new PaladinCombat(this);
     this.monsterCombat = new MonsterCombat(this);
-    this.cooldowns = emptyCooldowns(); this.victoryTimer = 0; this.attackTime = 0; this.invincible = 2;
+    this.cooldowns = emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
     this.ui.hoveredEnemy = undefined; this.ui.floats.forEach(float => float.element.remove()); this.ui.floats = [];
     if (!inCamp) {
       this.hero.campaign.objects.forEach(id => this.world.completeObjective(id)); this.world.exit.visible = this.hero.bossDefeated;
@@ -303,7 +302,9 @@ export class Game {
     const gesture = this.pointerGesture; this.pointerGesture = undefined;
     if (cancel && gesture) this.bufferedSkill = undefined;
     this.heldAttack = false; this.heldPointerSkill = undefined; this.pointerPathTimer = 0; this.pointerDestination = undefined;
-    if (gesture && (cancel || gesture.dragging || gesture.mode === 'move' && performance.now() - gesture.started >= 200)) {
+    // Releasing the pointer commits the last destination. Only cancellation
+    // stops navigation, so consecutive clicks/drags can replace it in motion.
+    if (gesture && cancel) {
       this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
       this.body.velocity.set(0, 0, 0); this.marker.visible = false;
     }
@@ -314,6 +315,9 @@ export class Game {
     if (this.movementMode === 'wasd' || !gesture || this.keys.has('shift')) return;
     if (gesture.mode === 'cast' && performance.now() - gesture.started >= 200) { gesture.mode = 'move'; gesture.dragging = true; }
     if (gesture.mode !== 'move' || this.combat.movementLocked) return;
+    // A click already planned its route on pointerdown. Reproject the cursor
+    // only for held movement, avoiding a duplicate search before pointerup.
+    if (!gesture.dragging && performance.now() - gesture.started < 200) return;
     this.pointerPathTimer = Math.max(0, this.pointerPathTimer - dt);
     if (this.aim.distanceToSquared(this.position) < .3 ** 2) { this.path = []; this.body.velocity.set(0, 0, 0); return; }
     // Open ground tracks the exact cursor point every frame without running A*.
@@ -466,6 +470,7 @@ export class Game {
     if (this.movementMode === 'wasd') { this.path = []; this.marker.visible = false; this.ui.toast('请使用 WASD 移动靠近目标'); return; }
     this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
     this.target = undefined; this.path = this.world.path(this.position, point);
+    if (this.pointerGesture?.mode === 'move') { this.pointerDestination = point.clone(); this.pointerPathTimer = .125; }
     if (this.path.length) { this.marker.position.set(this.path[this.path.length - 1].x, .08, this.path[this.path.length - 1].z); this.marker.visible = true; }
   }
   nearestEnemy(range: number) {
@@ -490,7 +495,7 @@ export class Game {
     return true;
   }
   repeatableSkill(id: ActionId) {
-    return id !== 'attack' && !isAura(id) && !isPassive(id) && !['buff', 'summon'].includes(classSkillMode(id) ?? '') && !['holyShield', 'innerSight', 'slowMissiles'].includes(id);
+    return !isAura(id) && !isPassive(id) && !['buff', 'summon'].includes(classSkillMode(id) ?? '') && !['holyShield', 'innerSight', 'slowMissiles'].includes(id);
   }
   updateSkillInput(dt: number): boolean {
     this.skillRetry = Math.max(0, this.skillRetry - dt);
@@ -556,8 +561,8 @@ export class Game {
     if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level);
     if (enemy.boss) {
       if (!completeCampaignLevel(this.hero)) return;
-      this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, this.level.actBoss ? '本章已通关' : '下一关已解锁');
-      this.save(false); this.victoryTimer = 1.1;
+      this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`);
+      this.save(false);
     }
   }
   dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level) {
@@ -628,11 +633,12 @@ export class Game {
       if (Math.hypot(this.position.x - CAMP.supply.x, this.position.z - CAMP.supply.z) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
       return null;
     }
+    const layout = this.world.layout;
+    if (this.hero.bossDefeated && Math.hypot(this.position.x - layout.exit.x, this.position.z - layout.exit.z) < 3.5) return { name: this.exitLabel, kind: 'exit', id: 0 };
     const chest = this.world.chests?.find(chest => !chest.opened && Math.hypot(this.position.x - chest.x, this.position.z - chest.z) <= 3);
     if (chest) return { name: '打开箱子', kind: 'chest', id: chest.id };
-    const layout = this.world.layout, shrine = layout.objects.findIndex(p => Math.hypot(this.position.x - p.x, this.position.z - p.z) < 3.4);
+    const shrine = layout.objects.findIndex(p => Math.hypot(this.position.x - p.x, this.position.z - p.z) < 3.4);
     if (shrine >= 0 && !this.hero.campaign.objects.includes(shrine)) return { name: this.level.quest.action, kind: 'objective', id: shrine };
-    if (this.hero.bossDefeated && Math.hypot(this.position.x - layout.exit.x, this.position.z - layout.exit.z) < 3.5) return { name: this.level.index === 24 ? '战役结算' : this.level.actBoss ? '前往下一章' : '前往下一关', kind: 'exit', id: 0 };
     if (this.position.distanceTo(new THREE.Vector3(-5.8, 0, 12)) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
     if (this.loot.some(l => !l.item && Math.hypot(l.x - this.position.x, l.z - this.position.z) < 3)) return { name: '拾取补给', kind: 'loot', id: 0 };
     return null;
@@ -645,7 +651,7 @@ export class Game {
     if (action.kind === 'camp-portal') { this.ui.openPanel('campaign'); return; }
     if (action.kind === 'shared-stash') { this.ui.openPanel('shared-stash'); return; }
     if (action.kind === 'chest') { this.openChest(action.id); return; }
-    if (action.kind === 'exit') { this.ui.openPanel('victory'); return; }
+    if (action.kind === 'exit') { this.nextJourney(); return; }
     if (action.kind === 'loot') { [...this.loot].filter(l => !l.item && Math.hypot(l.x - this.position.x, l.z - this.position.z) < 3).forEach(l => this.collectLoot(l)); return; }
     const p = this.world.layout.objects[action.id];
     if (this.enemies.some(e => !e.dead && !e.boss && Math.hypot(e.actor.group.position.x - p.x, e.actor.group.position.z - p.z) < 5)) { this.ui.toast('附近仍有守卫'); return; }
@@ -694,10 +700,15 @@ export class Game {
     this.body.position.set(0, .5, 11); this.actor.group.position.set(0, 0, 11); this.actor.group.rotation.z = 0;
     this.invincible = 4; this.enemies.forEach(e => { e.active = false; }); this.ui.closePanel(); this.save(false);
   }
+  get exitLabel() {
+    if (this.level.index < 24) return `前往${this.level.actBoss ? '下一章' : '下一关'} · ${LEVELS[this.level.index + 1].name}`;
+    return difficulty(this.hero) < 2 ? `进入${difficulty(this.hero) === 0 ? '噩梦' : '地狱'} · ${LEVELS[0].name}` : '返回营地';
+  }
   nextJourney() {
     if (this.inCamp || !this.hero.bossDefeated) return;
     if (this.level.index < 24) this.enterLevel(this.level.index + 1);
     else if (difficulty(this.hero) < 2) this.enterLevel(0, difficulty(this.hero) + 1);
+    else this.returnToCamp();
   }
   changeDifficulty(value: number) {
     if (![0, 1, 2].includes(value) || value === this.hero.difficultyLevel) return;
@@ -728,7 +739,6 @@ export class Game {
     this.time += dt; this.world.update(this.time, dt);
     if (!this.profile) animateActor(this.actor, this.time, false, 0);
     if (this.paused || this.dead) return;
-    if (this.victoryTimer > 0) { this.victoryTimer -= dt; if (this.victoryTimer <= 0) { this.ui.openPanel('victory'); return; } }
     this.attackTime = Math.max(0, this.attackTime - dt * 3.5); this.invincible = Math.max(0, this.invincible - dt);
     if (this.pointerAimActive) this.updatePointerAim();
     this.combat.update(dt); if (this.dead) return;

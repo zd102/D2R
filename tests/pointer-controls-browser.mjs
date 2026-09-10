@@ -28,6 +28,13 @@ async function stopped(page) {
   await page.waitForTimeout(120); const before = (await state(page)).position;
   await page.waitForTimeout(200); assert.ok(distance(before, (await state(page)).position) < .03, 'released navigation stays stopped');
 }
+async function arrived(page) {
+  const destination = (await state(page)).controls.destination;
+  await page.mouse.move(720, 350);
+  await page.waitForFunction(() => !window.eclipseState.controls.destination, undefined, { timeout: 10000 });
+  if (destination) assert.ok(distance(destination, (await state(page)).position) < .15, 'release commits the final route destination');
+  await stopped(page);
+}
 async function nonblank(page) {
   const colors = await page.locator('#game-canvas').evaluate(canvas => {
     const copy = document.createElement('canvas'); copy.width = copy.height = 64; const ctx = copy.getContext('2d'); ctx.drawImage(canvas, 0, 0, 64, 64);
@@ -51,13 +58,13 @@ try {
   const direction = turned.controls.destination;
   assert.ok(Math.sin(turned.controls.facing) * (direction.x - turned.position.x) + Math.cos(turned.controls.facing) * (direction.z - turned.position.z) > 0, 'drag movement faces the route');
   await page.screenshot({ path: `${output}/desktop-drag.png` }); await nonblank(page);
-  await page.mouse.up(); assert.equal((await state(page)).controls.gesture, null); await stopped(page);
+  await page.mouse.up(); assert.equal((await state(page)).controls.gesture, null); await arrived(page);
 
   await page.mouse.move(900, 490); const beforeRight = await state(page);
   await page.mouse.down({ button: 'right' }); await page.mouse.move(960, 450, { steps: 4 }); await page.waitForTimeout(450);
   const draggedRight = await state(page); assert.equal(draggedRight.controls.gesture, 'move'); assert.equal(draggedRight.projectiles, 0);
   assert.ok(draggedRight.mana >= beforeRight.mana, 'right drag does not spend mana'); assert.ok(distance(beforeRight.position, draggedRight.position) > .3);
-  await page.mouse.up({ button: 'right' }); await stopped(page);
+  await page.mouse.up({ button: 'right' }); await arrived(page);
   await page.mouse.click(850, 450, { button: 'right' }); await page.waitForFunction(() => window.eclipseState.controls.projectiles.length > 0);
   assert.ok((await state(page)).mana < draggedRight.mana, 'right click casts the assigned skill once');
   await page.waitForTimeout(1000);
@@ -97,7 +104,7 @@ try {
 
   await page.mouse.move(910, 470); await page.mouse.down(); await page.mouse.move(950, 460); await page.mouse.down({ button: 'right' });
   await page.mouse.up({ button: 'left' }); assert.equal((await state(page)).controls.gesture, 'move');
-  await page.mouse.up({ button: 'right' }); await stopped(page);
+  await page.mouse.up({ button: 'right' }); await arrived(page);
   const button = await page.locator('[data-panel="inventory"]').boundingBox(), beforeUI = (await state(page)).position;
   await page.mouse.move(button.x + button.width / 2, button.y + button.height / 2); await page.mouse.down(); await page.mouse.move(900, 440); await page.waitForTimeout(250); await page.mouse.up();
   assert.equal((await state(page)).controls.gesture, null); assert.ok(distance(beforeUI, (await state(page)).position) < .03, 'dragging from UI never starts world navigation');

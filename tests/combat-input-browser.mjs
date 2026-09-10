@@ -104,6 +104,29 @@ try {
   await page.mouse.up(); await page.keyboard.up('Shift');
   const attacks = await events(); assert.ok(attacks.length >= 3 && attacks.every(e => e.id === 'attack'), 'held normal attack repeats');
   await advance(60); assert.equal((await events()).length, attacks.length, 'release stops normal attacks');
+
+  for (const mode of ['mouse', 'wasd']) {
+    for (const key of mode === 'mouse' ? ['q', 'w', 'e', 'r'] : ['q', 'e', 'r', ' ']) {
+      await reset();
+      await page.evaluate(mode => {
+        const g = window.combatGame; g.setMovementMode(mode);
+        for (const slot of ['cleave', 'ward', 'nova', 'dash', 'bolt']) g.hero.bindings[slot] = 'attack';
+        g.ui.update(0);
+      }, mode);
+      await page.keyboard.down(key); await advance(100); await page.keyboard.up(key);
+      const fallback = await events();
+      assert.ok(fallback.length >= 3 && fallback.every(e => e.id === 'attack'), `${mode} ${key}: unconfigured key repeats normal attacks`);
+      await advance(60); assert.equal((await events()).length, fallback.length);
+      assert.equal(await page.locator('.panel-skills').count(), 0);
+      assert.equal(await page.locator('[data-skill="cleave"] .skill-name').textContent(), '普通攻击');
+    }
+    await reset();
+    await page.evaluate(() => window.combatGame.hero.bindings.bolt = 'attack');
+    await page.mouse.click(860, 400, { button: 'right' });
+    assert.deepEqual((await events()).map(e => e.id), ['attack'], `${mode}: unconfigured right click attacks`);
+    assert.equal(await page.locator('.panel-skills').count(), 0);
+  }
+  await page.keyboard.press('t'); assert.equal(await page.locator('.panel-skills').count(), 1, 'T still opens skill configuration');
   assert.deepEqual(errors, []);
   console.log('Independent cooldown UI, held attacks/skills, one-shot buffs/auras, input buffering and cancellation passed');
 } finally { await browser.close(); }

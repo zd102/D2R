@@ -61,13 +61,12 @@ try {
   }
   for (const [width, height] of [[1440, 900], [1280, 720], [390, 844], [360, 740], [844, 390]]) {
     await page.setViewportSize({ width, height });
-    for (const panel of ['profiles', 'new-profile', 'rename-profile', 'delete-profile', 'import-profile', 'encyclopedia', 'save-conflict', 'death', 'victory']) {
+    for (const panel of ['profiles', 'new-profile', 'rename-profile', 'delete-profile', 'import-profile', 'encyclopedia', 'save-conflict', 'death']) {
       await page.evaluate(panel => {
         const g = window.layoutGame; g.dead = false; g.saveConflict = false; g.ui.closePanel();
         g.ui.profileScreen.editing = g.profile;
         if (panel === 'save-conflict') g.saveConflict = true;
         if (panel === 'death') g.dead = true;
-        if (panel === 'victory') { g.hero.bossDefeated = true; g.loadArea(false); }
         g.ui.openPanel(panel);
       }, panel);
       const bounds = await page.getByRole('dialog').evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, horizontal: el.scrollWidth - el.clientWidth }; });
@@ -77,5 +76,5 @@ try {
   }
   await writeFile(`${output}/layout.json`, JSON.stringify(report, null, 2));
   assert.deepEqual(errors, []);
-  console.log(`PASS: ${report.length} main panel layouts and 45 character management, encyclopedia, death and victory layouts; viewport fit and unobstructed primary actions`);
+  console.log(`PASS: ${report.length} main panel layouts and 40 character management, encyclopedia and death layouts; viewport fit and unobstructed primary actions`);
 } finally { await browser.close(); }
