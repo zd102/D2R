@@ -30,6 +30,11 @@ const itemIcon = (item: Item) => icon(item.slot === 'weapon' ? 'sword' : item.sl
 const tip = (label: string) => `aria-label="${label}" data-tip="${label}"`;
 const tooltipItemKey = (element?: HTMLElement) => element?.dataset.item ?? element?.dataset.sharedItem ?? (element?.dataset.loot !== undefined ? `loot:${element.dataset.loot}` : undefined);
 
+// Replacing unchanged text/markup still creates nodes and invalidates layout.
+// Keep HUD values live every frame without rebuilding the surrounding interface.
+function setText(element: Element, value: string) { if (element.textContent !== value) element.textContent = value; }
+function setMarkup(element: Element, value: string) { if (element.innerHTML !== value) element.innerHTML = value; }
+
 export class UI {
   panel?: Panel;
   selectedItem?: string;
@@ -40,6 +45,7 @@ export class UI {
   toastContainer: HTMLElement;
   labels: HTMLElement;
   labelNodes = new Map<string, HTMLElement>();
+  private labelSizes = new WeakMap<HTMLElement, { width: number; height: number; viewport: string }>();
   floats: { element: HTMLElement; position: THREE.Vector3; time: number }[] = [];
   timer = 0;
   damageTimer?: ReturnType<typeof setTimeout>;
@@ -59,6 +65,7 @@ export class UI {
   panelOpener?: HTMLElement;
   constructor(game: Game) {
     this.game = game;
+    void document.fonts.ready.then(() => { this.labelSizes = new WeakMap(); });
     const keys = skillKeys(game.movementMode);
     document.getElementById('app')!.insertAdjacentHTML('beforeend', `
       <div class="vignette" aria-hidden="true"></div><div id="damage-flash"></div>
@@ -160,7 +167,7 @@ export class UI {
       for (const kind of ['debuff', 'buff'] as const) {
         const group = root.querySelector<HTMLElement>(`[data-status-group="${kind}"]`)!, list = effects.filter(effect => effect.kind === kind);
         group.hidden = !list.length;
-        group.innerHTML = `<span class="status-heading">${kind === 'debuff' ? '减益' : '增益'}</span>${list.map(effect => `<button class="status-chip" data-status="${effect.id}" data-tip="${escapeHtml(`${effect.name} · ${effect.description}`)}">${icon(effect.icon)}<span>${escapeHtml(effect.name)}</span><b></b><i class="status-time-bar" aria-hidden="true"></i></button>`).join('')}`;
+        setMarkup(group, `<span class="status-heading">${kind === 'debuff' ? '减益' : '增益'}</span>${list.map(effect => `<button class="status-chip" data-status="${effect.id}" data-tip="${escapeHtml(`${effect.name} · ${effect.description}`)}">${icon(effect.icon)}<span>${escapeHtml(effect.name)}</span><b></b><i class="status-time-bar" aria-hidden="true"></i></button>`).join('')}`);
       }
       this.refreshIcons();
       for (const id of this.statusDurations.keys()) if (!effects.some(effect => effect.id === id)) this.statusDurations.delete(id);
@@ -169,7 +176,7 @@ export class UI {
       const chip = root.querySelector<HTMLElement>(`[data-status="${effect.id}"]`)!;
       const duration = Math.max(this.statusDurations.get(effect.id) ?? 0, effect.remaining ?? 0);
       this.statusDurations.set(effect.id, duration);
-      chip.querySelector('b')!.textContent = statusTime(effect.remaining);
+      setText(chip.querySelector('b')!, statusTime(effect.remaining));
       chip.setAttribute('aria-label', `${effect.name}，${statusTime(effect.remaining)}，${effect.description}`);
       chip.classList.toggle('expiring', effect.remaining !== null && effect.remaining <= 5);
       chip.style.setProperty('--remaining', String(effect.remaining === null ? 1 : effect.remaining / Math.max(.001, duration)));
@@ -458,37 +465,32 @@ export class UI {
     const hp = Math.ceil(h.hp), mana = Math.floor(h.mana);
     document.getElementById('health-fill')!.style.height = `${h.hp / s.maxHp * 100}%`;
     document.getElementById('mana-fill')!.style.height = `${h.mana / s.maxMana * 100}%`;
-    document.getElementById('health-value')!.innerHTML = `${hp}<small>/ ${s.maxHp}</small>`;
-    document.getElementById('mana-value')!.innerHTML = `${mana}<small>/ ${s.maxMana}</small>`;
-    document.getElementById('health-percent')!.textContent = `${Math.ceil(h.hp / s.maxHp * 100)}%`;
-    document.getElementById('mana-percent')!.textContent = `${Math.floor(h.mana / s.maxMana * 100)}%`;
-    document.getElementById('hero-level')!.textContent = `Lv. ${h.level}`;
-    document.getElementById('xp-value')!.textContent = h.level === 99 ? 'MAX' : `${Math.floor(h.xp / s.xpNeeded * 100)}%`;
+    setMarkup(document.getElementById('health-value')!, `${hp}<small>/ ${s.maxHp}</small>`);
+    setMarkup(document.getElementById('mana-value')!, `${mana}<small>/ ${s.maxMana}</small>`);
+    setText(document.getElementById('health-percent')!, `${Math.ceil(h.hp / s.maxHp * 100)}%`);
+    setText(document.getElementById('mana-percent')!, `${Math.floor(h.mana / s.maxMana * 100)}%`);
+    setText(document.getElementById('hero-level')!, `Lv. ${h.level}`);
+    setText(document.getElementById('xp-value')!, h.level === 99 ? 'MAX' : `${Math.floor(h.xp / s.xpNeeded * 100)}%`);
     document.getElementById('xp-fill')!.style.width = `${h.level === 99 ? 100 : Math.min(100, h.xp / s.xpNeeded * 100)}%`;
-    document.getElementById('health-potions')!.textContent = String(h.potions[0]); document.getElementById('mana-potions')!.textContent = String(h.potions[1]);
-    document.getElementById('gold-value')!.textContent = h.gold.toLocaleString(); document.getElementById('difficulty')!.textContent = game.inCamp ? '安全区域' : `${difficultyNames[difficulty(h)]} · Lv. ${levelTuning(game.level, difficulty(h)).level}`;
-    document.querySelector('.location .chapter')!.textContent = game.inCamp ? '旅者驻地' : `第 ${game.level.act + 1} 章 · 第 ${game.level.step + 1} 关`;
-    document.querySelector('.location h2')!.textContent = game.areaName;
-    document.querySelector('.quest-track strong')!.textContent = game.level.quest.name;
-    document.querySelector('.area-caption>span:last-of-type')!.textContent = game.areaName;
-    document.querySelector('.area-caption>small')!.textContent = game.inCamp ? CAMP.english : game.level.english;
-    document.getElementById('quest-step')!.textContent = `${game.level.quest.action} ${questProgress(h.campaign)} / ${game.level.quest.count}`;
-    const questFinal = document.querySelector('.quest-final')!; questFinal.textContent = h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `${questComplete(h.campaign) ? '击败' : '完成任务后挑战'}${game.level.boss}`; questFinal.classList.toggle('complete', h.bossDefeated);
+    setText(document.getElementById('health-potions')!, String(h.potions[0])); setText(document.getElementById('mana-potions')!, String(h.potions[1]));
+    setText(document.getElementById('gold-value')!, h.gold.toLocaleString()); setText(document.getElementById('difficulty')!, game.inCamp ? '安全区域' : `${difficultyNames[difficulty(h)]} · Lv. ${levelTuning(game.level, difficulty(h)).level}`);
     const special = game.specialArea;
-    if (special) {
-      document.querySelector('.location .chapter')!.textContent = '隐藏领域';
-      document.getElementById('quest-step')!.textContent = special === 'cow' ? `剩余地狱奶牛 ${game.enemies.filter(enemy => !enemy.dead && !enemy.boss).length}` : '唯一首领';
-      questFinal.textContent = h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `击败${game.level.boss}`;
-    }
-    const badge = document.getElementById('points-badge')!; badge.hidden = !h.points; badge.textContent = String(h.points);
-    const skillBadge = document.getElementById('skill-points-badge')!; skillBadge.hidden = !h.skillPoints; skillBadge.textContent = String(h.skillPoints);
+    setText(document.querySelector('.location .chapter')!, special ? '隐藏领域' : game.inCamp ? '旅者驻地' : `第 ${game.level.act + 1} 章 · 第 ${game.level.step + 1} 关`);
+    setText(document.querySelector('.location h2')!, game.areaName);
+    setText(document.querySelector('.quest-track strong')!, game.level.quest.name);
+    setText(document.querySelector('.area-caption>span:last-of-type')!, game.areaName);
+    setText(document.querySelector('.area-caption>small')!, game.inCamp ? CAMP.english : game.level.english);
+    setText(document.getElementById('quest-step')!, special === 'cow' ? `剩余地狱奶牛 ${game.enemies.filter(enemy => !enemy.dead && !enemy.boss).length}` : special ? '唯一首领' : `${game.level.quest.action} ${questProgress(h.campaign)} / ${game.level.quest.count}`);
+    const questFinal = document.querySelector('.quest-final')!; setText(questFinal, h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `${special || questComplete(h.campaign) ? '击败' : '完成任务后挑战'}${game.level.boss}`); questFinal.classList.toggle('complete', h.bossDefeated);
+    const badge = document.getElementById('points-badge')!; badge.hidden = !h.points; setText(badge, String(h.points));
+    const skillBadge = document.getElementById('skill-points-badge')!; skillBadge.hidden = !h.skillPoints; setText(skillBadge, String(h.skillPoints));
     const classBuffs=Object.entries(h.buffs).map(([id,buff])=>`${skillName(id as SkillId)} ${Math.ceil(buff.remaining)}秒`);
     const auraLabel=document.getElementById('active-aura-label')!;
-    auraLabel.textContent = h.activeAura ? skillName(h.activeAura) : classBuffs[0]??(h.classId==='paladin'?'无灵气':CLASSES[h.classId].name);
+    setText(auraLabel, h.activeAura ? skillName(h.activeAura) : classBuffs[0]??(h.classId==='paladin'?'无灵气':CLASSES[h.classId].name));
     auraLabel.title=classBuffs.join(' · ');
-    document.getElementById('holy-shield-label')!.textContent = h.holyShield > 0 ? `圣盾 ${Math.ceil(h.holyShield)}s` : h.poison > 0 ? '中毒' : h.curse > 0 ? '伤害加深' : '';
+    setText(document.getElementById('holy-shield-label')!, h.holyShield > 0 ? `圣盾 ${Math.ceil(h.holyShield)}s` : h.poison > 0 ? '中毒' : h.curse > 0 ? '伤害加深' : '');
     const ammo = document.getElementById('ammo-label')!;
-    ammo.hidden = !s.ranged; ammo.textContent = s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '';
+    ammo.hidden = !s.ranged; setText(ammo, s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '');
     document.getElementById('stamina-fill')!.style.width = `${Math.min(100, h.stamina / s.maxStamina * 100)}%`;
     const runButton = document.querySelector<HTMLButtonElement>('[data-action="run-mode"]')!; runButton.setAttribute('aria-pressed', String(h.running)); runButton.dataset.tip = h.running ? '跑步' : '行走';
     const signature = JSON.stringify([game.movementMode, h.bindings]);
@@ -498,23 +500,23 @@ export class UI {
       document.querySelectorAll<HTMLButtonElement>('.skill[data-skill]').forEach(button => {
         const key = button.dataset.skill as Skill, id = h.bindings[key];
         button.querySelector('svg')?.remove(); button.insertAdjacentHTML('beforeend', icon(skillIcon(id)));
-        button.querySelector('.skill-name')!.textContent = skillName(id);
-        button.querySelector('kbd')!.textContent = keys[key];
+        setText(button.querySelector('.skill-name')!, skillName(id));
+        setText(button.querySelector('kbd')!, keys[key]);
         const label = `${skillName(id)} · ${keys[key]}`;
         button.setAttribute('aria-label', label); button.dataset.tip = label;
       }); this.refreshIcons();
     }
     document.querySelectorAll<HTMLButtonElement>('.skill[data-skill]').forEach(button => {
       const remaining = game.cooldowns[button.dataset.skill as Skill], cooldown = button.querySelector<HTMLElement>('.cooldown')!;
-      cooldown.textContent = remaining > .1 ? remaining.toFixed(1) : ''; button.classList.toggle('on-cooldown', remaining > .1);
+      setText(cooldown, remaining > .1 ? remaining.toFixed(1) : ''); button.classList.toggle('on-cooldown', remaining > .1);
       const id = h.bindings[button.dataset.skill as Skill];
       button.classList.toggle('no-mana', h.mana < skillValues(id, skillLevel(h, id), h.skills).cost);
       button.classList.toggle('aura-active', h.activeAura === id);
     });
     const action = game.contextAction(), context = document.getElementById('context-action')!;
-    context.hidden = !action || game.paused || game.dead; if (action) context.querySelector('span')!.textContent = action.name;
+    context.hidden = !action || game.paused || game.dead; if (action) setText(context.querySelector('span')!, action.name);
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
-    bar.hidden = !boss; if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; bar.querySelector('span')!.textContent = boss.name; bar.querySelector('small')!.textContent = questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '守关首领') : '完成当前任务后现身'; }
+    bar.hidden = !boss; if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); setText(bar.querySelector('small')!, questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '守关首领') : '完成当前任务后现身'); }
     const aliveKeys = new Set<string>();
     const controlRects = ['joystick', 'mobile-attack'].map(id => document.getElementById(id)!)
       .filter(element => element.getClientRects().length).map(element => element.getBoundingClientRect());
@@ -523,7 +525,7 @@ export class UI {
       const point = game.project(new THREE.Vector3(chest.x, 1.3, chest.z));
       if (!point.visible || point.x < 50 || point.x > innerWidth - 50 || point.y < 95 || point.y > innerHeight - 155) continue;
       const key = `chest-${chest.id}`; aliveKeys.add(key); let label = this.labelNodes.get(key);
-      if (!label) { label = document.createElement('button'); label.className = 'world-chest-label'; label.dataset.chest = String(chest.id); label.textContent = '箱子'; label.setAttribute('aria-label', `打开箱子 ${chest.id + 1}`); this.labels.append(label); this.labelNodes.set(key, label); }
+      if (!label) { label = document.createElement('button'); label.className = 'world-chest-label'; label.dataset.chest = String(chest.id); setText(label, '箱子'); label.setAttribute('aria-label', `打开箱子 ${chest.id + 1}`); this.labels.append(label); this.labelNodes.set(key, label); }
       label.hidden = game.paused;
       let y = point.y;
       for (const rect of controlRects) if (point.x + label.offsetWidth / 2 > rect.left - 6 && point.x - label.offsetWidth / 2 < rect.right + 6 && y > rect.top - 6 && y - label.offsetHeight < rect.bottom + 6) y = rect.top - 8;
@@ -533,7 +535,7 @@ export class UI {
       const stashPoint = game.project(new THREE.Vector3(CAMP.stash.x, 1.4, CAMP.stash.z));
       if (stashPoint.visible && stashPoint.x > 65 && stashPoint.x < innerWidth - 65 && stashPoint.y > 50 && stashPoint.y < innerHeight - 150) {
         const key = 'shared-stash'; aliveKeys.add(key); let label = this.labelNodes.get(key);
-        if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = 'shared-stash'; label.innerHTML = `${icon('archive')}本地共享仓库`; this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
+        if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = 'shared-stash'; setMarkup(label, `${icon('archive')}本地共享仓库`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
         label.hidden = game.paused; label.style.transform = `translate(${stashPoint.x}px,${stashPoint.y}px) translate(-50%, -100%)`;
       }
       const point = game.project(new THREE.Vector3(CAMP.portal.x, 1.3, CAMP.portal.z));
@@ -542,7 +544,7 @@ export class UI {
         let label = this.labelNodes.get(key);
         if (!label) {
           label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = 'camp-portal';
-          label.innerHTML = `${icon('compass')}远征传送阵`; this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons();
+          setMarkup(label, `${icon('compass')}远征传送阵`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons();
         }
         label.hidden = game.paused; label.style.transform = `translate(${point.x}px, ${Math.max(90, point.y)}px) translate(-50%, -100%)`;
       }
@@ -551,7 +553,7 @@ export class UI {
       const point = game.project(new THREE.Vector3(CAMP.mysteryPortal.x, 1.3, CAMP.mysteryPortal.z));
       if (point.visible && point.x > 70 && point.x < innerWidth - 70 && point.y > 45 && point.y < innerHeight - 150) {
         const key = 'mystery-portal'; aliveKeys.add(key); let label = this.labelNodes.get(key);
-        if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = 'mystery-portal'; label.innerHTML = `${icon('sparkles')}神秘传送阵`; this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
+        if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = 'mystery-portal'; setMarkup(label, `${icon('sparkles')}神秘传送阵`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
         label.hidden = game.paused; label.style.transform = `translate(${point.x}px, ${Math.max(90, point.y)}px) translate(-50%, -100%)`;
       }
     }
@@ -560,7 +562,7 @@ export class UI {
       const point = game.project(new THREE.Vector3(mysteryCorpse.x, 1.15, mysteryCorpse.z));
       if (point.visible && point.x > 55 && point.x < innerWidth - 55 && point.y > 85 && point.y < innerHeight - 150) {
         const key = 'mystery-corpse'; aliveKeys.add(key); let label = this.labelNodes.get(key);
-        if (!label) { label = document.createElement('button'); label.className = 'world-chest-label'; label.dataset.action = 'mystery-corpse'; label.textContent = '神秘尸体'; this.labels.append(label); this.labelNodes.set(key, label); }
+        if (!label) { label = document.createElement('button'); label.className = 'world-chest-label'; label.dataset.action = 'mystery-corpse'; setText(label, '神秘尸体'); this.labels.append(label); this.labelNodes.set(key, label); }
         label.hidden = game.paused; label.style.transform = `translate(${point.x}px, ${point.y}px) translate(-50%, -100%)`;
       }
     }
@@ -569,7 +571,7 @@ export class UI {
       const point = game.project(enemy.actor.group.position.clone().add(new THREE.Vector3(0, enemy.elite ? 2.5 : 2, 0))); if (!point.visible || point.x < 0 || point.x > innerWidth || point.y < 0 || point.y > innerHeight - 120) continue;
       const key = `e${enemy.id}`; aliveKeys.add(key);
       let el = this.labelNodes.get(key);
-      if (!el) { el = document.createElement('div'); el.className = 'enemy-label'; el.innerHTML = `<span>${enemy.name}</span><div><i></i></div>`; this.labels.append(el); this.labelNodes.set(key, el); }
+      if (!el) { el = document.createElement('div'); el.className = 'enemy-label'; setMarkup(el, `<span>${enemy.name}</span><div><i></i></div>`); this.labels.append(el); this.labelNodes.set(key, el); }
       el.classList.toggle('elite-label', !!enemy.elite);
       el.style.transform = `translate(${enemy.elite ? Math.max(60, Math.min(innerWidth - 60, point.x)) : point.x}px,${point.y}px)`; el.classList.toggle('active', !!enemy.elite || enemy.active || this.hoveredEnemy === enemy); el.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, enemy.hp / enemy.maxHp) * 100}%`;
     }
@@ -578,14 +580,17 @@ export class UI {
       if ((!loot.item && !loot.rune) || Math.hypot(loot.x - game.position.x, loot.z - game.position.z) > 15) continue;
       const point = game.project(new THREE.Vector3(loot.x, .5, loot.z)); if (point.x < 40 || point.x > innerWidth - 40 || point.y < 40 || point.y > innerHeight - 130) continue;
       const key = `l${loot.id}`; aliveKeys.add(key); let el = this.labelNodes.get(key);
-      if (!el) { el = document.createElement('button'); el.className = `loot-label ${loot.item?.rarity ?? 'runeword'}`; el.textContent = (loot.item ? groundItemName(loot.item) : undefined) ?? `${runeLabel(loot.rune!)}符文`; el.dataset.loot = String(loot.id); this.labels.append(el); this.labelNodes.set(key, el); }
-      el.hidden = false;
-      const width = el.offsetWidth, height = el.offsetHeight, x = Math.max(12, Math.min(innerWidth - width - 12, point.x - width / 2));
+      if (!el) { el = document.createElement('button'); el.className = `loot-label ${loot.item?.rarity ?? 'runeword'}`; setText(el, (loot.item ? groundItemName(loot.item) : undefined) ?? `${runeLabel(loot.rune!)}符文`); el.dataset.loot = String(loot.id); this.labels.append(el); this.labelNodes.set(key, el); }
+      const viewport = `${innerWidth}:${innerHeight}:${devicePixelRatio}`;
+      let size = this.labelSizes.get(el);
+      if (!size || size.viewport !== viewport) { el.hidden = false; size = { width: el.offsetWidth, height: el.offsetHeight, viewport }; this.labelSizes.set(el, size); }
+      const { width, height } = size, x = Math.max(12, Math.min(innerWidth - width - 12, point.x - width / 2));
       const overlaps = (y: number) => lootRects.some(rect => x < rect.x + rect.width + 3 && x + width + 3 > rect.x && y < rect.y + rect.height + 3 && y + height + 3 > rect.y);
       let y = point.y + 12;
       while (overlaps(y) && y + height < innerHeight - 130) y += height + 4;
       if (y + height >= innerHeight - 130) { y = point.y - height - 12; while (overlaps(y) && y >= 55) y -= height + 4; }
       if (y < 55 || y + height >= innerHeight - 130) { el.hidden = true; continue; }
+      el.hidden = false;
       lootRects.push({ x, y, width, height });
       el.style.transform = `translate(${x + 45}px,${y}px)`;
       el.classList.toggle('is-pickup-target', game.pendingPickup === loot.id);

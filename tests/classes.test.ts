@@ -137,6 +137,7 @@ test('decoy draws melee attacks, intercepts missiles and cannot multiply; Hydra 
   const {hero,game,combat,enemy,tick}=classFixture('amazon'),e=enemy(6);combat.castAction('dopplezon',true);const summon=combat.classes.summons[0],hp=hero.hp;
   game.monsterCombat.startCast(e,'strike');game.monsterCombat.update(.8);assert.ok(summon.hp<summon.maxHp);assert.equal(hero.hp,hp);
   e.actor.group.position.z=9;game.monsterCombat.fire(e,ATTACKS.arrow,e.actor.group.position,new (game.position.constructor)(0,0,-1));game.monsterCombat.update(.7);assert.ok(summon.hp<summon.maxHp-1);assert.equal(hero.hp,hp);
-  tick(combat.cooldown('dopplezon'));combat.castAction('dopplezon',true);assert.equal(combat.classes.summons.length,1);assert.equal(summon.actor.group.parent,null);
+  tick(combat.cooldown('dopplezon'));combat.castAction('dopplezon',true);assert.equal(combat.classes.summons.length,1);
+  const replacement=combat.classes.summons[0];assert.notEqual(replacement,summon);assert.equal(replacement.actor,summon.actor,'recasting reuses the rendered model');assert.equal(replacement.hp,replacement.maxHp);assert.equal(summon.hp,0,'pending attacks cannot hurt a replaced summon');assert.equal(summon.life,0);
   const s=classFixture('sorceress');for(let i=0;i<5;i++){s.tick(s.combat.cooldown('hydra'));s.hero.mana=100;assert.ok(s.combat.castAction('hydra',true));}assert.equal(s.combat.classes.summons.length,3);assert.equal(s.combat.classes.summons[0].actor.group.children.length,3);s.tick(11);assert.equal(s.combat.classes.summons.length,0);
 });

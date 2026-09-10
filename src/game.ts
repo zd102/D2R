@@ -31,7 +31,9 @@ import { UI } from './ui';
 import { keyboardSkills, movementInput, MOVEMENT_MODE_KEY, parseMovementMode, emptyCooldowns, type MovementMode, type SkillSlot } from './controls';
 import { followPath } from './navigation';
 import { FrameClock } from './frame-clock';
-import { createImpact, createLightning, disposeVisual, updateVisual } from './visual-effects';
+import { MonsterBatches } from './monster-batches';
+import { RenderBudget } from './render-budget';
+import { createImpact, createLightning, disposeVisual, updateVisual, ProjectileVisualPool } from './visual-effects';
 
 export type Enemy = { xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
@@ -40,6 +42,8 @@ type PointerGesture = { id: number; button: number; x: number; y: number; starte
 export type Skill = SkillSlot;
 export class Game {
   world = new GameWorld(LEVELS[0], true);
+  monsterBatches = new MonsterBatches(this.world.scene);
+  projectileVisuals = new ProjectileVisualPool();
   renderer: THREE.WebGLRenderer;
   camera = new THREE.OrthographicCamera();
   composer: EffectComposer;
@@ -90,7 +94,8 @@ export class Game {
   selection = makeRing(.7, 0xcf5650);
   playerRing = makeRing(.57, 0xbfc9a8, .4);
   zoom = 22;
-  quality = 'high';
+  quality = 'auto';
+  renderBudget = new RenderBudget();
   visited = new Set<string>();
   lastFrame = performance.now();
   frameClock = new FrameClock();
@@ -113,7 +118,7 @@ export class Game {
       this.profileNotice = error instanceof SaveError ? error.message : '本地存储不可用，暂时无法创建或载入角色。';
     }
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+    this.renderer.setPixelRatio(this.renderBudget.pixelRatio(innerWidth, innerHeight, devicePixelRatio));
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.1;
     this.renderer.domElement.id = 'game-canvas'; this.renderer.domElement.setAttribute('aria-label', `${CAMP.name}游戏场景`); this.renderer.domElement.tabIndex = 0;
@@ -168,15 +173,19 @@ export class Game {
   get inCamp() { return this.world.isCamp; }
   get areaName() { return this.inCamp ? CAMP.name : this.level.name; }
   loadArea(inCamp: boolean) {
+    this.renderBudget.reset();
+    this.monsterBatches.dispose();
     this.audio.stopEffects?.();
     this.releaseInput();
     this.combat?.classes.clear();
+    this.projectileVisuals.clear();
     this.world.scene.remove(this.actor.group, this.marker, this.selection, this.playerRing);
     if(this.actor.group.userData.classId!==this.hero.classId) {
       const light=this.actor.group.getObjectByName('hero-light');light?.removeFromParent();
       this.disposeObject(this.actor.group);this.actor=createActor('hero',this.hero.classId);if(light)this.actor.group.add(light);
     }
     this.world.dispose(); this.world = new GameWorld(this.level, inCamp);
+    this.monsterBatches = new MonsterBatches(this.world.scene);
     (this.composer.passes[0] as RenderPass).scene = this.world.scene;
     const spawn = inCamp ? CAMP.spawn : this.world.layout.spawn;
     this.body = this.world.body(spawn.x, spawn.z); this.actor.group.position.set(spawn.x, 0, spawn.z); this.actor.group.scale.setScalar(1);
@@ -238,6 +247,7 @@ export class Game {
     this.camera.left = -view * aspect / 2; this.camera.right = view * aspect / 2;
     this.camera.top = view / 2; this.camera.bottom = -view / 2;
     this.camera.updateProjectionMatrix(); this.renderer.setSize(width, height); this.composer.setSize(width, height);
+    this.updateRenderResolution();
     this.updateCamera(1);
   }
   updateCamera(blend: number) {
@@ -248,11 +258,28 @@ export class Game {
     this.camera.position.lerp(expected, blend); this.camera.lookAt(this.camera.position.clone().sub(offset));
   }
   setQuality(quality: string) {
+    if (!['auto', 'high', 'low'].includes(quality)) return;
     this.quality = quality;
-    this.renderer.setPixelRatio(quality === 'low' ? 1 : Math.min(devicePixelRatio, 1.75));
+    this.renderBudget.reset();
     this.renderer.shadowMap.enabled = quality !== 'low';
     this.world.scene.traverse(object => { if (object instanceof THREE.Mesh) { const mats = Array.isArray(object.material) ? object.material : [object.material]; mats.forEach(m => m.needsUpdate = true); } });
     this.resize();
+  }
+  updateRenderResolution() {
+    const adaptive = this.quality === 'auto', level = this.renderBudget.level;
+    // Resolution alone cannot relieve CPU submission pressure in a crowded
+    // battle. Remove optional postprocessing/shadows at the lower automatic tiers.
+    this.composer.passes[1].enabled = this.quality !== 'low' && !(adaptive && level >= 2);
+    const shadows = this.quality !== 'low' && !(adaptive && level >= 3);
+    if (this.renderer.shadowMap.enabled !== shadows) {
+      this.renderer.shadowMap.enabled = shadows;
+      this.world.scene.traverse(object => {
+        if (object instanceof THREE.Mesh) for (const material of Array.isArray(object.material) ? object.material : [object.material]) material.needsUpdate = true;
+      });
+    }
+    const ratio = this.quality === 'auto' ? this.renderBudget.pixelRatio(innerWidth, innerHeight, devicePixelRatio) : this.quality === 'low' ? 1 : Math.min(devicePixelRatio, 1.75);
+    if (this.renderer.getPixelRatio() === ratio) return;
+    this.renderer.setPixelRatio(ratio); this.composer.setPixelRatio(ratio);
   }
   spawnEnemies() {
     if (this.inCamp) return;
@@ -301,7 +328,7 @@ export class Game {
     }
     actor.group.position.set(x, 0, z); this.world.scene.add(actor.group);
     const enemy: Enemy = { id: this.nextId++, name: boss ? this.level.boss : elite ? `精英 · ${definition.name}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, speed: definition.speed * (elite ? 1.1 : 1), cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
-    this.enemies.push(enemy); return enemy;
+    this.enemies.push(enemy); this.monsterBatches.add(actor, `${definition.id}:${boss}`); return enemy;
   }
   begin() { if (!this.profile) return; this.started = true; this.audio.unlock(); }
   setMovementMode(value: string) {
@@ -610,7 +637,7 @@ export class Game {
     const color = loot.item ? COLORS[loot.item.rarity] : loot.gold || loot.rune ? 0xe5bd60 : loot.potion === 0 ? 0xe45555 : 0x56a7eb;
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(loot.gold ? .12 : .19), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .6, metalness: .7, roughness: .3 })); gem.position.y = .25; loot.mesh.add(gem);
     if (loot.item) {
-      const beam = new THREE.Mesh(new THREE.CylinderGeometry(.028, .12, loot.item.rarity === 'legendary' ? 3.5 : 1.8, 8, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .24, depthWrite: false, side: THREE.DoubleSide })); beam.position.y = loot.item.rarity === 'legendary' ? 1.7 : .9; loot.mesh.add(beam);
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(.028, .12, loot.item.rarity === 'legendary' ? 3.5 : 1.8, 8, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .24, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true })); beam.position.y = loot.item.rarity === 'legendary' ? 1.7 : .9; loot.mesh.add(beam);
       loot.mesh.add(makeRing(.38, color, .4));
     }
     loot.mesh.position.set(loot.x, 0, loot.z); this.world.scene.add(loot.mesh); this.loot.push(loot);
@@ -818,6 +845,7 @@ export class Game {
     this.world.scene.add(beam); this.effects.push({ mesh: beam, life: .22, duration: .22, type: 'beam' }); this.burst(to, 0x73eddd, 9);
   }
   disposeObject(object: THREE.Object3D) {
+    if (this.projectileVisuals.release(object)) return;
     disposeVisual(object);
   }
   update(dt: number) {
@@ -866,7 +894,9 @@ export class Game {
     if (this.path.length) this.marker.position.set(this.path.at(-1)!.x, .08, this.path.at(-1)!.z);
     this.marker.visible = this.path.length > 0;
     this.monsterCombat.update(dt); if (this.dead) return;
-    this.world.physics.step(1 / 60, dt, 3);
+    // FrameClock already supplies fixed ticks. Interpolating every static wall's
+    // quaternion again is unused: actors read the simulated positions directly.
+    this.world.physics.step(1 / 60, dt === 1 / 60 ? undefined : dt, 3);
     this.position.set(this.body.position.x, 0, this.body.position.z);
     const campTarget = CAMP[this.pendingCampTarget];
     if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
@@ -912,6 +942,8 @@ export class Game {
     this.audio.updateScene({ position: this.position, terrain: this.inCamp ? 'camp' : this.level.terrain, area: this.inCamp ? 'camp' : this.level.id, paused: this.paused, active: !!this.profile && !this.dead, running: this.combat.running });
     this.updateCamera(Math.min(1, dt * 7));
     if (this.quality === 'low') this.renderer.render(this.world.scene, this.camera); else this.composer.render();
-    this.ui.update(dt); this.frameId = requestAnimationFrame(this.loop);
+    this.ui.update(dt);
+    if (this.quality === 'auto' && !document.hidden && this.renderBudget.sample(elapsed * 1000, performance.now() - now)) this.updateRenderResolution();
+    this.frameId = requestAnimationFrame(this.loop);
   };
 }

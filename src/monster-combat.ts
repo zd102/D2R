@@ -181,7 +181,7 @@ export class MonsterCombat {
   }
   fire(enemy: Enemy, spec: AttackSpec, origin: THREE.Vector3, direction: THREE.Vector3, volley = { hit: false }) {
     if (this.missiles.length >= 100) return;
-    const mesh = createProjectileVisual(spec.type,spec.type==='physical'?'arrow':'bolt',Math.min(.3,spec.radius));
+    const mesh = createProjectileVisual(spec.type,spec.type==='physical'?'arrow':'bolt',Math.min(.3,spec.radius),this.game.projectileVisuals);
     mesh.position.copy(origin).setY(.8);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
     this.game.world.scene.add(mesh); this.missiles.push({ source: enemy, spec, mesh, velocity: direction.clone().multiplyScalar(spec.speed ?? 7), life: spec.range / (spec.speed ?? 7) + .5, volley });

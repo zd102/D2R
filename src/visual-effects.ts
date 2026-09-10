@@ -7,7 +7,9 @@ const callbacks=new WeakMap<THREE.Object3D,(time:number,fade:number)=>void>();
 const hash=(n:number)=>{const value=Math.sin(n*127.1+311.7)*43758.5453;return value-Math.floor(value);};
 const basic=(color:number,opacity=1,additive=false)=>{
   const material=new THREE.MeshBasicMaterial({color,transparent:opacity<1||additive,opacity,depthWrite:!(opacity<1||additive),side:THREE.DoubleSide,blending:additive?THREE.AdditiveBlending:THREE.NormalBlending});
-  material.userData.fxOpacity=opacity;return material;
+  // Flat particles/rings and additive effects need both faces in one submission.
+  // Three's two-pass transparent path otherwise doubles draws and shader switches.
+  material.forceSinglePass=true;material.userData.fxOpacity=opacity;return material;
 };
 const vertex=`varying vec2 vUv; void main(){vUv=uv;vec4 p=vec4(position,1.0);
   #ifdef USE_INSTANCING
@@ -28,7 +30,7 @@ function energyMaterial(color:number,flame=false,opacity=.75,mist=false) {
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     }`,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:mist?THREE.NormalBlending:THREE.AdditiveBlending,toneMapped:false});
-  material.userData.fxOpacity=opacity;return material;
+  material.forceSinglePass=true;material.userData.fxOpacity=opacity;return material;
 }
 export function updateVisual(root:THREE.Object3D,time:number,fade=1) {
   root.traverse(node=>{
@@ -80,7 +82,47 @@ export function createLightning(from:THREE.Vector3,to:THREE.Vector3,color=EFFECT
 }
 
 export type ProjectileLook='bolt'|'orb'|'arrow'|'javelin'|'knife'|'axe'|'hammer';
-export function createProjectileVisual(type:DamageType,look:ProjectileLook='bolt',radius=.16) {
+type PooledProjectile = { mesh: THREE.Mesh; key: string; pose: { node: THREE.Object3D; position: THREE.Vector3; rotation: THREE.Quaternion; scale: THREE.Vector3; visible: boolean }[] };
+
+// A lightning volley must not allocate and upload dozens of identical meshes in
+// its impact frame. The game owns this bounded cache and clears it on area exit.
+export class ProjectileVisualPool {
+  private active = new Map<THREE.Object3D, PooledProjectile>();
+  private idle = new Map<string, PooledProjectile[]>();
+
+  acquire(type: DamageType, look: ProjectileLook, radius: number) {
+    const key = `${type}:${look}:${radius}`;
+    let entry = this.idle.get(key)?.pop();
+    if (!entry) {
+      const mesh = createProjectileVisual(type, look, radius), pose: PooledProjectile['pose'] = [];
+      mesh.traverse(node => pose.push({ node, position: node.position.clone(), rotation: node.quaternion.clone(), scale: node.scale.clone(), visible: node.visible }));
+      entry = { mesh, key, pose };
+    } else {
+      for (const pose of entry.pose) { pose.node.position.copy(pose.position); pose.node.quaternion.copy(pose.rotation); pose.node.scale.copy(pose.scale); pose.node.visible = pose.visible; }
+      updateVisual(entry.mesh, 0, 1);
+    }
+    this.active.set(entry.mesh, entry);
+    return entry.mesh;
+  }
+
+  release(object: THREE.Object3D) {
+    const entry = this.active.get(object); if (!entry) return false;
+    this.active.delete(object); object.removeFromParent();
+    const idle = this.idle.get(entry.key) ?? [];
+    if (idle.length < 32) { idle.push(entry); this.idle.set(entry.key, idle); }
+    else disposeVisual(object);
+    return true;
+  }
+
+  clear() {
+    for (const entry of this.active.values()) disposeVisual(entry.mesh);
+    for (const entries of this.idle.values()) for (const entry of entries) disposeVisual(entry.mesh);
+    this.active.clear(); this.idle.clear();
+  }
+}
+
+export function createProjectileVisual(type:DamageType,look:ProjectileLook='bolt',radius=.16,pool?:ProjectileVisualPool): THREE.Mesh {
+  if(pool)return pool.acquire(type,look,radius);
   if(look==='axe'||look==='knife') {
     // Spin the weapon inside its root so the projectile still follows its simulation direction.
     const mesh=new THREE.Mesh(new THREE.BufferGeometry(),basic(0xc8b389));mesh.name=`${type}-${look}`;

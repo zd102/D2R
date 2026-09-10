@@ -165,6 +165,15 @@ try {
     await page.locator('#quality').selectOption('low');
     assert.equal(await page.evaluate(() => window.uiGame.quality), 'low');
     await page.screenshot({ path: `${output}/settings-${viewport.width}.png` });
+    await page.locator('#quality').selectOption('high');
+    assert.deepEqual(await page.evaluate(() => { const g = window.uiGame; return [g.renderer.shadowMap.enabled, g.composer.passes[1].enabled]; }), [true, true]);
+    await page.evaluate(() => { window.uiGame.renderBudget.level = 3; });
+    await page.locator('#quality').selectOption('auto');
+    assert.deepEqual(await page.evaluate(() => {
+      const g = window.uiGame;
+      return [g.quality, g.renderer.shadowMap.enabled, g.composer.passes[1].enabled,
+        Math.abs(g.composer.readBuffer.width - g.renderer.domElement.width) < 1 && Math.abs(g.composer.readBuffer.height - g.renderer.domElement.height) < 1];
+    }), ['auto', false, false, true]);
     await page.locator('.panel-close').click();
     assert.equal(await page.evaluate(() => window.uiGame.paused), false);
     await page.close();

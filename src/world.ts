@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MapBroadphase, MapCollisionMatrix } from './physics-broadphase.ts';
 import * as CANNON from 'cannon-es';
 import PF from 'pathfinding';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -137,7 +138,8 @@ export class GameWorld {
     const design = isCamp ? undefined : sceneDesign(level);
     this.scene.background = new THREE.Color(design?.palette.sky ?? theme.sky);
     this.scene.fog = new THREE.FogExp2(design?.palette.sky ?? theme.sky, design?.fog ?? .009);
-    this.physics.broadphase = new CANNON.SAPBroadphase(this.physics);
+    this.physics.broadphase = new MapBroadphase(this.physics);
+    this.physics.collisionMatrix = new MapCollisionMatrix(); this.physics.collisionMatrixPrevious = new MapCollisionMatrix();
     this.physics.defaultContactMaterial.friction = 0;
     this.scene.add(new THREE.HemisphereLight(design?.palette.sun ?? 0xb7dcda, design?.palette.dark ?? 0x424533, design?.ambient ?? 1.7));
     const sun = new THREE.DirectionalLight(design?.palette.sun ?? 0xd8e5d2, design?.sunlight ?? 2.5); sun.position.set(-12, 24, 9); sun.castShadow = true;
@@ -676,6 +678,6 @@ export function styleCampaignEnemy(actor: Actor, level: Level, boss: boolean, de
 }
 
 export function makeRing(radius: number, color: number, opacity = .65) {
-  const ring = new THREE.Mesh(new THREE.RingGeometry(radius - .025, radius, 64), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = .07; return ring;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(radius - .025, radius, 64), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false, forceSinglePass: true })); ring.rotation.x = -Math.PI / 2; ring.position.y = .07; return ring;
 }
 export { mesh, sphere, runeMaterial };

@@ -55,9 +55,11 @@ try {
     const hero = newHero(); hero.inventory = [specialItem('unique-382', () => .5)];
     const ground = { id: 1, x: 0, z: 0, item: specialItem('unique-382', () => .5), mesh: {} }, notices = [];
     const game = { hero, paused: false, dead: false, loot: [ground], ui: { toast: notice => notices.push(notice) }, disposeObject() {}, audio: { play() {} }, save() {} };
-    Game.prototype.collectLoot.call(game, ground); return { inventory: hero.inventory.length, ground: game.loot.length, notices };
+    Game.prototype.collectLoot.call(game, ground);
+    ground.item.identified = true; Game.prototype.collectLoot.call(game, ground);
+    return { inventory: hero.inventory.length, ground: game.loot.length, notices };
   });
-  assert.deepEqual(uniquePickup, { inventory: 1, ground: 1, notices: ['背包中已有毁灭'] });
+  assert.deepEqual(uniquePickup, { inventory: 1, ground: 1, notices: ['背包中已有同类唯一物品', '背包中已有毁灭'] });
   const corpseLeg = await uber.page.evaluate(async () => {
     const { Game } = await import('/src/game.ts'), { newHero } = await import('/src/model.ts');
     const hero = newHero(); hero.difficultyLevel = 2;

@@ -105,7 +105,7 @@ export function mergeActorParts(root: THREE.Object3D) {
       const merged = mergeGeometries(copies, false); copies.forEach(geometry => geometry.dispose());
       if (!merged) throw new Error('Actor geometry attributes must agree before merging');
       meshes.forEach(mesh => parent.remove(mesh));
-      const mesh = new THREE.Mesh(merged, material); mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh);
+      const mesh = new THREE.Mesh(merged, material); mesh.castShadow = mesh.receiveShadow = true; mesh.matrixAutoUpdate = false; parent.add(mesh);
     }
   }
   const retained = new Set<THREE.BufferGeometry>(); root.traverse(node => { if (node instanceof THREE.Mesh) retained.add(node.geometry); });

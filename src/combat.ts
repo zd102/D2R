@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { castSound, impactSound, weaponSound } from './audio-bank.ts';
 import type { Game, Enemy, Skill } from './game';
-import { stats, skillLevel, setAura, hitChance, resistedDamage, difficulty, createCorpse, clampResources } from './model.ts';
+import { stats, equippedAuras, skillLevel, setAura, hitChance, resistedDamage, difficulty, createCorpse, clampResources } from './model.ts';
 import { skillValues, isAura, tierValue, PALADIN_BALANCE, type ActionId, type DamageType } from './paladin.ts';
 import { makeRing, gridWalkable } from './world.ts';
 import { heroAction, playHeroAction } from './hero-models.ts';
@@ -121,7 +121,7 @@ export class PaladinCombat {
     if (ranged) { this.shootWeapon(origin, direction, target); return true; }
     if (id === 'holyBolt' || id === 'blessedHammer') {
       const hammer = id === 'blessedHammer';
-      const mesh = createProjectileVisual('magic',hammer?'hammer':'bolt',.15);
+      const mesh = createProjectileVisual('magic',hammer?'hammer':'bolt',.15,g.projectileVisuals);
       mesh.position.copy(origin).setY(.9); g.world.scene.add(mesh);
       const concentration = hammer ? 1 + (s.auras.find(aura => aura.id === 'concentration')?.damage ?? 0) / 200 : 1;
       // Align one point on the spiral with the aim at cast time, without homing afterward.
@@ -134,7 +134,7 @@ export class PaladinCombat {
       this.fohDelay = 1; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
       this.damage(target, v.min + Math.random() * (v.max - v.min), 'lightning');
       for (const enemy of g.enemies) if (this.hostile(enemy) && isUndead(enemy) && enemy.actor.group.position.distanceTo(point) < 8) {
-        const mesh = createProjectileVisual('magic','bolt',.12);
+        const mesh = createProjectileVisual('magic','bolt',.12,g.projectileVisuals);
         mesh.position.copy(point).setY(.9); g.world.scene.add(mesh);
         const flight = enemy.actor.group.position.clone().sub(point).setY(0).normalize(); if (!flight.lengthSq()) flight.copy(direction);
         // Outgoing bolts must leave the impact target before testing other bodies.
@@ -154,7 +154,7 @@ export class PaladinCombat {
   shootWeapon(origin: THREE.Vector3, direction: THREE.Vector3, target?: Enemy) {
     const g = this.game, snapshot = this.snapshot(), s = snapshot.stats, base = s.ranged!;
     const bow = !base.stack, explosion = bow ? s.mods.explosiveArrowLevel ?? 0 : 0, magicArrow = bow && !explosion ? s.mods.magicArrowLevel ?? 0 : 0;
-    const mesh = createProjectileVisual(explosion?'fire':magicArrow?'magic':'physical',bow?'arrow':base.kind==='javelin'?'javelin':base.kind==='axe'?'axe':'knife');
+    const mesh = createProjectileVisual(explosion?'fire':magicArrow?'magic':'physical',bow?'arrow':base.kind==='javelin'?'javelin':base.kind==='axe'?'axe':'knife',.16,g.projectileVisuals);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction); mesh.position.copy(origin).setY(.9); g.world.scene.add(mesh);
     this.projectiles.push({ mesh, origin, direction, phase: 0, age: 0, life: 1, damage: 0, healing: 0, kind: bow ? 'arrow' : 'throw', hit: new Set(), snapshot, speed: bow ? 20 : 18, pierce: Math.max(0, Math.min(100, s.mods.pierceChance ?? 0)), magicArrow, explosion });
     if (target) this.triggerItems('att-skill', target, snapshot.items);
@@ -423,7 +423,12 @@ export class PaladinCombat {
     }
     }
   }
-  slow(enemy: Enemy) { const aura = this.auraAt(enemy, 'holyFreeze'); return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, enemy.coldTime > 0 ? .5 : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0)); }
+  slow(enemy: Enemy) {
+    // Movement needs only aura ranks/range, not a full character stat rebuild for
+    // every monster. Read equipment live so breakage and weapon swaps apply now.
+    const aura = equippedAuras(this.game.hero).find(aura => aura.id === 'holyFreeze' && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius);
+    return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, enemy.coldTime > 0 ? .5 : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0));
+  }
   allyUpdate(enemy: Enemy, dt: number) {
     if (enemy.converted <= 0) return false;
     const g = this.game, target = g.enemies.filter(other => this.hostile(other)).sort((a, b) => a.actor.group.position.distanceToSquared(enemy.actor.group.position) - b.actor.group.position.distanceToSquared(enemy.actor.group.position))[0];

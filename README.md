@@ -146,6 +146,8 @@ npm run test:audio
 
 浏览器测试默认使用 Windows 已安装的 Microsoft Edge，需先保持开发服务器运行。可用 `BASE_URL` 环境变量指定其他地址。测试使用独立的临时浏览器环境，不修改日常浏览器存档，截图输出到 `.verification`。
 
+游戏默认自动调节渲染分辨率以优先维持 60 帧。全场景帧时间采样使用 `npm run test:performance`，测量方法、压力测试和适用边界见 [性能说明](docs/performance.md)。
+
 - `src/game.ts`：战斗、掉落、成长、输入与存档流程。
 - `src/world.ts`：原创程序化模型与纹理、Cannon ES 碰撞、PathFinding.js A* 寻路。
 - `src/bestiary.ts`、`src/monster-models.ts`、`src/monster-combat.ts`：分章怪物与首领表、独立模型、攻击预警、投射物、范围攻击和限量召唤。

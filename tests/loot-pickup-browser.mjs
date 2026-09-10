@@ -11,7 +11,11 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 960 } }); 
 const state = () => page.evaluate(() => window.eclipseState);
 try {
   const hero = newHero(); hero.level = 60; hero.vitality = 300; hero.hp = stats(hero).maxHp; hero.strength = 100; hero.equipment.weapon.minDamage = hero.equipment.weapon.maxDamage = 1500;
-  await page.addInitScript(save => { localStorage.setItem('eclipse-ii-save-v1', save); Math.random = () => .1; }, serializeSave(hero));
+  await page.addInitScript(save => {
+    localStorage.setItem('eclipse-ii-save-v1', save); Math.random = () => .1;
+    // Keep the combat/drop route reproducible; Math.random does not seed maps.
+    crypto.getRandomValues = array => { array.fill(2610388045); return array; };
+  }, serializeSave(hero));
   await page.goto(base); await enterGame(page);
   for (let tries = 0; tries < 80 && (await state()).kills < 6; tries++) {
     const s = await state(), target = s.enemies.filter(enemy => !enemy.boss).sort((a, b) => Math.hypot(a.x - s.position.x, a.z - s.position.z) - Math.hypot(b.x - s.position.x, b.z - s.position.z))[0];
@@ -50,6 +54,7 @@ try {
     const resource = makeRing(.1, 0), position = resource.position; position.set(0, 0, 0);
     const notes = [], check = (condition, message) => { if (!condition) throw new Error(message); notes.push(message); };
     const game = { hero: newHero(), position, level: LEVELS[0], loot: [], path: [], paused: false, dead: false, pendingPickup: undefined, target: undefined, heldAttack: false, keys: new Set(), joystick: { set() {} }, body: { velocity: { set() {} } }, marker: { position: { set() {} } }, world: { path: (_from, to) => [to.clone()] }, ui: { toast() {}, floatText() {} }, audio: { play() {} }, begin() {}, save() {}, disposeObject() {}, combat: { readyIn() { return 0; }, cast() { return true; } } };
+    game.world.layout = { objects: [], exit: { x: 100, z: 100 } };
     for (const method of ['pickup', 'collectLoot', 'updateLootPickup', 'moveTo', 'releaseInput', 'useSkill', 'contextAction', 'interact']) game[method] = Game.prototype[method];
     const item = id => ({ id, x: id === 1 ? 0 : 8, z: 0, item: makeItem(BASES[0], `ground-${id}`), mesh: {} });
     game.loot = [item(1), item(2), { id: 3, x: 0, z: 0, rune: 'el' }, { id: 4, x: 0, z: 0, gold: 10 }, { id: 5, x: 0, z: 0, potion: 0 }];

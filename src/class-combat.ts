@@ -111,7 +111,7 @@ export class ClassCombat {
     if(this.missiles.length>=160)return;
     direction=direction.clone().setY(0);if(direction.lengthSq()<.0001)direction.set(0,0,1);else direction.normalize();
     const weapon=rangedSkills(id)&&!secondary, color=colors[values.type], orb=id==='frozenOrb'&&!secondary;
-    const mesh=createProjectileVisual(values.type,orb?'orb':weapon?classSkillMode(id)==='javelin'?'javelin':'arrow':'bolt',orb?.42:values.type==='cold'?.17:.2);
+    const mesh=createProjectileVisual(values.type,orb?'orb':weapon?classSkillMode(id)==='javelin'?'javelin':'arrow':'bolt',orb?.42:values.type==='cold'?.17:.2,this.game.projectileVisuals);
     mesh.position.copy(origin).setY(.9);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction);this.game.world.scene.add(mesh);
     this.missiles.push({mesh,origin:origin.clone(),direction:direction.clone(),phase:Math.random()*6,age:0,life:orb?1.15:1.1,damage:0,healing:0,kind:weapon?'arrow':'bolt',hit,snapshot,speed:orb?7:weapon?20:id==='chargedBolt'||id==='chargedStrike'?10:15,pierce:id==='guidedArrow'?0:id==='lightning'?100:weapon?snapshot.stats.mods.pierceChance??0:0,magicArrow:0,explosion:0,skill:id,values:{...values},weapon,radius:['fireBall','explodingArrow','immolationArrow','glacialSpike','freezingArrow','plagueJavelin'].includes(id)?values.radius:0,target,secondary,targetHits,pulse:0});
   }
@@ -164,6 +164,7 @@ export class ClassCombat {
     if(this.fields.length>=40)return;
     const line=id==='fireWall'||id==='inferno',radius=values.radius||2;
     const mesh=new THREE.Mesh(line?new THREE.PlaneGeometry(id==='inferno'?1.5:radius*2,id==='inferno'?radius*2:1.5):new THREE.CircleGeometry(radius,28),new THREE.MeshBasicMaterial({color:colors[values.type],transparent:true,opacity:delay?.16:.22,depthWrite:false,side:THREE.DoubleSide}));
+    mesh.material.forceSinglePass=true;
     mesh.rotation.x=-Math.PI/2;mesh.rotation.z=Math.atan2(direction.x,direction.z);mesh.position.copy(point).setY(.13);this.game.world.scene.add(mesh);
     if(id==='inferno')mesh.position.addScaledVector(direction,radius);
     decorateGround(mesh,values.type,line?.75:radius,id,line?radius*2:undefined);
@@ -173,8 +174,11 @@ export class ClassCombat {
   }
   summon(id:ClassSummon['id'],point:THREE.Vector3,rank:number) {
     const g=this.game,v=this.value(id),existing=this.summons.filter(s=>s.id===id);
-    if(existing.length>=(id==='hydra'?3:1)){const old=existing[0];g.disposeObject(old.actor.group);this.summons.splice(this.summons.indexOf(old),1);}
-    const actor=id==='hydra'?this.hydraActor():createActor('hero','amazon');actor.group.position.copy(point);
+    const previous=existing.length>=(id==='hydra'?3:1)?existing[0]:undefined;
+    if(previous){this.summons.splice(this.summons.indexOf(previous),1);previous.hp=0;previous.life=0;}
+    // Recasting refreshes the summon state; its unchanged model can move to the
+    // new position without rebuilding geometry or recompiling all its materials.
+    const actor=previous?.actor??(id==='hydra'?this.hydraActor():createActor('hero','amazon'));actor.group.position.copy(point);actor.group.rotation.set(0,0,0);actor.animate?.(g.time,false,0);
     if(id!=='hydra') {actor.group.getObjectByName('hero-weapon')!.visible=false;actor.group.getObjectByName('hero-javelin')!.visible=true;actor.group.userData.rangedKind='javelin';}
     if(id==='dopplezon')actor.group.traverse(node=>{if(node instanceof THREE.Mesh){const mat=node.material as THREE.MeshStandardMaterial;mat.color?.setHex(0x75cbbb);mat.transparent=true;mat.opacity=.65;}});
     g.world.scene.add(actor.group);const hp=id==='dopplezon'?stats(g.hero).maxHp*v.percent/100:id==='hydra'?200+rank*20:v.healing;
