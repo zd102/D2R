@@ -95,7 +95,7 @@ test('expanded layouts keep stable IDs, side rooms and 4-6 separated chests', ()
     // The Worldstone procession is deliberately straight; exploration also uses its side galleries.
     assert.ok(map.route.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - map.route[i].x, p.z - map.route[i].z), 0) >= 40);
     // Arcane's four independent arms deliberately omit the old perimeter shortcuts.
-    assert.ok(map.connections.reduce((sum, [a,b]) => sum + Math.hypot(a.x-b.x,a.z-b.z), 0) > (level.index === 8 ? 190 : 250));
+    assert.ok(map.connections.reduce((sum, [a,b]) => sum + Math.hypot(a.x-b.x,a.z-b.z), 0) > (level.index === 23 ? 150 : 190));
   }
 });
 test('large-grid pathfinding and projectile checks use the real grid origin beyond the old boundary', () => {

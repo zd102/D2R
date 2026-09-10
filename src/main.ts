@@ -32,7 +32,7 @@ try {
     paused: game.paused, dead: game.dead, started: game.started, inCamp: game.inCamp,
     bossDefeated: game.hero.bossDefeated,
     campaign: structuredClone(game.hero.campaign), difficulty: game.hero.difficultyLevel, unlockedDifficulty: game.hero.unlockedDifficulty,
-    area: { id: game.inCamp ? CAMP.id : game.level.id, name: game.areaName, act: game.inCamp ? null : game.level.act, step: game.inCamp ? null : game.level.step, questReady: !game.inCamp && questComplete(game.hero.campaign), seed: game.inCamp ? null : game.world.layout.seed, gridSize: game.world.grid.width, floorCells: game.world.floorCells.length },
+    area: { id: game.inCamp ? CAMP.id : game.level.id, name: game.areaName, act: game.inCamp ? null : game.level.act, step: game.inCamp ? null : game.level.step, questReady: !game.inCamp && questComplete(game.hero.campaign), seed: game.inCamp ? null : game.world.layout.seed, gridSize: game.world.grid.width, gridWidth: game.world.grid.width, gridHeight: game.world.grid.height, floorCells: game.world.floorCells.length },
     skills: { ...game.hero.skills }, skillPoints: game.hero.skillPoints, points: game.hero.points,
     activeAura: game.hero.activeAura, bindings: { ...game.hero.bindings }, holyShield: game.hero.holyShield,
     stamina: game.hero.stamina, weaponSet: game.hero.weaponSet, projectiles: game.combat.projectiles.length,

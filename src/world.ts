@@ -128,7 +128,7 @@ export class GameWorld {
   constructor(level = LEVELS[0], isCamp = false, seed = nextMapSeed()) {
     this.level = level; this.isCamp = isCamp;
     this.layout = levelLayout(level, seed);
-    if (!isCamp) this.grid = new PF.Grid((FIELD_BOUND + 1) * 2 + 1, (FIELD_BOUND + 1) * 2 + 1);
+    if (!isCamp) this.grid = new PF.Grid(this.layout.width, this.layout.height);
     const theme = ACTS[isCamp ? 0 : level.act];
     const design = isCamp ? undefined : sceneDesign(level);
     this.scene.background = new THREE.Color(design?.palette.sky ?? theme.sky);
@@ -141,17 +141,16 @@ export class GameWorld {
     sun.shadow.normalBias = .04; sun.shadow.bias = -.0003; this.scene.add(sun);
     const fill = new THREE.DirectionalLight(design?.palette.fill ?? 0x69a5b0, design ? .55 : 1.0); fill.position.set(20, 15, -20); this.scene.add(fill);
     const groundMap = isCamp ? groundTexture() : null;
-    this.ground = mesh(this.scene, new THREE.PlaneGeometry(170, 170), new THREE.MeshStandardMaterial({ map: groundMap, roughness: 1, bumpMap: groundMap, bumpScale: .18 }), 0, -.05, 0);
+    this.ground = mesh(this.scene, new THREE.PlaneGeometry(isCamp ? 170 : this.grid.width + 40, isCamp ? 170 : this.grid.height + 40), new THREE.MeshStandardMaterial({ map: groundMap, roughness: 1, bumpMap: groundMap, bumpScale: .18 }), 0, -.05, 0);
     this.ground.rotation.x = -Math.PI / 2; this.ground.castShadow = false;
     this.scene.add(this.staticGroup);
     (this.ground.material as THREE.MeshStandardMaterial).color.setHex(theme.ground);
     if (isCamp) this.buildCamp(); else this.buildLevel();
-    const offset = this.gridOffset, last = this.grid.width - 1;
-    for (let i = 0; i <= last; i++) {
-      this.grid.setWalkableAt(i, 0, false); this.grid.setWalkableAt(i, last, false);
-      this.grid.setWalkableAt(0, i, false); this.grid.setWalkableAt(last, i, false);
-    }
-    this.addCollider(0, -offset, last, .7); this.addCollider(0, offset, last, .7); this.addCollider(-offset, 0, .7, last); this.addCollider(offset, 0, .7, last);
+    const offset = this.gridOffset, offsetZ = this.gridOffsetZ, lastX = this.grid.width - 1, lastZ = this.grid.height - 1;
+    for (let x = 0; x <= lastX; x++) { this.grid.setWalkableAt(x, 0, false); this.grid.setWalkableAt(x, lastZ, false); }
+    for (let z = 0; z <= lastZ; z++) { this.grid.setWalkableAt(0, z, false); this.grid.setWalkableAt(lastX, z, false); }
+    this.addCollider(0, -offsetZ, lastX, .7); this.addCollider(0, offsetZ, lastX, .7);
+    this.addCollider(-offset, 0, .7, lastZ); this.addCollider(offset, 0, .7, lastZ);
     const runeMat = new THREE.MeshBasicMaterial({ map: sigilTexture(), transparent: true, opacity: .5, depthWrite: false, color: 0x69dbc4 });
     this.rune = mesh(this.scene, new THREE.PlaneGeometry(7, 7), runeMat, 0, .16, 11); this.rune.rotation.x = -Math.PI / 2;
     this.rune.castShadow = false;
@@ -167,7 +166,7 @@ export class GameWorld {
     }
     this.exit.visible = false;
     const particleGeo = new THREE.BufferGeometry(), pos = new Float32Array(420 * 3);
-    for (let i = 0; i < pos.length; i += 3) { pos[i] = (random() - .5) * (offset * 2 + 8); pos[i + 1] = random() * 7; pos[i + 2] = (random() - .5) * (offset * 2 + 8); }
+    for (let i = 0; i < pos.length; i += 3) { pos[i] = (random() - .5) * (offset * 2 + 8); pos[i + 1] = random() * 7; pos[i + 2] = (random() - .5) * (offsetZ * 2 + 8); }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const weather = design?.atmosphere;
     this.particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({ color: weather === 'snow' ? 0xe9f5ff : weather === 'rain' ? 0xa8c4c5 : weather === 'ash' ? 0xeea570 : design?.palette.trim ?? theme.accent, map: weatherTexture(weather === 'rain'), size: weather === 'rain' ? .38 : weather === 'snow' ? .13 : .07, transparent: true, opacity: weather === 'rain' ? .35 : .5, depthWrite: false })); this.scene.add(this.particles);
@@ -298,6 +297,7 @@ export class GameWorld {
     return { id, x, z, opened: false, group, lid };
   }
   get gridOffset() { return Math.floor(this.grid.width / 2); }
+  get gridOffsetZ() { return Math.floor(this.grid.height / 2); }
   completeObjective(id: number) {
     const group = this.shrineMeshes[id]; if (!group) return;
     group.userData.complete = true;
@@ -329,8 +329,8 @@ export class GameWorld {
     this.obstacles.push({ x, z, w, d });
     this.navigationGrid = undefined;
     for (let ix = Math.ceil(x - w / 2); ix <= Math.floor(x + w / 2); ix++) for (let iz = Math.ceil(z - d / 2); iz <= Math.floor(z + d / 2); iz++) {
-      const offset = this.gridOffset;
-      if (ix + offset >= 0 && ix + offset < this.grid.width && iz + offset >= 0 && iz + offset < this.grid.height) this.grid.setWalkableAt(ix + offset, iz + offset, false);
+      const offset = this.gridOffset, offsetZ = this.gridOffsetZ;
+      if (ix + offset >= 0 && ix + offset < this.grid.width && iz + offsetZ >= 0 && iz + offsetZ < this.grid.height) this.grid.setWalkableAt(ix + offset, iz + offsetZ, false);
     }
   }
   body(x: number, z: number, radius = PLAYER_RADIUS) {
@@ -341,16 +341,16 @@ export class GameWorld {
     if (![from.x, from.z, to.x, to.z].every(Number.isFinite)) return [];
     if (this.canWalk(from, to)) return Math.hypot(to.x - from.x, to.z - from.z) > .1 ? [new THREE.Vector3(to.x, 0, to.z)] : [];
     const scale = this.obstacles ? NAV_SCALE : 1;
-    const source = this.obstacles ? this.navigationGrid ??= collisionGrid(this.obstacles, this.gridOffset) : this.grid;
-    const offset = Math.floor(source.width / 2), last = source.width - 1;
-    let sx = Math.round(from.x * scale) + offset, sy = Math.round(from.z * scale) + offset;
-    const ex = Math.max(1, Math.min(last - 1, Math.round(to.x * scale) + offset)), ey = Math.max(1, Math.min(last - 1, Math.round(to.z * scale) + offset));
-    if (sx < 0 || sy < 0 || sx > last || sy > last) return [];
+    const source = this.obstacles ? this.navigationGrid ??= collisionGrid(this.obstacles, this.gridOffset, this.gridOffsetZ) : this.grid;
+    const offset = Math.floor(source.width / 2), offsetZ = Math.floor(source.height / 2);
+    let sx = Math.round(from.x * scale) + offset, sy = Math.round(from.z * scale) + offsetZ;
+    const ex = Math.max(1, Math.min(source.width - 2, Math.round(to.x * scale) + offset)), ey = Math.max(1, Math.min(source.height - 2, Math.round(to.z * scale) + offsetZ));
+    if (sx < 0 || sy < 0 || sx >= source.width || sy >= source.height) return [];
     // The exact actor position can be clear while its nearest sample is blocked.
     if (this.obstacles && !source.isWalkableAt(sx, sy)) {
       const starts: { x: number; y: number; distance: number }[] = [];
       for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
-        const point = { x: (sx + dx - offset) / scale, z: (sy + dy - offset) / scale };
+        const point = { x: (sx + dx - offset) / scale, z: (sy + dy - offsetZ) / scale };
         if (source.isWalkableAt(sx + dx, sy + dy) && this.canWalk(from, point)) starts.push({ x: sx + dx, y: sy + dy, distance: Math.hypot(point.x - from.x, point.z - from.z) });
       }
       starts.sort((a, b) => a.distance - b.distance);
@@ -359,7 +359,7 @@ export class GameWorld {
     }
     const candidates: { x: number; y: number; distance: number }[] = [];
     for (let dx = -4 * scale; dx <= 4 * scale; dx++) for (let dy = -4 * scale; dy <= 4 * scale; dy++) {
-      if (source.isWalkableAt(ex + dx, ey + dy)) candidates.push({ x: ex + dx, y: ey + dy, distance: ((ex + dx - offset) / scale - to.x) ** 2 + ((ey + dy - offset) / scale - to.z) ** 2 + Math.hypot(ex + dx - sx, ey + dy - sy) * .001 });
+      if (source.isWalkableAt(ex + dx, ey + dy)) candidates.push({ x: ex + dx, y: ey + dy, distance: ((ex + dx - offset) / scale - to.x) ** 2 + ((ey + dy - offsetZ) / scale - to.z) ** 2 + Math.hypot(ex + dx - sx, ey + dy - sy) * .001 });
     }
     candidates.sort((a, b) => a.distance - b.distance);
     let candidate = candidates[0];
@@ -375,7 +375,7 @@ export class GameWorld {
       for (let node: SearchedNode | undefined = grid.getNodeAt(candidate.x, candidate.y); node; node = node.parent) result.push([node.x, node.y]);
       result.reverse();
     }
-    const points = PF.Util.compressPath(result).map(([x, z]) => new THREE.Vector3((x - offset) / scale, 0, (z - offset) / scale));
+    const points = PF.Util.compressPath(result).map(([x, z]) => new THREE.Vector3((x - offset) / scale, 0, (z - offsetZ) / scale));
     // A collision may push an actor into an inflated obstacle cell. Leave that
     // cell along the escape route instead of first walking deeper to its center.
     if (!this.obstacles && !gridWalkable(this.grid, from)) points.shift();
@@ -394,8 +394,8 @@ export class GameWorld {
   }
   canWalk(from: { x: number; z: number }, to: { x: number; z: number }) {
     if (!this.obstacles) return clearWalk(this.grid, from, to);
-    const bound = this.gridOffset - PLAYER_RADIUS;
-    return Math.max(Math.abs(from.x), Math.abs(from.z), Math.abs(to.x), Math.abs(to.z)) < bound && clearObstacles(this.obstacles, from, to);
+    return Math.max(Math.abs(from.x), Math.abs(to.x)) < this.gridOffset - PLAYER_RADIUS
+      && Math.max(Math.abs(from.z), Math.abs(to.z)) < this.gridOffsetZ - PLAYER_RADIUS && clearObstacles(this.obstacles, from, to);
   }
   paving() {
     const texture = stoneTexture();

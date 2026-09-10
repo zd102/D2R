@@ -37,7 +37,7 @@ try {
       const ctx=canvas.getContext('2d');ctx.drawImage(renderer.domElement,0,0,64,64);
       const pixels=ctx.getImageData(0,0,64,64).data,colors=new Set();let lit=0;
       for(let i=0;i<pixels.length;i+=4){colors.add(`${pixels[i]>>3},${pixels[i+1]>>3},${pixels[i+2]>>3}`);lit+=Number(pixels[i]+pixels[i+1]+pixels[i+2]>65);}
-      return { index,name:LEVELS[index].name,...world.scene.userData.scenery,cells:world.floorCells.length,failures,colors:colors.size,lit,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,ms:Math.round(performance.now()-start) };
+      return { index,name:LEVELS[index].name,...world.scene.userData.scenery,width:world.grid.width,height:world.grid.height,cells:world.floorCells.length,failures,colors:colors.size,lit,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,ms:Math.round(performance.now()-start) };
     },index);
     results.push(result);
     await page.screenshot({ path: `${output}/area-${String(index+1).padStart(2,'0')}.png` });

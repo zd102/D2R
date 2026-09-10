@@ -2,6 +2,8 @@ import { eliteCount, levelTuning, type Level, type MapPoint } from './campaign.t
 import { ENCOUNTERS, MONSTERS } from './bestiary.ts';
 import type { LevelLayout } from './level-layouts.ts';
 import { mapRandom, shuffled } from './map-random.ts';
+import { areaMapProfile } from './area-map-profiles.ts';
+import { layoutWalkable } from './level-layouts.ts';
 
 export type EncounterPack = MapPoint & { species: string[]; role: 'route' | 'exploration' | 'guard' };
 const distance = (a: MapPoint, b: MapPoint) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -27,7 +29,7 @@ export function encounterPlan(level: Level, layout: LevelLayout, difficulty: num
   }
   // Bound actor/AI cost and combat time. Keep quest guards and distribute remaining packs
   // by their distance from occupied sites, so a larger roll does not become a crowded grind.
-  const limit = 13 + level.act + Math.floor(level.step / 2);
+  const limit = areaMapProfile(level).packs;
   const candidates = packs.splice(0);
   packs.push(...candidates.filter(pack => pack.role === 'guard'));
   while (packs.length < limit) {
@@ -47,9 +49,12 @@ export function encounterPlan(level: Level, layout: LevelLayout, difficulty: num
   const xpScale = referenceWeight * 1.2 / Math.max(1, actualWeight);
   const lootScale = Math.min(1, oldCount * 1.15 / Math.max(1, normalCount));
   const eliteSites: MapPoint[] = [];
-  for (const p of shuffled([...layout.chests, ...layout.branches, ...layout.rooms], random)) {
-    if (distance(p, layout.spawn) < 20 || distance(p, layout.boss) < 12 || eliteSites.some(site => distance(site,p) < 12)) continue;
-    eliteSites.push({ x: p.x - 2, z: p.z - 2 });
+  const eliteSpacing = Math.min(12, Math.min(layout.width, layout.height) * .12);
+  const roomCorners = layout.rooms.flatMap(room => [-1,1].flatMap(dx => [-1,1].map(dz => ({x:room.x+dx*room.width*.25,z:room.z+dz*room.depth*.25}))));
+  const preferred = [...layout.chests, ...layout.branches, ...layout.rooms].map(p => ({ x:p.x-2,z:p.z-2 }));
+  for (const p of [...shuffled(preferred,random), ...shuffled(roomCorners,random)]) {
+    if (!layoutWalkable(layout,p.x,p.z) || distance(p, layout.spawn) < 18 || distance(p, layout.boss) < 12 || eliteSites.some(site => distance(site,p) < eliteSpacing)) continue;
+    eliteSites.push(p);
     if (eliteSites.length === eliteCount(level, difficulty)) break;
   }
   return { packs, eliteSites, xpScale, lootScale, normalCount, referenceWeight };

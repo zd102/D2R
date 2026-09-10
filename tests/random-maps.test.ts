@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LEVELS, levelLayout, FIELD_BOUND, eliteCount, levelTuning } from '../src/campaign.ts';
+import { LEVELS, levelLayout, eliteCount, levelTuning } from '../src/campaign.ts';
+import { AREA_MAP_PROFILES, areaMapProfile, MAP_SIZE_LIMIT } from '../src/area-map-profiles.ts';
 import { layoutWalkable } from '../src/level-layouts.ts';
 import { nextMapSeed } from '../src/map-random.ts';
 import { encounterPlan } from '../src/encounter-plan.ts';
@@ -10,22 +11,22 @@ import { simulateProgression } from './balance-fixtures.ts';
 
 const seeds = [0, 1, 17, 20260910, 0x7fffffff, 0xffffffff, 811, 91919];
 test('200 generated maps connect every objective, room, boss, chest and encounter to a safe entrance', () => {
-  const offset = FIELD_BOUND+1, size = offset*2+1;
   for (const level of LEVELS) for (const seed of seeds) {
     const layout = levelLayout(level,seed), label = `${level.name}, seed ${seed}`;
-    const reachable = new Uint8Array(size*size);
-    for (let z=1;z<size-1;z++) for(let x=1;x<size-1;x++) reachable[z*size+x] = Number(layoutWalkable(layout,x-offset,z-offset));
-    const queue = [offset+(offset+11)*size]; reachable[queue[0]] = 2;
-    for (let i=0;i<queue.length;i++) for(const neighbor of [queue[i]-1,queue[i]+1,queue[i]-size,queue[i]+size]) {
+    const {width,height}=layout, offsetX=layout.bounds.x+1,offsetZ=layout.bounds.z+1;
+    const reachable = new Uint8Array(width*height);
+    for (let z=1;z<height-1;z++) for(let x=1;x<width-1;x++) reachable[z*width+x] = Number(layoutWalkable(layout,x-offsetX,z-offsetZ));
+    const queue = [offsetX+(offsetZ+11)*width]; reachable[queue[0]] = 2;
+    for (let i=0;i<queue.length;i++) for(const neighbor of [queue[i]-1,queue[i]+1,queue[i]-width,queue[i]+width]) {
       if(reachable[neighbor]===1){reachable[neighbor]=2;queue.push(neighbor);}
     }
-    assert.ok(queue.length>1700 && queue.length<10000, `${label}: floor area ${queue.length}`);
+    assert.ok(queue.length>1000 && queue.length<25000, `${label}: floor area ${queue.length}`);
     assert.deepEqual(layout.spawn,{x:0,z:11});
     assert.equal(layout.objects.length,level.quest.kind==='interact'?level.quest.count:0,label);
     assert.equal(layout.chests.length,4+Math.floor(level.act/2),label);
     const plan = encounterPlan(level,layout,2);
     for(const point of [layout.boss,layout.exit,layout.supply,...layout.objects,...layout.chests,...layout.rooms,...plan.packs,...plan.eliteSites]) {
-      const cell = Math.round(point.x)+offset+(Math.round(point.z)+offset)*size;
+      const cell = Math.round(point.x)+offsetX+(Math.round(point.z)+offsetZ)*width;
       assert.equal(reachable[cell],2,`${label}: reachable ${point.x},${point.z}`);
     }
     for(const pack of plan.packs) {
@@ -33,7 +34,30 @@ test('200 generated maps connect every objective, room, boss, chest and encounte
       assert.ok(Math.hypot(pack.x-layout.boss.x,pack.z-layout.boss.z)>=10,label);
     }
     assert.equal(plan.eliteSites.length,eliteCount(level,2),label);
-    assert.ok(plan.normalCount>=20&&plan.normalCount<=57,`${label}: population ${plan.normalCount}`);
+    assert.ok(plan.normalCount>=12&&plan.normalCount<=areaMapProfile(level).packs*3,`${label}: population ${plan.normalCount}`);
+  }
+});
+
+test('25 distinct regional footprints stay below 300 and produce measurably different exploration areas', () => {
+  assert.equal(new Set(AREA_MAP_PROFILES.map(p=>`${p.width}x${p.height}`)).size,25);
+  for(const profile of AREA_MAP_PROFILES) {
+    assert.ok(profile.width<=MAP_SIZE_LIMIT&&profile.height<=MAP_SIZE_LIMIT);
+    assert.equal(profile.width%2,1);assert.equal(profile.height%2,1);
+  }
+  const area=(index:number,seed:number)=>{
+    const layout=levelLayout(LEVELS[index],seed);let cells=0;
+    for(let x=-layout.bounds.x;x<=layout.bounds.x;x++)for(let z=-layout.bounds.z;z<=layout.bounds.z;z++)cells+=Number(layoutWalkable(layout,x,z));
+    return cells;
+  };
+  for(const seed of seeds) {
+    assert.ok(area(16,seed)>area(23,seed)*4,'despair plains remain much larger than the summit');
+    assert.ok(area(10,seed)>area(1,seed)*2,'spider forest remains much larger than the cemetery');
+    for(const index of [5,7,17,20,24]) {
+      const layout=levelLayout(LEVELS[index],seed);
+      const xSpan=Math.max(...layout.rooms.map(p=>p.x))-Math.min(...layout.rooms.map(p=>p.x));
+      const zSpan=Math.max(...layout.rooms.map(p=>p.z))-Math.min(...layout.rooms.map(p=>p.z));
+      assert.ok(zSpan>xSpan*1.5,`${LEVELS[index].name}: actual traversable layout is elongated`);
+    }
   }
 });
 

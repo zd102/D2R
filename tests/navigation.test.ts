@@ -83,6 +83,22 @@ function collisionFixture(obstacles: Obstacle[]) {
   const { world } = fixture(); world.obstacles = obstacles; return world;
 }
 
+test('rectangular maps route around physical walls on either long axis without clipping or shifting coordinates', () => {
+  for(const vertical of [true,false]) {
+    const world=collisionFixture([vertical?{x:0,z:0,w:30,d:2}:{x:0,z:0,w:2,d:30}]);
+    world.grid=new PF.Grid(vertical?61:241,vertical?241:61);
+    const from=vertical?{x:0,z:-100}:{x:-100,z:0},to=vertical?{x:0,z:100}:{x:100,z:0};
+    assert.ok(world.canWalk(from,from),'the long axis extends beyond the short-axis bound');
+    assert.equal(world.canWalk(from,to),false);
+    const route=world.path(from,to);assert.ok(route.length>=2);
+    assert.deepEqual({x:route.at(-1)!.x,z:route.at(-1)!.z},to);
+    let anchor=from;
+    for(const point of route){assert.ok(world.canWalk(anchor,point));anchor=point;}
+    const outside=vertical?{x:31,z:0}:{x:0,z:31};
+    assert.equal(world.canWalk(outside,outside),false,'the short-axis boundary still blocks movement');
+  }
+});
+
 test('physical clearance allows walking beside small props and through a body-width gap', () => {
   const prop = { x: 0, z: 0, w: 1, d: 1 }, world = collisionFixture([prop]);
   assert.equal(world.canWalk({ x: -4, z: 1 }, { x: 4, z: 1 }), true, 'no extra grid tile beside a half-unit edge');

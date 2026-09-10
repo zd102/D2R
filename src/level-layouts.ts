@@ -1,9 +1,11 @@
 import type { Level, MapPoint } from './campaign.ts';
 import { mapRandom, shuffled } from './map-random.ts';
+import { areaMapProfile, MAP_SIZE_LIMIT } from './area-map-profiles.ts';
 
 type Pair = [number, number];
 type LayoutDraft = { path: Pair[]; wings: Pair[]; width: number; room: number; shape?: 'round' | 'rect' | 'octagon'; axis?: boolean; boss?: Pair; links?: [number, number][]; loops?: boolean; objectives?: Pair[]; arena?: number };
-export const MAP_BOUND = 73;
+// Save-file coordinate ceiling only. Live map bounds belong to each layout.
+export const MAP_BOUND = Math.floor((MAP_SIZE_LIMIT - 3) / 2);
 // Authored room graphs follow each area's identity; all share the saved entrance.
 const drafts: LayoutDraft[] = [
   { path: [[-11,2],[-20,-12],[-6,-20],[12,-25]], wings: [[17,15],[-29,3],[23,-9],[-25,-27],[27,-25],[-15,26]], width: 3.2, room: 11, shape: 'round' },
@@ -135,8 +137,12 @@ function authoredLayout(level: Level) {
 /** Authored geography supplies the identity; each visit builds its own room graph. */
 export function campaignLayout(level: Level, seed = 0) {
   const random = mapRandom(seed ^ Math.imul(level.index + 1, 7919));
-  const base = authoredLayout(level), draft = expanded[level.index];
-  const scaleX = 1.4 + random() * .12, scaleZ = 1.4 + random() * .12;
+  const base = authoredLayout(level), draft = expanded[level.index], profile = areaMapProfile(level);
+  const bounds = { x: (profile.width - 3) / 2, z: (profile.height - 3) / 2 };
+  const anchors = [...base.route, ...base.rooms];
+  const margin = Math.max(14 * profile.roomScale, base.bossRadius + 3);
+  const scaleX = (bounds.x - margin) / Math.max(...anchors.map(p => Math.abs(p.x))) * (.94 + random() * .06);
+  const scaleZ = (bounds.z - margin) / Math.max(...anchors.map(p => Math.abs(p.z))) * (.94 + random() * .06);
   const organic = draft.shape === 'round';
   const transformed = new Map<string, MapPoint>();
   const transform = (p: MapPoint): MapPoint => {
@@ -153,15 +159,15 @@ export function campaignLayout(level: Level, seed = 0) {
   const exit = { x: boss.x, z: boss.z - 4 };
   // Exit direction belongs to the boss set piece, and is not independently warped.
   transformed.set(`${base.exit.x},${base.exit.z}`, exit);
-  const rooms = base.rooms.map(room => ({ ...room, ...transform(room), width: room.width * (1.02 + random() * .2), depth: room.depth * (1.02 + random() * .2) }));
+  const rooms = base.rooms.map(room => ({ ...room, ...transform(room), width: room.width * profile.roomScale * (1.02 + random() * .2), depth: room.depth * profile.roomScale * (1.02 + random() * .2) }));
   const connections: [MapPoint, MapPoint][] = base.connections.map(([a,b]) => [transform(a), transform(b)]);
   const wings = rooms.slice(4), branches: MapPoint[] = [];
   // Outward pockets vary both the graph and the floor plan. Their parent is always connected.
-  const branchCount = (level.index === 23 ? 2 : 3) + Math.floor(random() * 3);
+  const branchCount = profile.branches[0] + Math.floor(random() * (profile.branches[1] - profile.branches[0] + 1));
   for (const parent of shuffled(wings, random).slice(0, branchCount)) {
     const length = Math.hypot(parent.x, parent.z) || 1;
     const reach = 12 + random() * 6;
-    const p = { x: Math.round(Math.max(-64, Math.min(64, parent.x + parent.x / length * reach))), z: Math.round(Math.max(-64, Math.min(62, parent.z + parent.z / length * reach))) };
+    const p = { x: Math.round(Math.max(-bounds.x+9, Math.min(bounds.x-9, parent.x + parent.x / length * reach))), z: Math.round(Math.max(-bounds.z+9, Math.min(bounds.z-9, parent.z + parent.z / length * reach))) };
     branches.push(p);
     rooms.push({ ...p, width: 10 + random() * 4, depth: 10 + random() * 4, shape: draft.shape ?? 'rect' });
     if (draft.axis) {
@@ -176,12 +182,10 @@ export function campaignLayout(level: Level, seed = 0) {
   }
   const objects = draft.objectives ? base.objects.map(transform) : shuffled([...wings.slice(2), ...branches], random).slice(0, base.objects.length).map(p => ({ x: p.x, z: p.z }));
   if (level.index === 23) objects.splice(0, objects.length, ...base.objects.map(p => ({ x: boss.x + p.x - base.boss.x, z: boss.z + p.z - base.boss.z })));
-  const chestSites = shuffled([...wings, ...branches], random);
   // Keep one early cache; the rest reward searching distant rooms without raising the loot budget.
-  chestSites[0] = wings[0];
-  const uniqueSites = [...new Set(chestSites)];
-  const chests = uniqueSites.slice(0, base.chests.length).map((p,id) => ({ id, x: p.x + 2, z: p.z + 2 }));
-  const layout = { ...base, seed: seed >>> 0, route, spawn, supply, boss, exit, rooms, connections, branches, objects, chests };
+  const chestSites = [wings[0], ...shuffled([...wings.slice(1), ...branches], random)];
+  const chests = chestSites.slice(0, base.chests.length).map((p,id) => ({ id, x: p.x + 2, z: p.z + 2 }));
+  const layout = { ...base, seed: seed >>> 0, bounds, width: profile.width, height: profile.height, route, spawn, supply, boss, exit, rooms, connections, branches, objects, chests };
   if (level.index === 8) buildArcaneArms(layout, random);
   return layout;
 }
@@ -192,7 +196,8 @@ function buildArcaneArms(layout: LevelLayout, random: () => number) {
   for (const [dx,dz] of [[0,-1],[-1,0],[1,0],[0,1]]) {
     const arm: MapPoint[] = [];
     for (let step = 1; step <= 3; step++) {
-      const distance = step * (17 + random() * 2);
+      const extent = dx ? layout.bounds.x : layout.bounds.z;
+      const distance = step * (extent - 13) / 3 * (.94 + random() * .06);
       const p = { x: Math.round(dx * distance), z: Math.round(dz * distance) };
       layout.connections.push([arm.at(-1) ?? hub, p]); arm.push(p);
       layout.rooms.push({ ...p, width: 11 + random() * 3, depth: 11 + random() * 3, shape: 'octagon' });
@@ -215,8 +220,8 @@ export function distanceToSegment(x: number, z: number, a: MapPoint, b: MapPoint
   const t = length ? Math.max(0, Math.min(1, ((x - a.x) * (b.x - a.x) + (z - a.z) * (b.z - a.z)) / length)) : 0;
   return Math.hypot(x - a.x - t * (b.x - a.x), z - a.z - t * (b.z - a.z));
 }
-export function layoutWalkable(layout: LevelLayout, x: number, z: number, bound = MAP_BOUND) {
-  return Math.abs(x) < bound && Math.abs(z) < bound && (
+export function layoutWalkable(layout: LevelLayout, x: number, z: number) {
+  return Math.abs(x) < layout.bounds.x && Math.abs(z) < layout.bounds.z && (
     layout.connections.some(([a, b]) => distanceToSegment(x, z, a, b) < layout.corridorWidth) ||
     Math.hypot(x - layout.spawn.x, z - layout.spawn.z) < 6 || Math.hypot(x - layout.boss.x, z - layout.boss.z) < layout.bossRadius ||
     layout.rooms.some(room => {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import PF from 'pathfinding';
-import { FIELD_BOUND, type Level, type MapPoint } from './campaign.ts';
+import { type Level, type MapPoint } from './campaign.ts';
 import { distanceToSegment, layoutWalkable, type LevelLayout } from './level-layouts.ts';
 import { sceneDesign, type SceneryProp } from './scene-design.ts';
 import { sceneryRandom, sceneryTexture, sceneryDecal } from './scenery-textures.ts';
@@ -145,11 +145,11 @@ export function buildLevelScenery(world: SceneHost) {
   };
 
   const walkable = (x: number,z: number) => layoutWalkable(layout,x,z);
-  const offset = FIELD_BOUND + 1, size = offset * 2 + 1;
-  const matrix = Array.from({length:size},(_,row)=>Array.from({length:size},(_,column)=>walkable(column-offset,row-offset)?0:1));
-  for(let z=-FIELD_BOUND;z<=FIELD_BOUND;z++) for(let x=-FIELD_BOUND;x<=FIELD_BOUND;) {
-    if(walkable(x,z)) { world.floorCells.push({x,z}); x++; continue; }
-    const start=x; while(x<=FIELD_BOUND&&!walkable(x,z))x++;
+  const {x:boundX,z:boundZ} = layout.bounds, offsetX = boundX+1, offsetZ = boundZ+1;
+  const matrix = Array.from({length:layout.height},(_,row)=>Array.from({length:layout.width},(_,column)=>walkable(column-offsetX,row-offsetZ)?0:1));
+  for(let z=-boundZ;z<=boundZ;z++) for(let x=-boundX;x<=boundX;) {
+    if(!matrix[z+offsetZ][x+offsetX]) { world.floorCells.push({x,z}); x++; continue; }
+    const start=x; while(x<=boundX&&matrix[z+offsetZ][x+offsetX])x++;
     world.addCollider((start+x-1)/2,z,x-start,1);
   }
   world.grid = new PF.Grid(matrix);
@@ -174,11 +174,11 @@ export function buildLevelScenery(world: SceneHost) {
   // Replace the old terrain texture and release it before it can be orphaned.
   const oldGround = world.ground.material as THREE.MeshStandardMaterial;
   const oldTextures=new Set([oldGround.map,oldGround.bumpMap]); oldTextures.forEach(texture=>texture?.dispose()); oldGround.dispose();
-  const backdropMap=sceneryTexture(design.liquid==='lava'?'lava':design.liquid?'water':design.surface,1900+level.index); backdropMap.repeat.set(26,26);
+  const backdropMap=sceneryTexture(design.liquid==='lava'?'lava':design.liquid?'water':design.surface,1900+level.index); backdropMap.repeat.set((layout.width+40)/6.5,(layout.height+40)/6.5);
   const backdrop = new THREE.MeshStandardMaterial({color:design.liquid?palette.liquid:palette.dark,map:backdropMap,roughness:design.liquid?.5:1,
     ...(design.liquid==='lava'?{emissive:palette.liquid,emissiveMap:backdropMap,emissiveIntensity:.6}:{}),});
   world.ground.material=backdrop;
-  for(let x=-FIELD_BOUND;x<=FIELD_BOUND;x++) for(let z=-FIELD_BOUND;z<=FIELD_BOUND;z++) {
+  for(let x=-boundX;x<=boundX;x++) for(let z=-boundZ;z<=boundZ;z++) {
     if(onFloor(x,z))continue;
     const adjacent=[[-1,0],[1,0],[0,-1],[0,1]].filter(([dx,dz])=>onFloor(x+dx,z+dz));
     if(!adjacent.length)continue;
@@ -201,11 +201,18 @@ export function buildLevelScenery(world: SceneHost) {
     if(design.edge==='bank'&&level.act===2){const tuft=mesh(geometry.plane,leaves,p.x,.22,p.z,.7,.6,1,random()*6);tuft.castShadow=false;}
   }
   // Dense silhouettes belong beyond the solid edge, never in an invisible collider.
-  for(let x=-FIELD_BOUND+2;x<FIELD_BOUND-1;x+=3)for(let z=-FIELD_BOUND+2;z<FIELD_BOUND-1;z+=3) {
+  const floorWithin = (x:number,z:number,radius:number) => {
+    const reach=Math.ceil(radius);
+    for(let dx=-reach;dx<=reach;dx++)for(let dz=-reach;dz<=reach;dz++) {
+      if(dx*dx+dz*dz<radius*radius&&onFloor(x+dx,z+dz))return true;
+    }
+    return false;
+  };
+  for(let x=-boundX+2;x<boundX-1;x+=3)for(let z=-boundZ+2;z<boundZ-1;z+=3) {
     if(design.edge==='void')continue;
     if(random()<.22||walkable(x,z))continue;
-    if(world.floorCells.some(p=>Math.abs(p.x-x)<1.8&&Math.abs(p.z-z)<1.8))continue;
-    if(!world.floorCells.some(p=>Math.hypot(p.x-x,p.z-z)<6))continue;
+    if(floorWithin(x,z,2))continue;
+    if(!floorWithin(x,z,6))continue;
     prop(design.props[Math.floor(random()*design.props.length)],x,z,.75+random()*.55,random()*6);
   }
   // Low relief clutter remains traversable; substantial furniture gets real collision.

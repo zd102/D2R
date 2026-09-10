@@ -297,7 +297,8 @@ export class UI {
   drawMap(canvas = this.mapCanvas, large = false) {
     const ctx = canvas.getContext('2d')!, w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h); ctx.fillStyle = large ? '#131c1c' : 'rgba(12,20,20,.68)'; ctx.fillRect(0, 0, w, h);
-    const mapSize = this.game.world.grid.width - 2;
+    const mapWidth = this.game.world.grid.width - 2, mapHeight = this.game.world.grid.height - 2;
+    const mapSize = (mapWidth + mapHeight) / 2;
     const extent = large || this.game.inCamp ? mapSize : 44;
     const center = large || this.game.inCamp ? { x: 0, z: 0 } : this.game.position;
     const scale = Math.min(w / (extent * 1.55), h / (extent * 1.3)), point = (x: number, z: number) => ({ x: w / 2 + (x - center.x - z + center.z) * .707 * scale, y: h / 2 + (x - center.x + z - center.z) * .48 * scale });
@@ -305,7 +306,7 @@ export class UI {
     const poly = (x: number, z: number, width: number, depth: number, color: string) => {
       ctx.fillStyle = color; ctx.beginPath(); [[x - width / 2, z - depth / 2], [x + width / 2, z - depth / 2], [x + width / 2, z + depth / 2], [x - width / 2, z + depth / 2]].forEach(([px, pz], index) => { const p = point(px, pz); index ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.closePath(); ctx.fill();
     };
-    poly(0, 0, mapSize, mapSize, '#24302b');
+    poly(0, 0, mapWidth, mapHeight, '#24302b');
     this.game.world.floorCells.forEach(p => { if (explored(p.x, p.z)) poly(p.x, p.z, 1.05, 1.05, '#697667'); });
     const dot = (x: number, z: number, color: string, radius: number, diamond = false) => { const p = point(x, z); ctx.fillStyle = color; ctx.beginPath(); if (diamond) { ctx.moveTo(p.x, p.y - radius); ctx.lineTo(p.x + radius, p.y); ctx.lineTo(p.x, p.y + radius); ctx.lineTo(p.x - radius, p.y); } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill(); };
     this.game.enemies.forEach(e => { if (!e.dead && explored(e.actor.group.position.x, e.actor.group.position.z) && (e.boss ? questComplete(this.game.hero.campaign) : e.actor.group.position.distanceTo(this.game.position) < 12)) dot(e.actor.group.position.x, e.actor.group.position.z, e.boss ? '#ef846b' : e.elite ? '#eac66c' : '#c56456', e.boss ? 4 : e.elite ? 3 : 2); });

@@ -63,7 +63,7 @@ try {
   for (const level of LEVELS) {
     if (level.index) await choose(page, level.index);
     const s = await state(page), layout = levelLayout(level);
-    assert.equal(s.area.gridSize, 149); minFloor = Math.min(minFloor, s.area.floorCells); maxFloor = Math.max(maxFloor, s.area.floorCells);
+    assert.equal(s.area.gridWidth, layout.width); assert.equal(s.area.gridHeight, layout.height); assert.ok(s.area.gridWidth <= 300 && s.area.gridHeight <= 300); minFloor = Math.min(minFloor, s.area.floorCells); maxFloor = Math.max(maxFloor, s.area.floorCells);
     assert.equal(s.chests.length, layout.chests.length); assert.equal(s.enemies.filter(e => e.boss).length, 1);
     const inaccessibleEnemies = await page.evaluate(() => {
       const g=window.mapVerification;

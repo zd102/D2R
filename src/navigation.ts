@@ -40,19 +40,18 @@ export function clearObstacles(obstacles: Obstacle[], from: Point, to: Point, ra
   return true;
 }
 
-export function collisionGrid(obstacles: Obstacle[], extent: number) {
-  const offset = extent * NAV_SCALE, size = offset * 2 + 1, grid = new PF.Grid(size, size);
-  for (let i = 0; i < size; i++) {
-    grid.setWalkableAt(i, 0, false); grid.setWalkableAt(i, size - 1, false);
-    grid.setWalkableAt(0, i, false); grid.setWalkableAt(size - 1, i, false);
-  }
+export function collisionGrid(obstacles: Obstacle[], extent: number, extentZ = extent) {
+  const offset = extent * NAV_SCALE, offsetZ = extentZ * NAV_SCALE;
+  const width = offset * 2 + 1, height = offsetZ * 2 + 1, grid = new PF.Grid(width, height);
+  for (let x = 0; x < width; x++) { grid.setWalkableAt(x, 0, false); grid.setWalkableAt(x, height - 1, false); }
+  for (let z = 0; z < height; z++) { grid.setWalkableAt(0, z, false); grid.setWalkableAt(width - 1, z, false); }
   for (const obstacle of obstacles) {
     const x0 = Math.max(0, Math.ceil((obstacle.x - obstacle.w / 2 - WALK_CLEARANCE) * NAV_SCALE) + offset);
-    const x1 = Math.min(size - 1, Math.floor((obstacle.x + obstacle.w / 2 + WALK_CLEARANCE) * NAV_SCALE) + offset);
-    const z0 = Math.max(0, Math.ceil((obstacle.z - obstacle.d / 2 - WALK_CLEARANCE) * NAV_SCALE) + offset);
-    const z1 = Math.min(size - 1, Math.floor((obstacle.z + obstacle.d / 2 + WALK_CLEARANCE) * NAV_SCALE) + offset);
+    const x1 = Math.min(width - 1, Math.floor((obstacle.x + obstacle.w / 2 + WALK_CLEARANCE) * NAV_SCALE) + offset);
+    const z0 = Math.max(0, Math.ceil((obstacle.z - obstacle.d / 2 - WALK_CLEARANCE) * NAV_SCALE) + offsetZ);
+    const z1 = Math.min(height - 1, Math.floor((obstacle.z + obstacle.d / 2 + WALK_CLEARANCE) * NAV_SCALE) + offsetZ);
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
-      if (pointRectangleDistance({ x: (x - offset) / NAV_SCALE, z: (z - offset) / NAV_SCALE }, obstacle) < WALK_CLEARANCE) grid.setWalkableAt(x, z, false);
+      if (pointRectangleDistance({ x: (x - offset) / NAV_SCALE, z: (z - offsetZ) / NAV_SCALE }, obstacle) < WALK_CLEARANCE) grid.setWalkableAt(x, z, false);
     }
   }
   return grid;
