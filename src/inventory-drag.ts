@@ -1,12 +1,17 @@
-import { canMoveItem, moveItem, packItems, type Item, type ItemPosition } from './items';
+import { itemMovePlan, moveItem, packItems, SLOTS, slotNames, type Item, type ItemPosition, type Slot } from './items';
+import { equipFromItems, equipReason } from './model';
+import { equipmentPanel } from './equipment-ui';
 import type { UI } from './ui';
 
 type Drag = {
   source: HTMLButtonElement; grid: HTMLElement; items: Item[]; item: Item; rows: number;
+  container: 'inventory' | 'stash' | 'shared'; panel: 'inventory' | 'shared-stash';
   origin: ItemPosition; x: number; y: number; active: boolean; inside: boolean; valid: boolean;
   pointerId: number | null; startX: number; startY: number; clientX: number; clientY: number;
   grabX: number; grabY: number; offsetX: number; offsetY: number;
-  ghost?: HTMLElement; preview?: HTMLElement;
+  ghost?: HTMLElement; hintBox?: HTMLElement; preview?: HTMLElement; swapPreview?: HTMLElement; dock?: HTMLElement;
+  slotTarget?: HTMLButtonElement; equipCheck?: { slot: Slot; valid: boolean; reason: string };
+  swapped: number; hint: string;
 };
 
 export class InventoryDrag {
@@ -47,11 +52,13 @@ export class InventoryDrag {
 
   private prepare(source: HTMLButtonElement): Drag | undefined {
     const grid = source.closest<HTMLElement>('.diablo-grid'), container = grid?.dataset.container;
-    if (!grid || this.ui.panel !== 'inventory' || this.ui.game.saveConflict || container !== 'inventory' && container !== 'stash') return;
-    const items = this.ui.game.hero[container], rows = Number(grid.dataset.rows), item = items.find(item => item.id === source.dataset.item);
+    if (!grid || this.ui.panel !== 'inventory' && this.ui.panel !== 'shared-stash' || this.ui.game.saveConflict || this.ui.sharedStashScreen.busy || container !== 'inventory' && container !== 'stash' && container !== 'shared') return;
+    const items = container === 'shared' ? this.ui.sharedStashScreen.state?.items : this.ui.game.hero[container];
+    if (!items) return;
+    const rows = Number(grid.dataset.rows), item = items.find(item => item.id === (source.dataset.item ?? source.dataset.sharedItem));
     if (!item || !Number.isInteger(rows) || rows < 1) return;
     const origin = packItems(items, rows)?.get(item.id); if (!origin) return;
-    return { source, grid, items, item, rows, origin, x: origin.x, y: origin.y, active: false, inside: true, valid: true, pointerId: null, startX: 0, startY: 0, clientX: 0, clientY: 0, grabX: 0, grabY: 0, offsetX: 0, offsetY: 0 };
+    return { source, grid, items, item, rows, container, panel: this.ui.panel, origin, x: origin.x, y: origin.y, active: false, inside: true, valid: true, pointerId: null, startX: 0, startY: 0, clientX: 0, clientY: 0, grabX: 0, grabY: 0, offsetX: 0, offsetY: 0, swapped: 0, hint: '' };
   }
 
   private pointerDown(event: PointerEvent) {
@@ -82,6 +89,7 @@ export class InventoryDrag {
     const drag = this.drag!;
     drag.active = true; drag.source.classList.add('is-dragging');
     drag.preview = document.createElement('div'); drag.preview.className = 'item-drop-preview'; drag.preview.setAttribute('aria-hidden', 'true'); drag.grid.append(drag.preview);
+    drag.swapPreview = document.createElement('div'); drag.swapPreview.className = 'item-swap-preview'; drag.swapPreview.setAttribute('aria-hidden', 'true'); drag.grid.append(drag.swapPreview);
     document.documentElement.classList.add('is-dragging-item');
     if (drag.pointerId !== null) {
       const rect = drag.source.getBoundingClientRect();
@@ -91,39 +99,72 @@ export class InventoryDrag {
       drag.ghost.setAttribute('aria-hidden', 'true'); drag.ghost.tabIndex = -1;
       drag.ghost.style.width = `${rect.width}px`; drag.ghost.style.height = `${rect.height}px`;
       document.body.append(drag.ghost);
+      drag.hintBox = document.createElement('div'); drag.hintBox.className = 'item-drag-hint'; drag.hintBox.setAttribute('aria-hidden', 'true'); document.body.append(drag.hintBox);
+      if (innerWidth <= 700 || innerHeight <= 580) {
+        drag.dock = document.createElement('aside'); drag.dock.className = 'drag-equipment-dock';
+        drag.dock.setAttribute('aria-label', '拖拽到装备部位以装备');
+        drag.dock.innerHTML = `<div class="drag-dock-title">拖到对应部位即可装备</div>${equipmentPanel(this.ui.game.hero)}`;
+        document.body.append(drag.dock); this.ui.refreshIcons();
+      }
     }
     this.preview();
   }
 
   private updatePointer(clientX: number, clientY: number) {
     const drag = this.drag; if (!drag?.active) return;
-    if (!drag.grid.isConnected || this.ui.panel !== 'inventory') { this.cancel(); return; }
+    if (!drag.grid.isConnected || this.ui.panel !== drag.panel) { this.cancel(); return; }
     drag.clientX = clientX; drag.clientY = clientY;
-    const rect = drag.grid.getBoundingClientRect(), panel = drag.grid.closest<HTMLElement>('.panel')!, panelRect = (drag.grid.closest<HTMLElement>('.inventory-grid-scroll') ?? panel).getBoundingClientRect();
+    const rect = drag.grid.getBoundingClientRect(), panel = drag.grid.closest<HTMLElement>('.panel')!, panelRect = (drag.grid.closest<HTMLElement>('.inventory-grid-scroll,.shared-grid-scroll') ?? panel).getBoundingClientRect();
     const headerBottom = panel.querySelector('.panel-header')!.getBoundingClientRect().bottom;
-    drag.inside = clientX >= rect.left && clientX < rect.left + drag.grid.clientWidth && clientY >= Math.max(rect.top, headerBottom) && clientY < Math.min(rect.top + drag.grid.clientHeight, panelRect.bottom);
+    drag.inside = clientX >= rect.left && clientX < rect.left + drag.grid.clientWidth && clientY >= Math.max(rect.top, headerBottom, panelRect.top) && clientY < Math.min(rect.top + drag.grid.clientHeight, panelRect.bottom);
     drag.x = Math.floor((clientX - rect.left) / (drag.grid.clientWidth / 10)) - drag.grabX;
     drag.y = Math.floor((clientY - rect.top) / (drag.grid.clientHeight / drag.rows)) - drag.grabY;
+    drag.slotTarget?.removeAttribute('data-drop-valid');
+    drag.slotTarget = document.elementFromPoint(clientX, clientY)?.closest<HTMLButtonElement>('[data-equipment-slot]') ?? undefined;
+    if (drag.slotTarget) drag.inside = true;
     if (drag.ghost) { drag.ghost.style.left = `${clientX - drag.offsetX}px`; drag.ghost.style.top = `${clientY - drag.offsetY}px`; }
     this.preview();
   }
 
   private preview() {
     const drag = this.drag!;
-    drag.valid = drag.inside && canMoveItem(drag.items, drag.item.id, drag.x, drag.y, drag.rows);
+    const slot = drag.slotTarget?.dataset.equipmentSlot as Slot | undefined;
+    drag.swapped = 0;
+    if (slot && SLOTS.includes(slot)) {
+      if (drag.equipCheck?.slot !== slot) {
+        const hero = structuredClone(this.ui.game.hero), items = drag.container === 'shared' ? structuredClone(drag.items) : hero[drag.container];
+        const reason = equipReason(hero, drag.item, slot);
+        const valid = !reason && equipFromItems(hero, items, drag.item.id, slot, drag.rows);
+        drag.equipCheck = { slot, valid, reason: reason || (valid ? '' : '来源容器放不下替换装备') };
+      }
+      drag.valid = drag.equipCheck.valid; drag.hint = drag.valid ? `装备至${slotNames[slot]}` : drag.equipCheck.reason;
+      drag.slotTarget!.dataset.dropValid = String(drag.valid);
+    } else {
+      const plan = drag.inside ? itemMovePlan(drag.items, drag.item.id, drag.x, drag.y, drag.rows) : null;
+      drag.valid = !!plan; drag.swapped = plan?.swapped.length ?? 0;
+      drag.hint = drag.valid ? drag.swapped ? `交换 ${drag.swapped} 件物品` : '移动到此处' : '目标需完整覆盖物品，且交换后不能重叠';
+    }
     const preview = drag.preview!;
-    preview.hidden = !drag.inside; preview.dataset.valid = String(drag.valid);
+    preview.hidden = !drag.inside || !!slot; preview.dataset.valid = String(drag.valid); preview.dataset.mode = drag.swapped ? 'swap' : 'move';
     preview.style.left = `${drag.x * 10}%`; preview.style.top = `${drag.y / drag.rows * 100}%`;
     preview.style.width = `${drag.origin.width * 10}%`; preview.style.height = `${drag.origin.height / drag.rows * 100}%`;
-    if (drag.ghost) drag.ghost.dataset.valid = String(drag.valid);
+    const swap = drag.swapPreview!; swap.hidden = !drag.valid || !drag.swapped || !!slot;
+    swap.style.left = `${drag.origin.x * 10}%`; swap.style.top = `${drag.origin.y / drag.rows * 100}%`;
+    swap.style.width = `${drag.origin.width * 10}%`; swap.style.height = `${drag.origin.height / drag.rows * 100}%`;
+    if (drag.ghost) { drag.ghost.dataset.valid = String(drag.valid); drag.ghost.dataset.hint = drag.hint; }
+    if (drag.hintBox) {
+      drag.hintBox.textContent = drag.hint; drag.hintBox.dataset.valid = String(drag.valid);
+      drag.hintBox.style.left = `${Math.max(8, Math.min(innerWidth - drag.hintBox.offsetWidth - 8, drag.clientX + 14))}px`;
+      drag.hintBox.style.top = `${Math.max(8, Math.min(innerHeight - drag.hintBox.offsetHeight - 8, drag.clientY - drag.hintBox.offsetHeight - 16))}px`;
+    }
     const status = drag.grid.closest('.bag-column')?.querySelector<HTMLElement>('.inventory-move-status');
-    if (status) status.textContent = drag.valid ? `${drag.item.name}：第 ${drag.y + 1} 行，第 ${drag.x + 1} 列` : '该位置无法放置装备';
+    if (status) status.textContent = `${drag.item.name}：${drag.hint}`;
   }
 
   private autoScroll(now: number) {
     const drag = this.drag; if (!drag?.active || drag.pointerId === null) return;
     if (!drag.grid.isConnected) { this.cancel(); return; }
-    const panel = drag.grid.closest<HTMLElement>('.inventory-grid-scroll')!, rect = panel.getBoundingClientRect();
+    const panel = drag.grid.closest<HTMLElement>('.inventory-grid-scroll,.shared-grid-scroll')!, rect = panel.getBoundingClientRect();
     const top = rect.top, dt = Math.min(50, now - this.lastFrame) / 1000; this.lastFrame = now;
     if (drag.clientX >= rect.left && drag.clientX <= rect.right && drag.clientY >= rect.top && drag.clientY <= rect.bottom) {
       const velocity = drag.clientY < top + 36 ? -Math.min(1, (top + 36 - drag.clientY) / 36) : drag.clientY > rect.bottom - 36 ? Math.min(1, (drag.clientY - rect.bottom + 36) / 36) : 0;
@@ -154,15 +195,23 @@ export class InventoryDrag {
 
   private finish() {
     const drag = this.drag; if (!drag?.active) return;
-    const valid = drag.valid && !this.ui.game.saveConflict && drag.grid.isConnected && this.ui.panel === 'inventory';
-    const changed = valid && (drag.x !== drag.origin.x || drag.y !== drag.origin.y) && moveItem(drag.items, drag.item.id, drag.x, drag.y, drag.rows);
-    const scrollTop = drag.grid.closest('.inventory-grid-scroll')!.scrollTop;
+    const valid = drag.valid && !this.ui.game.saveConflict && !this.ui.sharedStashScreen.busy && drag.grid.isConnected && this.ui.panel === drag.panel;
+    const slot = drag.slotTarget?.dataset.equipmentSlot as Slot | undefined;
+    const scrollTop = drag.grid.closest('.inventory-grid-scroll,.shared-grid-scroll')!.scrollTop;
     this.cancel();
-    if (!valid && drag.inside) this.ui.toast('该位置无法放置装备');
+    if (!valid) { if (drag.inside) this.ui.toast(drag.hint); return; }
+    if (!slot && drag.x === drag.origin.x && drag.y === drag.origin.y) return;
+    if (drag.container === 'shared') {
+      void this.ui.sharedStashScreen.transfer(slot ? { direction: 'equip', itemId: drag.item.id, target: slot } : { direction: 'move', itemId: drag.item.id, x: drag.x, y: drag.y });
+      return;
+    }
+    const changed = slot ? equipFromItems(this.ui.game.hero, drag.items, drag.item.id, slot, drag.rows) : moveItem(drag.items, drag.item.id, drag.x, drag.y, drag.rows);
     if (!changed) return;
     this.ui.selectedItem = drag.item.id;
+    if (drag.panel === 'shared-stash') this.ui.sharedStashScreen.selected = { side: slot ? 'equipment' : 'personal', id: drag.item.id };
+    if (slot) { this.ui.game.audio.play('loot'); this.ui.toast('已装备', drag.item.name); }
     this.ui.game.save(false); this.ui.renderPanel();
-    const panel = this.ui.overlay.querySelector('.inventory-grid-scroll'); if (panel) panel.scrollTop = scrollTop;
+    const panel = this.ui.overlay.querySelector(`[data-container="${drag.container}"]`)?.closest('.inventory-grid-scroll,.shared-grid-scroll'); if (panel) panel.scrollTop = scrollTop;
     const source = [...this.ui.overlay.querySelectorAll<HTMLButtonElement>('.bag-item')].find(button => button.dataset.item === drag.item.id);
     source?.focus({ preventScroll: true });
   }
@@ -171,7 +220,7 @@ export class InventoryDrag {
     const drag = this.drag; if (!drag) return;
     this.drag = undefined; cancelAnimationFrame(this.frame);
     if (drag.active && drag.pointerId !== null) this.suppressClick = true;
-    drag.ghost?.remove(); drag.preview?.remove(); drag.source.classList.remove('is-dragging');
+    drag.ghost?.remove(); drag.hintBox?.remove(); drag.preview?.remove(); drag.swapPreview?.remove(); drag.dock?.remove(); drag.slotTarget?.removeAttribute('data-drop-valid'); drag.source.classList.remove('is-dragging');
     document.documentElement.classList.remove('is-dragging-item');
     const status = drag.grid.closest('.bag-column')?.querySelector<HTMLElement>('.inventory-move-status'); if (status) status.textContent = '';
     if (drag.pointerId !== null && this.ui.overlay.hasPointerCapture(drag.pointerId)) this.ui.overlay.releasePointerCapture(drag.pointerId);

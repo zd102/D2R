@@ -10,7 +10,7 @@ await mkdir('.verification', { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const hero = newHero();
-hero.inventory = [{ ...makeItem(BASES[0], 'drag-sword'), x: 0, y: 0 }, { ...makeItem(BASES.find(item => item.slot === 'ring'), 'blocker'), x: 4, y: 2 }];
+hero.inventory = [{ ...makeItem(BASES[0], 'drag-sword'), x: 0, y: 0 }, { ...makeItem(BASES.find(item => item.slot === 'shield'), 'blocker'), x: 4, y: 0 }];
 hero.stash = [{ ...makeItem(BASES.find(item => item.slot === 'armor'), 'drag-armor'), x: 0, y: 0 }];
 const errors = [];
 async function open(page, fixture = hero) {
@@ -36,11 +36,11 @@ async function position(page, container, id) { const item = (await savedProfile(
 
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }); await open(page);
-  await page.locator('[data-item="blocker"]').click(); assert.equal(await page.locator('.item-details h3').textContent(), '戒指', 'Click still selects details');
+  await page.locator('[data-item="blocker"]').click(); assert.equal(await page.locator('.item-details h3').textContent(), hero.inventory[1].name, 'Click still selects details');
   await dragTo(page, 'drag-sword', 7, 1, 1.5, 2.5);
   await expect(page.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'true');
   await page.screenshot({ path: '.verification/inventory-drag-desktop.png' }); await page.mouse.up();
-  assert.deepEqual(await position(page, 'inventory', 'drag-sword'), { x: 7, y: 1 }); assert.deepEqual(await position(page, 'inventory', 'blocker'), { x: 4, y: 2 });
+  assert.deepEqual(await position(page, 'inventory', 'drag-sword'), { x: 7, y: 1 }); assert.deepEqual(await position(page, 'inventory', 'blocker'), { x: 4, y: 0 });
   assert.equal(await page.locator('.item-drag-ghost').count(), 0);
   const beforeInvalid = await savedProfile(page);
   await dragTo(page, 'drag-sword', 3, 0);
@@ -118,7 +118,7 @@ try {
   assert.equal(await mobile.locator('.panel').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
   await mobile.close(); console.log('Real touch dragging, stash, cancellation, edge scrolling and mobile layout passed');
   const tall = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  const tallHero = structuredClone(hero); tallHero.stash.push({ ...hero.inventory[1], id: 'deep-ring', x: 9, y: 35 });
+  const tallHero = structuredClone(hero); tallHero.stash.push({ ...makeItem(BASES.find(item => item.slot === 'ring'), 'deep-ring'), x: 9, y: 35 });
   await open(tall, tallHero); await tall.locator('[data-bag-view="stash"]').tap();
   const touch = await tall.context().newCDPSession(tall), origin = await tall.locator('[data-item="drag-armor"]').boundingBox();
   const scroller = await tall.locator('.inventory-grid-scroll').boundingBox(), cells = await grid(tall);

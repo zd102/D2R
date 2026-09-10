@@ -1,4 +1,19 @@
 /* All item properties share one continuous view; actions stay within reach. */
+.item-drop-preview[data-mode=swap] { border-color: #f2ce84; background: #b78f414d; }
+.item-swap-preview { position: absolute; pointer-events: none; z-index: 2; border: 2px dashed #f2ce84; background: #a77f3326; }
+.gear-slot[data-drop-valid=true] { outline: 3px solid #9ee8bb; outline-offset: -3px; background: #235843; opacity: 1; }
+.gear-slot[data-drop-valid=false] { outline: 3px solid #f39b93; outline-offset: -3px; background: #63383a; opacity: 1; }
+.item-drag-hint { position: fixed; z-index: 101; pointer-events: none; padding: 5px 8px; width: max-content; max-width: min(230px, calc(100vw - 16px)); border: 1px solid #9dbaaa; border-radius: 4px; background: #14252bf5; color: #ecf5ef; white-space: normal; font: 11px/1.5 'Microsoft YaHei', sans-serif; }
+.item-drag-hint[data-valid=false] { border-color: #d88882; color: #ffe1dd; }
+.drag-equipment-dock { position: fixed; z-index: 80; bottom: 20px; right: 16px; width: min(390px, calc(100vw - 32px)); border: 1px solid #93adbd; border-radius: 8px; background: #132433f5; padding: 10px; box-shadow: 0 8px 25px #000b; }
+.drag-dock-title { font-size: 12px; color: #e7d19f; margin-bottom: 8px; }
+.drag-equipment-dock .equipment-heading { display: none; }
+.drag-equipment-dock .paperdoll { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, 57px); gap: 5px; }
+.drag-equipment-dock .gear-position { grid-column: auto; grid-row: auto; width: 100%; height: auto; max-height: none; gap: 3px; }
+.drag-equipment-dock .gear-position > span { font-size: 9px; }
+.drag-equipment-dock .gear-slot { min-height: 0; height: 41px; }
+.drag-equipment-dock .gear-slot .item-art { max-height: 36px; }
+.drag-equipment-dock .gear-slot svg { width: 25px; height: 25px; }
 .paladin-inventory { grid-template-columns: 185px minmax(0, 1fr) minmax(400px, 470px); }
 .item-details, .shared-item-details { container-type: inline-size; }
 .item-summary { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; margin-bottom: 8px; }

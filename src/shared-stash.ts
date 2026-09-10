@@ -1,5 +1,5 @@
 import { clampResources, equipFromItems, equipReason, unequipToItems, parseItem, type HeroState } from './model.ts';
-import { SLOTS, packItems, placeItems, stashRows, type Item, type Slot } from './items.ts';
+import { SLOTS, moveItem, packItems, placeItems, stashRows, type Item, type Slot } from './items.ts';
 import { sharedTransaction } from './shared-storage.ts';
 
 export const SHARED_STASH_KEY = 'eclipse-ii-shared-stash-v1';
@@ -7,6 +7,7 @@ export const SHARED_STASH_ROWS = 10;
 export type PersonalContainer = 'inventory' | 'stash';
 export type SharedTransfer = { itemId: string; container: PersonalContainer; direction: 'deposit' | 'withdraw' }
   | { itemId: string; target?: Slot; direction: 'equip' }
+  | { itemId: string; x: number; y: number; direction: 'move' }
   | { slot: Slot; direction: 'unequip' };
 export function parseSharedItems(value: unknown): Item[] {
   if (!Array.isArray(value) || value.length > 100) throw new Error('Invalid shared items');
@@ -15,6 +16,10 @@ export function parseSharedItems(value: unknown): Item[] {
   return items as Item[];
 }
 export function moveSharedItem(hero: HeroState, shared: Item[], request: SharedTransfer) {
+  if (request.direction === 'move') {
+    if (!moveItem(shared, request.itemId, request.x, request.y, SHARED_STASH_ROWS)) throw new Error('目标区域必须完整容纳交换物品');
+    return;
+  }
   if (request.direction === 'equip') {
     const item = shared.find(item => item.id === request.itemId); if (!item) throw new Error('物品已被移动，请重新选择');
     const personal = [...hero.inventory, ...hero.stash, ...Object.values(hero.equipment), ...Object.values(hero.alternate), ...Object.values(hero.corpse?.equipment ?? {}), ...(hero.corpse?.extras ?? [])];

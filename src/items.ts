@@ -174,16 +174,33 @@ export function packItems(items: Item[], rows = 4): Map<string, ItemPosition> | 
   }
   return positions;
 }
-export function canMoveItem(items: Item[], id: string, x: number, y: number, rows = 4) {
-  if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
+export function itemMovePlan(items: Item[], id: string, x: number, y: number, rows = 4): { positions: Map<string, ItemPosition>; swapped: string[] } | null {
+  if (!Number.isInteger(x) || !Number.isInteger(y) || new Set(items.map(item => item.id)).size !== items.length) return null;
   const positions = packItems(items, rows), current = positions?.get(id);
-  if (!positions || !current || x < 0 || y < 0 || x + current.width > 10 || y + current.height > rows) return false;
-  return [...positions].every(([otherId, other]) => otherId === id || x + current.width <= other.x || other.x + other.width <= x || y + current.height <= other.y || other.y + other.height <= y);
+  if (!positions || !current || x < 0 || y < 0 || x + current.width > 10 || y + current.height > rows) return null;
+  const swapped: string[] = [];
+  for (const [otherId, other] of positions) {
+    if (otherId === id || x + current.width <= other.x || other.x + other.width <= x || y + current.height <= other.y || other.y + other.height <= y) continue;
+    // A region can exchange only whole items, never the covered half of one.
+    if (other.x < x || other.y < y || other.x + other.width > x + current.width || other.y + other.height > y + current.height) return null;
+    swapped.push(otherId);
+  }
+  for (const otherId of swapped) { const other = positions.get(otherId)!; positions.set(otherId, { ...other, x: other.x + current.x - x, y: other.y + current.y - y }); }
+  positions.set(id, { ...current, x, y });
+  const occupied = new Set<number>();
+  for (const position of positions.values()) {
+    if (position.x < 0 || position.y < 0 || position.x + position.width > 10 || position.y + position.height > rows) return null;
+    for (let dy = 0; dy < position.height; dy++) for (let dx = 0; dx < position.width; dx++) {
+      const cell = (position.y + dy) * 10 + position.x + dx;
+      if (occupied.has(cell)) return null; occupied.add(cell);
+    }
+  }
+  return { positions, swapped };
 }
+export function canMoveItem(items: Item[], id: string, x: number, y: number, rows = 4) { return itemMovePlan(items, id, x, y, rows) !== null; }
 export function moveItem(items: Item[], id: string, x: number, y: number, rows = 4) {
-  if (!canMoveItem(items, id, x, y, rows)) return false;
-  const positions = packItems(items, rows)!;
-  for (const item of items) { const position = positions.get(item.id)!; item.x = item.id === id ? x : position.x; item.y = item.id === id ? y : position.y; }
+  const plan = itemMovePlan(items, id, x, y, rows); if (!plan) return false;
+  for (const item of items) { const position = plan.positions.get(item.id)!; item.x = position.x; item.y = position.y; }
   return true;
 }
 export function stashRows(items: Item[]) {

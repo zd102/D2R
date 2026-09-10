@@ -50,8 +50,8 @@ export class SharedStashScreen {
     try {
       const result = await game.saves.transferShared(game.profile.id, game.hero, game.profile.revision, revision, request);
       game.profile = result.profile; game.hero = structuredClone(result.profile.hero); game.storageAvailable = true; this.state = result.shared;
-      this.selected = request.direction === 'equip' ? { side: 'equipment', id: request.itemId } : undefined;
-      game.audio.play('loot'); this.ui.toast(request.direction === 'equip' ? '已装备，替换装备已放回共享仓库' : request.direction === 'unequip' ? '已卸下至共享仓库' : request.direction === 'deposit' ? '已存入共享仓库' : request.container === 'inventory' ? '已取回背包' : '已取回个人仓库');
+      this.selected = request.direction === 'equip' ? { side: 'equipment', id: request.itemId } : request.direction === 'move' ? { side: 'shared', id: request.itemId } : undefined;
+      game.audio.play('loot'); this.ui.toast(request.direction === 'move' ? '已调整共享仓库' : request.direction === 'equip' ? '已装备，替换装备已放回共享仓库' : request.direction === 'unequip' ? '已卸下至共享仓库' : request.direction === 'deposit' ? '已存入共享仓库' : request.container === 'inventory' ? '已取回背包' : '已取回个人仓库');
     } catch (error) {
       this.error = error instanceof Error ? error.message : '存取失败，请重试';
       if (error instanceof SaveError && ['conflict', 'missing'].includes(error.code)) game.saveConflict = true;
@@ -62,7 +62,7 @@ export class SharedStashScreen {
   }
   grid(items: Item[], rows: number, side: 'personal' | 'shared') {
     const positions = packItems(items, rows);
-    return `<div class="shared-grid-scroll"><div class="diablo-grid" style="--rows:${rows}" aria-label="${side === 'shared' ? '共享仓库' : this.view === 'inventory' ? '背包' : '个人仓库'}物品">${items.map(item => {
+    return `<div class="shared-grid-scroll"><div class="diablo-grid" data-container="${side === 'shared' ? 'shared' : this.view}" data-rows="${rows}" style="--rows:${rows}" aria-label="${side === 'shared' ? '共享仓库' : this.view === 'inventory' ? '背包' : '个人仓库'}物品">${items.map(item => {
       const p = positions?.get(item.id); if (!p) return '';
       const name = item.identified === false ? `未鉴定 ${item.base ?? item.name}` : item.name;
       return `<button class="bag-item ${item.rarity} ${this.selected?.id === item.id && this.selected.side === side ? 'selected' : ''}" data-shared-item="${escape(item.id)}" data-shared-side="${side}" aria-label="${escape(name)}" aria-pressed="${this.selected?.id === item.id && this.selected.side === side}" style="grid-column:${p.x + 1}/span ${p.width};grid-row:${p.y + 1}/span ${p.height}" ${this.busy ? 'disabled' : ''}>${itemVisual(item)}${item.identified === false ? '<b class="unidentified-mark">?</b>' : ''}${item.sockets ? `<small>${item.sockets} 孔</small>` : ''}</button>`;

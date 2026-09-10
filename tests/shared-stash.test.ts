@@ -97,6 +97,21 @@ test('direct shared equipment changes commit both records atomically and survive
   assert.equal(removed.profile.hero.equipment.ring, null); assert.equal(reload.readShared().items[0].id, 'wear');
 });
 
+test('shared region exchanges are atomic, persistent and reject a stale second move', async () => {
+  const { store, storage, a } = fixture();
+  const items = [{ ...gear('large'), width: 2, height: 3, x: 0, y: 0 }, { ...gear('one'), x: 6, y: 0 }, { ...gear('two'), x: 7, y: 2 }];
+  storage.setItem(SHARED_STASH_KEY, JSON.stringify({ version: 1, revision: 1, checkpoints: {}, items }));
+  const before = [...storage.data], request = { direction: 'move' as const, itemId: 'large', x: 6, y: 0 };
+  storage.failKey = SHARED_STASH_KEY;
+  await assert.rejects(store.transferShared(a.id, a.hero, a.revision, 1, request), /Quota/);
+  assert.deepEqual([...storage.data], before);
+  storage.failKey = undefined;
+  const result = await store.transferShared(a.id, a.hero, a.revision, 1, request);
+  assert.deepEqual(result.shared.items.map(item => [item.id, item.x, item.y]), [['large', 6, 0], ['one', 0, 0], ['two', 1, 2]]);
+  assert.deepEqual(store.readShared().items, result.shared.items);
+  await assert.rejects(store.transferShared(a.id, a.hero, a.revision, 1, request), SaveError);
+});
+
 test('shared commits survive unavailable character writes, including exports and stale autosaves', async () => {
   const { store, storage, lock, a } = fixture(); a.hero.inventory = [gear('atomic')]; const current = store.save(a.id, a.hero, a.revision);
   storage.failKey = PROFILE_PREFIX + a.id;
