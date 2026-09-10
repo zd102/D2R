@@ -24,7 +24,7 @@ import { SHARED_STASH_KEY } from './shared-stash';
 import { refreshSharedStorage } from './shared-storage';
 import { GameAudio } from './audio';
 import { UI } from './ui';
-import { KEYBOARD_SKILLS, emptyCooldowns, type SkillSlot } from './controls';
+import { keyboardSkills, movementInput, MOVEMENT_MODE_KEY, parseMovementMode, emptyCooldowns, type MovementMode, type SkillSlot } from './controls';
 import { followPath } from './navigation';
 
 export type Enemy = { id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
@@ -48,6 +48,7 @@ export class Game {
   loot: Loot[] = [];
   effects: Effect[] = [];
   keys = new Set<string>();
+  movementMode: MovementMode = 'mouse';
   path: THREE.Vector3[] = [];
   joystick = new THREE.Vector2();
   pointer = new THREE.Vector2();
@@ -67,6 +68,7 @@ export class Game {
   pendingChest?: number;
   heldAttack = false;
   heldSkill?: { key: string; slot: Skill; id: ActionId };
+  heldPointerSkill?: { slot: Skill; id: ActionId };
   bufferedSkill?: { slot: Skill; id: ActionId; aimed: boolean; remaining: number };
   skillRetry = 0;
   started = false;
@@ -93,6 +95,7 @@ export class Game {
   saveConflict = false;
   victoryTimer = 0;
   constructor() {
+    try { this.movementMode = parseMovementMode(localStorage.getItem(MOVEMENT_MODE_KEY)); } catch { /* Use mouse controls when settings storage is unavailable. */ }
     this.hero = newHero();
     try {
       this.saves = new SaveStore(localStorage);
@@ -274,7 +277,13 @@ export class Game {
     this.enemies.push(enemy); return enemy;
   }
   begin() { if (!this.profile) return; this.started = true; this.audio.unlock(); }
-  releaseInput() { if (this.pointerGesture) this.finishPointerGesture(true); this.pointerAimActive = false; this.keys.clear(); this.heldAttack = false; this.heldSkill = undefined; this.bufferedSkill = undefined; this.skillRetry = 0; this.joystick.set(0, 0); this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined; this.body.velocity.set(0, 0, 0); }
+  setMovementMode(value: string) {
+    if (value !== 'mouse' && value !== 'wasd' || value === this.movementMode) return;
+    this.releaseInput(); this.marker.visible = false; this.movementMode = value;
+    try { localStorage.setItem(MOVEMENT_MODE_KEY, value); } catch { this.ui.toast('移动方式已切换', '设置无法保存，刷新后将恢复上次保存的模式'); }
+    this.ui.update(0);
+  }
+  releaseInput() { if (this.pointerGesture) this.finishPointerGesture(true); this.pointerAimActive = false; this.keys.clear(); this.heldAttack = false; this.heldSkill = undefined; this.heldPointerSkill = undefined; this.bufferedSkill = undefined; this.skillRetry = 0; this.joystick.set(0, 0); this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined; this.body.velocity.set(0, 0, 0); }
   updatePointer(event: PointerEvent) {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
@@ -293,7 +302,7 @@ export class Game {
   finishPointerGesture(cancel = false) {
     const gesture = this.pointerGesture; this.pointerGesture = undefined;
     if (cancel && gesture) this.bufferedSkill = undefined;
-    this.heldAttack = false; this.pointerPathTimer = 0; this.pointerDestination = undefined;
+    this.heldAttack = false; this.heldPointerSkill = undefined; this.pointerPathTimer = 0; this.pointerDestination = undefined;
     if (gesture && (cancel || gesture.dragging || gesture.mode === 'move' && performance.now() - gesture.started >= 200)) {
       this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
       this.body.velocity.set(0, 0, 0); this.marker.visible = false;
@@ -302,7 +311,7 @@ export class Game {
   }
   updatePointerNavigation(dt: number) {
     const gesture = this.pointerGesture;
-    if (!gesture || this.keys.has('shift')) return;
+    if (this.movementMode === 'wasd' || !gesture || this.keys.has('shift')) return;
     if (gesture.mode === 'cast' && performance.now() - gesture.started >= 200) { gesture.mode = 'move'; gesture.dragging = true; }
     if (gesture.mode !== 'move' || this.combat.movementLocked) return;
     this.pointerPathTimer = Math.max(0, this.pointerPathTimer - dt);
@@ -327,6 +336,12 @@ export class Game {
       if (this.paused || this.dead || this.pointerGesture && this.pointerGesture.id !== event.pointerId) return;
       this.updatePointer(event);
       const gesture = this.pointerGesture;
+      // Browsers report additional mouse-button presses/releases as pointermove
+      // while the first button is held, rather than a second pointerdown/up.
+      if (this.movementMode === 'wasd' && gesture && [0, 2].includes(event.button)) {
+        if (event.buttons & (event.button === 0 ? 1 : 2)) pointerDown(event); else pointerUp(event);
+        return;
+      }
       if (gesture && !(event.buttons & 3)) { this.finishPointerGesture(true); return; }
       if (gesture && !gesture.stationary && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) >= 6) {
         if (!gesture.dragging) { this.pointerDestination = undefined; this.pointerPathTimer = 0; }
@@ -340,19 +355,27 @@ export class Game {
       if (event.pointerType === 'touch') this.pointerAimActive = false;
       if (event.target !== canvas && this.pointerGesture) this.finishPointerGesture(true);
     }, true);
-    canvas.addEventListener('pointerdown', event => {
-      if (this.paused || this.dead || ![0, 2].includes(event.button) || this.pointerGesture) return;
+    const pointerDown = (event: PointerEvent) => {
+      if (this.paused || this.dead || ![0, 2].includes(event.button) || this.pointerGesture && (this.movementMode === 'mouse' || this.pointerGesture.id !== event.pointerId)) return;
       event.preventDefault();
       this.bufferedSkill = undefined;
       if (event.button === 2 && (this.target || this.pendingPickup !== undefined || this.pendingPortal || this.pendingChest !== undefined)) this.path = [];
       this.pendingPickup = undefined;
       this.begin();
       this.updatePointer(event);
-      if (event.pointerType !== 'touch') {
-        this.pointerGesture = { id: event.pointerId, button: event.button, x: event.clientX, y: event.clientY, started: performance.now(), dragging: false, stationary: event.shiftKey, mode: event.button === 2 ? 'cast' : 'interact' };
+      if (event.pointerType !== 'touch' && !this.pointerGesture) {
+        this.pointerGesture = { id: event.pointerId, button: event.button, x: event.clientX, y: event.clientY, started: performance.now(), dragging: false, stationary: event.shiftKey || this.movementMode === 'wasd', mode: event.button === 2 ? 'cast' : 'interact' };
         this.pointerDestination = undefined; this.pointerPathTimer = 0; canvas.setPointerCapture(event.pointerId);
       }
-      if (event.button === 2) { this.target = undefined; this.pendingPortal = false; this.pendingChest = undefined; return; }
+      if (event.button === 2) {
+        this.target = undefined; this.pendingPortal = false; this.pendingChest = undefined;
+        if (this.movementMode === 'wasd') {
+          const id = this.hero.bindings.bolt;
+          this.useSkill('bolt', true);
+          if (this.pointerGesture && this.repeatableSkill(id)) this.heldPointerSkill = { slot: 'bolt', id };
+        }
+        return;
+      }
       this.pendingPortal = false; this.pendingChest = undefined;
       if (this.inCamp && !event.shiftKey && this.raycaster.intersectObject(this.world.portal, true).length) { this.useCampPortal(); return; }
       if (this.inCamp && !event.shiftKey && this.world.sharedStash && this.raycaster.intersectObject(this.world.sharedStash, true).length) { this.useSharedStash(); return; }
@@ -365,18 +388,27 @@ export class Game {
         const chest = this.world.chests.find(chest => { for (let node: THREE.Object3D | null = chestHit.object; node; node = node.parent) if (node === chest.group) return true; return false; });
         if (chest) { this.openChest(chest.id); return; }
       }
-      if (event.shiftKey) { if (this.pointerGesture) this.pointerGesture.mode = 'attack'; this.path = []; this.target = undefined; this.useSkill('attack', true); this.heldAttack = true; }
+      if (event.shiftKey || this.movementMode === 'wasd') { if (this.pointerGesture) this.pointerGesture.mode = 'attack'; this.path = []; this.target = undefined; this.useSkill('attack', true); this.heldAttack = true; }
       else if (enemy) { if (this.pointerGesture) this.pointerGesture.mode = 'attack'; this.target = enemy; this.heldAttack = true; this.path = []; this.targetDestination = undefined; this.targetPathTimer = 0; }
       else { if (this.pointerGesture) this.pointerGesture.mode = 'move'; this.moveTo(this.aim); }
-    });
-    window.addEventListener('pointerup', event => {
+    };
+    canvas.addEventListener('pointerdown', pointerDown);
+    const pointerUp = (event: PointerEvent) => {
       const gesture = this.pointerGesture;
+      if (this.movementMode === 'wasd' && gesture?.id === event.pointerId) {
+        this.updatePointer(event);
+        if (event.button === 0) this.heldAttack = false;
+        if (event.button === 2) this.heldPointerSkill = undefined;
+        if (!(event.buttons & 3)) this.finishPointerGesture();
+        return;
+      }
       if (gesture && (gesture.id !== event.pointerId || event.buttons & 3)) return;
-      const cast = gesture?.mode === 'cast' && gesture.button === event.button && !gesture.dragging && !this.paused && !this.dead;
+      const cast = this.movementMode === 'mouse' && gesture?.mode === 'cast' && gesture.button === event.button && !gesture.dragging && !this.paused && !this.dead;
       if (gesture) this.updatePointer(event);
       this.finishPointerGesture();
       if (cast) this.useSkill('bolt', true);
-    });
+    };
+    window.addEventListener('pointerup', pointerUp);
     const cancelPointer = (event: PointerEvent) => { if (!this.pointerGesture || this.pointerGesture.id === event.pointerId) this.finishPointerGesture(true); };
     window.addEventListener('pointercancel', cancelPointer); canvas.addEventListener('lostpointercapture', cancelPointer);
     canvas.addEventListener('wheel', event => { event.preventDefault(); this.zoom = THREE.MathUtils.clamp(this.zoom + event.deltaY * .007, 12, 24); this.resize(); }, { passive: false });
@@ -406,10 +438,10 @@ export class Game {
       this.begin(); this.keys.add(key);
       if (key === 'x') { this.swapWeapons(); return; }
       if (key === 'v') { this.hero.running = !this.hero.running; return; }
-      const skill = KEYBOARD_SKILLS[key];
+      const skill = keyboardSkills(this.movementMode)[key];
       if (skill) {
-        const id = this.hero.bindings[skill], mode = classSkillMode(id);
-        this.heldSkill = id !== 'attack' && !isAura(id) && !isPassive(id) && !['buff', 'summon'].includes(mode ?? '') && !['holyShield', 'innerSight', 'slowMissiles'].includes(id) ? { key, slot: skill, id } : undefined;
+        const id = this.hero.bindings[skill];
+        this.heldSkill = this.repeatableSkill(id) ? { key, slot: skill, id } : undefined;
         this.skillRetry = .12; this.useSkill(skill); return;
       }
       if (key === '1') this.drink(0);
@@ -431,6 +463,7 @@ export class Game {
   }
   moveTo(point: THREE.Vector3) {
     this.bufferedSkill = undefined;
+    if (this.movementMode === 'wasd') { this.path = []; this.marker.visible = false; this.ui.toast('请使用 WASD 移动靠近目标'); return; }
     this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
     this.target = undefined; this.path = this.world.path(this.position, point);
     if (this.path.length) { this.marker.position.set(this.path[this.path.length - 1].x, .08, this.path[this.path.length - 1].z); this.marker.visible = true; }
@@ -453,8 +486,11 @@ export class Game {
     // chasing a previous attack target still yield to an explicit skill command.
     if (this.pendingPickup !== undefined || this.pendingPortal || this.pendingChest !== undefined || aimed && this.target) this.path = [];
     this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
-    if (aimed) { this.target = undefined; if (skill !== 'attack') this.heldAttack = false; }
+    if (aimed) { this.target = undefined; if (skill !== 'attack' && this.movementMode === 'mouse') this.heldAttack = false; }
     return true;
+  }
+  repeatableSkill(id: ActionId) {
+    return id !== 'attack' && !isAura(id) && !isPassive(id) && !['buff', 'summon'].includes(classSkillMode(id) ?? '') && !['holyShield', 'innerSight', 'slowMissiles'].includes(id);
   }
   updateSkillInput(dt: number): boolean {
     this.skillRetry = Math.max(0, this.skillRetry - dt);
@@ -469,9 +505,9 @@ export class Game {
         return true;
       } else return true;
     }
-    const held = this.heldSkill;
+    const held = this.heldSkill ?? this.heldPointerSkill;
     if (!held) return false;
-    if (!this.keys.has(held.key) || this.hero.bindings[held.slot] !== held.id) { this.heldSkill = undefined; return false; }
+    if (this.heldSkill && !this.keys.has(this.heldSkill.key) || this.hero.bindings[held.slot] !== held.id) { this.heldSkill = undefined; this.heldPointerSkill = undefined; return false; }
     if (!this.skillRetry && !this.combat.readyIn(held.id)) {
       if (!this.useSkill(held.slot, this.pointerAimActive, false)) this.skillRetry = .12;
     }
@@ -695,16 +731,14 @@ export class Game {
     if (this.pointerAimActive) this.updatePointerAim();
     this.combat.update(dt); if (this.dead) return;
     const s = stats(this.hero);
-    const move = new THREE.Vector2(
-      Number(this.keys.has('arrowright')) - Number(this.keys.has('arrowleft')) + this.joystick.x,
-      Number(this.keys.has('arrowdown')) - Number(this.keys.has('arrowup')) + this.joystick.y,
-    );
-    if (move.length() > .1) this.bufferedSkill = undefined;
+    const input = movementInput(this.keys, this.movementMode);
+    const move = new THREE.Vector2(input.x + this.joystick.x, input.y + this.joystick.y);
+    if (move.length() > .1 && this.movementMode === 'mouse') this.bufferedSkill = undefined;
     const skillInput = this.updateSkillInput(dt);
     let vx = 0, vz = 0;
     let navigating = false;
     if (move.length() > .1) {
-      if (this.pointerGesture && this.pointerGesture.mode !== 'cast') this.finishPointerGesture(true);
+      if (this.movementMode === 'mouse' && this.pointerGesture && this.pointerGesture.mode !== 'cast') this.finishPointerGesture(true);
       this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
       move.normalize(); vx = (move.x + move.y) * Math.SQRT1_2; vz = (move.y - move.x) * Math.SQRT1_2; this.path = []; this.target = undefined;
     } else {
@@ -713,14 +747,15 @@ export class Game {
         const bound = this.hero.bindings.attack;
         this.targetPathTimer = Math.max(0, this.targetPathTimer - dt);
         if (this.combat.canReach(this.target, bound)) { this.path = []; if (!skillInput && !this.combat.movementLocked) this.combat.castAction(bound); }
-        else if (!this.targetPathTimer && !this.combat.movementLocked
+        else if (this.movementMode === 'mouse' && !this.targetPathTimer && !this.combat.movementLocked
           && (!this.path.length || !this.targetDestination || this.targetDestination.distanceToSquared(this.target.actor.group.position) > .5 ** 2)) {
           this.targetDestination = this.target.actor.group.position.clone(); this.targetPathTimer = .2;
           this.path = this.world.path(this.position, this.targetDestination);
         }
-      } else if (this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.castAction(this.hero.bindings.attack, true);
+      } else if (this.movementMode === 'mouse' && this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.castAction(this.hero.bindings.attack, true);
       navigating = this.path.length > 0;
     }
+    if (this.movementMode === 'wasd' && this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.castAction(this.hero.bindings.attack, true);
     const locked = this.combat.movementLocked;
     const speed = locked ? 0 : (this.hero.running && this.hero.stamina > 0 ? 5.2 : 3) * s.runSpeed;
     if (navigating) { const velocity = followPath(this.position, this.path, speed, dt, (from, to) => this.world.canWalk(from, to)); vx = velocity.x; vz = velocity.z; }

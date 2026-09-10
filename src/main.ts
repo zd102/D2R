@@ -21,7 +21,7 @@ try {
     classId:game.hero.classId, classModel:game.actor.group.userData.classId, buffs:structuredClone(game.hero.buffs),
     classCombat:{missiles:game.combat.classes.missiles.map(m=>({skill:m.skill,x:m.mesh.position.x,z:m.mesh.position.z,direction:m.direction.toArray()})),fields:game.combat.classes.fields.map(f=>({skill:f.id,life:f.life})),summons:game.combat.classes.summons.map(s=>({skill:s.id,hp:s.hp,maxHp:s.maxHp,x:s.actor.group.position.x,z:s.actor.group.position.z}))},
     position: { x: game.position.x, z: game.position.z }, level: game.hero.level,
-    controls: { facing: game.actor.group.rotation.y, aim: { x: game.aim.x, z: game.aim.z }, pointerAim: game.pointerAimActive, gesture: game.pointerGesture?.mode ?? null, dragging: game.pointerGesture?.dragging ?? false,
+    controls: { movementMode: game.movementMode, facing: game.actor.group.rotation.y, aim: { x: game.aim.x, z: game.aim.z }, pointerAim: game.pointerAimActive, gesture: game.pointerGesture?.mode ?? null, dragging: game.pointerGesture?.dragging ?? false,
       destination: game.path.length ? { x: game.path.at(-1)!.x, z: game.path.at(-1)!.z } : null, target: game.target?.id ?? null,
       projectiles: game.combat.projectiles.map(projectile => ({ kind: projectile.kind, direction: { x: projectile.direction.x, z: projectile.direction.z }, x: projectile.mesh.position.x, z: projectile.mesh.position.z })) },
     hp: game.hero.hp, mana: game.hero.mana, kills: game.hero.kills, gold: game.hero.gold,

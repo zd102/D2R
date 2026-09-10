@@ -13,14 +13,13 @@ import { RUNE_ORDER, runeNumber, runeLabel } from './items';
 import { runeUpgradeCost, upgradeRune } from './loot';
 import { itemModifierLines, itemWeaponDamage } from './item-description';
 import { CHARM_BASES } from './affixes';
-import { SKILL_SLOT_NAMES } from './controls';
+import { skillSlotNames } from './controls';
 import { rangedBase } from './items';
 
 const icon = (name: string) => `<i data-lucide="${name}"></i>`;
 const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
 const tip = (label: string) => `aria-label="${escape(label)}" data-tip="${escape(label)}"`;
 const number = (value: number) => Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
-export const bindingNames = SKILL_SLOT_NAMES;
 export class CharacterScreen {
   game: Game; ui: UI;
   tree: SkillTree = 'combat'; selectedSkill: SkillId = 'sacrifice'; view: 'inventory' | 'stash' | 'runes' = 'inventory';
@@ -98,6 +97,7 @@ export class CharacterScreen {
     return `<dl class="skill-values">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
   }
   skills() {
+    const bindingNames = skillSlotNames(this.game.movementMode);
     const classId=this.game.hero.classId, SKILLS=skillsForClass(classId), trees:readonly SkillTree[]=CLASSES[classId].trees;
     if(!trees.includes(this.tree))this.tree=trees[0];
     if(!SKILLS.some(skill=>skill.id===this.selectedSkill&&skill.tree===this.tree))this.selectedSkill=SKILLS.find(skill=>skill.tree===this.tree)!.id;

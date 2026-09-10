@@ -3,7 +3,7 @@ import type { SkillId } from './paladin';
 import * as THREE from 'three';
 import { createIcons, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, UserRound, Users, UserPlus, Pencil, ArrowLeft, Map as MapIcon, ScrollText, Settings, Pause, Volume2, VolumeX, Maximize, Save, X, ChevronRight, Plus, Coins, Shield, Gem, Heart, Skull, Check, RotateCcw, Play, Trash2, ArrowUp, Droplets, Sparkles, Compass, Crosshair } from 'lucide';
 import type { Game, Enemy, Skill } from './game';
-import { SKILL_SLOTS, SKILL_KEYS, SKILL_SLOT_NAMES } from './controls';
+import { SKILL_SLOTS, skillKeys, skillSlotNames, MOVEMENT_HINTS } from './controls';
 import { stats, rarityNames, slotNames, type Item } from './model';
 import { ACTS, levelLayout, levelTuning, questProgress, questComplete } from './campaign';
 import { CampaignScreen } from './campaign-ui';
@@ -47,6 +47,7 @@ export class UI {
   bindingsSignature = '';
   constructor(game: Game) {
     this.game = game;
+    const keys = skillKeys(game.movementMode);
     document.getElementById('app')!.insertAdjacentHTML('beforeend', `
       <div class="vignette" aria-hidden="true"></div><div id="damage-flash"></div>
       <header class="topbar">
@@ -66,7 +67,7 @@ export class UI {
         <div class="resource health"><div class="orb-frame"><div class="orb"><div class="orb-fill" id="health-fill"></div><div class="orb-shine"></div><span id="health-value">55<small>/ 55</small></span></div></div><div class="resource-caption"><span>生命</span><small id="health-percent">100%</small></div></div>
         <div class="hud-center"><div class="hero-strip"><span class="hero-name"><span id="hero-profile-name">圣骑士</span><b id="hero-level">Lv. 1</b></span><div class="xp-track" ${tip('经验')}><i id="xp-fill"></i></div><span id="xp-value">0 / 80</span></div>
           <div class="action-row"><div class="skill-group">
-            ${SKILL_SLOTS.map((key, index) => `<button class="skill ${key}-skill" data-skill="${key}" ${tip(index ? '配置技能' : '普通攻击')}><kbd>${SKILL_KEYS[key]}</kbd>${icon(index ? 'plus' : 'sword')}<span class="skill-name">${index ? '未配置' : '普通攻击'}</span><span class="cooldown"></span></button>`).join('')}
+            ${SKILL_SLOTS.map((key, index) => `<button class="skill ${key}-skill" data-skill="${key}" ${tip(index ? '配置技能' : '普通攻击')}><kbd>${keys[key]}</kbd>${icon(index ? 'plus' : 'sword')}<span class="skill-name">${index ? '未配置' : '普通攻击'}</span><span class="cooldown"></span></button>`).join('')}
           </div><span class="belt-divider"></span><div class="potion-group">
             <button class="skill health-potion" data-potion="0" ${tip('生命药剂 · 1')}><kbd>1</kbd>${icon('flame')}<b id="health-potions">6</b></button>
             <button class="skill mana-potion" data-potion="1" ${tip('法力药剂 · 2')}><kbd>2</kbd>${icon('droplets')}<b id="mana-potions">4</b></button>
@@ -119,7 +120,14 @@ export class UI {
     });
     this.overlay.addEventListener('click', event => { if (event.target === this.overlay && !this.isProfilePanel() && !['death', 'victory'].includes(this.panel ?? '')) this.closePanel(); });
     this.overlay.addEventListener('input', event => { const element = event.target as HTMLInputElement; if (element.id === 'volume') { this.game.audio.volume = Number(element.value) / 100; document.getElementById('volume-value')!.textContent = `${element.value}%`; } });
-    this.overlay.addEventListener('change', event => { const element = event.target as HTMLInputElement; if (element.id === 'quality') this.game.setQuality(element.value); });
+    this.overlay.addEventListener('change', event => {
+      const element = event.target as HTMLInputElement;
+      if (element.id === 'quality') this.game.setQuality(element.value);
+      if (element.id === 'movement-mode') {
+        this.game.setMovementMode(element.value);
+        document.getElementById('movement-hint')!.textContent = MOVEMENT_HINTS[this.game.movementMode];
+      }
+    });
     document.getElementById('context-action')!.addEventListener('click', () => this.game.interact());
     const joystick = document.getElementById('joystick')!, knob = joystick.firstElementChild as HTMLElement;
     const handleJoystick = (event: PointerEvent) => {
@@ -210,7 +218,10 @@ export class UI {
     this.overlay.innerHTML = `<section class="panel panel-${this.panel}" role="dialog" aria-modal="true" aria-label="${panelTitle[0]}"><header class="panel-header"><div><small>${panelTitle[1]}</small><h2>${panelTitle[0]}</h2></div>${this.panel !== 'death' ? `<button ${tip('关闭')} data-action="close">${icon('x')}</button>` : ''}</header><div class="panel-body">${content}</div><div class="panel-footer"><span></span><img src="/sigil.svg" alt=""/><span></span></div></section>`;
     const characterName = this.overlay.querySelector('.character-banner h3');
     if (characterName) characterName.textContent = this.game.profile?.name ?? '灰烬行者';
-    if (this.panel === 'pause') this.overlay.querySelector('.panel-body')!.insertAdjacentHTML('beforeend', `${this.game.inCamp ? '' : `<button class="secondary-button" data-action="camp">${icon('compass')}返回营地</button>`}${!this.game.inCamp && h.bossDefeated ? `<button class="secondary-button" data-panel="victory">${icon('chevron-right')}通关结算</button>` : ''}`);
+    if (this.panel === 'pause') {
+      this.overlay.querySelector('.save-state')!.insertAdjacentHTML('beforebegin', `<div class="settings-row"><label for="movement-mode">移动方式</label><select id="movement-mode" aria-describedby="movement-hint"><option value="mouse" ${this.game.movementMode === 'mouse' ? 'selected' : ''}>鼠标移动</option><option value="wasd" ${this.game.movementMode === 'wasd' ? 'selected' : ''}>WASD 移动</option></select></div><p class="movement-hint" id="movement-hint">${MOVEMENT_HINTS[this.game.movementMode]}</p>`);
+      this.overlay.querySelector('.panel-body')!.insertAdjacentHTML('beforeend', `${this.game.inCamp ? '' : `<button class="secondary-button" data-action="camp">${icon('compass')}返回营地</button>`}${!this.game.inCamp && h.bossDefeated ? `<button class="secondary-button" data-panel="victory">${icon('chevron-right')}通关结算</button>` : ''}`);
+    }
     this.refreshIcons();
     if (this.panel === 'map') this.drawMap(document.getElementById('large-map') as HTMLCanvasElement, true);
   }
@@ -291,14 +302,16 @@ export class UI {
     ammo.hidden = !s.ranged; ammo.textContent = s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '';
     document.getElementById('stamina-fill')!.style.width = `${Math.min(100, h.stamina / s.maxStamina * 100)}%`;
     const runButton = document.querySelector<HTMLButtonElement>('[data-action="run-mode"]')!; runButton.setAttribute('aria-pressed', String(h.running)); runButton.dataset.tip = h.running ? '跑步' : '行走';
-    const signature = JSON.stringify(h.bindings);
+    const signature = JSON.stringify([game.movementMode, h.bindings]);
     if (signature !== this.bindingsSignature) {
       this.bindingsSignature = signature;
+      const keys = skillKeys(game.movementMode), names = skillSlotNames(game.movementMode);
       document.querySelectorAll<HTMLButtonElement>('.skill[data-skill]').forEach(button => {
         const key = button.dataset.skill as Skill, id = h.bindings[key], unbound = key !== 'attack' && id === 'attack';
         button.querySelector('svg')?.remove(); button.insertAdjacentHTML('beforeend', icon(unbound ? 'plus' : skillIcon(id)));
         button.querySelector('.skill-name')!.textContent = unbound ? '未配置' : skillName(id);
-        const label = unbound ? `${SKILL_SLOT_NAMES[key]} · 配置技能` : `${skillName(id)} · ${SKILL_KEYS[key]}`;
+        button.querySelector('kbd')!.textContent = keys[key];
+        const label = unbound ? `${names[key]} · 配置技能` : `${skillName(id)} · ${keys[key]}`;
         button.setAttribute('aria-label', label); button.dataset.tip = label;
       }); this.refreshIcons();
     }
