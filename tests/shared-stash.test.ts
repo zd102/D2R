@@ -163,6 +163,19 @@ test('unacknowledged higher-revision autosaves cannot resurrect items after a sh
   assert.equal(next.sharedRevision, 1); assert.equal(store.read(a.id).revision, next.revision);
 });
 
+test('shared exact equipment drops preserve worn gear on commit failure and persist their coordinates on retry', async () => {
+  const { store, storage, a } = fixture(), original = structuredClone(a.hero.equipment.weapon);
+  const request = { direction: 'unequip' as const, slot: 'weapon' as const, position: { x: 8, y: 7 } };
+  storage.failKey = SHARED_STASH_KEY;
+  await assert.rejects(store.transferShared(a.id, a.hero, a.revision, 0, request));
+  assert.deepEqual(store.read(a.id).hero.equipment.weapon, original); assert.equal(store.readShared().items.length, 0);
+  storage.failKey = undefined;
+  const result = await store.transferShared(a.id, a.hero, a.revision, 0, request);
+  assert.equal(result.profile.hero.equipment.weapon, null);
+  assert.deepEqual(store.readShared().items[0], { ...original, x: 8, y: 7 });
+  await assert.rejects(store.transferShared(a.id, a.hero, a.revision, 0, request), SaveError);
+});
+
 test('shared charms stop contributing immediately and deleting a depositor preserves the shared item', async () => {
   const { store, a, b } = fixture(); const charm = { ...gear('charm'), charm: true, identified: true, mods: { life: 50 } };
   a.hero.inventory = [charm]; a.hero.hp = stats(a.hero).maxHp; const current = store.save(a.id, a.hero, a.revision);

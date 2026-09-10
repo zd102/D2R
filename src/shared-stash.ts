@@ -8,7 +8,7 @@ export type PersonalContainer = 'inventory' | 'stash';
 export type SharedTransfer = { itemId: string; container: PersonalContainer; direction: 'deposit' | 'withdraw' }
   | { itemId: string; target?: Slot; direction: 'equip' }
   | { itemId: string; x: number; y: number; direction: 'move' }
-  | { slot: Slot; direction: 'unequip' };
+  | { slot: Slot; position?: { x: number; y: number }; direction: 'unequip' };
 export function parseSharedItems(value: unknown): Item[] {
   if (!Array.isArray(value) || value.length > 100) throw new Error('Invalid shared items');
   const items = value.map(parseItem);
@@ -30,7 +30,7 @@ export function moveSharedItem(hero: HeroState, shared: Item[], request: SharedT
   }
   if (request.direction === 'unequip') {
     if (!SLOTS.includes(request.slot)) throw new Error('无效的装备栏');
-    if (!unequipToItems(hero, shared, request.slot, SHARED_STASH_ROWS)) throw new Error('共享仓库空间不足或装备已被移动');
+    if (!unequipToItems(hero, shared, request.slot, SHARED_STASH_ROWS, request.position)) throw new Error('共享仓库目标空间不足或装备已被移动');
     return;
   }
   if (!['inventory', 'stash'].includes(request.container) || !['deposit', 'withdraw'].includes(request.direction)) throw new Error('无效的存取操作');

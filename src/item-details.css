@@ -14,6 +14,18 @@
 .drag-equipment-dock .gear-slot { min-height: 0; height: 41px; }
 .drag-equipment-dock .gear-slot .item-art { max-height: 36px; }
 .drag-equipment-dock .gear-slot svg { width: 25px; height: 25px; }
+.gear-slot { touch-action: none; user-select: none; -webkit-user-select: none; }
+.gear-slot.is-dragging { opacity: .25; outline: 1px dashed currentColor; outline-offset: -2px; }
+.drag-storage-dock { position: fixed; z-index: 80; right: 16px; bottom: 12px; width: min(390px, calc(100vw - 32px)); padding: 10px; border: 1px solid #93adbd; border-radius: 8px; background: #132433f5; box-shadow: 0 8px 25px #000b; }
+.drag-storage-dock > div:last-child { display: flex; gap: 8px; }
+.drag-storage-dock button { flex: 1; min-height: 42px; padding: 7px; font-size: 12px; border: 1px dashed #b9c4cf; border-radius: 5px; background: #1e3346; }
+:is([data-drop-container],[data-bag-view],[data-shared-view],[data-shared-pane])[data-drop-valid=true] { outline: 2px solid #9ee8bb; background: #235843; }
+:is([data-drop-container],[data-bag-view],[data-shared-view],[data-shared-pane])[data-drop-valid=false] { outline: 2px solid #f39b93; background: #63383a; }
+@media (max-height: 580px) and (min-width: 701px) {
+  .drag-storage-dock { padding: 6px; bottom: 8px; }
+  .drag-storage-dock > .drag-dock-title { display: none; }
+  .drag-storage-dock button { min-height: 32px; padding: 5px; }
+}
 .paladin-inventory { grid-template-columns: 185px minmax(0, 1fr) minmax(400px, 470px); }
 .item-details, .shared-item-details { container-type: inline-size; }
 .item-summary { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; margin-bottom: 8px; }
@@ -79,8 +91,10 @@
 }
 @media (max-height: 580px) and (min-width: 701px) {
   .paladin-inventory { grid-template-columns: minmax(0, 1fr) minmax(340px, 1.1fr); }
-  .shared-workspace { grid-template-columns: 125px minmax(0, 1fr) minmax(300px, 1.2fr); }
-  .shared-loadout .paperdoll { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, 65px); gap: 5px; }
-  .shared-loadout .gear-position { grid-row: auto; grid-column: auto; width: 100%; height: auto; max-height: none; }
-  .shared-loadout .gear-slot { height: 43px; min-height: 0; }
+  .shared-workspace { grid-template-columns: 145px minmax(0, 1fr) minmax(300px, 1.2fr); }
+  .shared-loadout .paperdoll { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, 51px); gap: 5px; }
+  .shared-loadout .gear-position { grid-row: auto; grid-column: auto; width: 100%; height: auto; max-height: none; gap: 3px; }
+  .shared-loadout .gear-slot { height: 35px; min-height: 0; }
+  .shared-loadout .gear-slot svg { width: 24px; height: 24px; }
+  .shared-loadout .gear-slot .item-art { max-height: 31px; }
 }

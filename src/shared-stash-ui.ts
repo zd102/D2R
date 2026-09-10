@@ -46,11 +46,12 @@ export class SharedStashScreen {
     const game = this.ui.game;
     if (this.busy || !this.state || !game.profile || !game.saves || game.saveConflict || game.dead || !game.inCamp || this.ui.panel !== 'shared-stash'
       || Math.hypot(game.position.x - CAMP.stash.x, game.position.z - CAMP.stash.z) >= 3.5) return;
-    const revision = this.state.revision; this.busy = true; this.error = ''; this.ui.renderPanel();
+    const revision = this.state.revision, unequippedId = request.direction === 'unequip' ? game.hero.equipment[request.slot]?.id : undefined;
+    this.busy = true; this.error = ''; this.ui.renderPanel();
     try {
       const result = await game.saves.transferShared(game.profile.id, game.hero, game.profile.revision, revision, request);
       game.profile = result.profile; game.hero = structuredClone(result.profile.hero); game.storageAvailable = true; this.state = result.shared;
-      this.selected = request.direction === 'equip' ? { side: 'equipment', id: request.itemId } : request.direction === 'move' ? { side: 'shared', id: request.itemId } : undefined;
+      this.selected = request.direction === 'equip' ? { side: 'equipment', id: request.itemId } : request.direction === 'move' ? { side: 'shared', id: request.itemId } : unequippedId ? { side: 'shared', id: unequippedId } : undefined;
       game.audio.play('loot'); this.ui.toast(request.direction === 'move' ? '已调整共享仓库' : request.direction === 'equip' ? '已装备，替换装备已放回共享仓库' : request.direction === 'unequip' ? '已卸下至共享仓库' : request.direction === 'deposit' ? '已存入共享仓库' : request.container === 'inventory' ? '已取回背包' : '已取回个人仓库');
     } catch (error) {
       this.error = error instanceof Error ? error.message : '存取失败，请重试';

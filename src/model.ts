@@ -208,12 +208,31 @@ export function equipItem(hero: HeroState, id: string, target?: Slot, container:
   const items = hero[container];
   return equipFromItems(hero, items, id, target, container === 'inventory' ? 4 : stashRows(items));
 }
-export function unequipToItems(hero: HeroState, items: Item[], slot: Slot, rows = 4) {
-  const item = hero.equipment[slot]; if (!item || items.some(other => other.id === item.id)) return false;
+function unequipLayout(hero: HeroState, items: Item[], slot: Slot, rows: number, position?: { x: number; y: number }) {
+  const item = hero.equipment[slot];
+  if (!item || items.some(other => other.id === item.id) || new Set(items.map(other => other.id)).size !== items.length || items === hero.stash && items.length >= 200) return null;
+  if (position && (!Number.isInteger(position.x) || !Number.isInteger(position.y))) return null;
+  const existing = packItems(items, rows); if (!existing) return null;
+  const layout = items.map(other => ({ ...other, x: existing.get(other.id)!.x, y: existing.get(other.id)!.y }));
   const moved = { ...item }; delete moved.x; delete moved.y;
-  const positions = packItems([...items, moved], rows); if (!positions) return false;
+  if (position) { moved.x = position.x; moved.y = position.y; }
+  const positions = packItems([...layout, moved], rows), placed = positions?.get(item.id);
+  if (!positions || position && (placed?.x !== position.x || placed?.y !== position.y)) return null;
+  return positions;
+}
+export function canUnequipToItems(hero: HeroState, items: Item[], slot: Slot, rows = 4, position?: { x: number; y: number }) {
+  return unequipLayout(hero, items, slot, rows, position) !== null;
+}
+export function unequipToItems(hero: HeroState, items: Item[], slot: Slot, rows = 4, position?: { x: number; y: number }) {
+  const positions = unequipLayout(hero, items, slot, rows, position); if (!positions) return false;
+  const item = hero.equipment[slot]!;
   items.push(item); for (const entry of items) { const position = positions.get(entry.id)!; entry.x = position.x; entry.y = position.y; }
   hero.equipment[slot] = null; clampResources(hero); return true;
+}
+export function swapRingSlots(hero: HeroState, from: Slot, to: Slot) {
+  if (from === to || !['ring', 'ring2'].includes(from) || !['ring', 'ring2'].includes(to) || !hero.equipment[from]) return false;
+  [hero.equipment[from], hero.equipment[to]] = [hero.equipment[to], hero.equipment[from]];
+  clampResources(hero); return true;
 }
 export function unequipItem(hero: HeroState, slot: Slot, container: 'inventory' | 'stash' = 'inventory') {
   if (container === 'stash' && hero.stash.length >= 200) return false;
