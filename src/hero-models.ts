@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { actorMaterial, contourGeometry, mergeActorParts, plateGeometry } from './actor-modeling.ts';
 import type { Actor } from './world.ts';
 import type { ClassId } from './classes.ts';
 import { createHeroWards } from './visual-effects.ts';
@@ -23,13 +23,12 @@ export function createHeroActor(classId: ClassId): Actor {
   const paladin=classId==='paladin', amazon=classId==='amazon', sorceress=classId==='sorceress';
   const group=new THREE.Group(), rig=new THREE.Group(), chest=new THREE.Group(), head=new THREE.Group();
   group.name=`hero-${classId}`; group.userData.classId=classId; group.userData.bodyPlan='articulated-hero';
-  group.add(rig); rig.add(chest); chest.position.y=1.13; chest.add(head); head.position.y=.48;
-  const material=(color:number,metalness=0,roughness=.8)=>new THREE.MeshStandardMaterial({color,metalness,roughness});
-  const skin=material(paladin?0x80533d:sorceress?0xb88562:0xc89b76,0,.88);
-  const leather=material(0x392d24), dark=material(0x171c21), steel=material(0x79858b,.55,.57);
-  const gold=material(paladin?0xb59856:0xb69a61,.65,.47), fabric=material(sorceress?0x246d79:amazon?0x50614a:0x2e4153);
-  const hair=material(paladin?0x231f1c:amazon?0xae873f:0x181b20), light=material(0xd5cbb1,.15,.67);
-  const bronze=material(0x927544,.55,.53), clothBack=material(paladin?0x642d30:sorceress?0x174954:0x3b4937);
+  group.add(rig); rig.add(chest); chest.position.y=1.13; chest.add(head); head.position.y=.43;
+  const skin=actorMaterial(paladin?0x70462f:sorceress?0xb88869:0xc69e7b,'skin');
+  const leather=actorMaterial(0x3c2c21,'leather'), dark=actorMaterial(0x1b1c1c,'leather'), steel=actorMaterial(0x8a9292,'steel');
+  const gold=actorMaterial(0xa88a4d,'bronze'), fabric=actorMaterial(sorceress?0x285c65:amazon?0x554b30:0x343c42,'cloth');
+  const hair=actorMaterial(paladin?0x211b17:amazon?0x967036:0x18191b,'leather'), light=actorMaterial(0xc9bda2,'bone');
+  const bronze=actorMaterial(0x8c7045,'bronze'), clothBack=actorMaterial(paladin?0x582727:sorceress?0x243d43:0x3b4937,'cloth');
   const geos={ball:new THREE.SphereGeometry(1,16,12),box:new THREE.BoxGeometry(),tube:new THREE.CylinderGeometry(1,1,1,12),cone:new THREE.ConeGeometry(1,1,8)};
   const part=(parent:THREE.Object3D,geo:THREE.BufferGeometry,mat:THREE.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1)=>{
     const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=m.receiveShadow=true;parent.add(m);return m;
@@ -46,7 +45,7 @@ export function createHeroActor(classId: ClassId): Actor {
   const trim=(p:THREE.Object3D,x:number,y:number,z:number,r:number,scaleZ=1)=>{
     const m=part(p,new THREE.TorusGeometry(r,.015,5,24),gold,x,y,z,1,1,scaleZ);m.rotation.x=Math.PI/2;return m;
   };
-  profile(chest,paladin?fabric:skin,[[.18,-.28],[.19,-.19],[.17,-.06],[.23,.09],[paladin?.29:.24,.24],[.19,.29]],0,0,0,.72);
+  part(chest,contourGeometry([[-.28,.18,.12],[-.19,.185,.13],[-.055,.155,.115],[.09,.22,.145],[.22,paladin?.27:.235,.13],[.29,.16,.105]]),paladin?fabric:skin,0,0,0);
   profile(rig,leather,[[.19,.76],[.23,.84],[.20,.94]],0,0,0,.78);
   part(rig,geos.tube,leather,0,.94,0,.22,.075,.17);part(rig,geos.box,gold,0,.95,.174,.085,.085,.025);
   for(const side of [-1,1]){part(rig,geos.box,gold,side*.16,.95,.12,.024,.065,.025);ball(chest,skin,side*.265,.20,0,.087,.11,.09);}
@@ -54,40 +53,42 @@ export function createHeroActor(classId: ClassId): Actor {
   // Brow, cheek and jaw volumes read as a face even at the isometric camera distance.
   const faceGeometry=new THREE.SphereGeometry(1,24,18),faceVertices=faceGeometry.attributes.position;
   for(let i=0;i<faceVertices.count;i++){const x=faceVertices.getX(i),y=faceVertices.getY(i),z=faceVertices.getZ(i);faceVertices.setXYZ(i,x*.14*(y<-.15?1+(y+.15)*.28:1),y*.19+.06,z*.125+(z>0?Math.exp(-x*x*25-(y+.05)**2*10)*.02:0));}
-  faceGeometry.computeVertexNormals();part(head,faceGeometry,skin,0,0,0);head.scale.setScalar(.80);
+  faceGeometry.computeVertexNormals();part(head,faceGeometry,skin,0,0,0);head.scale.setScalar(.86);
   for(const side of [-1,1]) {
     ball(head,skin,side*.138,.025,-.005,.017,.034,.018);
-    part(head,geos.box,dark,side*.052,.078,.117,.044,.014,.008);
-    const brow=part(head,geos.box,hair,side*.051,.106,.112,.064,.014,.015);brow.rotation.z=side*.09;
+    part(head,geos.box,dark,side*.052,.078,.117,.032,.009,.006);
+    const brow=part(head,geos.box,hair,side*.051,.106,.112,.049,.010,.010);brow.rotation.z=side*.09;
   }
   ball(head,skin,0,.035,.135,.017,.036,.023);part(head,geos.box,paladin?hair:leather,0,-.045,.133,.057,.008,.006);
   ball(head,hair,0,.174,-.02,.146,.088,.13);
   if(paladin) {
     ball(head,hair,0,-.092,.083,.089,.036,.061);
-    profile(chest,steel,[[.19,-.13],[.25,.02],[.29,.18],[.22,.28]],0,0,.007,.76);
+    part(chest,contourGeometry([[-.16,.18,.13],[-.06,.205,.16],[.08,.265,.18],[.20,.28,.15],[.27,.19,.115]]),steel,0,0,.007);
     for(const side of [-1,1]) {
-      const plate=ball(chest,steel,side*.14,.15,.153,.14,.105,.060);plate.rotation.z=side*-.12;
+      const plate=part(chest,plateGeometry([[-.105,-.07],[.09,-.05],[.12,.06],[.045,.12],[-.105,.08]],.025,.012),steel,side*.135,.115,.161);plate.rotation.y=side*.20;
       bar(chest,gold,[side*.24,.20,.16],[side*.17,-.10,.16],.016);
-      for(let i=0;i<3;i++)part(chest,geos.box,steel,side*.19,-.08-i*.045,.07,.13,.037,.17);
+      for(let i=0;i<3;i++)part(chest,plateGeometry([[-.065,.035],[.07,.03],[.085,-.035],[-.07,-.04]],.022,.006),steel,side*.19,-.13-i*.055,.11+i*.006);
+      for(const y of [-.08,.20])ball(chest,gold,side*.21,y,.18,.011,.011,.008);
     }
     part(chest,geos.box,gold,0,.075,.235,.027,.29,.016);part(chest,geos.box,gold,0,.145,.235,.21,.027,.016);
     // Open helmet keeps the Paladin's face visible.
-    for(const side of [-1,1]){part(head,geos.box,steel,side*.136,.108,-.027,.032,.22,.17);bar(head,gold,[side*.135,.225,-.08],[side*.135,.225,.09],.015);}
-    part(head,geos.box,steel,0,.258,-.025,.255,.027,.18);
-    part(head,geos.box,gold,0,.269,-.022,.022,.036,.23);
+    part(head,contourGeometry([[.16,.149,.137,-.02],[.23,.136,.12,-.02],[.275,.08,.075,-.02],[.29,.015,.025,-.02]],16),steel,0,0,0);
+    for(const side of [-1,1]){const guard=part(head,plateGeometry([[-.028,.10],[.026,.12],[.04,-.07],[0,-.12],[-.028,-.05]],.02,.006),steel,side*.128,.065,.025);guard.rotation.y=side*1.1;bar(head,gold,[side*.135,.18,.04],[side*.075,.21,.11],.009);}
+    bar(head,gold,[0,.29,-.07],[0,.27,.08],.012);
   } else if(amazon) {
     profile(chest,bronze,[[.19,-.08],[.235,.09],[.247,.19],[.18,.24]],0,0,.012,.8);
     for(const side of [-1,1]){bar(chest,gold,[side*.1,-.07,.16],[side*.16,.22,.15],.017);bar(chest,leather,[side*.17,.27,.08],[side*.14,.17,.18],.025);}
-    for(let i=0;i<9;i++){const a=i*Math.PI*2/9;const skirt=part(rig,geos.box,i%2?leather:bronze,Math.sin(a)*.205,.77,Math.cos(a)*.16,.09,.25,.025);skirt.rotation.set(.14*Math.cos(a),a,-.14*Math.sin(a));}
+    for(let i=0;i<11;i++){const a=i*Math.PI*2/11;const skirt=part(rig,plateGeometry([[-.043,.11],[.043,.11],[.047,-.105],[.025,-.145],[-.036,-.13]],.014,.004),i%3?leather:bronze,Math.sin(a)*.205,.77,Math.cos(a)*.16);skirt.rotation.set(.14*Math.cos(a),a,-.14*Math.sin(a));ball(skirt,gold,0,.075,.028,.009,.009,.008);}
     const ponytail=new THREE.Group();head.add(ponytail);ponytail.name='hero-hair';ponytail.position.set(0,.18,-.12);
-    for(let i=0;i<5;i++)ball(ponytail,hair,Math.sin(i*.8)*.027,-i*.088,-.025-i*.022,.058-i*.006,.09,.052-i*.005);
+    part(ponytail,contourGeometry([[-.46,.016,.02,-.10],[-.34,.033,.039,-.12],[-.20,.043,.045,-.09],[-.08,.049,.048,-.035],[.015,.03,.03]],12,.1),hair,0,0,0);
+    trim(ponytail,0,-.02,0,.04);
     bar(chest,leather,[-.22,.23,-.15],[.22,-.23,.15],.033);
     const quiver=new THREE.Group();chest.add(quiver);quiver.position.set(-.19,-.05,-.18);quiver.rotation.z=-.3;
     profile(quiver,leather,[[.065,-.28],[.09,.23]],0,0,0,.8);trim(quiver,0,.21,0,.09);
     for(let i=0;i<5;i++){bar(quiver,gold,[(i-2)*.023,.15,0],[(i-2)*.023,.42+(i%2)*.04,0],.008);part(quiver,geos.box,light,(i-2)*.023,.39+(i%2)*.04,0,.032,.065,.012);}
   } else {
     profile(chest,fabric,[[.176,-.06],[.228,.09],[.233,.20],[.175,.25]],0,0,.008,.8);
-    for(const side of [-1,1]){bar(chest,gold,[side*.15,.23,.135],[0,-.03,.148],.017);ball(head,hair,side*.105,-.025,-.06,.052,.24,.078);}
+    for(const side of [-1,1]){bar(chest,gold,[side*.15,.23,.135],[0,-.03,.148],.012);part(head,contourGeometry([[-.28,.027,.04,-.065],[-.10,.05,.065,-.04],[.10,.052,.07,-.035],[.19,.025,.04,-.02]],12,.12),hair,side*.11,0,0);}
     const crest=part(chest,new THREE.OctahedronGeometry(.048),gold,0,.20,.185);crest.scale.set(.8,1.1,.4);
     for(let i=0;i<4;i++)part(chest,geos.box,gold,0,-.15-i*.035,.126,.05-i*.007,.018,.016);
   }
@@ -111,7 +112,11 @@ export function createHeroActor(classId: ClassId): Actor {
   for(const [arm,side] of [[leftArm,-1],[rightArm,1]] as const) {
     arm.position.set(side*(paladin?.31:.265),.20,0);chest.add(arm);
     profile(arm,paladin?leather:skin,[[.059,-.25],[.077,-.16],[.095,-.035],[.082,.015]],0,0,0,.93);
-    if(paladin||amazon){ball(arm,paladin?steel:bronze,side*.024,.01,-.006,paladin?.16:.11,.10,.14);trim(arm,side*.024,-.025,0,paladin?.142:.10,.85);}
+    if(paladin||amazon){
+      part(arm,contourGeometry([[-.055,paladin?.137:.102,.125],[-.005,paladin?.15:.109,.135],[.065,paladin?.13:.095,.105],[.095,.055,.065]],10),paladin?steel:bronze,side*.024,0,-.006);
+      trim(arm,side*.024,-.04,0,paladin?.135:.098,.85);
+      if(paladin)for(let i=0;i<2;i++){const lame=part(arm,plateGeometry([[-.08,.025],[.08,.025],[.095,-.036],[-.075,-.047]],.022,.008),steel,side*.065,-.095-i*.052,.063);lame.rotation.y=side*.65;}
+    }
     const elbow=new THREE.Group();elbow.position.y=-.255;arm.add(elbow);elbows.push(elbow);
     ball(elbow,paladin?steel:skin,0,0,0,.06,.063,.065);
     profile(elbow,paladin?steel:leather,[[.04,-.225],[.064,-.14],[.069,-.045]],0,0,0,.82);
@@ -168,20 +173,10 @@ export function createHeroActor(classId: ClassId): Actor {
     geo.computeVertexNormals();const panel=part(parent,geo,mat,x,y,z);panel.material.side=THREE.DoubleSide;panel.userData.rest=Float32Array.from(pos.array);panel.userData.cloth=true;clothPanels.push(panel);return panel;
   };
   let cape:THREE.Mesh|undefined;
-  if(paladin){cape=cloth(chest,.50,.83,0,-.20,-.20,clothBack);cloth(rig,.21,.43,0,.69,.18,fabric);}
-  if(sorceress){for(const side of [-1,1]){const panel=cloth(rig,.23,.78,side*.155,.52,side>0?-.06:.13,fabric);panel.rotation.y=side*.4;}cape=cloth(chest,.28,.57,-.18,-.17,-.16,clothBack);}
+  if(paladin){cape=cloth(chest,.49,.83,0,-.20,-.20,clothBack);cloth(rig,.25,.46,0,.67,.18,fabric);for(const side of [-1,1])cloth(rig,.018,.44,side*.10,.67,.191,gold);}
+  if(sorceress){for(let i=0;i<5;i++){const a=(i+1)*Math.PI/3;const panel=cloth(rig,.225,.78,Math.sin(a)*.16,.49,Math.cos(a)*.14,fabric);panel.rotation.y=a;const edge=cloth(rig,.014,.76,Math.sin(a)*.16+Math.cos(a)*.10,.49,Math.cos(a)*.14-Math.sin(a)*.10,gold);edge.rotation.y=a;}cape=cloth(chest,.28,.57,-.18,-.17,-.16,clothBack);}
   // Merge only unnamed rigid meshes sharing a joint/material. Gear groups remain addressable.
-  const sourceGeometries=new Set<THREE.BufferGeometry>();
-  rig.traverse(node=>{if(node instanceof THREE.Mesh)sourceGeometries.add(node.geometry);});
-  const parents:THREE.Object3D[]=[];rig.traverse(node=>{if(node instanceof THREE.Group)parents.push(node);});
-  for(const parent of parents) {
-    const batches=new Map<THREE.Material,THREE.Mesh[]>();
-    for(const child of parent.children)if(child instanceof THREE.Mesh&&!child.userData.cloth&&!child.name){const mat=child.material as THREE.Material;const list=batches.get(mat)??[];list.push(child);batches.set(mat,list);}
-    for(const [mat,meshes] of batches){const geometries=meshes.map(mesh=>{mesh.updateMatrix();const geo=mesh.geometry.clone().applyMatrix4(mesh.matrix);if(!geo.index)return geo;const unindexed=geo.toNonIndexed();geo.dispose();return unindexed;});const merged=mergeGeometries(geometries,false);geometries.forEach(g=>g.dispose());if(!merged)continue;
-      const vertices=merged.attributes.position,tints=new Float32Array(vertices.count*3);for(let i=0;i<vertices.count;i++){const variation=Math.sin(vertices.getX(i)*137+vertices.getY(i)*91+vertices.getZ(i)*173);const tint=mat===skin?.97+variation*.025:.91+variation*.07;tints.set([tint,tint,tint],i*3);}merged.setAttribute('color',new THREE.BufferAttribute(tints,3));(mat as THREE.MeshStandardMaterial).vertexColors=true;
-      meshes.forEach(m=>parent.remove(m));const m=new THREE.Mesh(merged,mat);m.castShadow=m.receiveShadow=true;parent.add(m);}
-  }
-  const retained=new Set<THREE.BufferGeometry>();rig.traverse(node=>{if(node instanceof THREE.Mesh)retained.add(node.geometry);});sourceGeometries.forEach(g=>{if(!retained.has(g))g.dispose();});
+  mergeActorParts(rig);
   const actor:Actor={group,leftLeg,rightLeg,leftArm,rightArm,cape,kind:'hero',animate(time,moving,attacking){
     const running=!!group.userData.running,cycle=time*(running?11:7.5),walk=moving?Math.sin(cycle):0,stride=moving?(running?.63:.40):0;
     rig.position.y=moving?Math.abs(Math.sin(cycle))* (running?.035:.018):Math.sin(time*1.8)*.006;

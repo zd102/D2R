@@ -151,8 +151,9 @@ try {
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     const mobile = await start(viewport, true);
-    // In landscape, get the label clear of the bottom HUD before tapping it.
-    await approach(mobile, 0, viewport.height < 580 ? 2.2 : 7);
+    // Rotated maps can project a chest seven units away outside a phone's narrow
+    // viewport. Approach within interaction distance before tapping its label.
+    await approach(mobile, 0, 2.2);
     // A touch along a smoothed route can hit and open the chest while approaching.
     if (!(await state(mobile)).chests[0].opened) await mobile.getByRole('button', { name: '打开箱子 1', exact: true }).tap();
     await mobile.waitForFunction(() => window.eclipseState.chests[0].opened);

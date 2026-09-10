@@ -15,6 +15,14 @@ const weapon = (code, id) => makeItem(BASES.find(base => base.baseCode === code)
 async function fixture(viewport = { width: 1440, height: 960 }, touch = false) {
   const page = await browser.newPage({ viewport, isMobile: touch, hasTouch: touch });
   page.on('pageerror', error => errors.push(error.message));
+  // Read the real navigation route in this test context. Randomized maps can put
+  // the nearest pack outside the viewport; clicking its offscreen projection is
+  // not an input event on the game canvas.
+  await page.route('**/src/main.ts*', async route => {
+    const response = await route.fetch(), body = await response.text();
+    assert.ok(body.includes('const game = new Game();'));
+    await route.fulfill({ response, body: body.replace('const game = new Game();', 'const game = new Game(); window.rangedGame = game;') });
+  });
   const hero = newHero(); hero.level = 40; hero.dexterity = 80; hero.strength = 80; hero.vitality = 200; hero.gold = 1000;
   hero.equipment.weapon = weapon('sbw', 'test-bow'); hero.equipment.shield = null;
   hero.alternate.weapon = weapon('lxb', 'test-crossbow');
@@ -112,7 +120,21 @@ try {
   for (let step = 0; step < 100 && !damagedAtRange; step++) {
     const s = await state(page), enemy = s.enemies.filter(e => !e.boss).sort((a, b) => distance(a, s.position) - distance(b, s.position))[0];
     assert.ok(enemy); const before = enemy.hp;
-    await page.mouse.click(enemy.screen.x, enemy.screen.y); await page.waitForTimeout(150);
+    const click = await page.evaluate(id => {
+      const g = window.rangedGame, target = g.enemies.find(enemy => enemy.id === id), screen = g.project(target.actor.group.position.clone().setY(1));
+      const onCanvas = p => document.elementFromPoint(p.x, p.y) === g.renderer.domElement;
+      if (g.position.distanceTo(target.actor.group.position) < 10 && onCanvas(screen)) return { ...screen, attack: true };
+      const route = g.world.path(g.position, target.actor.group.position);
+      // A smoothed path can contain one long segment ending offscreen. Advance
+      // along that segment in visible steps, retaining room for a ranged hit.
+      if (!route.length) return undefined;
+      const length = g.position.distanceTo(route[0]), stride = Math.min(4, route.length === 1 ? Math.max(.5, length - 6) : length);
+      const waypoint = g.project(g.position.clone().lerp(route[0], Math.min(1, stride / Math.max(.01, length))));
+      return onCanvas(waypoint) ? { ...waypoint, attack: false } : undefined;
+    }, enemy.id);
+    assert.ok(click, 'A visible waypoint reaches the nearest monster pack');
+    if (!click.attack) { await page.mouse.click(click.x, click.y); await page.waitForTimeout(250); continue; }
+    await page.mouse.click(click.x, click.y); await page.waitForTimeout(150);
     const next = await state(page), after = next.enemies.find(e => e.id === enemy.id);
     if ((!after || after.hp < before) && distance(next.position, after || enemy) > 3) damagedAtRange = true;
   }
