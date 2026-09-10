@@ -22,6 +22,9 @@ export type Projectile = { mesh: THREE.Mesh; origin: THREE.Vector3; direction: T
 export class PaladinCombat {
   game: Game;
   lock = 0;
+  actionCooldowns: Partial<Record<ActionId, number>> = {};
+  stagger = 0;
+  movementRecovery = 0;
   fohDelay = 0;
   auraTimer = 0;
   regen: [number, number] = [0, 0];
@@ -37,6 +40,22 @@ export class PaladinCombat {
   ammoWarning = 0;
   classes = new ClassCombat(this);
   constructor(game: Game) { this.game = game; game.world.scene.add(this.auraRing, this.shieldRing, this.corpseRing); this.auraRing.visible = this.shieldRing.visible = this.corpseRing.visible = false; }
+  cooldown(id: ActionId) {
+    if (isAura(id) || isPassive(id)) return 0;
+    return Math.max(this.actionCooldowns[id] ?? 0, this.classes.delays[id as ExtraSkillId] ?? 0, id === 'fistOfHeavens' ? this.fohDelay : 0);
+  }
+  readyIn(id: ActionId) { return Math.max(this.stagger, this.cooldown(id)); }
+  get movementLocked() { return this.stagger > 0 || this.movementRecovery > 0 || !!this.zeal || !!this.classes.sequence; }
+  startAction(id: ActionId, duration: number) {
+    // Switching actions cancels the unfinished combo, but keeps its own cadence.
+    this.zeal = null; this.classes.sequence = undefined;
+    this.lock = duration; this.actionCooldowns[id] = duration;
+    this.movementRecovery = Math.min(.12, duration * .35);
+  }
+  recover(duration: number) {
+    this.stagger = Math.max(this.stagger, duration);
+    this.lock = Math.max(this.lock, duration);
+  }
   hostile(enemy: Enemy) { return !enemy.dead && enemy.converted <= 0 && (!enemy.boss || questComplete(this.game.hero.campaign)); }
   inAura(enemy: Enemy) { return enemy.actor.group.position.distanceTo(this.game.position) <= stats(this.game.hero).aura.radius; }
   auraAt(enemy: Enemy, id: SkillId, s = stats(this.game.hero)) { return s.auras.find(aura => aura.id === id && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius); }
@@ -77,7 +96,7 @@ export class PaladinCombat {
   }
   castAction(id: ActionId, aimed = false): boolean {
     if (isAura(id) || isPassive(id)) return false;
-    if (this.lock > 0 || this.zeal || this.classes.sequence || this.game.paused || this.game.dead) return false;
+    if (this.readyIn(id) > 0 || this.game.paused || this.game.dead) return false;
     if (classSkillMode(id)) return this.classes.cast(id as ExtraSkillId,aimed);
     const g = this.game, h = g.hero, s = stats(h), rank = skillLevel(h, id, s.mods), v = skillValues(id, rank, h.skills);
     if (id !== 'attack' && !rank || id === 'fistOfHeavens' && this.fohDelay > 0) return false;
@@ -91,7 +110,7 @@ export class PaladinCombat {
     direction.y = 0; direction.normalize(); if (!direction.lengthSq()) direction.set(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
     const casting = ['holyBolt', 'blessedHammer', 'holyShield', 'fistOfHeavens'].includes(id);
     const ranged = id === 'attack' && s.ranged && s.weapon;
-    this.lock = (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25;
+    this.startAction(id, id === 'zeal' ? (s.attackFrames + s.zealFrames * (v.hits - 1)) / 25 : (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25);
     h.mana -= v.cost; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
     if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play('spell'); g.save(false); return true; }
     if (ranged) { this.shootWeapon(origin, direction, target); return true; }
@@ -124,7 +143,7 @@ export class PaladinCombat {
       for (let step = .25; step <= distance; step += .25) { const next = origin.clone().addScaledVector(direction, step); if (!gridWalkable(g.world.grid, next)) break; last = next; if (step % 1 === 0) g.burst(next.clone().setY(.4), 0xe5ce84, 2); }
       g.body.position.set(last.x, .5, last.z); g.position.copy(last); g.path = []; this.melee(id, direction, aimed); g.audio.play('swing'); return true;
     }
-    if (id === 'zeal') { this.zeal = { hits: v.hits, timer: 0, direction, aimed }; this.lock = (s.attackFrames + s.zealFrames * (v.hits - 1)) / 25; return true; }
+    if (id === 'zeal') { this.zeal = { hits: v.hits, timer: 0, direction, aimed }; return true; }
     this.melee(id, direction, aimed);
     return true;
   }
@@ -273,7 +292,7 @@ export class PaladinCombat {
     if (!self && source && type === 'physical') { const curse = this.itemCurses.get(source)?.kind; amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : 1; }
     if (!self && source && type === 'physical') {
       if (!this.running && Math.random() * 100 >= hitChance(source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return; }
-      if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.lock = Math.max(this.lock, s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); return; }
+      if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.recover(s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); return; }
     }
     const shield=h.buffs?.energyShield;
     if(!self&&type!=='poison'&&shield?.remaining){const v=skillValues('energyShield',shield.rank,h.skills),absorbed=Math.min(amount*v.percent/100,h.mana/v.secondary);h.mana-=absorbed*v.secondary;amount-=absorbed;if(h.mana<=0)delete h.buffs.energyShield;}
@@ -284,7 +303,7 @@ export class PaladinCombat {
     if (!self) {
       g.invincible = PALADIN_BALANCE.hitGraceSeconds;
       if (type === 'physical') h.mana = Math.min(s.maxMana, h.mana + damage * (s.mods.damageToMana ?? 0) / 100);
-      if (damage >= s.maxHp / 12 && !this.zeal && !(s.auras.some(aura => aura.id === 'concentration') && Math.random() < .2)) this.lock = Math.max(this.lock, s.recoveryFrames / 25);
+      if (damage >= s.maxHp / 12 && !this.zeal && !(s.auras.some(aura => aura.id === 'concentration') && Math.random() < .2)) this.recover(s.recoveryFrames / 25);
       if (type === 'poison') h.poison = Math.max(h.poison, 6);
       const armor = h.equipment.armor ?? h.equipment.shield; if (armor?.durability && !itemMods(armor).indestructible && Math.random() < .1) armor.durability--;
     }
@@ -315,6 +334,11 @@ export class PaladinCombat {
       item.durability = Math.min(item.maxDurability, item.durability + Math.floor(progress)); this.repairTime.set(item.id, progress % 1);
     }
     this.lock = Math.max(0, this.lock - dt); this.fohDelay = Math.max(0, this.fohDelay - dt); h.holyShield = Math.max(0, h.holyShield - dt);
+    this.stagger = Math.max(0, this.stagger - dt); this.movementRecovery = Math.max(0, this.movementRecovery - dt);
+    for (const id of Object.keys(this.actionCooldowns) as ActionId[]) {
+      const remaining = this.actionCooldowns[id]! - dt;
+      if (remaining <= 1e-6) delete this.actionCooldowns[id]; else this.actionCooldowns[id] = remaining;
+    }
     this.classes.update(dt);
     if (!h.holyShield) h.holyShieldLevel = 0;
     const weaponModel = g.actor.group.getObjectByName('hero-weapon'), shieldModel = g.actor.group.getObjectByName('hero-shield');
@@ -324,7 +348,7 @@ export class PaladinCombat {
     g.actor.group.userData.rangedKind = s.ranged?.kind;
     for (const model of g.actor.group.getObjectByName('hero-ranged')?.children ?? []) model.visible = model.name === `hero-${s.ranged?.kind}`;
     if (shieldModel) shieldModel.visible = s.hasShield;
-    for (const slot of Object.keys(g.cooldowns) as Skill[]) g.cooldowns[slot] = isAura(h.bindings[slot]) ? 0 : Math.max(this.lock, this.classes.delays[h.bindings[slot] as ExtraSkillId]??0, h.bindings[slot] === 'fistOfHeavens' ? this.fohDelay : 0);
+    for (const slot of Object.keys(g.cooldowns) as Skill[]) g.cooldowns[slot] = this.cooldown(h.bindings[slot]);
     h.mana = Math.min(s.maxMana, h.mana + s.manaRegen * dt); h.hp = Math.min(s.maxHp, h.hp + s.lifeRegen * dt);
     const cleanse = 1 / (1 - (s.auras.find(aura => aura.id === 'cleansing')?.percent ?? 0) / 100);
     h.poison = Math.max(0, h.poison - dt * cleanse / (1 - Math.min(75, s.mods.poisonLength ?? 0) / 100)); h.curse = Math.max(0, h.curse - dt * cleanse); h.cold = Math.max(0, h.cold - dt);

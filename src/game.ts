@@ -9,7 +9,8 @@ import { newHero, stats, skillLevel, gainXp, equipItem, equipReason, sellItem, a
 import { clearShot } from './ranged';
 import { ACTS, LEVELS, levelLayout, levelTuning, eliteCount, questComplete, canEnterLevel } from './campaign';
 import { CAMP, prepareCampArrival } from './camp';
-import { type Attribute, type DamageType } from './paladin';
+import { isAura, isPassive, type ActionId, type Attribute, type DamageType } from './paladin';
+import { classSkillMode } from './class-skills';
 import { packItems, placeItems, runeLabel, type DropRank, type RuneId, type Mods } from './items';
 import { rollLoot } from './loot';
 import { rollChestLoot, chestContext } from './chests';
@@ -65,6 +66,9 @@ export class Game {
   pendingCampTarget: 'portal' | 'stash' = 'portal';
   pendingChest?: number;
   heldAttack = false;
+  heldSkill?: { key: string; slot: Skill; id: ActionId };
+  bufferedSkill?: { slot: Skill; id: ActionId; aimed: boolean; remaining: number };
+  skillRetry = 0;
   started = false;
   paused = true;
   dead = false;
@@ -270,7 +274,7 @@ export class Game {
     this.enemies.push(enemy); return enemy;
   }
   begin() { if (!this.profile) return; this.started = true; this.audio.unlock(); }
-  releaseInput() { if (this.pointerGesture) this.finishPointerGesture(true); this.pointerAimActive = false; this.keys.clear(); this.heldAttack = false; this.joystick.set(0, 0); this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined; this.body.velocity.set(0, 0, 0); }
+  releaseInput() { if (this.pointerGesture) this.finishPointerGesture(true); this.pointerAimActive = false; this.keys.clear(); this.heldAttack = false; this.heldSkill = undefined; this.bufferedSkill = undefined; this.skillRetry = 0; this.joystick.set(0, 0); this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined; this.body.velocity.set(0, 0, 0); }
   updatePointer(event: PointerEvent) {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
@@ -288,6 +292,7 @@ export class Game {
   }
   finishPointerGesture(cancel = false) {
     const gesture = this.pointerGesture; this.pointerGesture = undefined;
+    if (cancel && gesture) this.bufferedSkill = undefined;
     this.heldAttack = false; this.pointerPathTimer = 0; this.pointerDestination = undefined;
     if (gesture && (cancel || gesture.dragging || gesture.mode === 'move' && performance.now() - gesture.started >= 200)) {
       this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
@@ -299,7 +304,7 @@ export class Game {
     const gesture = this.pointerGesture;
     if (!gesture || this.keys.has('shift')) return;
     if (gesture.mode === 'cast' && performance.now() - gesture.started >= 200) { gesture.mode = 'move'; gesture.dragging = true; }
-    if (gesture.mode !== 'move' || this.combat.lock > .1 || this.combat.zeal || this.combat.classes.sequence) return;
+    if (gesture.mode !== 'move' || this.combat.movementLocked) return;
     this.pointerPathTimer = Math.max(0, this.pointerPathTimer - dt);
     if (this.aim.distanceToSquared(this.position) < .3 ** 2) { this.path = []; this.body.velocity.set(0, 0, 0); return; }
     // Open ground tracks the exact cursor point every frame without running A*.
@@ -326,6 +331,7 @@ export class Game {
       if (gesture && !gesture.stationary && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) >= 6) {
         if (!gesture.dragging) { this.pointerDestination = undefined; this.pointerPathTimer = 0; }
         gesture.dragging = true; gesture.mode = 'move'; this.heldAttack = false;
+        this.bufferedSkill = undefined;
         this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
       }
     });
@@ -337,6 +343,7 @@ export class Game {
     canvas.addEventListener('pointerdown', event => {
       if (this.paused || this.dead || ![0, 2].includes(event.button) || this.pointerGesture) return;
       event.preventDefault();
+      this.bufferedSkill = undefined;
       if (event.button === 2 && (this.target || this.pendingPickup !== undefined || this.pendingPortal || this.pendingChest !== undefined)) this.path = [];
       this.pendingPickup = undefined;
       this.begin();
@@ -400,12 +407,16 @@ export class Game {
       if (key === 'x') { this.swapWeapons(); return; }
       if (key === 'v') { this.hero.running = !this.hero.running; return; }
       const skill = KEYBOARD_SKILLS[key];
-      if (skill) { this.useSkill(skill); return; }
+      if (skill) {
+        const id = this.hero.bindings[skill], mode = classSkillMode(id);
+        this.heldSkill = id !== 'attack' && !isAura(id) && !isPassive(id) && !['buff', 'summon'].includes(mode ?? '') && !['holyShield', 'innerSight', 'slowMissiles'].includes(id) ? { key, slot: skill, id } : undefined;
+        this.skillRetry = .12; this.useSkill(skill); return;
+      }
       if (key === '1') this.drink(0);
       if (key === '2') this.drink(1);
       if (key === 'f') this.interact();
     });
-    window.addEventListener('keyup', event => this.keys.delete(event.key.toLowerCase()));
+    window.addEventListener('keyup', event => { const key = event.key.toLowerCase(); this.keys.delete(key); if (this.heldSkill?.key === key) this.heldSkill = undefined; });
   }
   project(position: THREE.Vector3) { const p = position.clone().project(this.camera); return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight, visible: p.z >= -1 && p.z <= 1 }; }
   enemyAt(x: number, y: number) {
@@ -419,6 +430,7 @@ export class Game {
     return found;
   }
   moveTo(point: THREE.Vector3) {
+    this.bufferedSkill = undefined;
     this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
     this.target = undefined; this.path = this.world.path(this.position, point);
     if (this.path.length) { this.marker.position.set(this.path[this.path.length - 1].x, .08, this.path[this.path.length - 1].z); this.marker.visible = true; }
@@ -426,15 +438,44 @@ export class Game {
   nearestEnemy(range: number) {
     return this.enemies.filter(e => this.combat.hostile(e)).sort((a, b) => a.actor.group.position.distanceToSquared(this.position) - b.actor.group.position.distanceToSquared(this.position)).find(e => e.actor.group.position.distanceTo(this.position) < range);
   }
-  useSkill(skill: Skill, aimed = this.pointerAimActive) {
-    if (this.paused || this.dead) return;
+  useSkill(skill: Skill, aimed = this.pointerAimActive, buffer = true): boolean {
+    if (this.paused || this.dead) return false;
+    if (buffer) this.bufferedSkill = undefined;
+    const id = this.hero.bindings[skill], remaining = isAura(id) ? 0 : this.combat.readyIn(id);
+    if (remaining > 0) {
+      // Keep only the latest command near the end of this action's cooldown.
+      if (buffer && remaining <= .18) this.bufferedSkill = { slot: skill, id, aimed, remaining: .18 };
+      return false;
+    }
     if (aimed) this.updatePointerAim();
-    if (!this.combat.cast(skill, aimed)) return;
+    if (!this.combat.cast(skill, aimed)) return false;
     // Ordinary navigation resumes after the action's recovery. Interactions and
     // chasing a previous attack target still yield to an explicit skill command.
     if (this.pendingPickup !== undefined || this.pendingPortal || this.pendingChest !== undefined || aimed && this.target) this.path = [];
     this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
-    if (aimed) { this.target = undefined; this.heldAttack = false; }
+    if (aimed) { this.target = undefined; if (skill !== 'attack') this.heldAttack = false; }
+    return true;
+  }
+  updateSkillInput(dt: number): boolean {
+    this.skillRetry = Math.max(0, this.skillRetry - dt);
+    const buffered = this.bufferedSkill;
+    if (buffered) {
+      buffered.remaining -= dt;
+      if (buffered.remaining < -1e-6 || this.hero.bindings[buffered.slot] !== buffered.id) this.bufferedSkill = undefined;
+      else if (this.combat.readyIn(buffered.id) <= 0) {
+        this.bufferedSkill = undefined;
+        this.useSkill(buffered.slot, buffered.aimed, false);
+        this.skillRetry = .12;
+        return true;
+      } else return true;
+    }
+    const held = this.heldSkill;
+    if (!held) return false;
+    if (!this.keys.has(held.key) || this.hero.bindings[held.slot] !== held.id) { this.heldSkill = undefined; return false; }
+    if (!this.skillRetry && !this.combat.readyIn(held.id)) {
+      if (!this.useSkill(held.slot, this.pointerAimActive, false)) this.skillRetry = .12;
+    }
+    return true;
   }
   openChest(id: number, telekinesis=false) {
     if (this.inCamp || this.paused || this.dead || this.saveConflict || !this.profile) return;
@@ -658,6 +699,8 @@ export class Game {
       Number(this.keys.has('arrowright')) - Number(this.keys.has('arrowleft')) + this.joystick.x,
       Number(this.keys.has('arrowdown')) - Number(this.keys.has('arrowup')) + this.joystick.y,
     );
+    if (move.length() > .1) this.bufferedSkill = undefined;
+    const skillInput = this.updateSkillInput(dt);
     let vx = 0, vz = 0;
     let navigating = false;
     if (move.length() > .1) {
@@ -669,16 +712,16 @@ export class Game {
       if (this.target && this.combat.hostile(this.target)) {
         const bound = this.hero.bindings.attack;
         this.targetPathTimer = Math.max(0, this.targetPathTimer - dt);
-        if (this.combat.canReach(this.target, bound)) { this.path = []; this.combat.castAction(bound); }
-        else if (!this.targetPathTimer && this.combat.lock <= .1 && !this.combat.zeal && !this.combat.classes.sequence
+        if (this.combat.canReach(this.target, bound)) { this.path = []; if (!skillInput && !this.combat.movementLocked) this.combat.castAction(bound); }
+        else if (!this.targetPathTimer && !this.combat.movementLocked
           && (!this.path.length || !this.targetDestination || this.targetDestination.distanceToSquared(this.target.actor.group.position) > .5 ** 2)) {
           this.targetDestination = this.target.actor.group.position.clone(); this.targetPathTimer = .2;
           this.path = this.world.path(this.position, this.targetDestination);
         }
-      } else if (this.heldAttack) this.combat.castAction(this.hero.bindings.attack, true);
+      } else if (this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.castAction(this.hero.bindings.attack, true);
       navigating = this.path.length > 0;
     }
-    const locked = this.combat.zeal || this.combat.classes.sequence || this.combat.lock > .1;
+    const locked = this.combat.movementLocked;
     const speed = locked ? 0 : (this.hero.running && this.hero.stamina > 0 ? 5.2 : 3) * s.runSpeed;
     if (navigating) { const velocity = followPath(this.position, this.path, speed, dt, (from, to) => this.world.canWalk(from, to)); vx = velocity.x; vz = velocity.z; }
     else { vx *= speed; vz *= speed; }

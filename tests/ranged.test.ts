@@ -84,8 +84,8 @@ test('all ranged weapons keep firing with zero legacy reserves and never charge 
     const { combat, hero, enemy } = fixture(code), weapon = hero.equipment.weapon!; enemy();
     hero.ammo = { arrows: 0, bolts: 0 }; weapon.quantity = 0;
     for (let shot = 0; shot < 20; shot++) {
-      combat.lock = 0; assert.equal(combat.castAction('attack', true), true);
-      combat.update(.6);
+      assert.equal(combat.castAction('attack', true), true);
+      combat.update(Math.max(.6, combat.cooldown('attack')));
     }
     assert.equal(ammunition(hero), Infinity);
     assert.equal(weapon.quantity, 0); assert.deepEqual(hero.ammo, { arrows: 0, bolts: 0 });

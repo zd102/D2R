@@ -32,10 +32,10 @@ test('mouse-aimed spells and melee face the cursor instead of a previously selec
   game.target = stale; game.aim.set(0, 0, 8);
   combat.castAction('holyBolt', true);
   assert.deepEqual(combat.projectiles[0].direction.toArray(), [0, 0, 1]); assert.equal(game.actor.group.rotation.y, 0);
-  combat.lock = 0; combat.castAction('attack', true);
+  combat.castAction('attack', true);
   assert.equal(stale.hp, 10000); assert.ok(forward.hp < 10000);
   game.aim.copy(game.position); game.actor.group.rotation.y = Math.PI / 2;
-  combat.lock = 0; combat.castAction('holyBolt', true);
+  combat.update(combat.cooldown('holyBolt')); combat.castAction('holyBolt', true);
   assert.ok(combat.projectiles.at(-1)!.direction.x > .999, 'aiming at the feet retains the current facing');
 });
 

@@ -37,8 +37,10 @@ try {
     for(const [slot,skill] of Object.entries(bindings))await p.locator(`[data-binding="${slot}"]`).selectOption(skill);
     const skill=id==='amazon'?'jab':'iceBolt';await p.locator(`[data-tree="${id==='amazon'?'javelin':'cold'}"]`).click();await p.locator(`[data-select-skill="${skill}"]`).click();const before=(await state(p)).skillPoints;await p.locator(`[data-learn="${skill}"]`).click();assert.equal((await state(p)).skillPoints,before-1);
     for(const width of [390,360]){await p.setViewportSize({width,height:844});await layout(p);await p.screenshot({path:`${output}/${id}-skills-${width}.png`});}
-    await p.setViewportSize({width:1440,height:960});await p.keyboard.press('Escape');await p.mouse.move(920,460);
-    await p.keyboard.press('q');await p.waitForFunction(skill=>window.eclipseState.classCombat.missiles.some(m=>m.skill===skill),bindings.cleave);const cast=await state(p),m=cast.classCombat.missiles.find(m=>m.skill===bindings.cleave),dx=cast.controls.aim.x-cast.position.x,dz=cast.controls.aim.z-cast.position.z;assert.ok((m.direction[0]*dx+m.direction[2]*dz)/Math.hypot(dx,dz)>.99);
+    await p.setViewportSize({width:1440,height:960});await p.keyboard.press('Escape');await p.waitForFunction(()=>!window.eclipseState.paused);
+    // Re-enter the canvas after resizing/closing the panel before checking aimed casts.
+    await p.locator('#game-canvas').hover({position:{x:900,y:450}});await p.mouse.move(920,460);await p.waitForFunction(()=>window.eclipseState.controls.pointerAim);
+    await p.keyboard.press('q');await p.waitForFunction(skill=>window.eclipseState.classCombat.missiles.some(m=>m.skill===skill),bindings.cleave);const cast=await state(p),m=cast.classCombat.missiles.find(m=>m.skill===bindings.cleave),dx=cast.controls.aim.x-cast.position.x,dz=cast.controls.aim.z-cast.position.z;assert.ok((m.direction[0]*dx+m.direction[2]*dz)/Math.hypot(dx,dz)>.99,JSON.stringify({id,direction:m.direction,position:cast.position,controls:cast.controls}));
     await p.waitForTimeout(900);await p.keyboard.press('w');await p.waitForFunction(id=>id==='amazon'?window.eclipseState.classCombat.summons.some(s=>s.skill==='dopplezon'):window.eclipseState.buffs.frozenArmor,'amazon'===id?'amazon':'sorceress');
     await p.screenshot({path:`${output}/${id}-cast.png`});await p.waitForTimeout(900);await p.keyboard.press('r');
     if(id==='amazon')await p.waitForFunction(()=>window.eclipseState.classCombat.summons.some(s=>s.skill==='valkyrie'));else await p.waitForFunction(z=>Math.abs(window.eclipseState.position.z-z)>.5,cast.position.z);

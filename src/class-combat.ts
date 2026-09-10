@@ -46,7 +46,7 @@ export class ClassCombat {
   }
   cast(id: ExtraSkillId, aimed:boolean): boolean {
     const c=this.combat,g=this.game,h=g.hero,s=stats(h),rank=skillLevel(h,id,s.mods),v=skillValues(id,rank,h.skills),mode=classSkillMode(id);
-    if(!rank||mode==='passive'||c.lock>0||c.zeal||this.sequence||g.paused||g.dead||(this.delays[id]??0)>0) return false;
+    if(!rank||mode==='passive'||c.readyIn(id)>0||g.paused||g.dead) return false;
     const {point,direction,target}=this.aim(aimed);
     const utility=id==='telekinesis'&&aimed?this.telekinesisTarget(point):undefined;
     if(mode==='bow'&&(!s.weapon||!s.ranged||s.ranged.stack)) { g.ui.toast('需要可用的弓或弩');return false; }
@@ -55,7 +55,12 @@ export class ClassCombat {
     if(['teleport','meteor','fireWall','blizzard','valkyrie','dopplezon','hydra'].includes(id)) { destination=this.destination(point,id==='teleport');if(!destination) {g.ui.toast('该位置不可到达');return false;} }
     if(['chainLightning','telekinesis'].includes(id)&&!target&&!utility) {g.ui.toast('没有可作用的目标');return false;}
     if(h.mana<v.cost) {g.ui.toast('法力不足');return false;}
-    h.mana-=v.cost;c.lock=(mode==='bow'||mode==='javelin'?s.rangedFrames:mode==='spear'?s.attackFrames:['lightning','chainLightning'].includes(id)?s.lightningFrames:s.castFrames)/25;
+    let duration=(mode==='bow'||mode==='javelin'?s.rangedFrames:mode==='spear'?s.attackFrames:['lightning','chainLightning'].includes(id)?s.lightningFrames:s.castFrames)/25;
+    const hits=id==='strafe'?Math.max(v.secondary,Math.min(v.hits,this.nearby(g.position,14).length)):id==='fend'?Math.max(1,Math.min(v.hits,this.nearby(g.position,2.6).length)):v.hits;
+    if(['jab','fend','strafe'].includes(id))duration=Math.max(duration,hits*(id==='strafe'?Math.max(.08,s.rangedFrames/100):.22));
+    if(id==='inferno')duration=.6;
+    if(id==='impale')duration*=1.8;
+    h.mana-=v.cost;c.startAction(id,duration);
     this.delays[id]=delays[id]??0;g.attackTime=1;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.audio.play(rangedSkills(id)?'shot':'spell');
     if(target&&['bow','javelin','spear'].includes(mode??''))c.triggerItems('att-skill',target);
     if(utility){g.beam(g.position.clone().setY(1),utility.point.clone().setY(.5));if(utility.chest)g.openChest(utility.chest.id,true);else if(utility.loot)g.collectLoot(utility.loot);return true;}
@@ -78,12 +83,11 @@ export class ClassCombat {
     if(id==='nova'||id==='frostNova') {this.ring(g.position,v.radius,colors[v.type]);for(const enemy of this.nearby(g.position,v.radius))this.hit(enemy,id,v,c.snapshot());return true;}
     if(id==='chainLightning') {this.chain(target!,id,v,c.snapshot());return true;}
     if(id==='telekinesis') {g.beam(g.position.clone().setY(1),target!.actor.group.position.clone().setY(1));this.hit(target!,id,v,c.snapshot());if(!target!.boss){c.knockback(target!,1.2);target!.stunned=Math.max(target!.stunned,.4);}return true;}
-    if(id==='meteor'||id==='blizzard'||id==='fireWall'||id==='inferno') {this.field(id,destination??g.position.clone(),direction,v,c.snapshot(),id==='meteor'?1:0);if(id==='inferno')c.lock=.6;return true;}
+    if(id==='meteor'||id==='blizzard'||id==='fireWall'||id==='inferno') {this.field(id,destination??g.position.clone(),direction,v,c.snapshot(),id==='meteor'?1:0);return true;}
     if(id==='jab'||id==='fend'||id==='strafe') {
-      const hits=id==='strafe'?Math.max(v.secondary,Math.min(v.hits,this.nearby(g.position,14).length)):id==='fend'?Math.min(v.hits,this.nearby(g.position,2.6).length):v.hits;
-      this.sequence={id,remaining:Math.max(1,hits),timer:0,direction,aimed,seen:new Set(),first:true};c.lock=Math.max(c.lock,hits*(id==='strafe'?Math.max(.08,stats(h).rangedFrames/100):.22));return true;
+      this.sequence={id,remaining:Math.max(1,hits),timer:0,direction,aimed,seen:new Set(),first:true};return true;
     }
-    if(mode==='spear') {this.spear(id,direction,aimed);if(id==='impale'){c.lock*=1.8;const weapon=s.weapon!;if(weapon.durability&&!itemMods(weapon).indestructible&&Math.random()*100<v.percent)weapon.durability--;}return true;}
+    if(mode==='spear') {this.spear(id,direction,aimed);if(id==='impale'){const weapon=s.weapon!;if(weapon.durability&&!itemMods(weapon).indestructible&&Math.random()*100<v.percent)weapon.durability--;}return true;}
     if(id==='multipleShot'||id==='chargedBolt') {
       const shared=id==='multipleShot'?new Set<number>():undefined;
       for(let i=0;i<v.hits;i++){const dir=direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),(i-(v.hits-1)/2)*Math.min(.13,1.2/Math.max(1,v.hits-1)));this.missile(id,g.position,dir,v,c.snapshot(),target,shared);}

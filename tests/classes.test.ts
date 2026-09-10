@@ -96,8 +96,8 @@ test('Amazon bow and javelin skills including strafe work with empty legacy ammu
 test('static field respects immunity and nightmare/hell floors; mastery does not multiply it',()=>{
   for(const diff of [0,1,2] as const){const {hero,combat,enemy}=classFixture('sorceress');hero.difficultyLevel=diff;hero.skills.lightningMastery=20;hero.equipment.weapon!.mods={aura_conviction:20,lightningPierce:50,lightningSkillDamage:50};const target=enemy(2);target.hp=target.maxHp=1000;
     combat.castAction('staticField');assert.equal(target.hp,750);
-    for(let i=0;i<24;i++){hero.mana=100;combat.lock=0;combat.castAction('staticField');}assert.ok(target.hp>=[0,330,500][diff]);if(diff)assert.equal(target.hp,[0,330,500][diff]);
-    target.hp=1000;target.resistances.lightning=100;hero.mana=100;combat.lock=0;combat.castAction('staticField');assert.equal(target.hp,1000);
+    for(let i=0;i<24;i++){combat.update(combat.cooldown('staticField'));hero.mana=100;assert.ok(combat.castAction('staticField'));}assert.ok(target.hp>=[0,330,500][diff]);if(diff)assert.equal(target.hp,[0,330,500][diff]);
+    target.hp=1000;target.resistances.lightning=100;combat.update(combat.cooldown('staticField'));hero.mana=100;assert.ok(combat.castAction('staticField'));assert.equal(target.hp,1000);
   }
 });
 test('energy shield drains before resistance, uses hard Telekinesis points, excludes poison and expires',()=>{
@@ -118,9 +118,9 @@ test('teleport rejects fully blocked landings without charging mana and can cros
 });
 test('telekinesis retrieves supplies or opens chests at the cursor and never picks up equipment or crosses walls',()=>{
   const f=classFixture('sorceress');f.game.loot=[{id:1,x:0,z:6,gold:10}];let collected=0,opened=0;f.game.collectLoot=()=>collected++;f.game.openChest=()=>opened++;f.combat.castAction('telekinesis',true);assert.equal(collected,1);
-  f.combat.lock=0;f.game.loot=[{id:2,x:0,z:6,item:f.hero.equipment.weapon}];const mana=f.hero.mana;f.combat.castAction('telekinesis',true);assert.equal(collected,1);assert.equal(f.hero.mana,mana);
+  f.tick(f.combat.cooldown('telekinesis'));f.game.loot=[{id:2,x:0,z:6,item:f.hero.equipment.weapon}];const mana=f.hero.mana;f.combat.castAction('telekinesis',true);assert.equal(collected,1);assert.equal(f.hero.mana,mana);
   f.game.loot=[];f.game.world.chests=[{id:0,x:0,z:6,opened:false}];f.combat.castAction('telekinesis',true);assert.equal(opened,1);
-  f.combat.lock=0;f.game.world.grid.isWalkableAt=(_x:number,z:number)=>z!==31;f.combat.castAction('telekinesis',true);assert.equal(opened,1);
+  f.tick(f.combat.cooldown('telekinesis'));f.game.world.grid.isWalkableAt=(_x:number,z:number)=>z!==31;f.combat.castAction('telekinesis',true);assert.equal(opened,1);
 });
 test('ice armor variants replace one another, enchant affects real weapon hits and timed buffs expire',t=>{
   t.mock.method(Math,'random',()=>.4);const {hero,game,combat,enemy,tick}=classFixture('sorceress');hero.equipment.armor=makeItem(BASES.find(b=>b.baseCode==='qui')!);const base=stats(hero).defense;
@@ -137,6 +137,6 @@ test('decoy draws melee attacks, intercepts missiles and cannot multiply; Hydra 
   const {hero,game,combat,enemy,tick}=classFixture('amazon'),e=enemy(6);combat.castAction('dopplezon',true);const summon=combat.classes.summons[0],hp=hero.hp;
   game.monsterCombat.startCast(e,'strike');game.monsterCombat.update(.8);assert.ok(summon.hp<summon.maxHp);assert.equal(hero.hp,hp);
   e.actor.group.position.z=9;game.monsterCombat.fire(e,ATTACKS.arrow,e.actor.group.position,new (game.position.constructor)(0,0,-1));game.monsterCombat.update(.7);assert.ok(summon.hp<summon.maxHp-1);assert.equal(hero.hp,hp);
-  combat.lock=0;combat.castAction('dopplezon',true);assert.equal(combat.classes.summons.length,1);assert.equal(summon.actor.group.parent,null);
-  const s=classFixture('sorceress');for(let i=0;i<5;i++){s.hero.mana=100;s.combat.lock=0;s.combat.classes.delays={};s.combat.castAction('hydra',true);}assert.equal(s.combat.classes.summons.length,3);assert.equal(s.combat.classes.summons[0].actor.group.children.length,3);s.tick(11);assert.equal(s.combat.classes.summons.length,0);
+  tick(combat.cooldown('dopplezon'));combat.castAction('dopplezon',true);assert.equal(combat.classes.summons.length,1);assert.equal(summon.actor.group.parent,null);
+  const s=classFixture('sorceress');for(let i=0;i<5;i++){s.tick(s.combat.cooldown('hydra'));s.hero.mana=100;assert.ok(s.combat.castAction('hydra',true));}assert.equal(s.combat.classes.summons.length,3);assert.equal(s.combat.classes.summons[0].actor.group.children.length,3);s.tick(11);assert.equal(s.combat.classes.summons.length,0);
 });

@@ -29,7 +29,7 @@ try {
   await page.evaluate(() => cancelAnimationFrame(window.navigationGame.frameId));
   const reset = () => page.evaluate(() => {
     const g = window.navigationGame;
-    g.releaseInput(); g.combat.lock = 0; g.combat.zeal = null; g.combat.classes.sequence = undefined;
+    g.releaseInput(); g.combat.lock = g.combat.stagger = g.combat.movementRecovery = 0; g.combat.actionCooldowns = {}; g.combat.zeal = null; g.combat.classes.sequence = undefined;
     g.attackTime = 0; g.hero.mana = 500; g.hero.stamina = 500; g.invincible = 100;
     g.body.position.set(0, .5, 11); g.body.velocity.set(0, 0, 0); g.position.set(0, 0, 11);
     g.actor.group.rotation.y = 1.2; g.updateCamera(1);
@@ -38,7 +38,7 @@ try {
     const g = window.navigationGame, samples = [];
     for (let i = 0; i < frames; i++) {
       g.update(1 / 60); g.updateCamera(1);
-      samples.push({ x: g.position.x, z: g.position.z, speed: Math.hypot(g.body.velocity.x, g.body.velocity.z), lock: g.combat.lock, path: g.path.length, facing: g.actor.group.rotation.y });
+      samples.push({ x: g.position.x, z: g.position.z, speed: Math.hypot(g.body.velocity.x, g.body.velocity.z), lock: g.combat.lock, movementLocked: g.combat.movementLocked, path: g.path.length, facing: g.actor.group.rotation.y });
     }
     return samples;
   }, frames);
@@ -80,18 +80,18 @@ try {
     assert.ok(await page.evaluate(() => window.navigationGame.combat.lock > .1), `${input} casts`);
     const recovery = await advance(70);
     assert.ok(recovery.some(s => s.lock > .1 && s.speed === 0 && s.path > 0), `${input} keeps route during recovery`);
-    assert.ok(recovery.some(s => s.lock <= .1 && s.speed > 1), `${input} automatically resumes movement`);
+    assert.ok(recovery.some(s => s.lock > .1 && s.speed > 1), `${input} resumes movement before the next cast is ready`);
   }
 
   await reset(); await page.mouse.move(920, 470); await page.mouse.down(); await advance(8);
   await page.keyboard.press('q'); const skillFacing = await page.evaluate(() => window.navigationGame.actor.group.rotation.y);
   await page.mouse.move(700, 380); const heldRecovery = await advance(12);
-  assert.ok(heldRecovery.every(s => s.lock <= .1 || s.facing === skillFacing), 'hover/drag cannot overwrite the committed cast facing during recovery');
+  assert.ok(heldRecovery.every(s => !s.movementLocked || s.facing === skillFacing), 'hover/drag cannot overwrite the committed cast facing during recovery');
   assert.ok((await advance(40)).some(s => s.speed > 1), 'held drag resumes after casting without another click');
   await page.mouse.up(); await advance(2);
 
   await reset();
-  await page.evaluate(() => { const g = window.navigationGame; g.moveTo(g.position.clone().set(8, 0, 11)); g.combat.lock = .6; });
+  await page.evaluate(() => { const g = window.navigationGame; g.moveTo(g.position.clone().set(8, 0, 11)); g.combat.recover(.6); });
   await page.mouse.move(930, 400); await page.keyboard.press('q');
   assert.ok(await page.evaluate(() => window.navigationGame.path.length > 0), 'rejected skill during cooldown preserves navigation');
   assert.ok((await advance(70)).some(s => s.speed > 1), 'rejected skill does not strand the hero');
