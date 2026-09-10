@@ -21,7 +21,7 @@ import { settingsPanel } from './settings-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
-type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'death' | 'campaign' | 'shared-stash' | ProfilePanel;
+type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'death' | 'campaign' | 'shared-stash' | 'mystery-portal' | ProfilePanel;
 const icons = { KeyRound, Package, Search, FilterX, ChevronLeft, Undo2, Upload, Download, FileJson, FolderOpen, Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, UserRound, Users, UserPlus, Pencil, ArrowLeft, Map: MapIcon, ScrollText, Settings, Pause, Volume2, VolumeX, Maximize, Save, X, ChevronRight, Plus, Coins, Shield, Gem, Heart, Skull, Check, RotateCcw, Play, Trash2, ArrowUp, Droplets, Sparkles, Compass, Crosshair };
 const icon = (name: string, cls = '') => `<i data-lucide="${name}" class="${cls}"></i>`;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -155,6 +155,8 @@ export class UI {
       if (element.dataset.buy) this.game.buy(Number(element.dataset.buy) as 0 | 1);
       if (element.dataset.loot) this.game.pickup(Number(element.dataset.loot));
       if (element.dataset.chest !== undefined) this.game.openChest(Number(element.dataset.chest));
+      if (element.dataset.cowEntry) this.game.enterCowLevel(element.dataset.cowEntry);
+      if (element.dataset.uberEntry) this.game.enterUberDiablo(element.dataset.uberEntry);
       switch (element.dataset.action) {
         case 'close': this.closePanel(); break;
         case 'save': this.game.save(); break;
@@ -164,7 +166,9 @@ export class UI {
         case 'profiles': this.game.returnToProfiles(); break;
         case 'camp': this.game.returnToCamp(); break;
         case 'camp-portal': this.game.useCampPortal(); break;
+        case 'mystery-portal': this.game.useMysteryPortal(); break;
         case 'shared-stash': this.game.useSharedStash(); break;
+        case 'mystery-corpse': this.game.openMysteriousCorpse(); break;
         case 'run-mode': this.game.hero.running = !this.game.hero.running; this.game.save(false); break;
         case 'restore': this.game.hero.hp = stats(this.game.hero).maxHp; this.game.hero.mana = stats(this.game.hero).maxMana; this.toast('生命与法力已恢复'); this.game.save(false); break;
       }
@@ -234,6 +238,7 @@ export class UI {
     const h = this.game.hero, s = stats(h);
     const titles: Record<Exclude<Panel, ProfilePanel>, [string, string]> = {
       'shared-stash': ['本地共享仓库', 'SHARED STASH'],
+      'mystery-portal': ['神秘传送阵', 'MYSTERIOUS PORTAL'],
       campaign: [this.game.inCamp ? '远征传送阵' : '章节关卡', 'CAMPAIGN'],
       inventory: ['行囊', 'INVENTORY'], character: ['圣骑士', 'PALADIN'], skills: ['圣骑士技能', 'PALADIN SKILLS'], map: ['区域地图', 'AREA MAP'], quest: ['当前任务', 'QUEST JOURNAL'], pause: ['旅程暂歇', 'PAUSED'], shop: ['旅者补给', 'WAYFARER'], death: ['你已陨落', 'YOU HAVE FALLEN'],
     };
@@ -245,6 +250,9 @@ export class UI {
     let content = '';
     if (this.panel === 'shared-stash') {
       content = this.sharedStashScreen.render();
+    } else if (this.panel === 'mystery-portal') {
+      const legs = this.game.cowLegs, soj = this.game.hero.inventory.find(item => item.catalogId === 'unique-122' || item.name === '乔丹之石');
+      content = `<div class="quest-rewards"><span>${icon('sparkles')}维特之腿</span></div><div class="shop-items">${legs.map(leg => `<div><div class="shop-item-icon gold-text">${icon('sword')}</div><div><h3>${leg.name}</h3></div><button class="primary-button" data-cow-entry="${escapeHtml(leg.id)}">${icon('circle')}开启</button></div>`).join('') || '<p class="quest-story">未携带维特之腿</p>'}</div><div class="quest-rewards"><span>${icon('flame')}乔丹之石</span></div>${this.game.hero.campaign.cleared[2] >= 25 ? `<div class="shop-items"><div><div class="shop-item-icon red-text">${icon('gem')}</div><div><h3>超级迪亚波罗</h3></div><button class="primary-button" data-uber-entry="${escapeHtml(soj?.id ?? '')}" ${soj ? '' : 'disabled'}>${icon('flame')}开启</button></div></div>` : ''}`;
     } else if (this.panel === 'campaign') {
       content = this.campaignScreen.render();
     } else if (this.panel === 'inventory') {
@@ -303,9 +311,10 @@ export class UI {
     poly(0, 0, mapWidth, mapHeight, '#24302b');
     this.game.world.floorCells.forEach(p => { if (explored(p.x, p.z)) poly(p.x, p.z, 1.05, 1.05, '#697667'); });
     const dot = (x: number, z: number, color: string, radius: number, diamond = false) => { const p = point(x, z); ctx.fillStyle = color; ctx.beginPath(); if (diamond) { ctx.moveTo(p.x, p.y - radius); ctx.lineTo(p.x + radius, p.y); ctx.lineTo(p.x, p.y + radius); ctx.lineTo(p.x - radius, p.y); } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill(); };
-    this.game.enemies.forEach(e => { if (!e.dead && explored(e.actor.group.position.x, e.actor.group.position.z) && (e.boss ? questComplete(this.game.hero.campaign) : e.actor.group.position.distanceTo(this.game.position) < 12)) dot(e.actor.group.position.x, e.actor.group.position.z, e.boss ? '#ef846b' : e.elite ? '#eac66c' : '#c56456', e.boss ? 4 : e.elite ? 3 : 2); });
+    this.game.enemies.forEach(e => { if (!e.dead && explored(e.actor.group.position.x, e.actor.group.position.z) && (e.boss ? !!this.game.specialArea || questComplete(this.game.hero.campaign) : e.actor.group.position.distanceTo(this.game.position) < 12)) dot(e.actor.group.position.x, e.actor.group.position.z, e.boss ? '#ef846b' : e.elite ? '#eac66c' : '#c56456', e.boss ? 4 : e.elite ? 3 : 2); });
     if (this.game.inCamp) {
       dot(CAMP.portal.x, CAMP.portal.z, '#63c8c8', large ? 6 : 4, true);
+      dot(CAMP.mysteryPortal.x, CAMP.mysteryPortal.z, '#c48bea', large ? 6 : 4, true);
       dot(CAMP.supply.x, CAMP.supply.z, '#d6c492', large ? 5 : 3);
       dot(CAMP.stash.x, CAMP.stash.z, '#e7c273', large ? 5 : 3);
     } else {
@@ -343,6 +352,12 @@ export class UI {
     document.querySelector('.area-caption>small')!.textContent = game.inCamp ? CAMP.english : game.level.english;
     document.getElementById('quest-step')!.textContent = `${game.level.quest.action} ${questProgress(h.campaign)} / ${game.level.quest.count}`;
     const questFinal = document.querySelector('.quest-final')!; questFinal.textContent = h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `${questComplete(h.campaign) ? '击败' : '完成任务后挑战'}${game.level.boss}`; questFinal.classList.toggle('complete', h.bossDefeated);
+    const special = game.specialArea;
+    if (special) {
+      document.querySelector('.location .chapter')!.textContent = '隐藏领域';
+      document.getElementById('quest-step')!.textContent = special === 'cow' ? `剩余地狱奶牛 ${game.enemies.filter(enemy => !enemy.dead && !enemy.boss).length}` : '唯一首领';
+      questFinal.textContent = h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `击败${game.level.boss}`;
+    }
     const badge = document.getElementById('points-badge')!; badge.hidden = !h.points; badge.textContent = String(h.points);
     const skillBadge = document.getElementById('skill-points-badge')!; skillBadge.hidden = !h.skillPoints; skillBadge.textContent = String(h.skillPoints);
     const classBuffs=Object.entries(h.buffs).map(([id,buff])=>`${skillName(id as SkillId)} ${Math.ceil(buff.remaining)}秒`);
@@ -408,6 +423,23 @@ export class UI {
           label.innerHTML = `${icon('compass')}远征传送阵`; this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons();
         }
         label.hidden = game.paused; label.style.transform = `translate(${point.x}px, ${Math.max(90, point.y)}px) translate(-50%, -100%)`;
+      }
+    }
+    if (game.inCamp) {
+      const point = game.project(new THREE.Vector3(CAMP.mysteryPortal.x, 1.3, CAMP.mysteryPortal.z));
+      if (point.visible && point.x > 70 && point.x < innerWidth - 70 && point.y > 45 && point.y < innerHeight - 150) {
+        const key = 'mystery-portal'; aliveKeys.add(key); let label = this.labelNodes.get(key);
+        if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = 'mystery-portal'; label.innerHTML = `${icon('sparkles')}神秘传送阵`; this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
+        label.hidden = game.paused; label.style.transform = `translate(${point.x}px, ${Math.max(90, point.y)}px) translate(-50%, -100%)`;
+      }
+    }
+    const mysteryCorpse = game.world.mysteryCorpse;
+    if (mysteryCorpse && !mysteryCorpse.opened && Math.hypot(mysteryCorpse.x - game.position.x, mysteryCorpse.z - game.position.z) <= 11) {
+      const point = game.project(new THREE.Vector3(mysteryCorpse.x, 1.15, mysteryCorpse.z));
+      if (point.visible && point.x > 55 && point.x < innerWidth - 55 && point.y > 85 && point.y < innerHeight - 150) {
+        const key = 'mystery-corpse'; aliveKeys.add(key); let label = this.labelNodes.get(key);
+        if (!label) { label = document.createElement('button'); label.className = 'world-chest-label'; label.dataset.action = 'mystery-corpse'; label.textContent = '神秘尸体'; this.labels.append(label); this.labelNodes.set(key, label); }
+        label.hidden = game.paused; label.style.transform = `translate(${point.x}px, ${point.y}px) translate(-50%, -100%)`;
       }
     }
     for (const enemy of game.enemies) {

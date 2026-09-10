@@ -190,6 +190,39 @@ export function campaignLayout(level: Level, seed = 0) {
   return layout;
 }
 
+/** Hidden areas use authored footprints too, but remain separate from the 25-level campaign graph. */
+export function specialLayout(level: Level, seed = 0) {
+  const random = mapRandom(seed ^ Math.imul(level.index + 1, 7919));
+  const cow = level.special === 'cow';
+  const width = cow ? 293 : 61, height = cow ? 293 : 61;
+  const bounds = { x: (width - 3) / 2, z: (height - 3) / 2 };
+  const spawn = { x: 0, z: 11 }, supply = { x: -5.8, z: 12 };
+  const boss = cow ? { x: 0, z: -112 } : { x: 0, z: -18 };
+  const exit = { x: boss.x, z: boss.z - 4 };
+  if (!cow) {
+    const route = [spawn, { x: 0, z: -3 }, boss];
+    return {
+      seed: seed >>> 0, bounds, width, height, route, spawn, supply, boss, exit,
+      rooms: [{ x: 0, z: -3, width: 22, depth: 18, shape: 'octagon' as const }, { x: 0, z: -18, width: 20, depth: 18, shape: 'octagon' as const }],
+      connections: [[spawn, supply], [spawn, route[1]], [route[1], boss], [boss, exit]] as [MapPoint, MapPoint][],
+      branches: [], objects: [], chests: [], corridorWidth: 4.8, bossRadius: 8,
+    };
+  }
+  const sites = [
+    { x: -42, z: -8 }, { x: 35, z: -17 }, { x: -72, z: -48 }, { x: 5, z: -57 }, { x: 76, z: -61 },
+    { x: -50, z: -94 }, { x: 48, z: -101 }, { x: 0, z: -112 }, { x: -108, z: -90 }, { x: 104, z: -36 },
+  ].map(point => ({ x: point.x + Math.round((random() - .5) * 7), z: point.z + Math.round((random() - .5) * 7) }));
+  sites[7] = boss;
+  const route = [spawn, { x: -42, z: -8 }, { x: -72, z: -48 }, { x: -50, z: -94 }, boss];
+  const rooms = sites.map((point, index) => ({ ...point, width: 26 + index % 3 * 5, depth: 24 + (index + 1) % 3 * 5, shape: 'round' as const }));
+  const connections: [MapPoint, MapPoint][] = [[spawn, supply], [spawn, route[1]], [route[1], route[2]], [route[2], route[3]], [route[3], boss], [boss, exit]];
+  for (const [a, b] of [[0, 1], [1, 3], [3, 4], [4, 6], [6, 7], [0, 2], [2, 5], [5, 8], [1, 9], [9, 4]] as const) connections.push([sites[a], sites[b]]);
+  return {
+    seed: seed >>> 0, bounds, width, height, route, spawn, supply, boss, exit, rooms, connections,
+    branches: sites.slice(4), objects: [], chests: sites.slice(0, 4).map((point, id) => ({ id, x: point.x + 3, z: point.z + 2 })), corridorWidth: 5.5, bossRadius: 10,
+  };
+}
+
 function buildArcaneArms(layout: LevelLayout, random: () => number) {
   const hub = { x: 0, z: 0 }, arms: MapPoint[][] = [];
   layout.rooms = []; layout.connections = []; layout.branches = [];

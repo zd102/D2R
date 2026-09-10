@@ -365,6 +365,9 @@ export function parseItem(value: unknown): Item | null {
   if (item.quantity !== undefined) result.quantity = integer(item.quantity, 0, 0, 10000);
   if (result.maxDurability !== undefined && result.durability !== undefined) result.durability = Math.min(result.maxDurability, result.durability);
   for (const key of ['identified', 'twoHanded', 'charm', 'jewel', 'misc'] as const) if (typeof item[key] === 'boolean') result[key] = item[key];
+  if (result.misc && item.event === 'wirts-leg' && [0, 1, 2].includes(item.eventDifficulty) && item.name === `维特之腿 · ${['普通', '噩梦', '地狱'][item.eventDifficulty]}`) {
+    result.event = 'wirts-leg'; result.eventDifficulty = item.eventDifficulty;
+  }
   if (['small', 'large', 'grand'].includes(item.charmSize) && result.charm) result.charmSize = item.charmSize;
   if (Array.isArray(item.affixes)) result.affixes = [...new Set<string>(item.affixes.filter((id: unknown) => typeof id === 'string' && !!affixById(id)))].slice(0, 6);
   if (item.catalogVersion === 1 || item.catalogVersion === 2) result.catalogVersion = item.catalogVersion;

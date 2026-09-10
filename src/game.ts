@@ -7,12 +7,12 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GameWorld, createActor, animateActor, makeRing, gridWalkable, COLORS, type Actor } from './world';
 import { newHero, stats, skillLevel, gainXp, equipItem, equipReason, sellItem, allocateAttribute, swapWeapons, difficulty, recoverCorpse, selectCampaignLevel, completeCampaignLevel, activateQuestObject, recordQuestKill, type HeroState, type Item, type Slot } from './model';
 import { clearShot } from './ranged';
-import { ACTS, LEVELS, levelTuning, questComplete, canEnterLevel } from './campaign';
+import { ACTS, LEVELS, SPECIAL_LEVELS, levelTuning, questComplete, canEnterLevel, type SpecialArea } from './campaign';
 import { encounterPlan } from './encounter-plan';
 import { CAMP, prepareCampArrival } from './camp';
 import { isAura, isPassive, type ActionId, type Attribute, type DamageType } from './paladin';
 import { classSkillMode } from './class-skills';
-import { packItems, placeItems, runeLabel, type DropRank, type RuneId, type Mods } from './items';
+import { createWirtsLeg, isAnnihilus, isStoneOfJordan, isWirtsLeg, packItems, placeItems, runeLabel, type DropRank, type RuneId, type Mods } from './items';
 import { rollLoot } from './loot';
 import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat } from './combat';
@@ -66,7 +66,8 @@ export class Game {
   target?: Enemy;
   pendingPickup?: number;
   pendingPortal = false;
-  pendingCampTarget: 'portal' | 'stash' = 'portal';
+  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' = 'portal';
+  pendingMysteryCorpse = false;
   pendingChest?: number;
   heldAttack = false;
   heldSkill?: { key: string; slot: Skill; id: ActionId };
@@ -95,6 +96,7 @@ export class Game {
   profile?: SavedProfile;
   profileNotice = '';
   saveConflict = false;
+  specialArea?: SpecialArea;
   constructor() {
     try { this.movementMode = parseMovementMode(localStorage.getItem(MOVEMENT_MODE_KEY)); } catch { /* Use mouse controls when settings storage is unavailable. */ }
     this.hero = newHero();
@@ -156,7 +158,7 @@ export class Game {
     document.getElementById('hero-profile-name')!.title = profile.name;
     this.ui.toast(profile.name, `等级 ${this.hero.level} · ${CAMP.name}`);
   }
-  get level() { return LEVELS[this.hero.campaign.current]; }
+  get level() { return this.specialArea ? SPECIAL_LEVELS[this.specialArea] : LEVELS[this.hero.campaign.current]; }
   get inCamp() { return this.world.isCamp; }
   get areaName() { return this.inCamp ? CAMP.name : this.level.name; }
   loadArea(inCamp: boolean) {
@@ -176,7 +178,7 @@ export class Game {
     this.monsterCombat = new MonsterCombat(this);
     this.cooldowns = emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
     this.ui.hoveredEnemy = undefined; this.ui.floats.forEach(float => float.element.remove()); this.ui.floats = [];
-    if (!inCamp) {
+    if (!inCamp && !this.specialArea) {
       this.hero.campaign.objects.forEach(id => this.world.completeObjective(id)); this.world.exit.visible = this.hero.bossDefeated;
     }
     this.renderer.domElement.setAttribute('aria-label', `${this.areaName}游戏场景`);
@@ -198,6 +200,7 @@ export class Game {
     const previous = structuredClone(this.hero);
     prepareCampArrival(this.hero);
     if (!this.save(false)) { this.hero = previous; return false; }
+    this.specialArea = undefined;
     this.loadArea(true); this.ui.toast(CAMP.name, '旅程已保存'); return true;
   }
   useCampPortal() {
@@ -243,6 +246,8 @@ export class Game {
   }
   spawnEnemies() {
     if (this.inCamp) return;
+    if (this.specialArea === 'cow') { this.spawnCowEnemies(); return; }
+    if (this.specialArea === 'uberDiablo') { const { boss } = this.world.layout; this.spawnEnemy(boss.x, boss.z, 'boss', BOSSES[19]); return; }
     const layout = this.world.layout, plan = encounterPlan(this.level, layout, difficulty(this.hero));
     plan.packs.forEach(({ x, z, species }, pack) => {
       for (let i = 0; i < species.length; i++) {
@@ -264,7 +269,20 @@ export class Game {
     }
     if (!this.hero.bossDefeated) this.spawnEnemy(layout.boss.x, layout.boss.z, 'boss');
   }
-  spawnEnemy(x: number, z: number, kind: 'skeleton' | 'demon' | 'boss', definition = kind === 'boss' ? BOSSES[this.level.index] : MONSTERS[kind === 'skeleton' ? 'skeleton' : ENCOUNTERS[this.level.index][0]], elite = false) {
+  spawnCowEnemies() {
+    const layout = this.world.layout, sites = layout.rooms.filter(site => Math.hypot(site.x - layout.boss.x, site.z - layout.boss.z) > 14);
+    let pack = 0;
+    for (const site of sites) {
+      for (let i = 0; i < 9; i++) {
+        const desired = { x: site.x + Math.cos(i * 2.4) * (3 + i % 3), z: site.z + Math.sin(i * 2.4) * (3 + i % 3) };
+        const point = this.world.path(layout.spawn, desired).at(-1); if (!point) continue;
+        const enemy = this.spawnEnemy(point.x, point.z, 'demon', MONSTERS.hellCow, i === 0 && pack % 2 === 0); enemy.pack = pack;
+      }
+      pack++;
+    }
+    this.spawnEnemy(layout.boss.x, layout.boss.z, 'boss', MONSTERS.hellCow);
+  }
+  spawnEnemy(x: number, z: number, kind: 'skeleton' | 'demon' | 'boss', definition = kind === 'boss' ? this.specialArea === 'uberDiablo' ? BOSSES[19] : this.specialArea === 'cow' ? MONSTERS.hellCow : BOSSES[this.level.index] : MONSTERS[kind === 'skeleton' ? 'skeleton' : ENCOUNTERS[this.level.index][0]], elite = false) {
     const boss = kind === 'boss'; elite = elite && !boss;
     const actor = createMonsterActor(definition, boss), tuning = monsterStats(definition, this.level, difficulty(this.hero), boss, elite);
     if (elite) {
@@ -282,7 +300,7 @@ export class Game {
     try { localStorage.setItem(MOVEMENT_MODE_KEY, value); } catch { this.ui.toast('移动方式已切换', '设置无法保存，刷新后将恢复上次保存的模式'); }
     this.ui.update(0);
   }
-  releaseInput() { if (this.pointerGesture) this.finishPointerGesture(true); this.pointerAimActive = false; this.keys.clear(); this.heldAttack = false; this.heldSkill = undefined; this.heldPointerSkill = undefined; this.bufferedSkill = undefined; this.skillRetry = 0; this.joystick.set(0, 0); this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined; this.body.velocity.set(0, 0, 0); }
+  releaseInput() { if (this.pointerGesture) this.finishPointerGesture(true); this.pointerAimActive = false; this.keys.clear(); this.heldAttack = false; this.heldSkill = undefined; this.heldPointerSkill = undefined; this.bufferedSkill = undefined; this.skillRetry = 0; this.joystick.set(0, 0); this.path = []; this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined; this.pendingMysteryCorpse = false; this.body.velocity.set(0, 0, 0); }
   updatePointer(event: PointerEvent) {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
@@ -382,8 +400,10 @@ export class Game {
       }
       this.pendingPortal = false; this.pendingChest = undefined;
       if (this.inCamp && !event.shiftKey && this.raycaster.intersectObject(this.world.portal, true).length) { this.useCampPortal(); return; }
+      if (this.inCamp && !event.shiftKey && this.world.mysteryPortal && this.raycaster.intersectObject(this.world.mysteryPortal, true).length) { this.useMysteryPortal(); return; }
       if (this.inCamp && !event.shiftKey && this.world.sharedStash && this.raycaster.intersectObject(this.world.sharedStash, true).length) { this.useSharedStash(); return; }
       const enemy = this.enemyAt(event.clientX, event.clientY);
+      if (!enemy && !event.shiftKey && this.world.mysteryCorpse && !this.world.mysteryCorpse.opened && this.raycaster.intersectObject(this.world.mysteryCorpse.group, true).length) { this.openMysteriousCorpse(); return; }
       const hit = this.raycaster.intersectObjects(this.loot.map(loot => loot.mesh), true)[0];
       const clickedLoot = hit && this.loot.find(loot => { for (let object: THREE.Object3D | null = hit.object; object; object = object.parent) if (object === loot.mesh) return true; return false; });
       if (!enemy && clickedLoot && !event.shiftKey) { this.pickup(clickedLoot.id); return; }
@@ -553,13 +573,16 @@ export class Game {
     enemy.actor.group.rotation.z = -Math.PI / 2; enemy.actor.group.position.y = .2;
     if (this.target === enemy) { this.target = undefined; this.path = []; }
     const rank: DropRank = enemy.boss ? this.level.actBoss ? 'actBoss' : 'miniboss' : enemy.elite ? 'elite' : 'monster';
-    const xp = monsterExperience(this.hero.level, enemy.level, rank, { difficulty: difficulty(this.hero), act: this.level.act, baseLife: enemy.definition?.hp, firstClear: this.hero.campaign.cleared[difficulty(this.hero)] === this.level.index });
+    const xp = monsterExperience(this.hero.level, enemy.level, rank, { difficulty: difficulty(this.hero), act: this.level.act, baseLife: enemy.definition?.hp, firstClear: !this.specialArea && this.hero.campaign.cleared[difficulty(this.hero)] === this.level.index });
     if (gainXp(this.hero, xp * (enemy.xpScale ?? 1) * (1 + (playerStats.mods.experienceBonus ?? 0) / 100))) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
-    const wasReady = questComplete(this.hero.campaign);
-    if (!enemy.boss) recordQuestKill(this.hero);
-    if (!wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.save(false); }
+    const wasReady = !this.specialArea && questComplete(this.hero.campaign);
+    if (!enemy.boss && !this.specialArea) recordQuestKill(this.hero);
+    if (!this.specialArea && !wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.save(false); }
     if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level);
     if (enemy.boss) {
+      if (this.specialArea) {
+        this.hero.bossDefeated = true; this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`); this.save(false); return;
+      }
       if (!completeCampaignLevel(this.hero)) return;
       this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`);
       this.save(false);
@@ -567,7 +590,7 @@ export class Game {
   }
   dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level) {
     const mods = stats(this.hero).mods, diff = difficulty(this.hero);
-    const drop = rollLoot({ level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind });
+    const drop = rollLoot({ level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
     this.addLoot({ id: this.nextId++, x: position.x + .4, z: position.z + .2, gold: drop.gold, mesh: new THREE.Group() });
     drop.items.forEach((item, i) => this.addLoot({ id: this.nextId++, x: position.x - .6 + i * .8, z: position.z + .6, item, mesh: new THREE.Group() }));
     drop.runes.forEach((rune, i) => this.addLoot({ id: this.nextId++, x: position.x + .8, z: position.z - .5 - i * .6, rune, mesh: new THREE.Group() }));
@@ -586,6 +609,7 @@ export class Game {
     if (this.paused || this.dead) return;
     const loot = this.loot.find(l => l.id === id); if (!loot) return;
     this.begin(); this.target = undefined; this.heldAttack = false; this.pendingPickup = undefined; this.pendingChest = undefined; this.pendingPortal = false; this.path = [];
+    if (loot.item && isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast('背包中已有毁灭'); return; }
     if (loot.item && !packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
     if (Math.hypot(this.position.x - loot.x, this.position.z - loot.z) > 3) {
       this.moveTo(new THREE.Vector3(loot.x, 0, loot.z));
@@ -598,6 +622,7 @@ export class Game {
   collectLoot(loot: Loot) {
     if (this.paused || this.dead || !this.loot.includes(loot)) return;
     if (loot.item) {
+      if (isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast('背包中已有毁灭'); return; }
       if (!packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
       this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.name, '已收入背包');
     } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`);
@@ -630,9 +655,12 @@ export class Game {
     if (this.inCamp) {
       if (Math.hypot(this.position.x - CAMP.stash.x, this.position.z - CAMP.stash.z) < 3.5) return { name: '本地共享仓库', kind: 'shared-stash', id: 0 };
       if (Math.hypot(this.position.x - CAMP.portal.x, this.position.z - CAMP.portal.z) < 3.5) return { name: '传送阵 · 选择关卡', kind: 'camp-portal', id: 0 };
+      if (Math.hypot(this.position.x - CAMP.mysteryPortal.x, this.position.z - CAMP.mysteryPortal.z) < 3.5) return { name: '神秘传送阵', kind: 'mystery-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.supply.x, this.position.z - CAMP.supply.z) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
       return null;
     }
+    const mysteryCorpse = this.world.mysteryCorpse;
+    if (mysteryCorpse && !mysteryCorpse.opened && Math.hypot(this.position.x - mysteryCorpse.x, this.position.z - mysteryCorpse.z) < 3.2) return { name: '神秘尸体', kind: 'mystery-corpse', id: 0 };
     const layout = this.world.layout;
     if (this.hero.bossDefeated && Math.hypot(this.position.x - layout.exit.x, this.position.z - layout.exit.z) < 3.5) return { name: this.exitLabel, kind: 'exit', id: 0 };
     const chest = this.world.chests?.find(chest => !chest.opened && Math.hypot(this.position.x - chest.x, this.position.z - chest.z) <= 3);
@@ -649,7 +677,9 @@ export class Game {
     if (action.kind === 'corpse') { if (recoverCorpse(this.hero, !this.inCamp)) { this.ui.toast('装备已取回'); this.save(false); } else this.ui.toast('背包空间不足'); return; }
     if (action.kind === 'shop') { this.ui.openPanel('shop'); return; }
     if (action.kind === 'camp-portal') { this.ui.openPanel('campaign'); return; }
+    if (action.kind === 'mystery-portal') { this.ui.openPanel('mystery-portal'); return; }
     if (action.kind === 'shared-stash') { this.ui.openPanel('shared-stash'); return; }
+    if (action.kind === 'mystery-corpse') { this.openMysteriousCorpse(); return; }
     if (action.kind === 'chest') { this.openChest(action.id); return; }
     if (action.kind === 'exit') { this.nextJourney(); return; }
     if (action.kind === 'loot') { [...this.loot].filter(l => !l.item && Math.hypot(l.x - this.position.x, l.z - this.position.z) < 3).forEach(l => this.collectLoot(l)); return; }
@@ -660,6 +690,22 @@ export class Game {
     this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana;
     this.burst(new THREE.Vector3(p.x, 2, p.z), ACTS[this.level.act].accent, 25); this.audio.play('level');
     this.ui.toast(this.level.quest.action, questComplete(this.hero.campaign) ? `任务已完成 · 击败${this.level.boss}` : `${this.hero.campaign.objects.length} / ${this.level.quest.count}`); this.save(false);
+  }
+  openMysteriousCorpse() {
+    const corpse = this.world.mysteryCorpse;
+    if (!this.profile || this.inCamp || this.paused || this.dead || !corpse || corpse.opened) return;
+    this.begin(); this.pendingMysteryCorpse = false;
+    if (Math.hypot(this.position.x - corpse.x, this.position.z - corpse.z) > 3.2) {
+      this.moveTo(new THREE.Vector3(corpse.x, 0, corpse.z));
+      const end = this.path.at(-1);
+      if (end && Math.hypot(end.x - corpse.x, end.z - corpse.z) <= 3.2) this.pendingMysteryCorpse = true;
+      else { this.path = []; this.ui.toast('无法靠近神秘尸体'); }
+      return;
+    }
+    corpse.opened = true; const mark = corpse.group.getObjectByName('mystery-mark'); if (mark) mark.visible = false;
+    const leg = createWirtsLeg(difficulty(this.hero));
+    this.addLoot({ id: this.nextId++, x: corpse.x + .7, z: corpse.z + .35, item: leg, mesh: new THREE.Group() });
+    this.audio.play('loot'); this.ui.toast(leg.name, '掉落于神秘尸体'); this.save(false);
   }
   buy(index: 0 | 1) {
     if (this.hero.gold < 25) { this.ui.toast('金币不足'); return; }
@@ -701,11 +747,19 @@ export class Game {
     this.invincible = 4; this.enemies.forEach(e => { e.active = false; }); this.ui.closePanel(); this.save(false);
   }
   get exitLabel() {
+    if (this.specialArea) return '返回营地';
     if (this.level.index < 24) return `前往${this.level.actBoss ? '下一章' : '下一关'} · ${LEVELS[this.level.index + 1].name}`;
     return difficulty(this.hero) < 2 ? `进入${difficulty(this.hero) === 0 ? '噩梦' : '地狱'} · ${LEVELS[0].name}` : '返回营地';
   }
+  useMysteryPortal() {
+    if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict) return;
+    this.begin(); this.pendingCampTarget = 'mysteryPortal';
+    if (Math.hypot(this.position.x - CAMP.mysteryPortal.x, this.position.z - CAMP.mysteryPortal.z) < 3.5) this.ui.openPanel('mystery-portal');
+    else { this.moveTo(new THREE.Vector3(CAMP.mysteryPortal.x, 0, CAMP.mysteryPortal.z)); this.pendingPortal = this.path.length > 0; }
+  }
   nextJourney() {
     if (this.inCamp || !this.hero.bossDefeated) return;
+    if (this.specialArea) { this.returnToCamp(); return; }
     if (this.level.index < 24) this.enterLevel(this.level.index + 1);
     else if (difficulty(this.hero) < 2) this.enterLevel(0, difficulty(this.hero) + 1);
     else this.returnToCamp();
@@ -720,6 +774,25 @@ export class Game {
     if (!selectCampaignLevel(this.hero, index, diff as 0 | 1 | 2, this.inCamp)) return false;
     if (!this.save(false)) { this.hero = previous; return false; }
     this.loadArea(false); this.ui.toast(this.level.name, `第 ${this.level.act + 1} 章 · 第 ${this.level.step + 1} 关`); return true;
+  }
+  get cowLegs() { return this.hero.inventory.filter(isWirtsLeg); }
+  get canUseUberDiablo() { return this.hero.campaign.cleared[2] >= 25 && this.hero.inventory.some(isStoneOfJordan); }
+  enterCowLevel(legId: string) {
+    if (!this.inCamp || !this.profile || this.dead || this.saveConflict || this.specialArea) return false;
+    const leg = this.hero.inventory.find(item => item.id === legId); if (!isWirtsLeg(leg)) return false;
+    return this.enterSpecialArea('cow', leg.eventDifficulty, leg);
+  }
+  enterUberDiablo(sojId: string) {
+    if (!this.inCamp || !this.profile || this.dead || this.saveConflict || this.specialArea || this.hero.campaign.cleared[2] < 25) return false;
+    const soj = this.hero.inventory.find(item => item.id === sojId); if (!soj || !isStoneOfJordan(soj)) return false;
+    return this.enterSpecialArea('uberDiablo', 2, soj);
+  }
+  enterSpecialArea(area: SpecialArea, diff: 0 | 1 | 2, catalyst: Item) {
+    const previousHero = structuredClone(this.hero), previousArea = this.specialArea;
+    const index = this.hero.inventory.indexOf(catalyst); if (index < 0) return false;
+    this.hero.inventory.splice(index, 1); placeItems(this.hero.inventory); this.hero.difficultyLevel = diff; this.hero.bossDefeated = false; this.specialArea = area;
+    if (!this.save(false)) { this.hero = previousHero; this.specialArea = previousArea; return false; }
+    this.loadArea(false); this.ui.toast(this.level.name, area === 'cow' ? ` ${['普通', '噩梦', '地狱'][diff]}难度` : '毕业挑战'); return true;
   }
   burst(origin: THREE.Vector3, color: number, count: number) {
     if(count<=0)return;
@@ -784,7 +857,12 @@ export class Game {
     this.world.physics.step(1 / 60, dt, 3);
     this.position.set(this.body.position.x, 0, this.body.position.z);
     const campTarget = CAMP[this.pendingCampTarget];
-    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'stash' ? 'shared-stash' : 'campaign'); return; }
+    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
+    if (this.pendingMysteryCorpse) {
+      const corpse = this.world.mysteryCorpse;
+      if (!corpse || corpse.opened || !this.path.length && Math.hypot(this.position.x - corpse.x, this.position.z - corpse.z) > 3.2) this.pendingMysteryCorpse = false;
+      else if (Math.hypot(this.position.x - corpse.x, this.position.z - corpse.z) <= 3.2) this.openMysteriousCorpse();
+    }
     if (this.pendingChest !== undefined) {
       const chest = this.world.chests.find(chest => chest.id === this.pendingChest && !chest.opened);
       if (!chest || !this.path.length && Math.hypot(this.position.x - chest.x, this.position.z - chest.z) > 3) this.pendingChest = undefined;

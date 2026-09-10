@@ -20,6 +20,7 @@ export function gridWalkable(grid: Pick<PF.Grid, 'width' | 'height' | 'isWalkabl
   return grid.isWalkableAt(Math.round(point.x) + Math.floor(grid.width / 2), Math.round(point.z) + Math.floor(grid.height / 2));
 }
 export type WorldChest = { id: number; x: number; z: number; opened: boolean; group: THREE.Group; lid: THREE.Group };
+export type MysteryCorpse = { x: number; z: number; opened: boolean; group: THREE.Group };
 type SearchedNode = PF.Node & { closed?: boolean; parent?: SearchedNode };
 export const SHRINES = [{ x: -16, z: 0 }, { x: 15, z: -2 }, { x: 0, z: -17 }];
 export const COLORS = { common: 0xc3c4bf, magic: 0x73bdf4, rare: 0xe2c775, set: 0x77cf6c, unique: 0xc9b37c, runeword: 0xdacba0, legendary: 0xf19b4f };
@@ -124,6 +125,8 @@ export class GameWorld {
   layout: LevelLayout;
   isCamp: boolean;
   sharedStash?: THREE.Group;
+  mysteryPortal?: THREE.Group;
+  mysteryCorpse?: MysteryCorpse;
   floorCells: { x: number; z: number }[] = [];
   constructor(level = LEVELS[0], isCamp = false, seed = nextMapSeed()) {
     this.level = level; this.isCamp = isCamp;
@@ -156,12 +159,13 @@ export class GameWorld {
     this.rune.castShadow = false;
     if (isCamp) {
       this.rune.position.set(CAMP.portal.x, .24, CAMP.portal.z); this.rune.scale.setScalar(.75);
-      this.portal = this.makeWaypoint(); this.exit = new THREE.Group();
+      this.portal = this.makeWaypoint(); this.mysteryPortal = this.makeMysteryPortal(); this.exit = new THREE.Group();
     } else {
       const layout = this.layout;
       this.portal = this.makePortal(layout.supply.x, layout.supply.z);
       layout.objects.forEach((p, i) => this.shrineMeshes.push(this.makeObjective(p.x, p.z, i, level.quest.prop)));
       layout.chests.forEach(p => this.chests.push(this.makeChest(p.id, p.x, p.z)));
+      if (level.index === 2) { const point = layout.route[Math.min(2, layout.route.length - 1)]!; this.mysteryCorpse = this.makeMysteriousCorpse(point.x + 2.6, point.z + 1.8); }
       this.exit = this.makePortal(layout.exit.x, layout.exit.z);
     }
     this.exit.visible = false;
@@ -177,7 +181,7 @@ export class GameWorld {
     const timber = mat(0x64675b), redCanvas = mat(0x923f4b), blueCanvas = mat(0x4b7885);
     for (let z = -13; z <= 18; z++) for (let x = -15; x <= 15; x++) {
       this.floorCells.push({ x, z });
-      if (Math.abs(x) <= 2 || Math.abs(z - 8) <= 2 || Math.hypot(x - CAMP.portal.x, z - CAMP.portal.z) < 3.5) {
+      if (Math.abs(x) <= 2 || Math.abs(z - 8) <= 2 || Math.hypot(x - CAMP.portal.x, z - CAMP.portal.z) < 3.5 || Math.hypot(x - CAMP.mysteryPortal.x, z - CAMP.mysteryPortal.z) < 3.5) {
         mesh(this.staticGroup, box, paving, x, .015, z, .96, .13, .96);
       }
     }
@@ -249,6 +253,25 @@ export class GameWorld {
     }
     const light = new THREE.PointLight(0x70e9de, 6, 7); light.position.y = 1.2; group.add(light);
     return group;
+  }
+  makeMysteryPortal() {
+    const { x, z } = CAMP.mysteryPortal, group = new THREE.Group(); group.position.set(x, 0, z); this.scene.add(group);
+    mesh(group, cylinder, darkStone, 0, .07, 0, 2.35, .14, 2.35);
+    mesh(group, cylinder, edgeStone, 0, .15, 0, 2.12, .12, 2.12);
+    for (const radius of [1.68, 1.92]) { const ring = mesh(group, new THREE.TorusGeometry(radius, .04, 7, 56), new THREE.MeshBasicMaterial({ color: 0xd6a95d, transparent: true, opacity: .72 }), 0, .24, 0); ring.rotation.x = Math.PI / 2; ring.userData.portal = true; }
+    const core = mesh(group, new THREE.TorusGeometry(.98, .04, 5, 56), new THREE.MeshBasicMaterial({ color: 0xae6ce0, transparent: true, opacity: .75, side: THREE.DoubleSide }), 0, 1.42, 0); core.rotation.y = Math.PI / 4; core.userData.portal = true;
+    for (const side of [-1, 1]) { mesh(group, cylinder, stone, side * 2.15, .48, 0, .22, .96, .22); mesh(group, new THREE.OctahedronGeometry(.2), runeMaterial, side * 2.15, 1.05, 0); this.addCollider(x + side * 2.15, z, .45, .45); }
+    const light = new THREE.PointLight(0xc98be8, 5, 6); light.position.y = 1.15; group.add(light);
+    return group;
+  }
+  makeMysteriousCorpse(x: number, z: number) {
+    const group = new THREE.Group(); group.position.set(x, 0, z); this.scene.add(group);
+    const corpse = mat(0x8d8271), clothMat = mat(0x4e2930), glow = new THREE.MeshBasicMaterial({ color: 0x8de4c5, transparent: true, opacity: .78 });
+    mesh(group, sphere, corpse, 0, .24, 0, .42, .16, .76); mesh(group, sphere, corpse, 0, .42, .55, .23, .22, .22);
+    for (const side of [-1, 1]) { mesh(group, cylinder, corpse, side * .22, .2, -.18, .09, .65, .09).rotation.z = side * .92; mesh(group, cylinder, corpse, side * .16, .2, .44, .075, .6, .075).rotation.z = side * .62; }
+    mesh(group, box, clothMat, 0, .19, -.12, .58, .12, .84); const mark = mesh(group, new THREE.OctahedronGeometry(.22), glow, 0, 1.02, 0, 1, 1.6, 1); mark.name = 'mystery-mark';
+    const light = new THREE.PointLight(0x80e4c3, 2.5, 4); light.position.y = .9; group.add(light); this.addCollider(x, z, .6, .6);
+    return { x, z, opened: false, group };
   }
   buildLevel() {
     buildLevelScenery(this);
@@ -582,7 +605,8 @@ export class GameWorld {
       if (torch.light) torch.light.intensity = 6.5 + Math.sin(time * 11 + torch.phase) * 1.2;
     }
     this.shrineMeshes.forEach(shrine => { const indicator = shrine.getObjectByName('indicator'); if (indicator) indicator.scale.setScalar(shrine.userData.complete ? 1 : 1 + Math.sin(time * 2) * .04); });
-    this.portal.children.forEach((child, i) => { if (child.userData.portal) { child.rotation.z = time * .15 * (i % 2 ? 1 : -1); child.scale.setScalar(1 + Math.sin(time * 2 + i) * .055); } });
+    for (const portal of [this.portal, this.mysteryPortal]) portal?.children.forEach((child, i) => { if (child.userData.portal) { child.rotation.z = time * .15 * (i % 2 ? 1 : -1); child.scale.setScalar(1 + Math.sin(time * 2 + i) * .055); } });
+    const mark = this.mysteryCorpse?.group.getObjectByName('mystery-mark'); if (mark && !this.mysteryCorpse!.opened) mark.scale.setScalar(1 + Math.sin(time * 2.4) * .12);
     this.rune.rotation.z = time * .015;
     const positions = this.particles.geometry.attributes.position;
     const weather = this.isCamp ? 'dust' : sceneDesign(this.level).atmosphere;

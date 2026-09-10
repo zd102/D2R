@@ -49,7 +49,7 @@ export type Item = { id: string; name: string; slot: Slot; rarity: Rarity; power
   requiredLevel?: number; requiredStrength?: number; requiredDexterity?: number; mods?: Mods; durability?: number; maxDurability?: number;
   sockets?: number; runes?: RuneId[]; identified?: boolean; width?: number; height?: number; x?: number; y?: number; setId?: string; charm?: boolean;
   affixes?: string[]; charmSize?: CharmSize; catalogVersion?: number; catalogRolls?: number[]; quantity?: number;
-  baseCode?: string; catalogId?: string; requiredClass?: string; jewel?: boolean; misc?: boolean; socketedJewels?: { name: string; mods: Mods; catalogId?: string; catalogVersion?: number; catalogRolls?: number[] }[];
+  baseCode?: string; catalogId?: string; requiredClass?: string; jewel?: boolean; misc?: boolean; event?: 'wirts-leg'; eventDifficulty?: 0 | 1 | 2; socketedJewels?: { name: string; mods: Mods; catalogId?: string; catalogVersion?: number; catalogRolls?: number[] }[];
 };
 export type WeaponType = 'sword' | 'axe' | 'mace' | 'hammer' | 'scepter' | 'polearm' | 'spear' | 'bow' | 'crossbow' | 'dagger' | 'wand' | 'staff' | 'orb' | 'claw' | 'throwing' | 'javelin';
 export type ItemBase = { name: string; slot: Slot; level: number; power: number; strength?: number; dexterity?: number; min?: number; max?: number; block?: number; smiteMin?: number; smiteMax?: number; speed?: number; twoHanded?: boolean; sockets?: number; weaponType?: WeaponType;
@@ -107,6 +107,14 @@ export function groundItemName(item: Item) {
   return `${name}${item.sockets ? ` [${item.sockets}孔]` : ''}`;
 }
 export const itemId = () => globalThis.crypto.randomUUID?.() ?? globalThis.crypto.getRandomValues(new Uint32Array(4)).join('-');
+const eventDifficultyNames = ['普通', '噩梦', '地狱'] as const;
+export function createWirtsLeg(difficulty: 0 | 1 | 2): Item {
+  return { id: itemId(), name: `维特之腿 · ${eventDifficultyNames[difficulty]}`, base: '维特之腿', slot: 'weapon', rarity: 'unique', power: 1, level: 1, value: 0,
+    minDamage: 1, maxDamage: 1, requiredLevel: 1, requiredStrength: 0, requiredDexterity: 0, identified: true, width: 1, height: 3, misc: true, event: 'wirts-leg', eventDifficulty: difficulty };
+}
+export const isWirtsLeg = (item: Item | undefined): item is Item & { event: 'wirts-leg'; eventDifficulty: 0 | 1 | 2 } => !!item && item.event === 'wirts-leg' && item.eventDifficulty !== undefined;
+export const isAnnihilus = (item: Item | undefined) => !!item && (item.catalogId === 'unique-382' || item.name === '毁灭');
+export const isStoneOfJordan = (item: Item | undefined) => !!item && (item.catalogId === 'unique-122' || item.name === '乔丹之石');
 export const footprint = (item: Item): [number, number] => [item.width ?? (['ring', 'ring2', 'amulet'].includes(item.slot) ? 1 : 2), item.height ?? (item.slot === 'weapon' || item.slot === 'armor' || item.slot === 'shield' ? 3 : ['ring', 'ring2', 'amulet', 'belt'].includes(item.slot) ? 1 : 2)];
 export function makeItem(base: ItemBase, id: string = itemId()): Item {
   const durable = !['ring', 'amulet'].includes(base.slot);

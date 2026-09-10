@@ -246,7 +246,7 @@ export class MonsterCombat {
     enemy.blind = Math.max(0, (enemy.blind ?? 0) - dt); enemy.flee = Math.max(0, (enemy.flee ?? 0) - dt);
     if (enemy.active && !enemy.preventHeal && !enemy.poison && enemy.definition?.model === 'council') enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * .01 * dt);
     if (state.lifetime !== undefined) { state.lifetime -= dt; if (state.lifetime <= 0 || g.enemies.find(e => e.id === enemy.owner)?.dead) { g.killEnemy(enemy); return; } }
-    const unlocked = !enemy.boss || questComplete(g.hero.campaign), visible = distance < 18 && this.lineOfSight(p,targetPoint);
+    const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < 18 && this.lineOfSight(p,targetPoint);
     if (g.started && unlocked && visible && (distance < (enemy.boss ? 12 : 10) || enemy.active)) {
       enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = 5;
       if (!state.alerted) {

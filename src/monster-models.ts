@@ -36,7 +36,22 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   };
   const model = def.model;
   const insect = ['spider', 'beetle', 'maggot', 'duriel'].includes(model), serpentine = model === 'viper', floating = ['ghost', 'mephisto'].includes(model);
-  if (insect) {
+  if (model === 'cow') {
+    ball(rig, 0, .88, -.04, .62, .47, .9);
+    ball(rig, 0, 1.16, .63, .42, .35, .37);
+    part(rig, box, cloth, 0, .88, -.12, .75, .16, .88);
+    eyes(rig, 1.24, .97, .16);
+    for (const side of [-1, 1]) {
+      horn(rig, side * .28, 1.43, .74, .48, -side * .52);
+      const leg = side < 0 ? leftLeg : rightLeg;
+      leg.position.set(side * .42, .72, .45); rig.add(leg);
+      link(leg, [0, 0, 0], [0, -.52, .03], .105, skin); part(leg, box, dark, 0, -.58, .12, .22, .15, .3);
+      const rear = new THREE.Group(); rear.position.set(side * .42, .7, -.55); rig.add(rear);
+      link(rear, [0, 0, 0], [0, -.5, -.04], .105, skin); part(rear, box, dark, 0, -.56, -.15, .22, .15, .3);
+      ribbon(rig, [[side * .48, 1.06, -.72], [side * .68, .84, -1.02], [side * .55, .6, -1.12]], .03, skin);
+    }
+    for (let i = 0; i < 5; i++) ball(rig, 0, 1.12, -.62 - i * .1, .12 - i * .015, .1, .15, skin);
+  } else if (insect) {
     const heavy = model === 'duriel';
     ball(rig, 0, heavy ? .85 : .5, -.35, heavy ? .7 : .48, heavy ? .67 : .36, heavy ? 1 : .7);
     ball(rig, 0, heavy ? 1.05 : .52, .48, .4, heavy ? .55 : .3, .42, model === 'beetle' ? metal : skin);
@@ -163,7 +178,7 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   group.scale.setScalar(def.scale);
   group.userData.bodyPlan = model;
   const actor: Actor = { group, leftLeg, rightLeg, leftArm, rightArm, kind: def.id, animate(time, moving, attacking) {
-    const heavy=['mauler','frozen','duriel'].includes(model),cadence=model==='zombie'?4.7:heavy?6.5:insect?14:9;
+    const heavy=['mauler','frozen','duriel','cow'].includes(model),cadence=model==='zombie'?4.7:heavy?6.5:insect?14:9;
     const walk = moving ? Math.sin(time * cadence) : 0;
     const release=Number(group.userData.release??0),flash=Number(group.userData.hitFlash??0);
     skin.emissive.setRGB(flash*.24,flash*.13,flash*.06);metal.emissive.setRGB(flash*.12,flash*.12,flash*.10);

@@ -308,6 +308,10 @@ export function buildLevelScenery(world: SceneHost) {
       for(const side of [-1,1]){crystal(bx+side*5.7,bz-2,5);crystal(bx+side*5,bz+3,3);}ring(bx,.11,bz,4,ice);break;
     case 'ancients':
       dais(6.3);sigil(bx,bz,4,3);for(let i=0;i<3;i++){const a=Math.PI+i*Math.PI/2;const x=bx+Math.cos(a)*6,z=bz+Math.sin(a)*6;statue(x,z,(['axe','spear','sword'] as const)[i]);world.addCollider(x,z,1.6,1.6);}break;
+    case 'cow':
+      dais(7);ring(bx,.18,bz,5.2);for(const side of [-1,1]){fence(bx+side*6,bz-4,9);prop('tree',bx+side*9,bz+2,1.2);world.torch(bx+side*4,bz-5,.8,true);}for(const p of layout.route.slice(1,-1))ring(p.x,.11,p.z,2.2);break;
+    case 'uberDiablo':
+      dais(7);sigil(bx,bz,5.1,5);pillars(7);for(const side of [-1,1]){prop('spike',bx+side*6,bz-2,2);world.torch(bx+side*4,bz-4,1.2,true);}break;
     case 'worldstone':
       dais(6);pillars(6.5);crystal(bx,bz-7.8,9,red);for(const side of [-1,1]){pylon(bx+side*7,bz-6,6);crystal(bx+side*4.5,bz-5,4,red);}sigil(bx,bz,3.5,6);break;
   }

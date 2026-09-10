@@ -61,7 +61,7 @@ export class PaladinCombat {
     this.stagger = Math.max(this.stagger, duration);
     this.lock = Math.max(this.lock, duration);
   }
-  hostile(enemy: Enemy) { return !enemy.dead && enemy.converted <= 0 && (!enemy.boss || questComplete(this.game.hero.campaign)); }
+  hostile(enemy: Enemy) { return !enemy.dead && enemy.converted <= 0 && (!enemy.boss || !!this.game.specialArea || questComplete(this.game.hero.campaign)); }
   inAura(enemy: Enemy) { return enemy.actor.group.position.distanceTo(this.game.position) <= stats(this.game.hero).aura.radius; }
   auraAt(enemy: Enemy, id: SkillId, s = stats(this.game.hero)) { return s.auras.find(aura => aura.id === id && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius); }
   snapshot(): AttackSnapshot { const h = this.game.hero; return { stats: stats(h), level: h.level, difficulty: difficulty(h), skills: { ...h.skills }, items: structuredClone([...activeEquipment(h), ...activeCharms(h)]), origin: this.game.position.clone() }; }

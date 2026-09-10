@@ -1,6 +1,6 @@
 import type { DamageType } from './paladin.ts';
 
-export type BodyPlan = 'fallen' | 'shaman' | 'zombie' | 'skeleton' | 'archer' | 'mage' | 'goat' | 'ghost' | 'mummy' | 'beetle' | 'maggot' | 'viper' | 'spider' | 'flayer' | 'council' | 'knight' | 'mauler' | 'venom' | 'imp' | 'succubus' | 'frozen' | 'lord' | 'andariel' | 'duriel' | 'mephisto' | 'diablo' | 'baal';
+export type BodyPlan = 'fallen' | 'shaman' | 'zombie' | 'skeleton' | 'archer' | 'mage' | 'goat' | 'ghost' | 'mummy' | 'beetle' | 'maggot' | 'viper' | 'spider' | 'flayer' | 'council' | 'knight' | 'mauler' | 'venom' | 'imp' | 'succubus' | 'frozen' | 'lord' | 'cow' | 'andariel' | 'duriel' | 'mephisto' | 'diablo' | 'baal';
 export type AttackId = 'strike' | 'frenzy' | 'arrow' | 'fireArrow' | 'fireball' | 'poisonSpit' | 'lightning' | 'revive' | 'charge' | 'stomp' | 'inferno' | 'curse' | 'hydra' | 'poisonFan' | 'poisonPool' | 'coldNova' | 'jab' | 'skull' | 'blizzard' | 'firestorm' | 'redLightning' | 'fireNova' | 'coldWave' | 'manaRift' | 'tentacles' | 'clone' | 'whirlwind' | 'manaTouch' | 'fireWall' | 'brood';
 export type MonsterDef = { id: string; name: string; model: BodyPlan; race: 'undead' | 'demon' | 'beast'; color: number; hp: number; hpByDifficulty?: readonly [number, number, number]; damage: number; speed: number; scale: number; attacks: AttackId[]; resist?: Partial<Record<DamageType, number>>; revive?: string; retaliation?: boolean };
 function monster(id: string, name: string, model: BodyPlan, race: MonsterDef['race'], color: number, attacks: AttackId[], hp = 20, speed = 2.1, extra: Partial<MonsterDef> = {}): MonsterDef {
@@ -44,6 +44,7 @@ export const MONSTERS: Record<string, MonsterDef> = Object.fromEntries([
   monster('succubus', '女妖', 'succubus', 'demon', 0xa87c98, ['curse', 'skull'], 23, 2.4),
   monster('bloodLord', '死亡之王', 'lord', 'demon', 0x965b63, ['frenzy'], 36, 2.8, { scale: 1.15 }),
   monster('minion', '毁灭仆从', 'venom', 'demon', 0xa1849c, ['stomp', 'strike'], 42, 2.2, { scale: 1.25 }),
+  monster('hellCow', '地狱奶牛', 'cow', 'beast', 0x9c6f56, ['frenzy'], 44, 2.05, { scale: 1.36, damage: 7, resist: { poison: 30 } }),
 ].map(def => [def.id, def]));
 
 // Each encounter includes a frontline and a smaller ranged/support contingent.

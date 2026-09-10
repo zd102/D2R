@@ -27,8 +27,10 @@ export function monsterExperience(playerLevel: number, monsterLevel: number, ran
 export function monsterStats(definition: MonsterDef, area: Level, difficulty: number, boss = false, elite = false) {
   elite = elite && !boss;
   const tuning = levelTuning(area, difficulty), level = Math.min(99, tuning.level + (boss || elite ? 2 : 0));
-  const maxHp = boss && definition.hpByDifficulty ? definition.hpByDifficulty[difficulty] : Math.round(definition.hp * tuning.hp * (boss ? 1.25 : elite ? 2.5 + difficulty * .5 : 1));
+  const uberDiablo = area.special === 'uberDiablo' && boss && definition.id === 'diablo';
+  const maxHp = uberDiablo ? 900000 : boss && definition.hpByDifficulty ? definition.hpByDifficulty[difficulty] : Math.round(definition.hp * tuning.hp * (boss ? 1.25 : elite ? 2.5 + difficulty * .5 : 1));
   const resistances: Record<DamageType, number> = { physical: difficulty === 2 ? 15 : 0, magic: boss ? difficulty * 10 : 0, fire: difficulty * 10, cold: difficulty * 10, lightning: difficulty * 10, poison: definition.race === 'undead' ? 65 : difficulty * 10 };
   for (const type of Object.keys(definition.resist ?? {}) as DamageType[]) resistances[type] = Math.min(85, definition.resist![type]! + difficulty * 10);
-  return { level, maxHp, damage: definition.damage * tuning.damage * (elite ? 1.25 + difficulty * .1 : 1), defense: Math.round(tuning.defense * (boss ? 1.1 : elite ? 1.25 : 1)), attackRating: Math.round((25 + level * 7) * (boss ? 1.1 : elite ? 1.2 : 1)), resistances };
+  if (uberDiablo) for (const type of ['fire', 'cold', 'lightning', 'poison'] as DamageType[]) resistances[type] = Math.max(resistances[type], 75);
+  return { level, maxHp, damage: definition.damage * tuning.damage * (uberDiablo ? 1.7 : elite ? 1.25 + difficulty * .1 : 1), defense: Math.round(tuning.defense * (uberDiablo ? 1.35 : boss ? 1.1 : elite ? 1.25 : 1)), attackRating: Math.round((25 + level * 7) * (uberDiablo ? 1.5 : boss ? 1.1 : elite ? 1.2 : 1)), resistances };
 }

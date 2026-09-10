@@ -1,9 +1,9 @@
-import { RUNE_ORDER, rollDropKinds, rollItem, specialItem, itemId, weightedChoice, type DropRank, type Item, type RuneId } from './items.ts';
+import { BASES, RUNE_ORDER, isAvailableItem, makeItem, rollDropKinds, rollItem, specialItem, itemId, weightedChoice, type DropRank, type Item, type RuneId } from './items.ts';
 import { applyAffixes, CHARM_BASES, type CharmSize } from './affixes.ts';
 import { RUNE_TREASURES } from './item-catalog-data.ts';
 import { bossDropProfile, rollBossSpecial } from './boss-loot.ts';
 
-export type LootContext = { level: number; act: number; difficulty: number; rank: DropRank; levelIndex?: number; firstClear?: boolean; countess?: boolean; magicFind?: number; goldFind?: number };
+export type LootContext = { level: number; act: number; difficulty: number; rank: DropRank; levelIndex?: number; firstClear?: boolean; countess?: boolean; magicFind?: number; goldFind?: number; cow?: boolean; uberDiablo?: boolean };
 const RUNE_MIN_LEVEL = [1, 1, 3, 4, 6, 8, 10, 12, 14, 17, 20, 24, 27, 30, 32, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 80, 81];
 const runeDistributions = new Map<number, { rune: RuneId; weight: number }[]>();
 export function runeDistribution(tier: number): { rune: RuneId; weight: number }[] {
@@ -32,6 +32,15 @@ export function rollCharm(level: number, random = Math.random): Item {
   level = Math.max(1, Math.min(99, Math.floor(level)));
   return applyAffixes({ id: itemId(), name: base.name, base: base.name, slot: 'amulet', rarity: 'magic', power: 0, level, value: 80 + level * 8, mods: {}, identified: false, width: 1, height: base.height, charm: true, charmSize: size }, random);
 }
+export function rollSocketBase(level: number, random = Math.random): Item {
+  level = Math.max(1, Math.min(99, Math.floor(level)));
+  const bases = BASES.filter(base => isAvailableItem(base) && !base.charm && !base.jewel && !!base.sockets && (base.qualityLevel ?? base.level) <= level + 3);
+  const base = weightedChoice(bases, entry => 1 + (entry.qualityLevel ?? entry.level) / Math.max(1, level), random);
+  const item = makeItem(base); item.level = level; item.identified = true;
+  const cap = Math.min(base.sockets!, level < 12 ? 2 : level < 26 ? 3 : level < 41 ? 4 : 6);
+  item.sockets = Math.max(1, 1 + Math.floor(random() * cap));
+  return item;
+}
 export function rollLoot(context: LootContext, random = Math.random) {
   const { rank } = context, difficulty = Math.max(0, Math.min(2, Math.floor(context.difficulty))), act = Math.max(0, Math.min(4, Math.floor(context.act)));
   const level = Math.max(1, Math.min(99, Math.floor(context.level))), flags = rollDropKinds(rank, random), items: Item[] = [], runes: RuneId[] = [];
@@ -52,7 +61,6 @@ export function rollLoot(context: LootContext, random = Math.random) {
     const start = [0, 11, 14][difficulty];
     runes.push(RUNE_ORDER[start + Math.floor(Math.min(1 - Number.EPSILON, Math.max(0, random())) * 11)]);
   }
-  const eventCharm = difficulty === 2 && profile && [19, 24].includes(profile.levelIndex) && random() < .005 ? profile.levelIndex === 19 ? 'unique-382' : 'unique-401' : undefined;
   const gold = Math.round((10 + level * 2 + random() * 14) * (boss ? 4 : elite ? 2 : 1) * (1 + (context.goldFind ?? 0) / 100));
   const potion = random() < (boss ? .8 : elite ? .6 : .30) ? random() > .4 ? 0 : 1 : undefined;
   const treasureClass = profile?.maxTC[difficulty] ?? Math.min(87, Math.ceil((level + 3) / 3) * 3);
@@ -63,7 +71,12 @@ export function rollLoot(context: LootContext, random = Math.random) {
   if (rank === 'actBoss') items.push(rollItem(level, .72 + random() * .28, false, context.magicFind ?? 0, random, treasureClass));
   if (flags.charm) items.push(rollCharm(level, random));
   if (profile) { const special = rollBossSpecial(profile, level, difficulty, context.magicFind ?? 0, random); if (special) items.push(special); }
-  if (eventCharm) { const item = specialItem(eventCharm, random); item.level = level; items.push(item); }
+  if (context.cow) {
+    items.push(rollSocketBase(level, random));
+    runes.push(rollRune(level, difficulty, act, false, random));
+    if (random() < .42) runes.push(rollRune(level, difficulty, act, false, random));
+  }
+  if (context.uberDiablo) { const item = specialItem('unique-382', random); item.level = level; items.push(item); }
   return { items, runes, gold, potion };
 }
 export function runeUpgradeCost(id: RuneId) { const index = RUNE_ORDER.indexOf(id); return index < 0 || index === RUNE_ORDER.length - 1 ? null : { next: RUNE_ORDER[index + 1], count: index >= 20 ? 2 : 3 }; }

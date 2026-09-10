@@ -1,13 +1,14 @@
 import type { DamageType } from './paladin.ts';
-import { campaignLayout, MAP_BOUND } from './level-layouts.ts';
+import { campaignLayout, specialLayout, MAP_BOUND } from './level-layouts.ts';
 
 export type CampaignState = { version: 1; current: number; cleared: [number, number, number]; kills: number; objects: number[] };
 export type QuestProp = 'grave' | 'cage' | 'chest' | 'altar' | 'forge' | 'ice' | 'seal' | 'siege';
+export type SpecialArea = 'cow' | 'uberDiablo';
 export type Level = {
   id: string; index: number; act: number; step: number; name: string; english: string;
   terrain: 'cave' | 'field' | 'ruins' | 'temple' | 'arcane' | 'lava' | 'snow';
   quest: { name: string; description: string; action: string; kind: 'kill' | 'interact'; count: number; prop: QuestProp };
-  enemies: [string, string]; boss: string; bossType: DamageType; actBoss: boolean; level: number;
+  enemies: [string, string]; boss: string; bossType: DamageType; actBoss: boolean; level: number; special?: SpecialArea;
 };
 export const ACTS = [
   { name: '修道院的阴影', region: '坎杜拉斯', english: 'THE SIGHTLESS EYE', icon: 'church', color: '#9fc99c', ground: 0x64745a, stone: 0x92998a, sky: 0x4c6260, accent: 0x8fd69a },
@@ -54,6 +55,18 @@ export const LEVELS: Level[] = drafts.map(([name, english, terrain, questName, d
   quest: { name: questName, description, action, kind, count, prop }, enemies: [first, second], boss, bossType, actBoss: index % 5 === 4,
   level: AREA_LEVELS[0][index],
 }));
+export const SPECIAL_LEVELS: Record<SpecialArea, Level> = {
+  cow: {
+    id: 'secret-cow-level', index: 25, act: 4, step: 4, name: '隐藏奶牛关', english: 'THE SECRET COW LEVEL', terrain: 'field',
+    quest: { name: '奶牛之王', description: '血色牧场中的号角声从未停歇。', action: '清剿地狱奶牛', kind: 'kill', count: 0, prop: 'seal' },
+    enemies: ['hellCow', 'hellCow'], boss: '奶牛之王', bossType: 'physical', actBoss: false, level: AREA_LEVELS[0][24], special: 'cow',
+  },
+  uberDiablo: {
+    id: 'uber-diablo', index: 26, act: 4, step: 4, name: '超级迪亚波罗', english: 'UBER DIABLO', terrain: 'lava',
+    quest: { name: '末日显现', description: '此地只容得下一位恐惧之王。', action: '击败超级迪亚波罗', kind: 'kill', count: 0, prop: 'seal' },
+    enemies: ['diablo', 'diablo'], boss: '超级迪亚波罗', bossType: 'fire', actBoss: false, level: 99, special: 'uberDiablo',
+  },
+};
 export const newCampaign = (): CampaignState => ({ version: 1, current: 0, cleared: [0, 0, 0], kills: 0, objects: [] });
 export const unlockedCampaignDifficulty = (campaign: CampaignState) => campaign.cleared[0] < 25 ? 0 : campaign.cleared[1] < 25 ? 1 : 2;
 export function canEnterLevel(campaign: CampaignState, index: number, difficulty: number) {
@@ -77,6 +90,12 @@ export function parseCampaign(value: unknown): CampaignState {
   return campaign;
 }
 export function levelTuning(level: Level, difficulty: number) {
+  difficulty = Math.max(0, Math.min(2, Math.floor(difficulty)));
+  if (level.special === 'cow') {
+    const areaLevel = [44, 70, 96][difficulty];
+    return { level: areaLevel, hp: [15, 90, 330][difficulty], damage: [4.6, 11.5, 22][difficulty], defense: 6 + areaLevel * 3.7, packs: 30 };
+  }
+  if (level.special === 'uberDiablo') return { level: 99, hp: 1, damage: 26, defense: 1800, packs: 0 };
   const areaLevel = AREA_LEVELS[difficulty][level.index];
   // Small steps within an act, a larger jump at the act boundary, independent of hero level.
   const power = Math.pow(1.85, level.act) * (1 + level.step * .06) * [1, 6, 22][difficulty];
@@ -86,4 +105,4 @@ export type MapPoint = { x: number; z: number };
 export const eliteCount = (level: Level, difficulty: number) => 1 + Math.max(0, Math.min(2, Math.floor(difficulty))) * 2 + Number(level.step >= 3);
 export const FIELD_BOUND = MAP_BOUND;
 // Deterministic previews and tests. Live worlds own their freshly seeded layout.
-export function levelLayout(level: Level, seed = 0) { return campaignLayout(level, seed); }
+export function levelLayout(level: Level, seed = 0) { return level.special ? specialLayout(level, seed) : campaignLayout(level, seed); }

@@ -2,7 +2,7 @@ import type { Level } from './campaign.ts';
 
 export type SurfaceStyle = 'earth' | 'flagstone' | 'sand' | 'mosaic' | 'mud' | 'basalt' | 'snow' | 'ice';
 export type SceneryProp = 'crag' | 'root' | 'grave' | 'coffin' | 'ruin' | 'pillar' | 'urn' | 'egg' | 'obelisk' | 'tree' | 'web' | 'hut' | 'totem' | 'bones' | 'spike' | 'barricade' | 'crystal';
-export type Landmark = 'den' | 'graveyard' | 'tristram' | 'tower' | 'catacombs' | 'sewers' | 'burial-hall' | 'hive' | 'orrery' | 'horadric-tomb' | 'spider-grove' | 'flayer-village' | 'bazaar' | 'travincal' | 'durance' | 'steppes' | 'despair' | 'hellforge' | 'chaos' | 'terror' | 'siege' | 'prison' | 'frozen-river' | 'ancients' | 'worldstone';
+export type Landmark = 'den' | 'graveyard' | 'tristram' | 'tower' | 'catacombs' | 'sewers' | 'burial-hall' | 'hive' | 'orrery' | 'horadric-tomb' | 'spider-grove' | 'flayer-village' | 'bazaar' | 'travincal' | 'durance' | 'steppes' | 'despair' | 'hellforge' | 'chaos' | 'terror' | 'siege' | 'prison' | 'frozen-river' | 'ancients' | 'worldstone' | 'cow' | 'uberDiablo';
 export type ScenePalette = { floor: number; wall: number; trim: number; dark: number; wood: number; foliage: number; sky: number; liquid: number; sun: number; fill: number };
 export type SceneDesign = {
   landmark: Landmark; description: string; surface: SurfaceStyle; edge: 'rock' | 'wall' | 'bank' | 'void';
@@ -43,6 +43,8 @@ const drafts: Draft[] = [
   { landmark: 'frozen-river', description: '地下冰河 · 蓝冰裂隙与冰封安雅', surface: 'ice', edge: 'rock', props: ['crystal','crystal','crag'], liquid: 'water', atmosphere: 'dust', colors: { floor: 0x88b5c6, wall: 0x80b2cc, trim: 0x82dcf4, sky: 0x183c50 }, fog: .01 },
   { landmark: 'ancients', description: '圣山峰顶 · 三先祖与圆形祭坛', surface: 'snow', edge: 'void', props: ['crag','obelisk','bones'], atmosphere: 'snow', liquid: 'abyss', colors: { floor: 0xc3c9c9, trim: 0xc5ae7b, sky: 0x415c73, liquid: 0x354e64 }, sunlight: 2.5, fog: .008 },
   { landmark: 'worldstone', description: '世界之石 · 赤红晶体与王座长廊', surface: 'mosaic', edge: 'void', props: ['pillar','crystal','obelisk'], atmosphere: 'stars', liquid: 'abyss', colors: { floor: 0x8c879a, wall: 0x777b91, trim: 0xb5a17d, sky: 0x222135, liquid: 0x282037, sun: 0xe4c7df }, fog: .006 },
+  { landmark: 'cow', description: '血色牧场 · 木栅与猩红月光', surface: 'earth', edge: 'bank', props: ['tree','barricade','bones','crag'], atmosphere: 'ash', colors: { floor: 0x6f7544, wall: 0x5d6339, trim: 0xc8b064, wood: 0x6b4c30, foliage: 0x47592d, sky: 0x43252a, liquid: 0x542a24, sun: 0xdfad72, fill: 0x98704d }, fog: .01 },
+  { landmark: 'uberDiablo', description: '末日祭坛 · 恐惧之王的孤绝领域', surface: 'basalt', edge: 'void', props: ['spike','pillar','bones'], atmosphere: 'ash', liquid: 'lava', colors: { floor: 0x4c3b3d, wall: 0x5a4548, trim: 0xcd7256, sky: 0x261820, liquid: 0xb93221, sun: 0xe56f55, fill: 0x87434b }, fog: .014 },
 ];
 export const SCENE_DESIGNS: SceneDesign[] = drafts.map((draft, index) => ({
   fog: .008, ambient: 1.05, sunlight: 1.65, atmosphere: 'dust', ...draft,
