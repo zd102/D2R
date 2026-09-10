@@ -52,7 +52,7 @@ test('bows attack at range and apply damage only when the arrow reaches its targ
   const { combat, hero, enemy } = fixture(), target = enemy();
   assert.ok(combat.canReach(target, 'attack')); assert.equal(combat.reach('attack'), 14);
   combat.castAction('attack', true);
-  assert.equal(hero.ammo.arrows, 60); assert.equal(hero.ammo.bolts, 60); assert.equal(target.hp, 10000);
+  assert.equal(hero.ammo.arrows, 0); assert.equal(hero.ammo.bolts, 0); assert.equal(target.hp, 10000);
   combat.update(.1); assert.equal(target.hp, 10000);
   combat.update(.5); assert.ok(target.hp < 10000); assert.equal(combat.projectiles.length, 0);
 });
@@ -74,7 +74,7 @@ test('crossbows use bolts, dexterity scaling and a distinct attack cadence', t =
   const { combat, hero, enemy } = fixture('lxb'); enemy();
   const before = stats(hero).attack; hero.strength += 100; assert.equal(stats(hero).attack, before);
   hero.dexterity += 100; assert.ok(stats(hero).attack > before);
-  combat.castAction('attack', true); assert.equal(hero.ammo.arrows, 60); assert.equal(hero.ammo.bolts, 60);
+  combat.castAction('attack', true); assert.equal(hero.ammo.arrows, 0); assert.equal(hero.ammo.bolts, 0);
   assert.equal(combat.lock, stats(hero).rangedFrames / 25);
 });
 
@@ -207,7 +207,7 @@ test('arrow reserves, depleted throwing stacks, new modifiers and old saves surv
   const { hero } = fixture('jav'); hero.ammo = { arrows: 0, bolts: 7 }; hero.equipment.weapon!.quantity = 0;
   const restored = parseSave(serializeSave(hero))!; assert.deepEqual(restored.ammo, hero.ammo); assert.equal(quantityLeft(restored.equipment.weapon!), 0);
   const old = JSON.parse(serializeSave(hero)); delete old.hero.ammo; delete old.hero.equipment.weapon.quantity;
-  const migrated = parseSave(JSON.stringify(old))!; assert.deepEqual(migrated.ammo, { arrows: 60, bolts: 60 }); assert.equal(quantityLeft(migrated.equipment.weapon!), 60);
+  const migrated = parseSave(JSON.stringify(old))!; assert.deepEqual(migrated.ammo, { arrows: 0, bolts: 0 }); assert.equal(quantityLeft(migrated.equipment.weapon!), 60);
   old.hero.ammo = { arrows: -5, bolts: 10000 }; assert.deepEqual(parseSave(JSON.stringify(old))!.ammo, { arrows: 0, bolts: 600 });
   const bow = specialItem(CATALOG_SPECIALS.find(entry => entry.key === 'Whichwild String')!.id); bow.catalogVersion = 1; delete bow.mods!.magicArrowLevel;
   old.hero.equipment.weapon = bow; assert.equal(parseSave(JSON.stringify(old))!.equipment.weapon!.mods!.magicArrowLevel, 20);

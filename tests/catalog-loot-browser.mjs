@@ -1,7 +1,7 @@
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import { BASES, SPECIAL_ITEMS, RUNEWORDS, RUNE_ORDER, makeItem, specialItem } from '../src/items.ts';
+import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS as RUNEWORDS, RUNE_ORDER, makeItem, specialItem } from '../src/items.ts';
 import { newHero, serializeSave } from '../src/model.ts';
 import { enterGame, openCampaign, savedProfile, inventoryItems, inventoryItem, openSocketEditor, runeRecipes } from './browser-helpers.mjs';
 
@@ -57,7 +57,7 @@ try {
     await page.locator('.item-details').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${output}/jewel-${viewport.width}.png` });
     await page.reload(); await enterGame(page); assert.deepEqual((await savedProfile(page)).hero.inventory, saved.inventory);
-    await page.close(); console.log(`Catalog, 25 boss labels, 78 recipes, jewel sockets and persistence passed at ${viewport.width}px`);
+    await page.close(); console.log(`Catalog, 25 boss labels, ${RUNEWORDS.length} recipes, jewel sockets and persistence passed at ${viewport.width}px`);
   }
   const page = await browser.newPage(); await page.goto(base);
   const production = await page.evaluate(async () => {

@@ -8,7 +8,7 @@ const themes: [Slot[], string[]][] = [
   [['weapon', 'armor'], ['Griswolds Edge', 'Greyform', 'The Centurion']],
   [['weapon', 'belt'], ['Lenyms Cord', 'Goldwrap', 'Hotspur']],
   [['ring', 'amulet'], ['Nagelring', 'Manald Heal', 'The Stone of Jordan', 'Gheed\'s Fortune']],
-  [['shield', 'weapon'], ['Wall of the Eyeless', 'Gravenspine', 'Homunculus']],
+  [['shield', 'weapon'], ['Wall of the Eyeless', 'Gravenspine']],
   [['gloves', 'belt'], ['Bloodfist', 'Chance Guards', 'String of Ears']],
   [['armor', 'shield'], ['Hawkmail', 'The Ward', 'Duriel\'s Shell']],
   [['weapon', 'amulet'], ['The Oculus', 'Serpent Lord', 'The Eye of Etlich']],
@@ -26,7 +26,7 @@ const themes: [Slot[], string[]][] = [
   [['weapon', 'belt'], ['Baranar\'s Star', 'Thudergod\'s Vigor', 'Nosferatu\'s Coil']],
   [['weapon', 'boots'], ['Butcher\'s Pupil', 'Wartraveler', 'Gorerider']],
   [['armor', 'gloves'], ['Skin of the Vipermagi', 'Frostburn', 'Ormus\' Robes']],
-  [['weapon', 'helm'], ['Arreat\'s Face', 'Crown of Ages', 'Deathcleaver']],
+  [['weapon', 'helm'], ['Crown of Ages', 'Deathcleaver']],
   [['weapon', 'armor', 'helm', 'belt'], ['Tyrael\'s Might', 'Griffon\'s Eye', 'Deaths\'s Web', 'Arachnid Mesh']],
 ];
 export const BOSS_DROP_PROFILES: BossDropProfile[] = themes.map(([slots, featured], levelIndex) => {

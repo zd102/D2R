@@ -3,7 +3,7 @@ import type { UI } from './ui';
 import { stats, activeEquipment, skillLevel, learnSkill, learnReason, bindSkill, setAura, equipItem, equipReason, unequipItem, moveStorage, identifyItem, IDENTIFY_COST, insertRune, repairCost, repairEquipment, respec, difficulty, difficultyNames, damageTypeNames, totalExperience, type Slot } from './model';
 import { skillsForClass, skillById, skillValues, skillName, skillIcon, treeNames, attributeNames, isAura, isPassive, type SkillTree, type SkillId, type ActionId, type Attribute } from './paladin';
 import { CLASSES } from './classes';
-import { SLOTS, slotNames, rarityNames, MOD_NAMES, RUNES, RUNEWORDS, packItems, footprint, stashRows, type Item, type Modifier, type RuneId } from './items';
+import { SLOTS, slotNames, rarityNames, MOD_NAMES, RUNES, AVAILABLE_RUNEWORDS as RUNEWORDS, packItems, footprint, stashRows, type Item, type Modifier, type RuneId } from './items';
 import { InventoryDrag } from './inventory-drag';
 import { filledSockets } from './items';
 import { insertJewel } from './model';

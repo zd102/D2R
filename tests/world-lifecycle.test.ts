@@ -28,3 +28,16 @@ test('scene disposal releases instance attributes, shared resources, particles a
   world.dispose();
   assert.deepEqual(counts, resources.map(() => 1)); assert.equal(world.physics.bodies.length, 0); assert.equal(world.scene.children.length, 0);
 });
+
+test('static batching preserves non-shadowing ground decals even when materials are shared', () => {
+  const world = Object.create(GameWorld.prototype) as GameWorld;
+  world.scene = new THREE.Scene(); world.staticGroup = new THREE.Group(); world.scene.add(world.staticGroup);
+  const geometry = new THREE.PlaneGeometry(), material = new THREE.MeshBasicMaterial({ transparent: true });
+  const decal = new THREE.Mesh(geometry, material), prop = new THREE.Mesh(geometry, material);
+  decal.castShadow = false; prop.castShadow = true; world.staticGroup.add(decal, prop);
+  world.mergeStatic();
+  const batches = world.scene.children.filter(object => object instanceof THREE.Mesh);
+  assert.equal(batches.length, 2); assert.deepEqual(new Set(batches.map(batch => batch.castShadow)), new Set([false, true]));
+  assert.ok(batches.every(batch => batch.material === material));
+  batches.forEach(batch => batch.geometry.dispose()); geometry.dispose(); material.dispose();
+});

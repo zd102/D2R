@@ -1,4 +1,5 @@
 import type { DamageType } from './paladin.ts';
+import { campaignLayout } from './level-layouts.ts';
 
 export type CampaignState = { version: 1; current: number; cleared: [number, number, number]; kills: number; objects: number[] };
 export type QuestProp = 'grave' | 'cage' | 'chest' | 'altar' | 'forge' | 'ice' | 'seal' | 'siege';
@@ -85,29 +86,7 @@ export type MapPoint = { x: number; z: number };
 export const eliteCount = (level: Level, difficulty: number) => 1 + Math.max(0, Math.min(2, Math.floor(difficulty))) * 2 + Number(level.step >= 3);
 export const FIELD_BOUND = 39;
 function makeLevelLayout(level: Level) {
-  const side = level.index % 2 ? 1 : -1, shift = level.step - 2;
-  const spawn = { x: 0, z: 11 }, boss = { x: 0, z: -34 }, exit = { x: 0, z: -37 }, supply = { x: -5.8, z: 12 };
-  const route: MapPoint[] = [spawn, { x: side * (9 + shift), z: 1 }, { x: side * 15, z: -9 }, { x: -side * 2, z: -17 }, { x: -side * (12 - shift), z: -25 }, boss];
-  const sideRooms = [{ x: -side * 17, z: 13 }, { x: side * 27, z: 1 + shift }, { x: -side * 26, z: -8 }, { x: side * 25, z: -22 }, { x: -side * 25, z: -27 }, { x: side * 13, z: 25 }];
-  const size = level.terrain === 'field' || level.terrain === 'snow' ? 11 : 8;
-  const rooms = [...route.slice(1, -1), ...sideRooms].map((p, i) => ({ ...p, width: size + (i + level.step) % 3, depth: size - 1 + (i + level.act) % 3 }));
-  const connections: [MapPoint, MapPoint][] = [];
-  const connect = (a: MapPoint, b: MapPoint, bend = false) => {
-    if (bend && !['field', 'snow', 'cave'].includes(level.terrain)) {
-      const corner = (level.index + connections.length) % 2 ? { x: a.x, z: b.z } : { x: b.x, z: a.z };
-      if (a.x !== corner.x || a.z !== corner.z) connections.push([a, corner]);
-      if (b.x !== corner.x || b.z !== corner.z) connections.push([corner, b]);
-    } else connections.push([a, b]);
-  };
-  route.slice(1).forEach((p, i) => connect(route[i], p, true));
-  sideRooms.forEach((p, i) => connect(route[[0, 1, 3, 2, 4, 0][i]], p, true));
-  const southJunction = { x: 0, z: 20 };
-  connect(spawn, southJunction); connect(southJunction, sideRooms[0], true);
-  connect(sideRooms[1], sideRooms[3], true); connect(sideRooms[2], sideRooms[4], true);
-  connect(spawn, supply); connect(boss, exit);
-  const objects = Array.from({ length: level.quest.kind === 'interact' ? level.quest.count : 0 }, (_, i) => ({ ...sideRooms[[2, 3, 4][i]] }));
-  const chests = sideRooms.slice(0, 4 + Math.floor(level.act / 2)).map((p, id) => ({ id, x: p.x + (id % 2 ? -2 : 2), z: p.z + 2 }));
-  return { route, rooms, connections, objects, chests, spawn, boss, exit, supply };
+  return campaignLayout(level);
 }
 const layoutCache = new Map<number, ReturnType<typeof makeLevelLayout>>();
 export function levelLayout(level: Level) {

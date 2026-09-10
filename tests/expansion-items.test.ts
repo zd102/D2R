@@ -1,16 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BASES, RUNE_ORDER, RUNES, RUNEWORDS, SPECIAL_ITEMS, makeItem, rollItem, socketItem, itemMods, itemRequirements, runewordFits } from '../src/items.ts';
+import { BASES, RUNE_ORDER, RUNES, RUNEWORDS, AVAILABLE_RUNEWORDS, SPECIAL_ITEMS, makeItem, rollItem, socketItem, itemMods, itemRequirements, runewordFits } from '../src/items.ts';
 import { runePool, rollRune, rollLoot, rollCharm, upgradeRune, runeUpgradeCost } from '../src/loot.ts';
 import { newHero, stats, parseSave, serializeSave, equipReason } from '../src/model.ts';
 const seeded = (seed = 73) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 
-test('all 33 ordered runes, 78 usable LoD recipes, tiered bases and expanded uniques are present', () => {
+test('all 33 runes and the full LoD catalog remain, with 77 recipes craftable by playable classes', () => {
   assert.equal(RUNE_ORDER.length, 33); assert.deepEqual(Object.keys(RUNES), [...RUNE_ORDER]);
   assert.equal(RUNEWORDS.length, 78); assert.ok(BASES.length >= 500); assert.equal(SPECIAL_ITEMS.length, 506);
   assert.equal(new Set(BASES.map(b => b.name)).size, BASES.length);
   for (const id of RUNE_ORDER) for (const slot of ['weapon', 'armor', 'shield'] as const) assert.ok(Object.keys(RUNES[id][slot]).length, `${id}: ${slot}`);
-  for (const word of RUNEWORDS) {
+  assert.equal(AVAILABLE_RUNEWORDS.length, 77);
+  for (const word of AVAILABLE_RUNEWORDS) {
     const base = BASES.find(b => (b.sockets ?? 0) >= word.runes.length && runewordFits({ ...makeItem(b), sockets: word.runes.length }, word));
     assert.ok(base, `${word.name} has a droppable base`);
     const item = makeItem(base); item.sockets = word.runes.length;
@@ -60,9 +61,9 @@ test('boss first-clear guarantees an eligible unique; repeats stay worthwhile wi
 test('loot level comes from the encounter; MF improves quality but cannot remove white bases', () => {
   const random = seeded(), ordinary = { level: 5, act: 0, difficulty: 0, rank: 'monster' as const };
   for (let i = 0; i < 300; i++) for (const item of rollLoot(ordinary, random).items) assert.equal(item.level, 5);
-  let low = 0, high = 0, white = 0;
-  for (let i = 0; i < 1000; i++) { const r = (i + .5) / 1000; low += Number(rollItem(80, r, false, 0, random).rarity === 'unique'); const item = rollItem(80, r, false, 500, random); high += Number(item.rarity === 'unique'); white += Number(item.rarity === 'common'); }
-  assert.ok(high > low * 2 && high < low * 4); assert.equal(white, 320);
+  let low = 0, high = 0, white = 0, jewelry = 0;
+  for (let i = 0; i < 1000; i++) { const r = (i + .5) / 1000; low += Number(rollItem(80, r, false, 0, random).rarity === 'unique'); const item = rollItem(80, r, false, 500, random); high += Number(item.rarity === 'unique'); white += Number(item.rarity === 'common'); jewelry += Number(r <= .32 && (item.jewel || ['ring', 'amulet'].includes(item.slot))); }
+  assert.ok(high > low * 2 && high < low * 4); assert.ok(white > 0); assert.equal(white + jewelry, 320);
   assert.equal(rollCharm(99, () => .9).height, 1); assert.equal(rollCharm(99, () => 0).height, 3);
 });
 test('rune upgrading is atomic, preserves unrelated runes and makes Zod terminal', () => {

@@ -2,7 +2,7 @@ import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave } from '../src/model.ts';
-import { BASES, SPECIAL_ITEMS, RUNE_ORDER, RUNEWORDS } from '../src/items.ts';
+import { BASES, SPECIAL_ITEMS, RUNE_ORDER, AVAILABLE_RUNEWORDS as RUNEWORDS } from '../src/items.ts';
 import { MONSTERS, BOSSES } from '../src/bestiary.ts';
 import { ATTACKS } from '../src/monster-combat.ts';
 import { enterGame, savedProfile, runeRecipes } from './browser-helpers.mjs';

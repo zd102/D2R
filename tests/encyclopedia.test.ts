@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ENCYCLOPEDIA_ITEMS, ENCYCLOPEDIA_MONSTERS, filterEncyclopediaItems, filterEncyclopediaMonsters, encyclopediaItemPreview, itemDropSources } from '../src/encyclopedia.ts';
-import { BASES, SPECIAL_ITEMS, RUNEWORDS, RUNE_ORDER, itemMods } from '../src/items.ts';
+import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS, RUNE_ORDER, itemMods, isAvailableItem } from '../src/items.ts';
 import { MONSTERS, BOSSES, ENCOUNTERS } from '../src/bestiary.ts';
 import { newHero, serializeSave } from '../src/model.ts';
 
 test('encyclopedia covers every current item, rune, recipe, supply and all campaign monsters', () => {
-  assert.equal(ENCYCLOPEDIA_ITEMS.length, BASES.length + SPECIAL_ITEMS.length + RUNEWORDS.length + RUNE_ORDER.length + 2);
+  assert.equal(ENCYCLOPEDIA_ITEMS.length, BASES.filter(isAvailableItem).length + SPECIAL_ITEMS.filter(isAvailableItem).length + AVAILABLE_RUNEWORDS.length + RUNE_ORDER.length + 2);
   assert.equal(new Set(ENCYCLOPEDIA_ITEMS.map(item => item.id)).size, ENCYCLOPEDIA_ITEMS.length);
   assert.equal(ENCYCLOPEDIA_MONSTERS.length, Object.keys(MONSTERS).length + BOSSES.length);
   assert.equal(new Set(ENCYCLOPEDIA_MONSTERS.map(item => item.id)).size, ENCYCLOPEDIA_MONSTERS.length);

@@ -6,6 +6,9 @@ import { ACTS, LEVELS, FIELD_BOUND, levelLayout, type Level, type QuestProp } fr
 import { CAMP } from './camp.ts';
 import type { ClassId } from './classes.ts';
 import { clearWalk, clearObstacles, collisionGrid, NAV_SCALE, PLAYER_RADIUS, type Obstacle } from './navigation.ts';
+import { sceneDesign } from './scene-design.ts';
+import { buildLevelScenery } from './level-scenery.ts';
+import { weatherTexture } from './scenery-textures.ts';
 
 export const BOUNDS = FIELD_BOUND;
 export function gridWalkable(grid: Pick<PF.Grid, 'width' | 'height' | 'isWalkableAt'>, point: { x: number; z: number }) {
@@ -233,16 +236,17 @@ export class GameWorld {
     this.level = level; this.isCamp = isCamp;
     if (!isCamp) this.grid = new PF.Grid((FIELD_BOUND + 1) * 2 + 1, (FIELD_BOUND + 1) * 2 + 1);
     const theme = ACTS[isCamp ? 0 : level.act];
-    this.scene.background = new THREE.Color(theme.sky);
-    this.scene.fog = new THREE.FogExp2(theme.sky, .009);
+    const design = isCamp ? undefined : sceneDesign(level);
+    this.scene.background = new THREE.Color(design?.palette.sky ?? theme.sky);
+    this.scene.fog = new THREE.FogExp2(design?.palette.sky ?? theme.sky, design?.fog ?? .009);
     this.physics.broadphase = new CANNON.SAPBroadphase(this.physics);
     this.physics.defaultContactMaterial.friction = 0;
-    this.scene.add(new THREE.HemisphereLight(0xb7dcda, 0x424533, 1.7));
-    const sun = new THREE.DirectionalLight(0xd8e5d2, 2.5); sun.position.set(-12, 24, 9); sun.castShadow = true;
+    this.scene.add(new THREE.HemisphereLight(design?.palette.sun ?? 0xb7dcda, design?.palette.dark ?? 0x424533, design?.ambient ?? 1.7));
+    const sun = new THREE.DirectionalLight(design?.palette.sun ?? 0xd8e5d2, design?.sunlight ?? 2.5); sun.position.set(-12, 24, 9); sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -46, right: 46, top: 46, bottom: -46, near: 1, far: 100 });
     sun.shadow.normalBias = .04; sun.shadow.bias = -.0003; this.scene.add(sun);
-    const fill = new THREE.DirectionalLight(0x69a5b0, 1.0); fill.position.set(20, 15, -20); this.scene.add(fill);
-    const groundMap = groundTexture();
+    const fill = new THREE.DirectionalLight(design?.palette.fill ?? 0x69a5b0, design ? .55 : 1.0); fill.position.set(20, 15, -20); this.scene.add(fill);
+    const groundMap = isCamp ? groundTexture() : null;
     this.ground = mesh(this.scene, new THREE.PlaneGeometry(170, 170), new THREE.MeshStandardMaterial({ map: groundMap, roughness: 1, bumpMap: groundMap, bumpScale: .18 }), 0, -.05, 0);
     this.ground.rotation.x = -Math.PI / 2; this.ground.castShadow = false;
     this.scene.add(this.staticGroup);
@@ -271,7 +275,8 @@ export class GameWorld {
     const particleGeo = new THREE.BufferGeometry(), pos = new Float32Array(420 * 3);
     for (let i = 0; i < pos.length; i += 3) { pos[i] = (random() - .5) * (offset * 2 + 8); pos[i + 1] = random() * 7; pos[i + 2] = (random() - .5) * (offset * 2 + 8); }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    this.particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({ color: !isCamp && level.act === 4 ? 0xf2ffff : theme.accent, size: !isCamp && level.act === 4 ? .085 : .04, transparent: true, opacity: .5, depthWrite: false })); this.scene.add(this.particles);
+    const weather = design?.atmosphere;
+    this.particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({ color: weather === 'snow' ? 0xe9f5ff : weather === 'rain' ? 0xa8c4c5 : weather === 'ash' ? 0xeea570 : design?.palette.trim ?? theme.accent, map: weatherTexture(weather === 'rain'), size: weather === 'rain' ? .38 : weather === 'snow' ? .13 : .07, transparent: true, opacity: weather === 'rain' ? .35 : .5, depthWrite: false })); this.scene.add(this.particles);
     this.mergeStatic();
   }
   buildCamp() {
@@ -353,87 +358,7 @@ export class GameWorld {
     return group;
   }
   buildLevel() {
-    const level = this.level, theme = ACTS[level.act], layout = levelLayout(level), random = rng(7421 + level.index * 103);
-    const surface = mat(theme.stone), rock = mat(theme.ground), trim = mat(theme.accent, .3), wood = mat(level.act === 4 ? 0x555e61 : 0x4d5545);
-    const pathMaterial = new THREE.MeshStandardMaterial({ color: theme.stone, map: stoneTexture(), roughness: 1 });
-    const segments = layout.connections;
-    const distance = (x: number, z: number, a: { x: number; z: number }, b: { x: number; z: number }) => {
-      const t = Math.max(0, Math.min(1, ((x - a.x) * (b.x - a.x) + (z - a.z) * (b.z - a.z)) / ((b.x - a.x) ** 2 + (b.z - a.z) ** 2)));
-      return Math.hypot(x - a.x - t * (b.x - a.x), z - a.z - t * (b.z - a.z));
-    };
-    const width = level.terrain === 'field' || level.terrain === 'snow' ? 4.3 : level.terrain === 'arcane' ? 2.2 : 2.6;
-    const walkable = (x: number, z: number) => Math.abs(x) < FIELD_BOUND && Math.abs(z) < FIELD_BOUND && (segments.some(([a, b]) => distance(x, z, a, b) < width) || Math.hypot(x - layout.spawn.x, z - layout.spawn.z) < 6 || Math.hypot(x - layout.boss.x, z - layout.boss.z) < 5.5 || layout.rooms.some(p => level.terrain === 'cave' ? ((x - p.x) / (p.width / 2)) ** 2 + ((z - p.z) / (p.depth / 2)) ** 2 < 1 : Math.abs(x - p.x) < p.width / 2 && Math.abs(z - p.z) < p.depth / 2));
-    const size = this.grid.width, offset = this.gridOffset;
-    const matrix = Array.from({ length: size }, (_, row) => Array.from({ length: size }, (_, column) => walkable(column - offset, row - offset) ? 0 : 1));
-    // Terrain and physics share the same corridor mask, including every objective branch.
-    for (let z = -FIELD_BOUND; z <= FIELD_BOUND; z++) {
-      for (let x = -FIELD_BOUND; x <= FIELD_BOUND;) {
-        if (walkable(x, z)) { this.floorCells.push({ x, z }); x++; continue; }
-        const start = x; while (x <= FIELD_BOUND && !walkable(x, z)) x++;
-        this.addCollider((start + x - 1) / 2, z, x - start, 1);
-      }
-    }
-    this.grid = new PF.Grid(matrix);
-    // Every solid terrain edge has a visible face at exactly the physics edge.
-    // Decorative rocks/ruins sit behind this boundary instead of defining a
-    // second, unrelated silhouette in otherwise traversable ground.
-    if (level.terrain !== 'arcane' && level.terrain !== 'lava') {
-      for (let z = -FIELD_BOUND; z <= FIELD_BOUND; z++) for (let x = -FIELD_BOUND; x <= FIELD_BOUND; x++) {
-        if (walkable(x, z) || ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => walkable(x + dx, z + dz))) continue;
-        const height = level.terrain === 'cave' ? 1.3 : level.terrain === 'field' || level.terrain === 'snow' ? .65 : 1.1;
-        mesh(this.staticGroup, box, level.terrain === 'cave' || level.terrain === 'snow' ? rock : surface, x, height / 2, z, 1, height, 1);
-      }
-    }
-    for (const { x, z } of this.floorCells) {
-      const slab = mesh(this.staticGroup, box, pathMaterial, x, .015, z, .99, .15, .99);
-      if (level.terrain === 'field' || level.terrain === 'snow') slab.material = rock;
-      if (level.terrain === 'arcane' || level.terrain === 'lava') mesh(this.staticGroup, box, surface, x, -.45, z, 1, .8, 1);
-    }
-    if (level.terrain === 'arcane' || level.terrain === 'lava') {
-      this.ground.position.y = -1.2;
-      (this.ground.material as THREE.MeshStandardMaterial).color.setHex(level.terrain === 'lava' ? 0x7a3239 : 0x263445);
-      const glow = new THREE.MeshBasicMaterial({ color: level.terrain === 'lava' ? 0xea6950 : 0x507c9c });
-      for (let i = 0; i < 65; i++) {
-        const x = (random() - .5) * 52, z = (random() - .5) * 52;
-        if (walkable(x, z)) continue;
-        mesh(this.staticGroup, box, glow, x, -1.05, z, .1 + random() * .4, .02, 1 + random() * 3).rotation.y = random() * 6;
-      }
-    }
-    for (let x = -FIELD_BOUND + 1; x < FIELD_BOUND; x += 2.8) for (let z = -FIELD_BOUND + 1; z < FIELD_BOUND; z += 2.8) {
-      if (walkable(x, z) || !segments.some(([a, b]) => distance(x, z, a, b) < width + 5) || random() < .18) continue;
-      if (this.floorCells.some(p => Math.abs(p.x - x) < 2.2 && Math.abs(p.z - z) < 2.2)) continue;
-      const h = .6 + random() * 1.4;
-      if (level.terrain === 'cave') {
-        const crag = mesh(this.staticGroup, new THREE.DodecahedronGeometry(1, 0), rock, x, h / 2, z, 1.5, h, 1.6); crag.rotation.y = random() * 6;
-        if (level.act === 4) mesh(this.staticGroup, cone, trim, x + .4, h, z, .24, 1.5, .24);
-      } else if (level.terrain === 'field' && level.act === 2) {
-        beam(this.staticGroup, [x, 0, z], [x + .3, 3.8, z + .3], .22, wood);
-        for (let i = 0; i < 4; i++) mesh(this.staticGroup, sphere, rock, x + Math.cos(i * 1.57), 3 + random(), z + Math.sin(i * 1.57), 1.3, .5, 1.1);
-      } else if (level.terrain === 'snow') {
-        mesh(this.staticGroup, cone, surface, x, .9, z, .8, 1.8, .8);
-        mesh(this.staticGroup, cone, rock, x, 2, z, .55, 1.5, .55);
-      } else if (level.terrain === 'field') {
-        mesh(this.staticGroup, box, surface, x, .6, z, .8, 1.2, .3);
-        mesh(this.staticGroup, cylinder, surface, x, 1.2, z, .4, .3, .4).rotation.x = Math.PI / 2;
-      } else {
-        mesh(this.staticGroup, box, surface, x, h / 2, z, 1.8, h, 1.7);
-        mesh(this.staticGroup, box, trim, x, h + .08, z, 1.9, .1, 1.8);
-        if (level.terrain === 'ruins') beam(this.staticGroup, [x, h, z], [x + 1, h + .8, z], .09, wood);
-      }
-    }
-    for (const [i, p] of layout.route.slice(0, -1).entries()) {
-      this.torch(p.x + width - .6, p.z, 1.7, i % 2 === 0);
-    }
-    const arena = mesh(this.staticGroup, cylinder, surface, layout.boss.x, .06, layout.boss.z, 4.4, .14, 4.4);
-    if (level.actBoss) {
-      arena.material = trim;
-      mesh(this.staticGroup, cylinder, surface, layout.boss.x, .15, layout.boss.z, 4.1, .1, 4.1);
-      for (const side of [-1, 1]) {
-        mesh(this.staticGroup, box, surface, layout.boss.x + side * 4.5, 1.8, layout.boss.z - 2, 1, 3.6, 1);
-        mesh(this.staticGroup, cone, trim, layout.boss.x + side * 4.5, 4, layout.boss.z - 2, .65, .8, .65);
-        this.addCollider(layout.boss.x + side * 4.5, layout.boss.z - 2, 1, 1);
-      }
-    }
+    buildLevelScenery(this);
   }
   makeObjective(x: number, z: number, id: number, prop: QuestProp) {
     const group = new THREE.Group(); group.position.set(x, 0, z); group.userData.id = id; this.scene.add(group);
@@ -738,18 +663,20 @@ export class GameWorld {
   }
   mergeStatic() {
     this.staticGroup.updateMatrixWorld(true);
-    const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>();
+    const byMaterial = new Map<string, { material: THREE.Material; castShadow: boolean; receiveShadow: boolean; geometries: THREE.BufferGeometry[] }>();
     this.staticGroup.traverse(object => {
       if (!(object instanceof THREE.Mesh) || Array.isArray(object.material)) return;
       const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld);
       // Static primitives have different attribute layouts; keep only attributes shared by all.
       for (const name of Object.keys(geometry.attributes)) if (!['position', 'normal', 'uv'].includes(name)) geometry.deleteAttribute(name);
-      const list = byMaterial.get(object.material) ?? []; list.push(geometry.index ? geometry.toNonIndexed() : geometry); byMaterial.set(object.material, list);
+      const key = `${object.material.uuid}:${object.castShadow}:${object.receiveShadow}`;
+      const batch = byMaterial.get(key) ?? { material: object.material, castShadow: object.castShadow, receiveShadow: object.receiveShadow, geometries: [] as THREE.BufferGeometry[] };
+      batch.geometries.push(geometry.index ? geometry.toNonIndexed() : geometry); byMaterial.set(key, batch);
       if (geometry.index) geometry.dispose();
     });
-    for (const [material, geometries] of byMaterial) {
+    for (const { material, castShadow, receiveShadow, geometries } of byMaterial.values()) {
       const merged = mergeGeometries(geometries, false);
-      if (merged) { const object = new THREE.Mesh(merged, material); object.castShadow = true; object.receiveShadow = true; this.scene.add(object); }
+      if (merged) { const object = new THREE.Mesh(merged, material); object.castShadow = castShadow; object.receiveShadow = receiveShadow; this.scene.add(object); }
       geometries.forEach(geo => geo.dispose());
     }
     this.scene.remove(this.staticGroup); this.staticGroup.clear();
@@ -764,8 +691,11 @@ export class GameWorld {
     this.portal.children.forEach((child, i) => { if (child.userData.portal) { child.rotation.z = time * .15 * (i % 2 ? 1 : -1); child.scale.setScalar(1 + Math.sin(time * 2 + i) * .055); } });
     this.rune.rotation.z = time * .015;
     const positions = this.particles.geometry.attributes.position;
-    for (let i = 0; i < positions.count; i++) { let y = positions.getY(i) + dt * (!this.isCamp && this.level.act === 4 ? -.7 : .07); if (y > 7) y = 0; if (y < 0) y = 7; positions.setY(i, y); }
+    const weather = this.isCamp ? 'dust' : sceneDesign(this.level).atmosphere;
+    for (let i = 0; i < positions.count; i++) { let y = positions.getY(i) + dt * (weather === 'rain' ? -5 : weather === 'snow' ? -.7 : weather === 'ash' ? .3 : .07); if (y > 7) y = 0; if (y < 0) y = 7; positions.setY(i, y); }
     positions.needsUpdate = true;
+    const liquid = this.scene.userData.liquidTexture as THREE.Texture | undefined;
+    if (liquid) { liquid.offset.x = time * .004; liquid.offset.y = Math.sin(time * .08) * .02; }
   }
 }
 

@@ -1,4 +1,4 @@
-import { BASES, SPECIAL_ITEMS, RUNEWORDS, RUNE_ORDER, RUNES, makeItem, specialItem, runewordFits, socketItem, type Item, type ItemBase, type SpecialItem, type RuneWord, type RuneId, type Slot } from './items.ts';
+import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS, RUNE_ORDER, RUNES, makeItem, specialItem, runewordFits, socketItem, isAvailableItem, type Item, type ItemBase, type SpecialItem, type RuneWord, type RuneId, type Slot } from './items.ts';
 import { CATALOG_SPECIALS, CATALOG_RUNEWORDS } from './item-catalog-data.ts';
 import { AFFIX_BASES } from './affix-data.ts';
 import { MONSTERS, BOSSES, ENCOUNTERS, type MonsterDef } from './bestiary.ts';
@@ -17,9 +17,9 @@ export type EncyclopediaMonster = { id: string; name: string; definition: Monste
 const slotIcons: Record<Slot, string> = { weapon: 'sword', shield: 'shield', armor: 'shirt', helm: 'crown', gloves: 'hand', boots: 'footprints', belt: 'rectangle-ellipsis', amulet: 'gem', ring: 'circle', ring2: 'circle' };
 export const equipmentIcon = (base: ItemBase) => base.charm ? 'scroll-text' : base.jewel ? 'gem' : slotIcons[base.slot];
 export const ENCYCLOPEDIA_ITEMS: EncyclopediaItem[] = [
-  ...SPECIAL_ITEMS.map(special => ({ id: special.catalogId!, name: special.name, english: CATALOG_SPECIALS.find(row => row.id === special.catalogId)!.key, kind: special.rarity, level: special.level, slot: special.slot, icon: equipmentIcon(special), special })),
-  ...BASES.map((base, index) => ({ id: `base-${index}`, name: base.name, english: AFFIX_BASES[base.baseCode!]?.name ?? '', kind: 'base' as const, level: base.requiredLevel ?? 1, slot: base.slot, icon: equipmentIcon(base), base })),
-  ...RUNEWORDS.map(word => ({ id: `word-${word.catalogId}`, name: word.name, english: CATALOG_RUNEWORDS.find(row => row.id === word.catalogId)!.key, kind: 'runeword' as const, level: Math.max(...word.runes.map(id => RUNES[id].level)), icon: 'scroll-text', word })),
+  ...SPECIAL_ITEMS.filter(isAvailableItem).map(special => ({ id: special.catalogId!, name: special.name, english: CATALOG_SPECIALS.find(row => row.id === special.catalogId)!.key, kind: special.rarity, level: special.level, slot: special.slot, icon: equipmentIcon(special), special })),
+  ...BASES.map((base, index) => ({ id: `base-${index}`, name: base.name, english: AFFIX_BASES[base.baseCode!]?.name ?? '', kind: 'base' as const, level: base.requiredLevel ?? 1, slot: base.slot, icon: equipmentIcon(base), base })).filter(entry => isAvailableItem(entry.base)),
+  ...AVAILABLE_RUNEWORDS.map(word => ({ id: `word-${word.catalogId}`, name: word.name, english: CATALOG_RUNEWORDS.find(row => row.id === word.catalogId)!.key, kind: 'runeword' as const, level: Math.max(...word.runes.map(id => RUNES[id].level)), icon: 'scroll-text', word })),
   ...RUNE_ORDER.map(rune => ({ id: `rune-${rune}`, name: `${RUNES[rune].name}符文`, english: rune.toUpperCase(), kind: 'rune' as const, level: RUNES[rune].level, icon: 'gem', rune })),
   { id: 'supply-life', name: '生命药剂', english: 'Healing Potion', kind: 'supply', level: 1, icon: 'heart-pulse', supply: 0 },
   { id: 'supply-mana', name: '法力药剂', english: 'Mana Potion', kind: 'supply', level: 1, icon: 'droplets', supply: 1 },
@@ -64,6 +64,7 @@ export function encyclopediaItemPreview(entry: EncyclopediaItem, baseName?: stri
 export type ItemDropSource = { monsterId: string; area: number; kind: 'regular' | 'favored' | 'event' | 'forge' | 'countess' };
 export function itemDropSources(entry: EncyclopediaItem, difficulty: number): ItemDropSource[] {
   const sources: ItemDropSource[] = [];
+  if (entry.special && !isAvailableItem(entry.special) || entry.base && !isAvailableItem(entry.base)) return sources;
   for (const profile of BOSS_DROP_PROFILES) {
     const area = LEVELS[profile.levelIndex], boss = BOSSES[area.index], level = monsterStats(boss, area, difficulty, true).level;
     let kind: ItemDropSource['kind'] | undefined;

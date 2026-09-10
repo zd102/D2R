@@ -38,9 +38,9 @@ export const newHero = (classId: ClassId = 'paladin'): HeroState => ({
   bindings: { attack: 'attack', cleave: 'attack', ward: 'attack', nova: 'attack', dash: 'attack', bolt: classId === 'sorceress' ? 'fireBolt' : 'attack' },
   buffs: {},
   hp: CLASSES[classId].life, mana: CLASSES[classId].mana, stamina: CLASSES[classId].stamina, running: true, potions: [6, 4], stage: 1, difficultyLevel: 0, unlockedDifficulty: 0, shrines: [], bossDefeated: false,
-  ammo: { arrows: 60, bolts: 60 },
+  ammo: { arrows: 0, bolts: 0 },
   equipment: { ...emptyEquipment(), weapon: classId === 'paladin' ? makeItem(BASES[0], 'starter-sword') : classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='jav')!, 'starter-javelin') : { ...makeItem(BASES.find(base=>base.baseCode==='sst')!, 'starter-staff'), mods: { skill_fireBolt: 1 } }, shield: classId === 'sorceress' ? null : makeItem(BASES.find(base => base.name === '圆盾')!, 'starter-shield') },
-  alternate: { weapon: classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='sbw')!,'starter-bow') : null, shield: null }, weaponSet: 0, inventory: [], stash: [], runes: [], identifyScrolls: 5,
+  alternate: { weapon: classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='sbw')!,'starter-bow') : null, shield: null }, weaponSet: 0, inventory: [], stash: [], runes: [], identifyScrolls: 0,
   campaign: newCampaign(),
   questRewards: [], respecUsed: [], bonusLife: 0, bonusResist: 0, holyShield: 0, holyShieldLevel: 0, poison: 0, curse: 0, cold: 0, corpse: null,
 });
@@ -413,7 +413,7 @@ export function parseSave(raw: string | null): HeroState | null {
     if (hero.bossDefeated && (hero.campaign.current >= hero.campaign.cleared[hero.difficultyLevel] || !questComplete(hero.campaign))) hero.bossDefeated = false;
     hero.stage = hero.campaign.current + 1;
     if (Array.isArray(h.potions)) hero.potions = [integer(h.potions[0], 6, 0, 99), integer(h.potions[1], 4, 0, 99)];
-    if (h.ammo && typeof h.ammo === 'object') hero.ammo = { arrows: integer(h.ammo.arrows, 60, 0, 600), bolts: integer(h.ammo.bolts, 60, 0, 600) };
+    if (h.ammo && typeof h.ammo === 'object') hero.ammo = { arrows: integer(h.ammo.arrows, 0, 0, 600), bolts: integer(h.ammo.bolts, 0, 0, 600) };
     const seen = new Set<string>(); const uniqueItem = (value: unknown) => { const item = parseItem(value); if (!item || seen.has(item.id)) return null; seen.add(item.id); return item; };
     if (h.equipment && typeof h.equipment === 'object') for (const slot of SLOTS) {
       if (h.equipment[slot] === null || legacy && !Object.hasOwn(h.equipment, slot)) hero.equipment[slot] = null;
@@ -423,7 +423,7 @@ export function parseSave(raw: string | null): HeroState | null {
     hero.inventory = Array.isArray(h.inventory) ? h.inventory.map(uniqueItem).filter((item: Item | null): item is Item => !!item).slice(0, 200) : [];
     hero.stash = Array.isArray(h.stash) ? h.stash.map(uniqueItem).filter((item: Item | null): item is Item => !!item).slice(0, 200) : [];
     if (!packItems(hero.inventory)) { const items = hero.inventory; hero.inventory = []; for (const item of items) { if (packItems([...hero.inventory, item])) hero.inventory.push(item); else hero.stash.push(item); } placeItems(hero.inventory); }
-    hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)).slice(0, 1000) : []; hero.identifyScrolls = integer(h.identifyScrolls, 5, 0, 99);
+    hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)).slice(0, 1000) : []; hero.identifyScrolls = integer(h.identifyScrolls, 0, 0, 99);
     hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(shrine[0-2]|boss|life|attributes|resistance)$/.test(key)))] : [];
     hero.respecUsed = Array.isArray(h.respecUsed) ? [...new Set<number>(h.respecUsed.filter((value: unknown) => value === 0 || value === 1 || value === 2))] : [];
     hero.bonusLife = integer(h.bonusLife, 0, 0, 60); hero.bonusResist = integer(h.bonusResist, 0, 0, 30); hero.holyShield = decimal(h.holyShield, 0, 0, 3600); hero.poison = decimal(h.poison, 0, 0, 120); hero.curse = decimal(h.curse, 0, 0, 120); hero.cold = decimal(h.cold, 0, 0, 120); hero.running = h.running !== false;

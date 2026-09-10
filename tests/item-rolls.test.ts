@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BASES, RUNEWORDS, RUNES, makeItem, specialItem, socketItem, rollItem, itemMods, type RuneWord } from '../src/items.ts';
+import { BASES, AVAILABLE_RUNEWORDS as RUNEWORDS, RUNES, makeItem, specialItem, socketItem, rollItem, itemMods, isAvailableItem, type RuneWord } from '../src/items.ts';
 import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS } from '../src/item-catalog-data.ts';
 import { catalogMods, catalogModifierRanges } from '../src/item-catalog.ts';
 import { newHero, identifyItem, serializeSave, parseSave, insertJewel, stats } from '../src/model.ts';
@@ -15,8 +15,8 @@ const seeded = (seed = 90210) => () => { seed = (Math.imul(seed, 1664525) + 1013
 const special = (key: string, random = seeded()) => specialItem(CATALOG_SPECIALS.find(entry => entry.key === key)!.id, random);
 const recipe = (key: string) => RUNEWORDS.find(word => word.catalogId === CATALOG_RUNEWORDS.find(entry => entry.key === key)!.id)!;
 function craft(word: RuneWord, random: () => number, slot = 'weapon') {
-  const base = BASES.find(base => base.slot === slot && word.bases!.includes(base.name) && base.sockets! >= word.runes.length)
-    ?? BASES.find(base => word.bases!.includes(base.name) && base.sockets! >= word.runes.length)!;
+  const base = BASES.find(base => isAvailableItem(base) && base.slot === slot && word.bases!.includes(base.name) && base.sockets! >= word.runes.length)
+    ?? BASES.find(base => isAvailableItem(base) && word.bases!.includes(base.name) && base.sockets! >= word.runes.length)!;
   const item = makeItem(base); item.sockets = word.runes.length;
   for (const rune of word.runes) assert.ok(socketItem(item, rune, random));
   assert.equal(item.rarity, 'runeword'); return item;
@@ -40,7 +40,7 @@ test('every unique and set rolls supported variables to both endpoints and persi
   assert.ok(variableItems > 300);
 });
 
-test('all 78 recipes roll only on completion and include rune bonuses exactly once on every supported slot', () => {
+test('all 77 available recipes roll only on completion and include rune bonuses exactly once on every supported slot', () => {
   for (const word of RUNEWORDS) for (const slot of word.slots) {
     const entry = CATALOG_RUNEWORDS.find(entry => entry.id === word.catalogId)!;
     for (const endpoint of [0, 1]) {

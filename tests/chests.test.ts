@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { chestContext, chestTreasure, rollChestCodes, rollChestLoot, chestItem, chestQualityChance } from '../src/chests.ts';
 import { CHEST_TREASURES, CHEST_MISC } from '../src/chest-data.ts';
 import { LEVELS, levelLayout, FIELD_BOUND } from '../src/campaign.ts';
-import { BASES } from '../src/items.ts';
+import { BASES, isAvailableItem, type Item } from '../src/items.ts';
 import { newHero, parseSave, serializeSave, equipReason, moveStorage, sellItem } from '../src/model.ts';
 import { gridWalkable, GameWorld } from '../src/world.ts';
 import PF from 'pathfinding';
@@ -17,17 +17,20 @@ test('bonus chest rolls retain the original empty check and four NoDrop picks', 
   assert.deepEqual(rollChestCodes(context, () => draws.shift() ?? 0), ['gld']);
   const random = rng(94); let empty = 0, count = 0;
   for (let i = 0; i < 25000; i++) { const codes = rollChestCodes(context, random); empty += Number(!codes.length); count += codes.length; assert.ok(codes.length <= 4); }
-  assert.ok(Math.abs(empty / 25000 - (.25 + .75 * (100 / 142) ** 4)) < .015);
-  assert.ok(Math.abs(count / 25000 - .75 * 4 * 42 / 142) < .03);
+  // Junk retains only 8/16 Potion 1 picks, of which 25/30 are usable;
+  // Good retains 5/10 Jewelry picks. Removed leaves do not get rerolled.
+  const usefulWeight = 15 + 15 * (8 / 16) * (25 / 30) + 10 + 2 * (5 / 10);
+  assert.ok(Math.abs(empty / 25000 - (.25 + .75 * (1 - usefulWeight / 142) ** 4)) < .015);
+  assert.ok(Math.abs(count / 25000 - .75 * 4 * usefulWeight / 142) < .03);
 });
-test('all original chest TC branches resolve without replacing junk, gems or runes with equipment', () => {
+test('all chest branches resolve with usable drops and without replacing removed junk with equipment', () => {
   const tableNames = new Set(CHEST_TREASURES.map(row => row.id));
   const baseCodes = new Set(BASES.map(base => base.baseCode));
   const miscCodes = new Set(CHEST_MISC.map(item => item.code));
   for (const row of CHEST_TREASURES) for (const [code, weight] of row.entries) {
     assert.ok(weight > 0); assert.ok(tableNames.has(code) || baseCodes.has(code) || miscCodes.has(code) || /^(gld|r\d\d|weap\d+|armo\d+)$/.test(code), code);
   }
-  const random = rng(401); let items = 0, misc = 0, runes = 0;
+  const random = rng(401); let items = 0, runes = 0;
   for (const level of LEVELS) for (const diff of [0, 1, 2]) for (let i = 0; i < 160; i++) {
     const ctx = chestContext(level, diff);
     assert.ok(chestTreasure(ctx).id.startsWith(`Act ${level.act + 1}`));
@@ -35,10 +38,10 @@ test('all original chest TC branches resolve without replacing junk, gems or run
     assert.ok(drops.some(drop => (drop.gold ?? 0) > 0)); assert.ok(drops.some(drop => drop.potion !== undefined));
     for (const drop of drops) {
       if (drop.rune) runes++;
-      if (drop.item) { items++; misc += Number(!!drop.item.misc); assert.equal(drop.item.level, ctx.level); assert.notEqual(drop.item.rarity, 'runeword'); }
+      if (drop.item) { items++; assert.ok(isAvailableItem(drop.item)); assert.equal(drop.item.level, ctx.level); assert.notEqual(drop.item.rarity, 'runeword'); }
     }
   }
-  assert.ok(items > 500 && misc > 100 && runes > 5);
+  assert.ok(items > 500 && runes > 5);
 });
 test('even an empty bonus table gives a gold pile and usable potion in all 75 areas', () => {
   for (const level of LEVELS) for (const diff of [0, 1, 2]) for (const goldFind of [0, 100]) {
@@ -70,12 +73,10 @@ test('chest unique and set rolls preserve the selected base, with failed quality
   const charm = chestItem(BASES.find(base => base.baseCode === 'cm1')!, 1, 0, () => 0);
   assert.equal(charm.charm, true); assert.equal(charm.rarity, 'magic');
 });
-test('miscellaneous chest items survive saves and storage, cannot be equipped and can be sold', () => {
-  const random = rng(71), hero = newHero();
-  while (!hero.inventory.length) {
-    const drop = rollChestLoot(chestContext(LEVELS[12], 1), random).find(drop => drop.item?.misc);
-    if (drop?.item) hero.inventory.push(drop.item);
-  }
+test('legacy miscellaneous items survive saves and storage, cannot be equipped and can be sold', () => {
+  const hero = newHero();
+  const misc = CHEST_MISC.find(entry => entry.code === 'gcv')!;
+  hero.inventory = [{ id: 'legacy-gem', name: misc.name, base: misc.name, baseCode: misc.code, slot: 'amulet', rarity: 'common', power: 0, level: 1, value: 125, identified: true, width: misc.width, height: misc.height, misc: true } as Item];
   const item = hero.inventory[0]; assert.equal(equipReason(hero, item), '杂物无法装备');
   assert.ok(moveStorage(hero, item.id, true));
   const restored = parseSave(serializeSave(hero))!; assert.deepEqual(restored.stash, hero.stash);
@@ -91,7 +92,9 @@ test('expanded layouts keep stable IDs, side rooms, loops and 4-6 separated ches
       assert.ok(Math.hypot(chest.x - map.spawn.x, chest.z - map.spawn.z) > 10);
       assert.ok(map.objects.every(p => Math.hypot(p.x - chest.x, p.z - chest.z) > 2.5));
     }
-    assert.ok(map.route.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - map.route[i].x, p.z - map.route[i].z), 0) > 60);
+    // The Worldstone procession is deliberately straight; exploration also uses its side galleries.
+    assert.ok(map.route.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - map.route[i].x, p.z - map.route[i].z), 0) >= 40);
+    assert.ok(map.connections.reduce((sum, [a,b]) => sum + Math.hypot(a.x-b.x,a.z-b.z), 0) > 200);
   }
 });
 test('large-grid pathfinding and projectile checks use the real grid origin beyond the old boundary', () => {

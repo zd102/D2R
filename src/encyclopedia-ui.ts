@@ -1,7 +1,7 @@
 import type { UI } from './ui.ts';
 import { ENCYCLOPEDIA_ITEMS, ENCYCLOPEDIA_MONSTERS, ITEM_KINDS, MONSTER_RANKS, RACE_NAMES, encyclopediaItem, encyclopediaMonster, filterEncyclopediaItems, filterEncyclopediaMonsters, encyclopediaItemPreview, itemDropSources, recipeBases, type EncyclopediaItem, type EncyclopediaMonster } from './encyclopedia.ts';
 import { EncyclopediaPreview } from './encyclopedia-preview.ts';
-import { SLOTS, slotNames, rarityNames, RUNES, RUNEWORDS, RUNE_ORDER, SPECIAL_ITEMS, DROP_RATES, itemMods, itemRequirements, type Item, type Mods } from './items.ts';
+import { SLOTS, slotNames, rarityNames, RUNES, AVAILABLE_RUNEWORDS as RUNEWORDS, RUNE_ORDER, SPECIAL_ITEMS, DROP_RATES, itemMods, itemRequirements, isAvailableItem, type Item, type Mods } from './items.ts';
 import { CLASS_NAMES, itemSetName, runewordBaseLabel } from './item-catalog.ts';
 import { itemVisual, runeArtwork } from './item-art.ts';
 import { runeNumber, runeLabel } from './items.ts';
@@ -185,7 +185,7 @@ export class EncyclopediaScreen {
       rows.push(['占用空间', `${item.width ?? 2} × ${item.height ?? 2}`]);
       body += statsList(rows);
       if (Object.keys(mods).length) body += `<h4>装备属性</h4>${modsList(item)}`;
-      if (item.setId) body += `<details class="encyclopedia-related-group" open><summary>${escape(itemSetName(item) ?? '')}</summary>${SPECIAL_ITEMS.filter(template => template.setId === item.setId).map(template => this.link(template.catalogId!, template.name, 'items', template.base)).join('')}</details>`;
+      if (item.setId) body += `<details class="encyclopedia-related-group" open><summary>${escape(itemSetName(item) ?? '')}</summary>${SPECIAL_ITEMS.filter(template => isAvailableItem(template) && template.setId === item.setId).map(template => this.link(template.catalogId!, template.name, 'items', template.base)).join('')}</details>`;
       if (entry.base) {
         const variants = SPECIAL_ITEMS.filter(template => template.baseCode === entry.base!.baseCode);
         if (variants.length) body += `<details class="encyclopedia-related-group" open><summary>暗金与套装变体 · ${variants.length}</summary>${variants.map(template => this.link(template.catalogId!, template.name, 'items', rarityNames[template.rarity])).join('')}</details>`;

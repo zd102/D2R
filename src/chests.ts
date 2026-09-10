@@ -1,10 +1,16 @@
 import { CHEST_TREASURES, CHEST_MISC, CHEST_RATIOS, type ChestTreasure } from './chest-data.ts';
 import { CATALOG_BASES } from './item-catalog-data.ts';
-import { BASES, SPECIAL_ITEMS, RUNE_ORDER, makeItem, specialItem, weightedChoice, itemId, type Item, type RuneId, type ItemBase } from './items.ts';
+import { BASES, SPECIAL_ITEMS, RUNE_ORDER, makeItem, specialItem, weightedChoice, isAvailableItem, type Item, type RuneId, type ItemBase } from './items.ts';
 import { applyAffixes } from './affixes.ts';
 import { AREA_LEVELS, type Level } from './campaign.ts';
 
 const tables = new Map(CHEST_TREASURES.map(table => [table.id, table]));
+// Only life/mana potions have a use in the imported miscellaneous item table.
+const unavailableCodes = new Set([
+  ...CHEST_MISC.filter(item => !/^[hm]p[1-5]$/.test(item.code)).map(item => item.code),
+  ...BASES.filter(base => !isAvailableItem(base)).map(base => base.baseCode!),
+]);
+const availableBaseCodes = new Set(BASES.filter(isAvailableItem).map(base => base.baseCode));
 export type ChestContext = { level: number; act: number; difficulty: number; magicFind?: number; goldFind?: number };
 export type ChestDrop = { item?: Item; rune?: RuneId; gold?: number; potion?: 0 | 1 };
 const integerRoll = (max: number, random: () => number) => Math.floor(Math.max(0, Math.min(1 - Number.EPSILON, random())) * max);
@@ -24,7 +30,8 @@ export function rollChestCodes(context: ChestContext, random = Math.random): str
   const resolve = (code: string, depth = 0) => {
     if (depth > tables.size) throw new Error('Chest treasure recursion exceeded');
     const table = tables.get(code);
-    if (!table) { codes.push(code); return; }
+    // Removed leaves become empty picks without rerolling equipment or runes.
+    if (!table) { if (!unavailableCodes.has(code)) codes.push(code); return; }
     const total = table.noDrop + table.entries.reduce((sum, [, weight]) => sum + weight, 0);
     for (let pick = 0; pick < table.picks; pick++) {
       let roll = integerRoll(total, random) - table.noDrop;
@@ -44,12 +51,13 @@ export function chestQualityChance(base: ItemBase, level: number, quality: 'uniq
 }
 
 export function chestItem(base: ItemBase, level: number, mf = 0, random = Math.random): Item {
+  if (!isAvailableItem(base)) throw new Error(`Unavailable chest base: ${base.name}`);
   const item = makeItem(base); item.level = level;
   for (const quality of ['unique', 'set', 'rare', 'magic'] as const) {
     if (base.charm && (quality === 'set' || quality === 'rare')) continue;
     if (random() >= chestQualityChance(base, level, quality, mf) && !(quality === 'magic' && (base.charm || base.jewel || ['rin', 'amu'].includes(base.baseCode ?? '')))) continue;
     if (quality === 'unique' || quality === 'set') {
-      const candidates = SPECIAL_ITEMS.filter(entry => entry.baseCode === base.baseCode && entry.rarity === quality && !entry.eventOnly && (entry.qualityLevel ?? entry.level) <= level);
+      const candidates = SPECIAL_ITEMS.filter(entry => isAvailableItem(entry) && entry.baseCode === base.baseCode && entry.rarity === quality && !entry.eventOnly && (entry.qualityLevel ?? entry.level) <= level);
       if (candidates.length) { const special = specialItem(weightedChoice(candidates, entry => entry.dropWeight ?? 1, random).name, random); special.level = level; return special; }
       item.rarity = quality === 'unique' && !base.charm ? 'rare' : 'magic';
       if (item.maxDurability) item.durability = item.maxDurability *= quality === 'unique' ? 3 : 2;
@@ -69,16 +77,14 @@ export function rollChestLoot(context: ChestContext, random = Math.random): Ches
     if (/^[hm]p[1-5]$/.test(code)) return { potion: (code[0] === 'h' ? 0 : 1) as 0 | 1 };
     const equipment = /^(weap|armo)(\d+)$/.exec(code);
     if (equipment) {
-      const pool = CATALOG_BASES.filter(base => base.weapon === (equipment[1] === 'weap') && !['rin', 'amu', 'jew', 'cm1', 'cm2', 'cm3'].includes(base.code) && Math.ceil(base.level / 3) * 3 === Number(equipment[2]));
+      const pool = CATALOG_BASES.filter(base => availableBaseCodes.has(base.code) && base.weapon === (equipment[1] === 'weap') && !['rin', 'amu', 'jew', 'cm1', 'cm2', 'cm3'].includes(base.code) && Math.ceil(base.level / 3) * 3 === Number(equipment[2]));
       if (!pool.length) throw new Error(`Unknown chest equipment TC: ${code}`);
       const entry = weightedChoice(pool, base => Math.max(1, base.rarity), random);
       return { base: BASES.find(base => base.baseCode === entry.code)! };
     }
     const base = BASES.find(base => base.baseCode === code);
     if (base) return { base };
-    const misc = CHEST_MISC.find(entry => entry.code === code);
-    if (!misc) throw new Error(`Unknown chest item: ${code}`);
-    return { item: { id: itemId(), name: misc.name, base: misc.name, baseCode: code, slot: 'amulet', rarity: 'common', power: 0, level: context.level, value: Math.max(1, Math.floor(misc.value / 4)), identified: true, width: misc.width, height: misc.height, misc: true } as Item };
+    throw new Error(`Unknown chest item: ${code}`);
   });
   const supplies: ChestDrop[] = [];
   const minimumGold = Math.ceil((5 + context.level) * (1 + Math.max(0, context.goldFind ?? 0) / 100));
