@@ -52,7 +52,7 @@ try {
   await page.keyboard.press('i'); assert.equal(await page.locator('.gear-slot').count(), 10);
   await page.locator('[data-item="test-ring"]').click(); await page.locator('[data-identify="test-ring"]').click(); await page.locator('[data-equip="test-ring"]').click();
   assert.equal((await savedProfile(page)).hero.equipment.ring.id, 'test-ring');
-  await page.locator('[data-item="spirit-base"]').click(); for (const rune of ['tal','thul','ort','amn']) await page.locator(`[data-socket="${rune}"]`).click();
+  await page.locator('[data-item="spirit-base"]').click(); await page.locator('[data-item-tab="sockets"]').click(); for (const rune of ['tal','thul','ort','amn']) await page.locator(`[data-socket="${rune}"]`).click();
   assert.equal((await savedProfile(page)).hero.inventory.find(item => item.id === 'spirit-base').name, '精神');
   await page.screenshot({ path: '.verification/paladin-inventory-desktop.png' });
   await page.locator('[data-equip="spirit-base"]').click(); assert.equal((await savedProfile(page)).hero.equipment.weapon.name, '精神');

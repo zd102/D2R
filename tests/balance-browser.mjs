@@ -21,6 +21,10 @@ try {
     if (s.kills >= 8) { kills = s.kills; break; }
     const target = s.enemies.filter(e => !e.boss).sort((a, b) => Math.hypot(a.x - s.position.x, a.z - s.position.z) - Math.hypot(b.x - s.position.x, b.z - s.position.z))[0];
     if (target?.screen.x > 140 && target.screen.x < 1180 && target.screen.y > 120 && target.screen.y < 750) await page.mouse.click(target.screen.x, target.screen.y);
+    else if (target) {
+      const dx = target.screen.x - 720, dy = target.screen.y - 480, factor = Math.min(1, 320 / Math.max(1, Math.abs(dx)), 200 / Math.max(1, Math.abs(dy)));
+      await page.mouse.click(720 + dx * factor, 480 + dy * factor);
+    }
     if (s.hp < 30) await page.keyboard.press('1');
     await page.waitForTimeout(250);
   }

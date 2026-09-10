@@ -40,7 +40,9 @@ async function open(page) {
   await page.getByRole('dialog', { name: '本地共享仓库', exact: true }).waitFor();
   assert.equal((await state(page)).inCamp, true);
 }
+async function sharedPane(page, side) { const tab = page.locator(`button[data-shared-pane="${side}"]`); if (await tab.isVisible() && await tab.getAttribute('aria-pressed') !== 'true') await tab.click(); }
 async function transfer(page, side, id, destination) {
+  await sharedPane(page, side);
   await page.locator(`[data-shared-side="${side}"][data-shared-item="${id}"]`).click();
   await page.locator(`[data-shared-transfer="${destination}"]`).click();
   await page.waitForFunction(() => !document.querySelector('[data-shared-transfer]') || !!document.querySelector('.shared-error'));
@@ -62,10 +64,10 @@ try {
     }); assert.ok(colors > 100);
     await page.screenshot({ path: `${output}/camp-${viewport.width}.png` });
     await open(page); await transfer(page, 'personal', 'shared-random', 'inventory');
-    await page.locator('[data-shared-view="stash"]').click(); await transfer(page, 'personal', 'shared-throw', 'stash');
+    await sharedPane(page, 'personal'); await page.locator('[data-shared-view="stash"]').click(); await transfer(page, 'personal', 'shared-throw', 'stash');
     let saved = await records(page); assert.equal(saved.shared.items.length, 2); assert.equal(saved.profiles.find(profile => profile.id === 'first').hero.inventory.length, 0);
     assert.deepEqual(saved.shared.items.find(value => value.id === item.id).mods, item.mods); assert.equal(saved.shared.items.find(value => value.id === thrown.id).quantity, 0);
-    await page.locator(`[data-shared-side="shared"][data-shared-item="${item.id}"]`).click();
+    await sharedPane(page, 'shared'); await page.locator(`[data-shared-side="shared"][data-shared-item="${item.id}"]`).click();
     await page.screenshot({ path: `${output}/shared-${viewport.width}.png` });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await page.getByRole('button', { name: '保存并切换角色', exact: true }).click();
@@ -75,7 +77,7 @@ try {
     assert.equal(saved.shared.items.length, 0); assert.equal(recipient.hero.inventory[0].identified, false); assert.deepEqual(recipient.hero.inventory[0].catalogRolls, item.catalogRolls); assert.equal(recipient.hero.stash[0].quantity, 0);
     await page.reload(); await enter(page, 'second'); await open(page);
     await expect(page.locator('[data-shared-side="personal"][data-shared-item="shared-random"]')).toHaveCount(1);
-    await page.locator('[data-shared-view="stash"]').click(); await expect(page.locator('[data-shared-side="personal"][data-shared-item="shared-throw"]')).toHaveCount(1);
+    await sharedPane(page, 'personal'); await page.locator('[data-shared-view="stash"]').click(); await expect(page.locator('[data-shared-side="personal"][data-shared-item="shared-throw"]')).toHaveCount(1);
     await page.screenshot({ path: `${output}/received-${viewport.width}.png` });
     // A real quota failure must retain the source and leave shared storage unchanged.
     await page.evaluate(() => { window.originalSharedWrite = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function(value, key) { if (this.name === 'shared') throw new DOMException('Full', 'QuotaExceededError'); return window.originalSharedWrite.call(this, value, key); }; });

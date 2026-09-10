@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave, stats } from '../src/model.ts';
 import { BASES, RUNE_ORDER, RUNEWORDS, makeItem, placeItems, runeNumber } from '../src/items.ts';
 import { itemArtwork } from '../src/item-art.ts';
-import { savedProfile } from './browser-helpers.mjs';
+import { savedProfile, inventoryItems, itemTab, recipeNamed } from './browser-helpers.mjs';
 
 const output = '.verification/item-art-check';
 await mkdir(output, { recursive: true });
@@ -25,7 +25,7 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true });
 
 async function fit(page) {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  const overflow = await page.locator('.panel,.rune-entry,.rune-entry>strong,.rune-entry>small,.runeword-list>div,.rune-sequence,.socket-row,.encyclopedia-recipe,.encyclopedia-entry,.encyclopedia-detail h3').evaluateAll(nodes => nodes.filter(node => node.getClientRects().length && node.scrollWidth > node.clientWidth + 2).map(node => node.className));
+  const overflow = await page.locator('.panel,.rune-entry,.rune-entry>strong,.rune-entry>small,.runeword-list>div,.rune-sequence,.socket-row,.encyclopedia-recipe,.encyclopedia-entry,.encyclopedia-detail h3').evaluateAll(nodes => nodes.filter(node => node.getClientRects().length && node.scrollWidth > node.clientWidth + 2).map(node => `${node.className}: ${node.textContent.trim()}`));
   assert.deepEqual(overflow, []);
   const clipped = await page.locator('.bag-item>.item-visual,.gear-slot>.item-visual').evaluateAll(nodes => nodes.filter(node => {
     const r = node.getBoundingClientRect(), p = node.parentElement.getBoundingClientRect();
@@ -76,7 +76,9 @@ try {
     await page.keyboard.press('i'); await page.locator('.bag-item[data-item="socket-base"]').click();
     await expect(page.locator('.item-showcase [data-base-icon]')).toHaveAttribute('data-base-icon','crs');
     await expect(page.locator('.gear-weapon [data-base-icon]')).toHaveAttribute('data-base-icon','ssd');
-    await fit(page); await page.locator('.diablo-grid').scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/inventory-${viewport.width}.png`});
+    await inventoryItems(page); await fit(page); await page.locator('.diablo-grid').scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/inventory-${viewport.width}.png`});
+    if (viewport.width <= 700) await page.locator('button[data-inventory-pane="details"]').click();
+    await itemTab(page, 'sockets');
     for(const rune of ['tal','thul','ort','amn']) {
       const button=page.locator(`[data-socket="${rune}"]`); await expect(button).toContainText(runeNumber(rune)); await button.click();
     }
@@ -84,7 +86,7 @@ try {
     assert.deepEqual(await page.locator('.socket-rune>b').allTextContents(),['#7','#10','#9','#11']);
     assert.equal((await savedProfile(page)).hero.inventory.find(item=>item.id==='socket-base').rarity,'runeword');
     await fit(page); await page.locator('.socket-row').scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/sockets-${viewport.width}.png`});
-    await page.locator('[data-bag-view="stash"]').click();
+    await inventoryItems(page); await page.locator('[data-bag-view="stash"]').click();
     const colors=await page.locator('.bag-item').evaluateAll(nodes=>nodes.map(node=>getComputedStyle(node).backgroundColor)); assert.equal(new Set(colors).size,rarities.length);
     await fit(page); await page.locator('.diablo-grid').scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/rarities-${viewport.width}.png`});
     await page.locator('[data-bag-view="runes"]').click();
@@ -92,7 +94,7 @@ try {
     const steel=page.locator('.runeword-list>div').filter({has:page.locator('strong',{hasText:/^钢铁$/})});
     assert.deepEqual(await steel.locator('.rune-sequence>span>small').allTextContents(),['#3','#1']);
     await fit(page); await page.locator('.rune-pouch').scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/runes-${viewport.width}.png`});
-    await steel.scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/recipes-${viewport.width}.png`});
+    await recipeNamed(page, '钢铁'); await steel.scrollIntoViewIfNeeded(); await page.screenshot({path:`${output}/recipes-${viewport.width}.png`});
     await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await page.getByRole('button',{name:'保存并切换角色',exact:true}).click();
     await page.getByRole('button',{name:'打开百科',exact:true}).click();
     await page.getByRole('combobox',{name:'物品分类',exact:true}).selectOption('rune'); await page.getByRole('searchbox').fill('#1');

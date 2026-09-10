@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { BASES, SPECIAL_ITEMS, RUNEWORDS, RUNE_ORDER, makeItem, specialItem } from '../src/items.ts';
 import { newHero, serializeSave } from '../src/model.ts';
-import { enterGame, openCampaign, savedProfile } from './browser-helpers.mjs';
+import { enterGame, openCampaign, savedProfile, inventoryItems, inventoryItem, itemTab, runeRecipes } from './browser-helpers.mjs';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const output = '.verification/catalog-check';
@@ -44,11 +44,11 @@ try {
     await page.locator('[data-bag-view="runes"]').click();
     await expect(page.locator('.runeword-list>div')).toHaveCount(RUNEWORDS.length);
     assert.equal(await page.locator('.runeword-list>div').evaluateAll(rows => rows.every(row => row.scrollWidth <= row.clientWidth + 1)), true);
-    await page.locator('.runeword-list').scrollIntoViewIfNeeded();
+    await runeRecipes(page); await page.locator('.runeword-list').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${output}/recipes-${viewport.width}.png` });
     await page.locator('[data-bag-view="inventory"]').click(); await page.locator(`[data-item="${jewel.id}"]`).click();
     await expect(page.locator('.rarity-tag')).toContainText('珠宝');
-    await page.locator(`[data-item="${target.id}"]`).click();
+    await inventoryItem(page, target.id); await itemTab(page, 'sockets');
     await page.locator(`[data-socket-jewel="${jewel.id}"]`).click();
     const saved = (await savedProfile(page)).hero;
     assert.equal(saved.inventory.length, 1); assert.equal(saved.inventory[0].socketedJewels[0].name, jewel.name);

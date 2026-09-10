@@ -31,3 +31,26 @@ export async function openCampaign(page) {
 export async function savedProfile(page) {
   return page.evaluate(({ last, prefix }) => JSON.parse(localStorage.getItem(prefix + localStorage.getItem(last))), { last: LAST_PROFILE_KEY, prefix: PROFILE_PREFIX });
 }
+export async function inventoryItems(page) {
+  const tab = page.locator('button[data-inventory-pane="items"]');
+  if (await tab.isVisible() && await tab.getAttribute('aria-pressed') !== 'true') await tab.click();
+}
+export async function inventoryItem(page, id) {
+  await inventoryItems(page);
+  await page.locator(`[data-item="${id}"]`).click();
+}
+export async function itemTab(page, tab) { await page.locator(`button[data-item-tab="${tab}"]`).click(); }
+export async function runeRecipes(page) {
+  const tab = page.locator('button[data-rune-pane="recipes"]');
+  if (await tab.isVisible()) await tab.click();
+}
+export async function recipeNamed(page, name) {
+  await runeRecipes(page);
+  const row = page.locator('.runeword-list > div').filter({ has: page.getByText(name, { exact: true }) });
+  while (!await row.isVisible()) {
+    const next = page.locator('.recipe-pagination button').last();
+    if (!await next.isEnabled()) throw new Error(`Recipe missing from pages: ${name}`);
+    await next.click();
+  }
+  return row;
+}

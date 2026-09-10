@@ -99,7 +99,7 @@ export class InventoryDrag {
     const drag = this.drag; if (!drag?.active) return;
     if (!drag.grid.isConnected || this.ui.panel !== 'inventory') { this.cancel(); return; }
     drag.clientX = clientX; drag.clientY = clientY;
-    const rect = drag.grid.getBoundingClientRect(), panel = drag.grid.closest<HTMLElement>('.panel')!, panelRect = panel.getBoundingClientRect();
+    const rect = drag.grid.getBoundingClientRect(), panel = drag.grid.closest<HTMLElement>('.panel')!, panelRect = (drag.grid.closest<HTMLElement>('.inventory-grid-scroll') ?? panel).getBoundingClientRect();
     const headerBottom = panel.querySelector('.panel-header')!.getBoundingClientRect().bottom;
     drag.inside = clientX >= rect.left && clientX < rect.left + drag.grid.clientWidth && clientY >= Math.max(rect.top, headerBottom) && clientY < Math.min(rect.top + drag.grid.clientHeight, panelRect.bottom);
     drag.x = Math.floor((clientX - rect.left) / (drag.grid.clientWidth / 10)) - drag.grabX;
@@ -116,15 +116,15 @@ export class InventoryDrag {
     preview.style.left = `${drag.x * 10}%`; preview.style.top = `${drag.y / drag.rows * 100}%`;
     preview.style.width = `${drag.origin.width * 10}%`; preview.style.height = `${drag.origin.height / drag.rows * 100}%`;
     if (drag.ghost) drag.ghost.dataset.valid = String(drag.valid);
-    const status = drag.grid.parentElement?.querySelector<HTMLElement>('.inventory-move-status');
+    const status = drag.grid.closest('.bag-column')?.querySelector<HTMLElement>('.inventory-move-status');
     if (status) status.textContent = drag.valid ? `${drag.item.name}：第 ${drag.y + 1} 行，第 ${drag.x + 1} 列` : '该位置无法放置装备';
   }
 
   private autoScroll(now: number) {
     const drag = this.drag; if (!drag?.active || drag.pointerId === null) return;
     if (!drag.grid.isConnected) { this.cancel(); return; }
-    const panel = drag.grid.closest<HTMLElement>('.panel')!, rect = panel.getBoundingClientRect();
-    const top = panel.querySelector('.panel-header')!.getBoundingClientRect().bottom, dt = Math.min(50, now - this.lastFrame) / 1000; this.lastFrame = now;
+    const panel = drag.grid.closest<HTMLElement>('.inventory-grid-scroll')!, rect = panel.getBoundingClientRect();
+    const top = rect.top, dt = Math.min(50, now - this.lastFrame) / 1000; this.lastFrame = now;
     if (drag.clientX >= rect.left && drag.clientX <= rect.right && drag.clientY >= rect.top && drag.clientY <= rect.bottom) {
       const velocity = drag.clientY < top + 36 ? -Math.min(1, (top + 36 - drag.clientY) / 36) : drag.clientY > rect.bottom - 36 ? Math.min(1, (drag.clientY - rect.bottom + 36) / 36) : 0;
       if (velocity) { panel.scrollTop += velocity * 420 * dt; this.updatePointer(drag.clientX, drag.clientY); }
@@ -156,13 +156,13 @@ export class InventoryDrag {
     const drag = this.drag; if (!drag?.active) return;
     const valid = drag.valid && !this.ui.game.saveConflict && drag.grid.isConnected && this.ui.panel === 'inventory';
     const changed = valid && (drag.x !== drag.origin.x || drag.y !== drag.origin.y) && moveItem(drag.items, drag.item.id, drag.x, drag.y, drag.rows);
-    const scrollTop = drag.grid.closest('.panel')!.scrollTop;
+    const scrollTop = drag.grid.closest('.inventory-grid-scroll')!.scrollTop;
     this.cancel();
     if (!valid && drag.inside) this.ui.toast('该位置无法放置装备');
     if (!changed) return;
     this.ui.selectedItem = drag.item.id;
     this.ui.game.save(false); this.ui.renderPanel();
-    const panel = this.ui.overlay.querySelector('.panel'); if (panel) panel.scrollTop = scrollTop;
+    const panel = this.ui.overlay.querySelector('.inventory-grid-scroll'); if (panel) panel.scrollTop = scrollTop;
     const source = [...this.ui.overlay.querySelectorAll<HTMLButtonElement>('.bag-item')].find(button => button.dataset.item === drag.item.id);
     source?.focus({ preventScroll: true });
   }
@@ -173,7 +173,7 @@ export class InventoryDrag {
     if (drag.active && drag.pointerId !== null) this.suppressClick = true;
     drag.ghost?.remove(); drag.preview?.remove(); drag.source.classList.remove('is-dragging');
     document.documentElement.classList.remove('is-dragging-item');
-    const status = drag.grid.parentElement?.querySelector<HTMLElement>('.inventory-move-status'); if (status) status.textContent = '';
+    const status = drag.grid.closest('.bag-column')?.querySelector<HTMLElement>('.inventory-move-status'); if (status) status.textContent = '';
     if (drag.pointerId !== null && this.ui.overlay.hasPointerCapture(drag.pointerId)) this.ui.overlay.releasePointerCapture(drag.pointerId);
   }
 }

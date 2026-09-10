@@ -5,7 +5,7 @@ import { newHero, serializeSave } from '../src/model.ts';
 import { BASES, SPECIAL_ITEMS, RUNE_ORDER, RUNEWORDS } from '../src/items.ts';
 import { MONSTERS, BOSSES } from '../src/bestiary.ts';
 import { ATTACKS } from '../src/monster-combat.ts';
-import { enterGame, savedProfile } from './browser-helpers.mjs';
+import { enterGame, savedProfile, runeRecipes } from './browser-helpers.mjs';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const browser = await chromium.launch({ channel: 'msedge', headless: true }), errors = [];
@@ -59,7 +59,7 @@ try {
     let saved = (await savedProfile(page)).hero; assert.equal(saved.runes.filter(r => r === 'el').length, 0); assert.equal(saved.runes.filter(r => r === 'eld').length, 2);
     await expect(page.locator('[data-upgrade-rune="el"]')).toBeDisabled();
     await page.locator('[data-upgrade-rune="pul"]').click(); saved = (await savedProfile(page)).hero; assert.equal(saved.runes.filter(r => r === 'um').length, 2);
-    await page.locator('[data-recipe-filter]').selectOption('ready'); assert.ok(await page.locator('.runeword-list>div').count() < RUNEWORDS.length);
+    await runeRecipes(page); await page.locator('[data-recipe-filter]').selectOption('ready'); assert.ok(await page.locator('.runeword-list>div').count() < RUNEWORDS.length);
     assert.equal(await page.locator('.panel').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
     const overlaps = await page.locator('.rune-entry').evaluateAll(elements => elements.some(el => { const strong = el.querySelector('strong').getBoundingClientRect(), b = el.querySelector('b').getBoundingClientRect(); return strong.right > b.left + 1; })); assert.equal(overlaps, false);
     await page.locator('[data-bag-view="runes"]').scrollIntoViewIfNeeded(); await page.screenshot({ path: `.verification/expanded-runes-${viewport.width}.png` });

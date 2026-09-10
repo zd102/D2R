@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { BASES, makeItem, placeItems } from '../src/items.ts';
 import { applyAffixes, eligibleAffixes, CHARM_BASES } from '../src/affixes.ts';
 import { newHero, serializeSave, stats } from '../src/model.ts';
-import { enterGame, savedProfile } from './browser-helpers.mjs';
+import { enterGame, savedProfile, inventoryItems } from './browser-helpers.mjs';
 
 function magicPair(item, prefixName, suffixName, suffixLevel) {
   const pool = eligibleAffixes(item), prefix = pool.find(a => a.kind === 'prefix' && a.name === prefixName), suffix = pool.find(a => a.kind === 'suffix' && a.name === suffixName && (!suffixLevel || a.level === suffixLevel));
@@ -45,20 +45,21 @@ try {
     await expect(page.locator('.item-basics')).toContainText('20 - 60');
     await page.locator('.item-details').scrollIntoViewIfNeeded(); await page.screenshot({ path: `.verification/affixes-blue-${viewport.width}.png` });
     for (const size of ['small', 'large', 'grand']) {
+      await inventoryItems(page);
       const item = page.locator(`[data-item="${size}"]`);
       assert.equal(await item.evaluate(el => getComputedStyle(el).gridRowEnd), `span ${CHARM_BASES[size].height}`);
       await item.click(); await page.locator(`[data-identify="${size}"]`).click();
       await expect(page.locator('.rarity-tag')).toContainText(CHARM_BASES[size].name);
-      await expect(page.locator('.item-showcase .lucide-scroll-text')).toHaveCount(1);
+      await expect(page.locator('.item-showcase .item-art')).toHaveCount(1);
     }
     await expect(page.locator('.item-affixes')).toContainText('+1 战斗技能'); await expect(page.locator('.item-affixes')).toContainText('+45 生命');
     await expect(page.locator('.affix-range')).toContainText('41 - 45');
     const before = (await savedProfile(page)).hero, life = stats(before).maxHp;
     await page.locator('[data-stash="grand"]').click(); const stored = (await savedProfile(page)).hero; assert.equal(life - stats(stored).maxHp, 45);
-    await page.locator('[data-bag-view="stash"]').click(); await page.locator('[data-item="rare"]').click(); await page.locator('[data-identify="rare"]').click();
+    await inventoryItems(page); await page.locator('[data-bag-view="stash"]').click(); await page.locator('[data-item="rare"]').click(); await page.locator('[data-identify="rare"]').click();
     await expect(page.locator('.item-affixes')).toBeVisible(); await page.locator('.item-details').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `.verification/affixes-rare-${viewport.width}.png` });
-    await page.locator('[data-item="poison"]').click(); await page.locator('[data-identify="poison"]').click();
+    await inventoryItems(page); await page.locator('[data-item="poison"]').click(); await page.locator('[data-identify="poison"]').click();
     await expect(page.locator('.item-affixes')).toContainText('451 毒素伤害，持续 12 秒');
     assert.equal(await page.locator('.item-affixes').getByText(/速率|帧数/).count(), 0);
     const overflow = await page.evaluate(() => [...document.querySelectorAll('.item-details, .item-affixes, .item-affixes li, .affix-range, .item-details h3')].filter(el => el.scrollWidth > el.clientWidth + 1).map(el => el.className));

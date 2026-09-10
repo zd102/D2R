@@ -13,9 +13,9 @@ const hero = newHero();
 hero.inventory = [{ ...makeItem(BASES[0], 'drag-sword'), x: 0, y: 0 }, { ...makeItem(BASES.find(item => item.slot === 'ring'), 'blocker'), x: 4, y: 2 }];
 hero.stash = [{ ...makeItem(BASES.find(item => item.slot === 'armor'), 'drag-armor'), x: 0, y: 0 }];
 const errors = [];
-async function open(page) {
+async function open(page, fixture = hero) {
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(save => { if (!sessionStorage.getItem('drag-fixture')) { localStorage.setItem('eclipse-ii-save-v1', save); sessionStorage.setItem('drag-fixture', '1'); } }, serializeSave(hero));
+  await page.addInitScript(save => { if (!sessionStorage.getItem('drag-fixture')) { localStorage.setItem('eclipse-ii-save-v1', save); sessionStorage.setItem('drag-fixture', '1'); } }, serializeSave(fixture));
   await page.goto(base); await enterGame(page); await page.locator('.bottom-nav [data-panel="inventory"]').click();
 }
 async function grid(page) {
@@ -106,22 +106,29 @@ try {
   assert.deepEqual(await savedProfile(mobile), mobileBeforeCancel); assert.equal(await mobile.locator('.item-drag-ghost').count(), 0);
   await mobile.locator('[data-item="drag-armor"]').scrollIntoViewIfNeeded();
   g = await grid(mobile);
-  const scrollSource = await mobile.locator('[data-item="drag-armor"]').boundingBox(), panelRect = await mobile.locator('.panel').boundingBox();
-  const beforeScroll = await mobile.locator('.panel').evaluate(el => el.scrollTop);
+  const scrollSource = await mobile.locator('[data-item="drag-armor"]').boundingBox();
+  assert.equal(await mobile.locator('.inventory-grid-scroll').evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, 'normal private stash fits without scrolling');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: scrollSource.x + .5 * g.cell, y: scrollSource.y + .5 * g.row, id: 4 }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: g.x + 8.5 * g.cell, y: panelRect.y + panelRect.height - 10, id: 4 }] });
-  await mobile.waitForFunction(() => document.querySelector('.diablo-grid').getBoundingClientRect().bottom < document.querySelector('.panel').getBoundingClientRect().bottom - 50);
-  assert.ok(await mobile.locator('.panel').evaluate(el => el.scrollTop) > beforeScroll + 50, 'Dragging at the panel edge scrolls the stash');
-  g = await grid(mobile);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: g.x + 8.5 * g.cell, y: g.y + 7.5 * g.row, id: 4 }] });
   await expect(mobile.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'true');
-  const dropScroll = await mobile.locator('.panel').evaluate(el => el.scrollTop);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   assert.deepEqual(await position(mobile, 'stash', 'drag-armor'), { x: 8, y: 7 });
-  assert.ok(Math.abs(await mobile.locator('.panel').evaluate(el => el.scrollTop) - dropScroll) <= 1, 'Saving a drop preserves the scroll position');
+  assert.equal(await mobile.locator('.panel').evaluate(el => el.scrollTop), 0, 'header stays fixed when placing items');
   await mobile.screenshot({ path: '.verification/stash-drag-mobile.png' });
   assert.equal(await mobile.locator('.panel').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
   await mobile.close(); console.log('Real touch dragging, stash, cancellation, edge scrolling and mobile layout passed');
+  const tall = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const tallHero = structuredClone(hero); tallHero.stash.push({ ...hero.inventory[1], id: 'deep-ring', x: 9, y: 35 });
+  await open(tall, tallHero); await tall.locator('[data-bag-view="stash"]').tap();
+  const touch = await tall.context().newCDPSession(tall), origin = await tall.locator('[data-item="drag-armor"]').boundingBox();
+  const scroller = await tall.locator('.inventory-grid-scroll').boundingBox(), cells = await grid(tall);
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: origin.x + cells.cell * .5, y: origin.y + cells.row * .5, id: 8 }] });
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cells.x + cells.cell * 8.5, y: scroller.y + scroller.height - 8, id: 8 }] });
+  await tall.waitForFunction(() => document.querySelector('.inventory-grid-scroll').scrollTop > 40);
+  assert.equal(await tall.locator('.panel').evaluate(el => el.scrollTop), 0, 'only a long container scrolls at its edge');
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+  assert.deepEqual(await position(tall, 'stash', 'drag-armor'), { x: 0, y: 0 });
+  await tall.close();
   assert.deepEqual(errors, []);
 } catch (error) {
   for (const [index, context] of browser.contexts().entries()) for (const page of context.pages()) await page.screenshot({ path: `.verification/inventory-drag-failure-${index}.png` }).catch(() => {});

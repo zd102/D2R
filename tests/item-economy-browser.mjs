@@ -3,15 +3,16 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave } from '../src/model.ts';
 import { BASES, makeItem, placeItems } from '../src/items.ts';
-import { enterGame, savedProfile } from './browser-helpers.mjs';
+import { enterGame, savedProfile, inventoryItems } from './browser-helpers.mjs';
 
 await mkdir('.verification', { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173', errors = [];
 const hero = newHero(); hero.gold = 160; hero.identifyScrolls = 0;
 const amulet = makeItem(BASES.find(base => base.slot === 'amulet'), 'necklace');
-hero.inventory = [{ ...amulet, id: 'charm', name: '生命护身符', charm: true, width: 1, height: 1, identified: false, rarity: 'magic', mods: { life: 10 } }, amulet]; placeItems(hero.inventory);
-hero.stash = [{ ...amulet, id: 'stash-charm', name: '仓库护身符', charm: true, identified: false, rarity: 'magic', value: 120 }, { ...amulet, id: 'stash-necklace', identified: false, rarity: 'rare' }]; placeItems(hero.stash);
+const charm = makeItem(BASES.find(base => base.baseCode === 'cm1'), 'charm');
+hero.inventory = [{ ...charm, id: 'charm', name: '生命护身符', charm: true, width: 1, height: 1, identified: false, rarity: 'magic', mods: { life: 10 } }, amulet]; placeItems(hero.inventory);
+hero.stash = [{ ...charm, id: 'stash-charm', name: '仓库护身符', charm: true, identified: false, rarity: 'magic', value: 120 }, { ...amulet, id: 'stash-necklace', identified: false, rarity: 'rare' }]; placeItems(hero.stash);
 async function seed(page, fixture) {
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(save => { if (!sessionStorage.getItem('economy-fixture')) { localStorage.setItem('eclipse-ii-save-v1', save); sessionStorage.setItem('economy-fixture', '1'); } }, serializeSave(fixture));
@@ -20,14 +21,14 @@ async function seed(page, fixture) {
 try {
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     const mobile = viewport.width < 700, page = await browser.newPage({ viewport, isMobile: mobile, hasTouch: mobile }); await seed(page, hero);
-    const click = locator => mobile ? locator.tap() : locator.click();
-    await expect(page.locator('[data-item="charm"] .lucide-scroll-text')).toHaveCount(1); await expect(page.locator('[data-item="necklace"] .lucide-gem')).toHaveCount(1);
-    await click(page.locator('[data-item="charm"]')); await expect(page.locator('.item-showcase .lucide-scroll-text')).toHaveCount(1);
+    const click = async locator => { if (await locator.evaluate(el => el.matches('.bag-item,[data-bag-view]'))) await inventoryItems(page); return mobile ? locator.tap() : locator.click(); };
+    await expect(page.locator('[data-item="charm"] [data-art-kind="scha"]')).toHaveCount(1); await expect(page.locator('[data-item="necklace"] [data-art-kind="amul"]')).toHaveCount(1);
+    await click(page.locator('[data-item="charm"]')); await expect(page.locator('.item-showcase [data-art-kind="scha"]')).toHaveCount(1);
     await expect(page.locator('[data-identify="charm"]')).toHaveText('鉴定 · 80 金币'); await click(page.locator('[data-identify="charm"]'));
     assert.equal((await savedProfile(page)).hero.gold, 80); assert.equal((await savedProfile(page)).hero.identifyScrolls, 0);
-    await click(page.locator('[data-item="necklace"]')); await expect(page.locator('.item-showcase .lucide-gem')).toHaveCount(1);
+    await click(page.locator('[data-item="necklace"]')); await expect(page.locator('.item-showcase [data-art-kind="amul"]')).toHaveCount(1);
     await click(page.locator('[data-bag-view="stash"]'));
-    await expect(page.locator('[data-item="stash-charm"] .lucide-scroll-text')).toHaveCount(1); await expect(page.locator('[data-item="stash-necklace"] .lucide-gem')).toHaveCount(1);
+    await expect(page.locator('[data-item="stash-charm"] [data-art-kind="scha"]')).toHaveCount(1); await expect(page.locator('[data-item="stash-necklace"] [data-art-kind="amul"]')).toHaveCount(1);
     await click(page.locator('[data-item="stash-charm"]')); await click(page.locator('[data-identify="stash-charm"]'));
     assert.equal((await savedProfile(page)).hero.gold, 0);
     await click(page.locator('[data-item="stash-necklace"]')); await expect(page.locator('[data-identify="stash-necklace"]')).toBeDisabled();

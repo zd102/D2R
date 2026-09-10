@@ -1,0 +1,334 @@
+/* Keep modal navigation visible while long content scrolls within its own region. */
+#overlay { padding: 16px; }
+.panel { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); overflow: hidden; }
+.panel-header { flex: none; position: relative; padding: 16px 22px; gap: 12px; }
+.panel-header > div { min-width: 0; }
+.panel-header h2 { overflow-wrap: anywhere; }
+.panel-header > button { flex: none; min-width: 40px; min-height: 40px; }
+.panel-body { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 18px 22px; scrollbar-width: thin; }
+.panel-footer { flex: none; padding-top: 14px; padding-bottom: 14px; }
+.panel-footer { display: none; }
+.panel button:focus-visible, .panel select:focus-visible, .panel input:focus-visible { outline: 2px solid #eed59a; outline-offset: -2px; }
+.panel select { min-width: 0; max-width: 100%; }
+.panel p, .panel h3 { overflow-wrap: anywhere; }
+
+/* Equipment, containers and item actions stay in three separate columns. */
+.panel-inventory, .panel-shared-stash { width: min(1380px, 100%); height: min(800px, calc(100dvh - 32px)); }
+.panel-inventory .panel-header, .panel-shared-stash .panel-header { padding: 12px 18px; }
+.panel-inventory .panel-body, .panel-shared-stash .panel-body { flex: 1; overflow: hidden; padding: 14px 18px; }
+.panel-shared-stash .panel-footer { display: none; }
+.paladin-inventory { height: 100%; min-height: 0; grid-template-columns: minmax(160px, 200px) minmax(0, 1fr) minmax(270px, 330px); gap: 18px; align-items: stretch; }
+.inventory-screen { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.inventory-screen > .paladin-inventory { flex: 1; height: auto; }
+.inventory-pane-tabs, .rune-pane-tabs { display: none; }
+.paladin-inventory > * { min-width: 0; min-height: 0; }
+.gear-column { overflow: auto; scrollbar-width: thin; }
+.paperdoll { grid-template-rows: 70px 88px 76px 64px; gap: 7px; }
+.inventory-gold { padding: 10px; }
+.bag-column { display: flex; flex-direction: column; overflow: hidden; }
+.bag-tabs { flex: none; margin: 0; }
+.bag-tabs button { min-height: 36px; padding: 7px 12px; }
+.bag-column > .section-label { flex: none; margin: 12px 0 8px; }
+.inventory-grid-scroll { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.inventory-grid-scroll .diablo-grid { width: min(100%, calc(min(570px, 100dvh - 260px) * 10 / var(--rows))); min-width: min(100%, 280px); margin: 0 auto; }
+.bag-utilities { flex: none; padding-top: 6px; margin: 0; }
+.inventory-move-status { flex: none; min-height: 0; font-size: 10px; }
+.inventory-move-status:empty { display: none; }
+.paladin-inventory .item-details { padding-left: 16px; display: flex; flex-direction: column; align-items: stretch; max-width: none; width: 100%; overflow: hidden; }
+.item-detail-scroll { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; padding-right: 8px; scrollbar-width: thin; }
+.paladin-inventory .item-showcase { height: 52px; margin: 4px 0; }
+.item-showcase .item-visual { width: 48px; height: 48px; }
+.item-showcase .item-quality-mark { width: 12px; height: 12px; }
+.item-showcase .item-quality-mark > svg { width: 10px; height: 10px; }
+.paladin-inventory .item-showcase .item-art { max-height: 48px; }
+.paladin-inventory .item-details h3 { font-size: 17px; margin: 6px 0; overflow-wrap: anywhere; }
+.item-basics { margin: 10px 0; }
+.item-basics > div { padding: 3px 0; }
+.item-affixes { margin: 10px 0; line-height: 1.65; }
+.item-affixes li { margin: 3px 0; overflow-wrap: anywhere; }
+.item-details:not(.show-ranges) .affix-range { display: none; }
+.affix-range-toggle { display: flex; align-items: center; gap: 6px; margin: 8px 0; color: #b4beac; font-size: 11px; }
+.affix-range-toggle input { accent-color: #c5aa70; }
+.item-detail-tabs, .compact-tabs { display: flex; flex: none; gap: 6px; margin-bottom: 10px; }
+.inventory-pane-tabs, .rune-pane-tabs { display: none; }
+.item-detail-tabs button, .compact-tabs button { flex: 1; min-height: 32px; border: 1px solid #63755a; font-size: 11px; padding: 5px 8px; }
+.item-detail-tabs button[aria-pressed=true], .compact-tabs button[aria-pressed=true] { background: #3a4935; color: #f1dcaa; border-color: #bba575; }
+.affix-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; font-size: 11px; }
+.affix-pagination button { min-height: 28px; padding: 4px 8px; border: 1px solid #63755a; }
+.item-actions { flex: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding-top: 10px; margin-top: 8px; border-top: 1px solid #66755a66; background: #191d1d; }
+.item-actions .primary-button, .item-actions .secondary-button, .item-actions .text-button { margin: 0; padding: 8px 5px; width: 100%; min-height: 36px; font-size: 11px; }
+.item-actions .learn-reason, .item-actions .equipped-label { grid-column: 1 / -1; margin: 0; }
+.item-actions .learn-reason:empty { display: none; }
+.paladin-inventory .empty-detail { flex: 1; min-height: 0; }
+.socket-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Recipes use pages instead of an uninterrupted list thousands of pixels tall. */
+.paladin-inventory[data-view=runes] { grid-template-columns: minmax(0, 1fr); }
+.paladin-inventory[data-view=runes] > .gear-column, .paladin-inventory[data-view=runes] > .item-details { display: none; }
+.rune-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 24px; min-height: 0; flex: 1; margin-top: 12px; overflow: auto; }
+.rune-layout > section { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.rune-layout .rune-pouch, .rune-layout .runeword-list { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.rune-layout .runeword-list { flex: 1; }
+.rune-layout .recipe-heading, .recipe-pagination { flex: none; }
+.rune-layout .section-label { margin: 0 0 12px; min-height: 28px; }
+.rune-layout .rune-pouch { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.rune-layout .rune-entry { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) 12px; grid-template-rows: 26px 14px; gap: 2px; min-width: 0; min-height: 46px; padding: 5px; }
+.rune-layout .rune-entry > .rune-art { width: 20px; height: 26px; grid-column: 1; grid-row: 1; }
+.rune-layout .rune-entry > strong { min-width: 0; font-size: 10px; line-height: 13px; grid-column: 2; grid-row: 1; overflow-wrap: anywhere; }
+.rune-layout .rune-entry > small { grid-column: 1 / 3; grid-row: 2; font-size: 8px; white-space: nowrap; text-align: left; }
+.rune-layout .rune-entry > b { position: static; grid-column: 3; grid-row: 1; align-self: start; font-size: 9px; text-align: right; }
+.rune-layout .rune-upgrade { position: absolute; right: 0; top: auto; bottom: 0; width: 18px; height: 18px; }
+.rune-layout .runeword-list { margin-top: 0; gap: 8px; }
+.rune-layout .runeword-list > div { padding: 8px 12px; min-height: 56px; }
+.recipe-pagination { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0 4px; font-size: 12px; }
+.recipe-pagination button { min-height: 34px; padding: 6px 14px; border: 1px solid #697656; }
+
+/* Shared storage uses two grids and a permanent transfer/detail column. */
+.panel-shared-stash .panel-body { display: flex; flex-direction: column; }
+.shared-intro { flex: none; gap: 10px; margin-bottom: 12px; font-size: 13px; }
+.shared-workspace { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(240px, .9fr); gap: 18px; min-height: 0; }
+.shared-columns { display: contents; }
+.shared-columns > section { display: flex; flex-direction: column; min-height: 0; }
+.shared-tabs, .shared-heading { height: 38px; flex: none; margin-bottom: 10px; }
+.shared-grid-scroll { flex: 1; min-height: 0; max-height: none; overscroll-behavior: contain; }
+.shared-grid-scroll .diablo-grid { width: min(100%, calc(min(545px, 100dvh - 255px) * 10 / var(--rows))); min-width: min(100%, 240px); margin: 0 auto; }
+.shared-caption { font-size: 11px; margin: 8px 0 0; }
+.shared-item-details { display: grid; grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; margin: 0; padding: 0 0 0 16px; border-top: 0; border-left: 1px solid #5d694b; min-height: 0; overflow: hidden; }
+.shared-selected { display: contents; }
+.shared-art { grid-row: 1; grid-column: 1; width: 48px; height: 60px; }
+.shared-selected > div:nth-child(2) { grid-column: 2; grid-row: 1; min-width: 0; }
+.shared-selected h3 { font-size: 16px; }
+.shared-actions { grid-column: 1 / -1; grid-row: 3; display: flex; margin: 0; padding-top: 10px; border-top: 1px solid #5d694b; }
+.shared-actions button { flex: 1; min-height: 38px; padding: 8px; }
+.shared-item-details .item-affixes, .shared-item-details > p { grid-column: 1 / -1; grid-row: 2; min-height: 0; overflow: auto; columns: auto; margin: 0; padding-right: 6px; }
+.shared-mobile-tabs { display: none; }
+
+/* Make the remaining panels denser without shrinking body text. */
+.panel-character { width: 900px; }
+.character-banner { margin-bottom: 16px; }
+.paladin-sheet .character-banner { padding-bottom: 10px; margin-bottom: 10px; gap: 14px; }
+.paladin-sheet .class-mark { width: 46px; height: 54px; }
+.paladin-sheet .character-banner h3 { margin: 5px 0; font-size: 20px; }
+.paladin-sheet .character-banner > div:last-child { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 14px; flex: 1; }
+.paladin-sheet .character-banner > div:last-child > span { grid-column: 1 / -1; }
+.paladin-sheet .character-banner h3 { line-height: 1.3; }
+.paladin-sheet .sheet-columns > div:last-child > .sheet-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
+.panel-character .panel-body { padding-top: 8px; padding-bottom: 8px; }
+.sheet-columns { gap: 24px; }
+.sheet-tabs, .skill-pane-tabs { display: none; }
+.paladin-sheet .resistance-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
+.paladin-sheet .resistance-list > div { flex-wrap: wrap; gap: 5px; padding: 7px 0; }
+.paladin-sheet .resistance-list small { width: auto; font-size: 9px; }
+.paladin-sheet .section-label { margin: 12px 0 8px; }
+.paladin-sheet .attribute-list > div { padding: 8px 0; }
+.paladin-sheet .sheet-stats > div { padding: 5px 0; }
+.paladin-sheet .breakpoint-list > div { padding: 3px 0; }
+.paladin-sheet .attribute-list { margin-bottom: 12px; }
+.paladin-sheet .advanced-stats { margin-top: 10px; }
+.character-xp { margin-top: 14px; }
+.sheet-actions { margin-top: 14px; }
+.panel-skills { width: 1220px; }
+.panel-skills .panel-body { padding: 14px 20px; }
+.skill-toolbar { margin-bottom: 12px; }
+.skill-layout { margin-bottom: 12px; }
+.skill-tree { grid-template-rows: repeat(6, clamp(44px, calc((100dvh - 410px) / 6), 62px)); row-gap: 8px; }
+.skill-node { padding: 4px; gap: 2px; }
+.skill-glyph { width: 24px; height: 24px; }
+.skill-glyph svg { width: 22px; height: 22px; }
+.skill-node strong { font-size: 11px; }
+.skill-rank { font-size: 10px; line-height: 12px; }
+.skill-inspector { min-height: 0; max-height: calc(100dvh - 355px); overflow: auto; padding-right: 8px; scrollbar-width: thin; }
+.binding-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.binding-grid label:last-child { grid-column: auto; }
+.binding-grid label, .binding-grid select { min-width: 0; }
+.binding-grid label > span { font-size: 11px; }
+.panel-map .panel-body { display: flex; flex-direction: column; align-items: center; }
+#large-map { max-height: calc(100dvh - 205px); max-width: 100%; width: auto; object-fit: contain; }
+.panel-pause .pause-sigil { padding-bottom: 12px; }
+.panel-pause .pause-sigil img { width: 48px; height: 48px; }
+.settings-row { padding-top: 14px; }
+.save-state { padding-top: 16px; }
+.campaign-act-tabs, .campaign-difficulties { flex-wrap: wrap; }
+.campaign-toolbar { padding-bottom: 10px; }
+.campaign-layout { margin-top: 14px; gap: 20px; }
+.campaign-heading { padding-bottom: 10px; }
+.campaign-heading h3 { margin-top: 5px; }
+.campaign-level { min-height: 76px; padding: 8px 5px; }
+.stage-info { gap: 4px; }
+.stage-info { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; }
+.stage-info > strong { grid-column: 1; }
+.stage-info > small:first-of-type { grid-column: 2; grid-row: 1; align-self: center; text-align: right; }
+.stage-info > span, .stage-info > small:last-child { grid-column: 1 / -1; }
+.campaign-acts > button { min-height: 58px; padding: 10px; }
+.profile-header h2, .profile-summary h3, .encyclopedia-header h2 { overflow-wrap: anywhere; }
+.encyclopedia-results { margin: 0; }
+
+/* One viewport-aware tooltip replaces clipped pseudo-elements inside grids. */
+[data-tip]:hover::after { display: none !important; }
+#ui-tooltip { position: fixed; z-index: 90; max-width: min(320px, calc(100vw - 16px)); padding: 9px 12px; border: 1px solid #b6a270; border-radius: 4px; background: #101b1bfa; box-shadow: 0 5px 22px #0009; color: #f0e6cc; font: 12px/1.6 'Microsoft YaHei', sans-serif; overflow-wrap: anywhere; pointer-events: none; }
+
+/* Every active effect has its own name, timer and duration bar. */
+#combat-status { position: absolute; left: 20px; top: 130px; width: clamp(185px, calc((100vw - 560px) / 2), 370px); z-index: 6; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+#toasts { top: auto; bottom: 190px; left: 20px; width: 260px; transform: none; align-items: stretch; }
+.status-group { display: flex; flex-wrap: wrap; gap: 5px; }
+.status-heading { width: 100%; color: #a6d6c0; font-size: 10px; letter-spacing: 2px; text-shadow: 0 2px 4px #000; }
+.debuffs .status-heading { color: #ffb8a8; }
+.status-chip { position: relative; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 6px; flex: 1 1 155px; max-width: 210px; min-width: 0; min-height: 34px; padding: 6px 9px 8px; border: 1px solid #5aaf9d; border-radius: 4px; color: #c9f7e7; background: #102b2bec; box-shadow: 0 2px 8px #0005; overflow: hidden; pointer-events: auto; }
+.status-chip svg { width: 17px; height: 17px; }
+.status-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.status-chip > b { font-size: 10px; font-variant-numeric: tabular-nums; font-weight: 500; }
+.status-time-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #8addc1; transform: scaleX(var(--remaining, 1)); transform-origin: left; }
+.debuffs .status-chip { border-color: #e79474; color: #ffe0cc; background: #542322f2; }
+.debuffs .status-time-bar { background: #ffa17b; }
+.status-chip.expiring { border-style: dashed; }
+
+@media (max-width: 1050px) and (min-width: 701px) {
+  .paladin-inventory { grid-template-columns: 145px minmax(0, 1fr) minmax(245px, .85fr); gap: 12px; }
+  .paperdoll { grid-template-rows: 58px 70px 64px 54px; gap: 6px; }
+  .shared-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 230px; gap: 12px; }
+  .binding-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .skill-inspector { max-height: calc(100dvh - 395px); }
+  .skill-tree { grid-template-rows: repeat(6, 48px); }
+}
+@media (max-width: 700px) {
+  #overlay { padding: 8px; }
+  .panel { max-height: calc(100dvh - 16px); }
+  .panel-header { padding: 12px 14px; }
+  .panel-body { padding: 12px 14px; }
+  .panel-inventory, .panel-shared-stash { height: calc(100dvh - 16px); }
+  .panel-inventory .panel-header, .panel-shared-stash .panel-header { padding: 10px 12px; }
+  .panel-inventory .panel-body, .panel-shared-stash .panel-body { padding: 10px; }
+  .paladin-inventory { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(165px, .9fr) minmax(165px, 1fr); gap: 10px; }
+  .gear-column { width: 100%; max-width: none; overflow: hidden; }
+  .equipment-heading { min-height: 24px; padding: 0; margin-bottom: 4px; }
+  .paperdoll { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, 53px); gap: 5px; }
+  .paperdoll .gear-position { grid-row: auto; grid-column: auto; min-height: 0; }
+  .gear-position > span { font-size: 9px; margin: 0; }
+  .gear-slot { height: 38px; min-height: 0; padding: 2px; }
+  .gear-slot .item-art { max-height: 32px; }
+  .inventory-gold { display: none; }
+  .bag-column { grid-column: 1; }
+  .bag-tabs button { padding: 5px 8px; min-height: 32px; }
+  .bag-column > .section-label { margin: 7px 0 6px; font-size: 10px; }
+  .inventory-grid-scroll .diablo-grid { min-width: min(100%, 240px); }
+  .paladin-inventory .item-details { grid-column: 1; border-left: 0; border-top: 1px solid #637259; padding: 8px 0 0; }
+  .paladin-inventory .item-showcase { float: right; width: 48px; height: 48px; margin: 0 2px 4px 8px; }
+  .paladin-inventory .item-showcase { display: none; }
+  .item-detail-tabs { margin-bottom: 6px; }
+  .item-detail-tabs button { min-height: 28px; padding: 4px; }
+  .item-affixes { margin: 6px 0; line-height: 1.45; }
+  .item-affixes li { margin: 2px 0; }
+  .affix-range-toggle { margin: 5px 0; font-size: 10px; }
+  .affix-pagination { margin: 6px 0; }
+  .paladin-inventory .item-details h3 { font-size: 15px; }
+  .item-basics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 10px; }
+  .item-actions { padding-top: 6px; margin-top: 5px; gap: 5px; }
+  .item-actions .primary-button, .item-actions .secondary-button, .item-actions .text-button { min-height: 34px; padding: 6px; }
+  .paladin-inventory[data-view=stash] > .gear-column { display: none; }
+  .paladin-inventory[data-view=stash] { grid-template-rows: minmax(220px, 1.2fr) minmax(165px, 1fr); }
+  .paladin-inventory:has(.empty-detail) { grid-template-rows: auto minmax(0, 1fr); }
+  .paladin-inventory[data-view=stash]:has(.empty-detail) { grid-template-rows: minmax(0, 1fr); }
+  .paladin-inventory .item-details:has(.empty-detail) { display: none; }
+  .paladin-inventory[data-view=runes] { grid-template-rows: minmax(0, 1fr); }
+  .inventory-pane-tabs, .rune-pane-tabs { display: flex; }
+  .inventory-screen > .paladin-inventory { display: block; overflow: hidden; }
+  .inventory-screen .paladin-inventory > .gear-column, .inventory-screen .paladin-inventory > .bag-column, .inventory-screen .paladin-inventory > .item-details { height: 100%; }
+  .inventory-screen[data-inventory-pane=items] .gear-column, .inventory-screen[data-inventory-pane=items] .item-details,
+  .inventory-screen[data-inventory-pane=equipment] .bag-column, .inventory-screen[data-inventory-pane=equipment] .item-details,
+  .inventory-screen[data-inventory-pane=details] .gear-column, .inventory-screen[data-inventory-pane=details] .bag-column { display: none; }
+  .inventory-screen[data-inventory-pane=equipment] .paladin-inventory > .gear-column { display: block; }
+  .inventory-screen[data-inventory-pane=equipment] .paperdoll { grid-template-rows: repeat(2, 115px); }
+  .inventory-screen[data-inventory-pane=equipment] .gear-slot { height: 92px; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-slot .item-art { max-height: 84px; }
+  .inventory-screen .item-details { border-top: 0; padding-top: 0; }
+  .inventory-screen .item-details .item-showcase { display: flex; float: none; width: 100%; height: 60px; }
+  .inventory-screen .item-affixes { line-height: 1.7; }
+  .inventory-screen .item-affixes li { margin: 5px 0; }
+  .rune-pane-tabs { margin: 10px 0 0; }
+  .rune-layout[data-rune-pane=materials] > section:last-child, .rune-layout[data-rune-pane=recipes] > section:first-child { display: none; }
+  .rune-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .rune-layout > section { min-height: auto; }
+  .rune-layout .rune-pouch { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .rune-layout .rune-entry { padding: 4px 2px; }
+  .rune-layout .rune-entry > .rune-art { width: 22px; height: 26px; }
+  .rune-layout .runeword-list > div { padding: 7px 8px; }
+  .shared-intro { font-size: 11px; gap: 8px; margin-bottom: 8px; }
+  .shared-intro > svg { display: none; }
+  .shared-intro small { font-size: 10px; }
+  .shared-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: 32px minmax(210px, 1.2fr) minmax(155px, 1fr); gap: 9px; }
+  .shared-mobile-tabs { grid-row: 1; display: flex; gap: 8px; }
+  .shared-mobile-tabs button { flex: 1; border: 1px solid #667858; font-size: 12px; }
+  .shared-mobile-tabs button[aria-pressed=true] { background: #3a4935; color: #f1dcaa; border-color: #c8b379; }
+  .shared-columns > section { grid-row: 2; }
+  .shared-workspace[data-pane=personal] .shared-columns > section:nth-child(2), .shared-workspace[data-pane=shared] .shared-columns > section:first-child { display: none; }
+  .shared-item-details { grid-row: 3; padding: 8px 0 0; border-left: 0; border-top: 1px solid #617050; gap: 8px; }
+  .shared-workspace:not(:has(.shared-selected)) { grid-template-rows: 32px minmax(0, 1fr); }
+  .shared-item-details:not(:has(.shared-selected)) { display: none; }
+  .shared-grid-scroll .diablo-grid { min-width: min(100%, 240px); }
+  .shared-tabs, .shared-heading { height: 30px; margin-bottom: 7px; font-size: 11px; }
+  .shared-caption { margin-top: 5px; }
+  .shared-actions button { min-height: 36px; }
+  .skill-inspector { max-height: none; }
+  .sheet-tabs, .skill-pane-tabs { display: flex; }
+  .paladin-sheet[data-sheet-tab=attributes] .sheet-columns > div:last-child, .paladin-sheet[data-sheet-tab=combat] .sheet-columns > div:first-child { display: none; }
+  .sheet-columns { display: block; }
+  .paladin-sheet .character-banner > div:last-child { display: block; }
+  .paladin-sheet .character-banner { margin-bottom: 4px; padding-bottom: 6px; }
+  .paladin-sheet .attribute-list > div { min-height: 42px; padding: 4px 0; }
+  .paladin-sheet .advanced-stats { margin-top: 4px; }
+  .paladin-sheet .sheet-actions, .paladin-sheet .character-xp { margin-top: 8px; }
+  .skill-screen .skill-layout { display: contents; }
+  .skill-screen:not([data-skill-pane=tree]) .skill-tree, .skill-screen:not([data-skill-pane=detail]) .skill-inspector, .skill-screen:not([data-skill-pane=bindings]) .binding-grid, .skill-screen:not([data-skill-pane=bindings]) .binding-heading { display: none; }
+  .skill-inspector { border-top: 0; padding: 0; }
+  .binding-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .skill-tree { grid-template-rows: repeat(6, 57px); row-gap: 8px; }
+  .skill-layout { gap: 14px; }
+  .sheet-columns { gap: 12px; }
+  .campaign-layout { gap: 10px; margin-top: 10px; }
+  .campaign-acts > button { min-height: 52px; padding: 5px 2px; gap: 3px; }
+  .campaign-acts small { display: none; }
+  .campaign-acts > button > svg { width: 15px; height: 15px; }
+  .campaign-level { min-height: 72px; gap: 8px; padding: 6px 4px; }
+  #combat-status { left: 12px; right: auto; top: 115px; width: calc(100vw - 164px); gap: 6px; }
+  .status-heading { letter-spacing: 1px; font-size: 9px; }
+  .status-chip { flex-basis: 85px; max-width: none; min-height: 30px; padding: 5px 6px 7px; gap: 4px; grid-template-columns: 12px minmax(0, 1fr) auto; }
+  .status-chip svg { width: 12px; height: 12px; }
+  .status-chip > span, .status-chip > b { font-size: 10px; }
+  #toasts { top: auto; bottom: 148px; left: 50%; width: calc(100vw - 180px); transform: translateX(-50%); }
+  #toasts .toast { padding: 7px 9px; font-size: 11px; }
+  #toasts .toast:not(:last-child) { display: none; }
+}
+@media (max-height: 580px) and (min-width: 701px) {
+  #overlay { padding: 8px; }
+  .panel, .panel-inventory, .panel-shared-stash { max-height: calc(100dvh - 16px); }
+  .panel-inventory, .panel-shared-stash { height: calc(100dvh - 16px); }
+  .panel-header, .panel-inventory .panel-header, .panel-shared-stash .panel-header { padding: 6px 14px; }
+  .panel-header h2 { font-size: 18px; margin-top: 2px; }
+  .panel-body { padding: 10px 14px; }
+  .paladin-inventory { grid-template-columns: minmax(0, 1fr) minmax(240px, .9fr); gap: 14px; }
+  .paladin-inventory > .gear-column { display: none; }
+  .inventory-pane-tabs { display: flex; }
+  .inventory-screen[data-inventory-pane=equipment] .paladin-inventory { display: block; }
+  .inventory-screen[data-inventory-pane=equipment] .paladin-inventory > .gear-column { display: block; height: 100%; }
+  .inventory-screen[data-inventory-pane=equipment] .bag-column, .inventory-screen[data-inventory-pane=equipment] .item-details { display: none; }
+  .inventory-screen[data-inventory-pane=equipment] .paperdoll { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, 74px); }
+  .inventory-screen[data-inventory-pane=equipment] .gear-position { grid-column: auto; grid-row: auto; }
+  .inventory-screen[data-inventory-pane=equipment] .gear-slot { height: 53px; min-height: 0; }
+  .inventory-screen[data-inventory-pane=equipment] .inventory-gold { display: none; }
+  .paladin-inventory .item-showcase { float: right; width: 42px; height: 42px; }
+  .inventory-grid-scroll .diablo-grid { min-width: min(100%, 240px); }
+  .shared-intro { display: none; }
+  .shared-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, .9fr); gap: 12px; }
+  .shared-caption { font-size: 10px; }
+  .shared-tabs, .shared-heading { height: 28px; }
+  .rune-layout .rune-pouch { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rune-layout > section { overflow: auto; }
+  .panel-pause .pause-sigil { display: none; }
+  #combat-status { top: 95px; left: 12px; width: 300px; gap: 4px; }
+  #toasts { bottom: 145px; left: 50%; width: 220px; transform: translateX(-50%); }
+  #toasts .toast:not(:last-child) { display: none; }
+  .status-heading { font-size: 9px; }
+  .status-chip { flex-basis: 80px; gap: 3px; min-height: 27px; padding: 4px 5px 6px; grid-template-columns: 12px minmax(0, 1fr) auto; }
+  .status-chip svg { width: 12px; height: 12px; }
+  .status-chip > span, .status-chip > b { font-size: 9px; }
+}

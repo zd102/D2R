@@ -15,6 +15,7 @@ import { skillName, skillIcon, skillValues, type Attribute } from './paladin';
 import { runeLabel, groundItemName } from './items';
 import { CAMP } from './camp';
 import { EncyclopediaScreen } from './encyclopedia-ui';
+import { heroStatuses, statusTime } from './status-effects';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
@@ -45,6 +46,9 @@ export class UI {
   campaignScreen: CampaignScreen;
   encyclopediaScreen: EncyclopediaScreen;
   bindingsSignature = '';
+  statusSignature = '';
+  statusDurations = new Map<string, number>();
+  tooltipTarget?: HTMLElement;
   constructor(game: Game) {
     this.game = game;
     const keys = skillKeys(game.movementMode);
@@ -60,6 +64,8 @@ export class UI {
       </aside>
       <div id="boss-bar" hidden><span>尸体发火</span><div><i></i></div><small>守关首领</small></div>
       <div id="world-labels"></div><div id="floating-text"></div><div id="toasts" aria-live="polite"></div>
+      <aside id="combat-status" aria-label="角色增益与减益" hidden><div class="status-group debuffs" data-status-group="debuff" aria-label="减益状态"></div><div class="status-group buffs" data-status-group="buff" aria-label="增益状态"></div></aside>
+      <div id="ui-tooltip" role="tooltip" hidden></div>
       <div class="area-caption"><span class="ornament-line"></span><span>邪恶洞窟</span><small>DEN OF EVIL</small></div>
       <button id="context-action" hidden><kbd>F</kbd><span></span>${icon('chevron-right')}</button>
       <div class="mobile-controls"><div id="joystick" aria-label="移动摇杆"><div></div></div><button id="mobile-attack" ${tip('攻击')} data-skill="attack">${icon('swords')}</button></div>
@@ -89,14 +95,58 @@ export class UI {
     this.bind(); this.refreshIcons();
   }
   refreshIcons() { createIcons({ icons, attrs: { 'stroke-width': 1.5 } }); }
+  hideTooltip() { this.tooltipTarget = undefined; const tooltip = document.getElementById('ui-tooltip'); if (tooltip) tooltip.hidden = true; }
+  updateTooltip() {
+    const target = this.tooltipTarget, tooltip = document.getElementById('ui-tooltip')!;
+    if (!target?.isConnected || !target.dataset.tip || !target.getClientRects().length) { this.hideTooltip(); return; }
+    tooltip.textContent = target.dataset.tip; tooltip.hidden = false;
+    const rect = target.getBoundingClientRect(), width = tooltip.offsetWidth, height = tooltip.offsetHeight;
+    tooltip.style.left = `${Math.max(8, Math.min(innerWidth - width - 8, rect.left + rect.width / 2 - width / 2))}px`;
+    tooltip.style.top = `${Math.max(8, Math.min(innerHeight - height - 8, rect.top >= height + 16 ? rect.top - height - 8 : rect.bottom + 8))}px`;
+  }
+  updateStatuses(current: ReturnType<typeof stats>) {
+    const effects = heroStatuses(this.game.hero, current), root = document.getElementById('combat-status')!;
+    root.hidden = this.game.paused || this.game.dead || !effects.length;
+    const signature = effects.map(effect => `${effect.id}:${effect.description}`).join('|');
+    if (signature !== this.statusSignature) {
+      this.statusSignature = signature;
+      for (const kind of ['debuff', 'buff'] as const) {
+        const group = root.querySelector<HTMLElement>(`[data-status-group="${kind}"]`)!, list = effects.filter(effect => effect.kind === kind);
+        group.hidden = !list.length;
+        group.innerHTML = `<span class="status-heading">${kind === 'debuff' ? '减益' : '增益'}</span>${list.map(effect => `<button class="status-chip" data-status="${effect.id}" data-tip="${escapeHtml(`${effect.name} · ${effect.description}`)}">${icon(effect.icon)}<span>${escapeHtml(effect.name)}</span><b></b><i class="status-time-bar" aria-hidden="true"></i></button>`).join('')}`;
+      }
+      this.refreshIcons();
+      for (const id of this.statusDurations.keys()) if (!effects.some(effect => effect.id === id)) this.statusDurations.delete(id);
+    }
+    for (const effect of effects) {
+      const chip = root.querySelector<HTMLElement>(`[data-status="${effect.id}"]`)!;
+      const duration = Math.max(this.statusDurations.get(effect.id) ?? 0, effect.remaining ?? 0);
+      this.statusDurations.set(effect.id, duration);
+      chip.querySelector('b')!.textContent = statusTime(effect.remaining);
+      chip.setAttribute('aria-label', `${effect.name}，${statusTime(effect.remaining)}，${effect.description}`);
+      chip.classList.toggle('expiring', effect.remaining !== null && effect.remaining <= 5);
+      chip.style.setProperty('--remaining', String(effect.remaining === null ? 1 : effect.remaining / Math.max(.001, duration)));
+    }
+  }
   bind() {
+    const showTooltip = (target: EventTarget | null) => {
+      this.tooltipTarget = target instanceof Element ? target.closest<HTMLElement>('[data-tip]') ?? undefined : undefined;
+      this.updateTooltip();
+    };
+    document.addEventListener('pointerover', event => { if (event.pointerType !== 'touch') showTooltip(event.target); });
+    document.addEventListener('focusin', event => showTooltip(event.target));
+    document.addEventListener('pointerout', event => { if (this.tooltipTarget && !this.tooltipTarget.contains(event.relatedTarget as Node | null)) this.hideTooltip(); });
+    document.addEventListener('focusout', () => this.hideTooltip());
+    document.addEventListener('pointerdown', () => this.hideTooltip(), true);
+    document.addEventListener('scroll', () => this.hideTooltip(), true);
+    window.addEventListener('resize', () => this.hideTooltip());
     document.addEventListener('click', event => {
       const element = (event.target as HTMLElement).closest<HTMLElement>('button'); if (!element) return;
       this.game.audio.unlock();
       if (element.dataset.panel) this.togglePanel(element.dataset.panel as Panel);
       if (element.dataset.skill) this.game.useSkill(element.dataset.skill as Skill);
       if (element.dataset.potion) this.game.drink(Number(element.dataset.potion) as 0 | 1);
-      if (element.dataset.item) { this.selectedItem = element.dataset.item; this.renderPanel(); }
+      if (element.dataset.item) { this.selectedItem = element.dataset.item; if (innerWidth <= 700 || innerHeight <= 580) this.characterScreen.inventoryPane = 'details'; this.renderPanel(); }
       if (element.dataset.equip) this.game.equip(element.dataset.equip);
       if (element.dataset.salvage) this.game.salvage(element.dataset.salvage);
       if (element.dataset.allocate) this.game.allocate(element.dataset.allocate as Attribute, Number(element.dataset.count ?? 1));
@@ -156,7 +206,8 @@ export class UI {
     if (panel === 'campaign') this.campaignScreen.reset();
     if (panel === 'victory' && (this.game.inCamp || !this.game.hero.bossDefeated)) return;
     if (panel === 'victory') this.campaignScreen.replayConfirm = false;
-    this.panel = panel; this.game.paused = true; this.game.releaseInput(); this.overlay.hidden = false;
+    this.hideTooltip(); this.panel = panel; this.game.paused = true; this.game.releaseInput(); this.overlay.hidden = false;
+    document.getElementById('combat-status')!.hidden = true;
     this.renderPanel();
     (this.overlay.querySelector<HTMLInputElement>('#profile-name') ?? this.overlay.querySelector<HTMLButtonElement>('[aria-selected="true"]') ?? this.overlay.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
   }
@@ -173,6 +224,7 @@ export class UI {
     this.panel = undefined; this.game.paused = false; this.overlay.hidden = true; this.overlay.innerHTML = ''; this.game.renderer.domElement.focus({ preventScroll: true });
   }
   renderPanel() {
+    this.hideTooltip();
     this.characterScreen.inventoryDrag.cancel();
     if (!this.panel) return;
     if (this.panel === 'encyclopedia') { this.encyclopediaScreen.render(); return; }
@@ -271,6 +323,8 @@ export class UI {
   update(dt: number) {
     if (!this.game.profile) return;
     const game = this.game, h = game.hero, s = stats(h);
+    this.updateStatuses(s);
+    if (this.tooltipTarget && !this.tooltipTarget.isConnected) this.hideTooltip();
     this.timer += dt;
     const hp = Math.ceil(h.hp), mana = Math.floor(h.mana);
     document.getElementById('health-fill')!.style.height = `${h.hp / s.maxHp * 100}%`;
