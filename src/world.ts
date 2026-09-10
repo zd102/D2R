@@ -482,12 +482,16 @@ export class GameWorld {
   completeObjective(id: number) {
     const group = this.shrineMeshes[id]; if (!group) return;
     group.userData.complete = true;
-    (group.getObjectByName('indicator') as THREE.Mesh).material = new THREE.MeshBasicMaterial({ color: 0xd6e8b6, transparent: true, opacity: .7, side: THREE.DoubleSide });
+    // Reuse the rendered material so its shader reference is released with the scene.
+    const indicator = group.getObjectByName('indicator') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+    indicator.material.color.setHex(0xd6e8b6); indicator.material.opacity = .7;
     if (this.level.quest.prop === 'cage' || this.level.quest.prop === 'ice') group.scale.y = .35;
   }
   dispose() {
     const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
     this.scene.traverse(object => {
+      // Instance attributes have separate GPU buffers, beyond the geometry itself.
+      if (object instanceof THREE.InstancedMesh) object.dispose();
       if (object instanceof THREE.Mesh || object instanceof THREE.Points) {
         geometries.add(object.geometry);
         for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
@@ -495,7 +499,7 @@ export class GameWorld {
           for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
         }
       }
-      if (object instanceof THREE.Light && 'shadow' in object) (object as THREE.DirectionalLight).shadow.map?.dispose();
+      if (object instanceof THREE.Light && 'shadow' in object) (object as THREE.DirectionalLight).shadow.dispose();
     });
     geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose()); textures.forEach(texture => texture.dispose());
     for (const body of [...this.physics.bodies]) this.physics.removeBody(body);

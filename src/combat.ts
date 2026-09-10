@@ -28,7 +28,7 @@ export class PaladinCombat {
   fohDelay = 0;
   auraTimer = 0;
   regen: [number, number] = [0, 0];
-  repairTime = new Map<string, number>();
+  repairTime = new WeakMap<Item, number>();
   itemCurses = new WeakMap<Enemy, { kind: ItemCurse; remaining: number }>();
   zeal: { hits: number; timer: number; direction: THREE.Vector3; aimed: boolean } | null = null;
   projectiles: Projectile[] = [];
@@ -330,8 +330,8 @@ export class PaladinCombat {
     const light = g.actor.group.getObjectByName('hero-light');
     if (light instanceof THREE.PointLight) light.distance = 7 * (13 + Math.max(-12, Math.min(5, s.mods.lightRadius ?? 0))) / 13;
     for (const item of Object.values(h.equipment)) if (item?.maxDurability && item.durability !== undefined && itemMods(item).repairDurability) {
-      const progress = (this.repairTime.get(item.id) ?? 0) + dt * itemMods(item).repairDurability!;
-      item.durability = Math.min(item.maxDurability, item.durability + Math.floor(progress)); this.repairTime.set(item.id, progress % 1);
+      const progress = (this.repairTime.get(item) ?? 0) + dt * itemMods(item).repairDurability!;
+      item.durability = Math.min(item.maxDurability, item.durability + Math.floor(progress)); this.repairTime.set(item, progress % 1);
     }
     this.lock = Math.max(0, this.lock - dt); this.fohDelay = Math.max(0, this.fohDelay - dt); h.holyShield = Math.max(0, h.holyShield - dt);
     this.stagger = Math.max(0, this.stagger - dt); this.movementRecovery = Math.max(0, this.movementRecovery - dt);

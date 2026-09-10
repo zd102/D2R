@@ -127,6 +127,14 @@ test('real item auto-repair restores durability over elapsed time without repair
   combat.update(1); assert.equal(hero.equipment.weapon!.durability, 1); assert.equal(hero.equipment.shield!.durability, shieldDurability);
 });
 
+test('auto-repair keeps fractional progress while the same item is temporarily unequipped', () => {
+  const { hero, combat } = setup(), weapon = hero.equipment.weapon!;
+  weapon.mods = { repairDurability: .25 }; weapon.durability = 0;
+  combat.update(3); hero.equipment.weapon = null; combat.update(2);
+  assert.equal(weapon.durability, 0);
+  hero.equipment.weapon = weapon; combat.update(1); assert.equal(weapon.durability, 1);
+});
+
 test('light radius changes the live player light and stops increasing after plus five', () => {
   const { hero, combat, game } = setup(), light = new THREE.PointLight(); light.name = 'hero-light'; game.actor.group.add(light);
   hero.equipment.weapon!.mods = { lightRadius: 5 }; combat.update(.1); assert.equal(light.distance, 7 * 18 / 13);
