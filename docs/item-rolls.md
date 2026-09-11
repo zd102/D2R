@@ -1,6 +1,6 @@
 # 暗金、套装与符文之语随机变量
 
-更新日期：2026-09-09。适用于本地项目已接入的 LoD 1.13 装备目录：379 条暗金、127 件套装和 78 个符文之语。
+更新日期：2026-09-11。适用于本地项目已接入的 LoD 1.13 装备目录：379 条暗金、127 件套装和 84 个符文之语。
 
 ## 玩家行为
 
@@ -33,6 +33,6 @@
 
 主要代码为 [item-catalog.ts](../src/item-catalog.ts) 的 `rollCatalogMods`、`catalogItemMods` 与 `catalogModifierRanges`，[items.ts](../src/items.ts) 的 `specialItem`、`socketItem` 和迁移流程，以及 [model.ts](../src/model.ts) 的保存解析与刻面镶嵌。
 
-`tests/item-rolls.test.ts` 覆盖全部 506 件特殊装备的两端取值和存档，全部 78 个符文之语及允许部位的配方/符文附加值，8,000 次蛇皮抽样分布，可变孔数、伤害范围语义、掉落随机源传递、刻面、旧档和导入导出。
+`tests/item-rolls.test.ts` 覆盖全部 506 件特殊装备的两端取值和存档，全部 84 个符文之语及允许部位的配方/符文附加值，8,000 次蛇皮抽样分布，可变孔数、伤害范围语义、掉落随机源传递、刻面、旧档和导入导出。
 
 `npm run test:item-rolls` 在桌面与手机视口验证鉴定、真实界面镶嵌完成精神、实际属性与范围显示、重载、图鉴切换底材和稳定预览。可设置 `BASE_URL` 指向运行中的服务，`OUTPUT_DIR` 指定截图目录。全量回归使用 `npm test`，类型检查使用 `npx tsc --noEmit`，生产构建使用 `npm run build`。

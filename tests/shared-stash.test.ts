@@ -4,7 +4,7 @@ import { SaveStore, SaveError, PROFILE_PREFIX, parseCharacterFile } from '../src
 import { SHARED_STASH_KEY, moveSharedItem, type SharedLock } from '../src/shared-stash.ts';
 import { newHero, stats } from '../src/model.ts';
 import { BASES, makeItem, specialItem, socketItem, type Item } from '../src/items.ts';
-import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
+import { CATALOG_SPECIALS } from '../src/item-catalog-current.ts';
 
 class MemoryStorage {
   data = new Map<string, string>(); failKey?: string; afterWrite?: (key: string) => void;

@@ -1,4 +1,4 @@
-import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, CATALOG_SETS, type CatalogProperty } from '../src/item-catalog-data.ts';
+import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, CATALOG_SETS, type CatalogProperty } from '../src/item-catalog-current.ts';
 import { catalogPropertyStatus } from '../src/item-catalog.ts';
 
 const properties: CatalogProperty[] = [

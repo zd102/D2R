@@ -3,7 +3,7 @@ import { EXPANSION_MOD_NAMES, EXTRA_RUNES, EXTRA_BASES, EXTRA_RUNEWORDS, EXTRA_U
 import { AFFIX_MOD_NAMES, applyAffixes, type CharmSize } from './affixes.ts';
 import { expandBases, expandSpecials, expandRunewords, catalogMods, rollCatalogMods } from './item-catalog.ts';
 import { EFFECT_MOD_NAMES } from './item-effects.ts';
-import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS } from './item-catalog-data.ts';
+import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, LEGACY_CURATED_SPECIALS } from './item-catalog-current.ts';
 import { RANGED_BASES } from './ranged-data.ts';
 import { CLASSES } from './classes.ts';
 export const SLOTS = ['helm', 'amulet', 'weapon', 'armor', 'shield', 'gloves', 'ring', 'belt', 'ring2', 'boots'] as const;
@@ -269,7 +269,7 @@ export function migrateCatalogItem(item: Item) {
   // Newly supported class properties are recovered from the item's existing rolls.
   // Preserve every previously rolled modifier, including catalog-v1 items.
   const classEntry=CATALOG_SPECIALS.find(entry=>entry.id===item.catalogId)??CATALOG_RUNEWORDS.find(entry=>entry.id===item.catalogId);
-  if(classEntry){item.mods??={};let draw=0;const restored=catalogMods(classEntry.properties,()=>item.catalogRolls?.[draw++]??.5),newKeys=['amazonSkills','sorceressSkills','bowSkills','passiveSkills','javelinSkills','fireSkillsTab','lightningSkills','coldSkills'];
+  if(classEntry){item.mods??={};let draw=0;const restored=catalogMods(classEntry.properties,()=>item.catalogRolls?.[draw++]??.5),newKeys=['grantedCriticalStrike','grantedEvade','amazonSkills','sorceressSkills','bowSkills','passiveSkills','javelinSkills','fireSkillsTab','lightningSkills','coldSkills'];
     for(const [key,value] of Object.entries(restored))if((newKeys.includes(key)||key.startsWith('skill_')&&!Object.hasOwn(item.mods,key))&&item.mods[key as Modifier]===undefined)item.mods[key as Modifier]=value;
   }
   for (const jewel of item.socketedJewels ?? []) {
@@ -283,7 +283,12 @@ export function migrateCatalogItem(item: Item) {
   if (item.catalogVersion === 1) return item;
   const special = ['unique', 'set'].includes(item.rarity) ? SPECIAL_ITEMS.find(entry => entry.catalogId === item.catalogId || entry.name === item.name) : undefined;
   const word = item.rarity === 'runeword' ? RUNEWORDS.find(entry => (entry.catalogId === item.catalogId || entry.name === item.name) && entry.runes.join() === item.runes?.join()) : undefined;
-  if (special) { item.mods = { ...special.mods }; item.catalogId = special.catalogId; item.catalogVersion = 1; }
+  if (special) {
+    const legacy = LEGACY_CURATED_SPECIALS.find(entry => entry.id === special.catalogId);
+    // Pre-catalog saves must not acquire the new drop-only unique adjustments.
+    item.mods = legacy ? { ...catalogMods(legacy.properties), ...item.mods } : { ...special.mods };
+    item.catalogId = special.catalogId; item.catalogVersion = 1;
+  }
   if (word) {
     item.mods = { ...word.mods }; item.catalogId = word.catalogId; item.catalogVersion = 1;
     for (const rune of word.runes) addMods(item.mods, RUNES[rune][item.slot === 'weapon' ? 'weapon' : item.slot === 'shield' ? 'shield' : 'armor']);

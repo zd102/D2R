@@ -1,3 +1,4 @@
+import { unlockedBaseOffers } from './progression-equipment';
 import { CLASSES } from './classes';
 import type { SkillId } from './paladin';
 import * as THREE from 'three';
@@ -34,6 +35,11 @@ const tooltipItemKey = (element?: HTMLElement) => element?.dataset.item ?? eleme
 // Keep HUD values live every frame without rebuilding the surrounding interface.
 function setText(element: Element, value: string) { if (element.textContent !== value) element.textContent = value; }
 function setMarkup(element: Element, value: string) { if (element.innerHTML !== value) element.innerHTML = value; }
+
+function progressionBaseShop(hero: Parameters<typeof unlockedBaseOffers>[0]) {
+  const offers = unlockedBaseOffers(hero);
+  return `<h3>旅者底材</h3><p class="quest-story">随等级与战役进度解锁。符文可从首领掉落获得，也可在符文页升阶。</p><div class="shop-items">${offers.map(offer => `<div><div class="shop-item-icon gold-text"><i data-lucide="hammer"></i></div><div><h3>${offer.purpose}</h3><small>普通有孔底材 · 需自行镶嵌符文</small></div><button class="secondary-button" data-buy-base="${offer.id}" ${hero.gold < offer.price ? 'disabled' : ''}><i data-lucide="coins"></i>${offer.price}</button></div>`).join('') || '<p>15 级且完成普通第一幕后开始供应。</p>'}</div>`;
+}
 
 export class UI {
   panel?: Panel;
@@ -250,6 +256,7 @@ export class UI {
       if (element.dataset.equip) this.game.equip(element.dataset.equip);
       if (element.dataset.salvage) this.game.salvage(element.dataset.salvage);
       if (element.dataset.allocate) this.game.allocate(element.dataset.allocate as Attribute, Number(element.dataset.count ?? 1));
+      if (element.dataset.buyBase) this.game.buyBase(element.dataset.buyBase);
       if (element.dataset.buy) this.game.buy(Number(element.dataset.buy) as 0 | 1);
       if (element.dataset.loot) this.game.pickup(Number(element.dataset.loot));
       if (element.dataset.chest !== undefined) this.game.openChest(Number(element.dataset.chest));
@@ -407,6 +414,7 @@ export class UI {
       content = settingsPanel(this.game);
     } else if (this.panel === 'shop') {
       content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${([0, 1] as const).map(index => `<div><div class="shop-item-icon ${index === 0 ? 'red-text' : 'blue-text'}">${icon(index === 0 ? 'flame' : 'droplets')}</div><div><h3>${index === 0 ? '生命' : '法力'}药剂</h3><small>持有 ${h.potions[index]}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < 25 ? 'disabled' : ''}>${icon('coins')}25</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
+      content += progressionBaseShop(h);
     } else if (this.panel === 'death') {
       content = `<div class="end-mark death-mark">${icon('skull')}</div><p class="end-story">灰烬尚温，誓约未尽。</p><div class="end-stats"><span>等级 <b>${h.level}</b></span><span>击杀 <b>${h.kills}</b></span></div><p class="death-cost">遗体保留装备 · 遗失 ${h.corpse?.gold ?? 0} 金币</p><button class="primary-button" data-action="revive">${icon('rotate-ccw')}在传送阵重生</button>`;
     }

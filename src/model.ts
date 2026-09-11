@@ -82,8 +82,12 @@ export function equipmentMods(hero: HeroState): Mods {
   return levelMods(result, hero.level);
 }
 export function skillLevel(hero: HeroState, id: ActionId, mods = equipmentMods(hero)) {
-  if (id === 'attack' || (skillById[id].classId ?? 'paladin') !== hero.classId || !hero.skills[id] && !mods[`skill_${id}`]) return 0;
-  return hero.skills[id] + (mods[`skill_${id}`] ?? 0) + (id === 'holyFire' || skillById[id].tree === 'fire' || ['fireArrow','explodingArrow','immolationArrow'].includes(id) ? mods.fireSkills ?? 0 : 0) + (mods.allSkills ?? 0) + (mods[`${hero.classId}Skills`] ?? 0) + (mods[skillById[id].tree === 'fire' ? 'fireSkillsTab' : `${skillById[id].tree}Skills` as Modifier] ?? 0);
+  if (id === 'attack') return 0;
+  const ownClass = (skillById[id].classId ?? 'paladin') === hero.classId;
+  const grant = id === 'criticalStrike' ? mods.grantedCriticalStrike ?? 0 : id === 'evade' ? mods.grantedEvade ?? 0 : 0;
+  if (!ownClass) return grant ? grant + (mods.allSkills ?? 0) : 0;
+  if (!hero.skills[id] && !mods[`skill_${id}`] && !grant) return 0;
+  return hero.skills[id] + Math.min(3, grant) + (mods[`skill_${id}`] ?? 0) + (id === 'holyFire' || skillById[id].tree === 'fire' || ['fireArrow','explodingArrow','immolationArrow'].includes(id) ? mods.fireSkills ?? 0 : 0) + (mods.allSkills ?? 0) + (mods[`${hero.classId}Skills`] ?? 0) + (mods[skillById[id].tree === 'fire' ? 'fireSkillsTab' : `${skillById[id].tree}Skills` as Modifier] ?? 0);
 }
 export function auraValues(hero: HeroState, mods = equipmentMods(hero)) {
   const id = hero.activeAura, rank = id ? skillLevel(hero, id, mods) : 0;

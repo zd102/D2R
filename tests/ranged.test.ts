@@ -7,7 +7,7 @@ import { newHero, stats, serializeSave, parseSave, repairEquipment, repairCost }
 import { BASES, makeItem, specialItem, itemMods, maxQuantity, quantityLeft } from '../src/items.ts';
 import { RANGED_BASES } from '../src/ranged-data.ts';
 import { ammunition, clearShot } from '../src/ranged.ts';
-import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
+import { CATALOG_SPECIALS } from '../src/item-catalog-current.ts';
 import { itemModifierLines, itemWeaponDamage } from '../src/item-description.ts';
 import type { Enemy, Game } from '../src/game.ts';
 
@@ -186,18 +186,18 @@ test('ranged crushing blow removes half the melee fraction and physical immunity
   assert.equal(10000 - target.hp, 1250 + physical);
 });
 
-test('holy bolt heals a converted ally along the trajectory and never hurts living demons', t => {
+test('holy bolt damages demons and pierces converted allies after healing them', t => {
   t.mock.method(Math, 'random', () => .5);
   const { combat, hero, enemy } = fixture(), demon = enemy(2), ally = enemy(5); ally.converted = 10; ally.hp = 200;
   hero.skills.holyBolt = 1; combat.castAction('holyBolt', true); combat.update(.6);
-  assert.equal(demon.hp, 10000); assert.ok(ally.hp > 200); assert.equal(combat.projectiles.length, 0);
+  assert.ok(demon.hp < 10000); assert.ok(ally.hp > 200); assert.equal(combat.projectiles.length, 1); combat.update(2); assert.equal(combat.projectiles.length, 0);
 });
 
 test('Fist of Heavens creates traveling holy bolts and rejects blocked direct targets without spending mana', t => {
   t.mock.method(Math, 'random', () => .5);
   const { combat, hero, game, enemy } = fixture(), target = enemy(5), undead = enemy(8); undead.kind = 'skeleton';
   hero.skills.fistOfHeavens = 1; game.aim.set(0, 0, 5); game.target = target;
-  combat.castAction('fistOfHeavens', true); assert.ok(target.hp < 10000); assert.equal(undead.hp, 10000); assert.equal(combat.projectiles.length, 1);
+  combat.castAction('fistOfHeavens', true); assert.ok(target.hp < 10000); assert.equal(undead.hp, 10000); assert.equal(combat.projectiles.length, 2);
   combat.update(.3); assert.ok(undead.hp < 10000);
   combat.lock = combat.fohDelay = 0; game.world.grid.isWalkableAt = (_x: number, z: number) => z !== 42;
   const mana = hero.mana; combat.castAction('fistOfHeavens', true); assert.equal(hero.mana, mana); assert.equal(combat.fohDelay, 0);

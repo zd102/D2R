@@ -17,7 +17,7 @@ type Field = { mesh: THREE.Mesh; id: ExtraSkillId; point: THREE.Vector3; directi
 export type ClassSummon = { id: 'valkyrie'|'dopplezon'|'hydra'; actor: Actor; hp: number; maxHp: number; life: number; timer: number; rank: number; snapshot: AttackSnapshot; path: THREE.Vector3[]; rethink: number };
 const colors: Record<DamageType,number>={physical:0xe6d29b,magic:0xb6b5ff,fire:0xff9453,cold:0x83deff,lightning:0xffe59a,poison:0x9bdb67};
 const rangedSkills = (id: string) => ['bow','javelin'].includes(classSkillMode(id) ?? '');
-const delays: Partial<Record<ExtraSkillId,number>>={poisonJavelin:.6,plagueJavelin:4,immolationArrow:1,meteor:1.2,fireWall:1.4,blizzard:1.8,frozenOrb:1,hydra:2};
+const delays: Partial<Record<ExtraSkillId,number>>={poisonJavelin:.6,plagueJavelin:4,immolationArrow:1,meteor:1.2,fireWall:1.4,blizzard:1.8,frozenOrb:1};
 
 export class ClassCombat {
   missiles: Missile[]=[];
@@ -174,7 +174,7 @@ export class ClassCombat {
   }
   summon(id:ClassSummon['id'],point:THREE.Vector3,rank:number) {
     const g=this.game,v=this.value(id),existing=this.summons.filter(s=>s.id===id);
-    const previous=existing.length>=(id==='hydra'?3:1)?existing[0]:undefined;
+    const previous=existing.length>=(id==='hydra'?6:1)?existing[0]:undefined;
     if(previous){this.summons.splice(this.summons.indexOf(previous),1);previous.hp=0;previous.life=0;}
     // Recasting refreshes the summon state; its unchanged model can move to the
     // new position without rebuilding geometry or recompiling all its materials.

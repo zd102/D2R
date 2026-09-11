@@ -1,7 +1,7 @@
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
+import { CATALOG_SPECIALS } from '../src/item-catalog-current.ts';
 
 const output = '.verification/item-effects-check';
 await mkdir(output, { recursive: true });

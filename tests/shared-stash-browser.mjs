@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { newHero } from '../src/model.ts';
 import { BASES, makeItem, specialItem, placeItems } from '../src/items.ts';
-import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
+import { CATALOG_SPECIALS } from '../src/item-catalog-current.ts';
 import { PROFILE_PREFIX } from '../src/saves.ts';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';

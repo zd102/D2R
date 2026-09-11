@@ -8,6 +8,7 @@ const skillNames = Object.fromEntries(SKILLS.map(skill => [`skill_${skill.id}`, 
 const auraNames = Object.fromEntries(SKILLS.filter(skill=>isAura(skill.id)).map(skill => [`aura_${skill.id}`, `${skill.name}灵气等级（装备赋予）`])) as Record<`aura_${SkillId}`, string>;
 export const EFFECT_MOD_NAMES = {
   ...skillNames, ...auraNames,
+  grantedCriticalStrike: '双倍打击等级（装备赋予）', grantedEvade: '回避等级（装备赋予）',
   pierceChance: '投射物穿透几率 %', magicArrowLevel: '魔法箭等级', explosiveArrowLevel: '爆炸箭等级', replenishQuantity: '每秒恢复投掷数量', extraQuantity: '投掷数量上限增加',
   fireSkillDamage: '火焰技能伤害 %', coldSkillDamage: '冰冷技能伤害 %', lightningSkillDamage: '闪电技能伤害 %', poisonSkillDamage: '毒素技能伤害 %',
   firePierce: '降低敌人火焰抗性 %', coldPierce: '降低敌人冰冷抗性 %', lightningPierce: '降低敌人闪电抗性 %', poisonPierce: '降低敌人毒素抗性 %',

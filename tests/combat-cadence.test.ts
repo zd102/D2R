@@ -57,9 +57,9 @@ test('weapon and cast frame rates still control repeated use while movement reco
 test('authored spell delays are independent of other spells and normal attacks', () => {
   const paladin = classFixture('paladin'); paladin.enemy();
   assert.equal(paladin.combat.castAction('fistOfHeavens'), true);
-  assert.equal(paladin.combat.cooldown('fistOfHeavens'), 1);
+  assert.equal(paladin.combat.fohDelay, .4);
   assert.equal(paladin.combat.castAction('holyBolt'), true);
-  paladin.tick(.6);
+  paladin.tick(.2);
   assert.equal(paladin.combat.castAction('fistOfHeavens'), false);
   assert.equal(paladin.combat.castAction('attack'), true);
   paladin.tick(.44);

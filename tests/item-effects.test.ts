@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { catalogMods, catalogPropertyStatus, unappliedItemEffects } from '../src/item-catalog.ts';
-import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS } from '../src/item-catalog-data.ts';
+import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS } from '../src/item-catalog-current.ts';
 import { BASES, SPECIAL_ITEMS, RUNEWORDS, RUNES, makeItem, specialItem, socketItem, itemMods, type Item } from '../src/items.ts';
 import { newHero, stats, equipmentMods, activeEquipment, parseSave, serializeSave, insertJewel, skillLevel, setAura, bindSkill } from '../src/model.ts';
 import { itemDamage, absorbDamage, openWoundsDps } from '../src/item-effects.ts';

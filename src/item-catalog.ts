@@ -1,4 +1,4 @@
-import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, CATALOG_SETS, type CatalogProperty } from './item-catalog-data.ts';
+import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, CATALOG_SETS, type CatalogProperty } from './item-catalog-current.ts';
 import { AFFIX_TYPES, AFFIX_BASES } from './affix-data.ts';
 import { BASE_CODES, rollAffix, supportsAffixProperty } from './affixes.ts';
 import type { ItemBase, Item, Mods, Modifier, RuneWord, RuneId, SpecialItem, WeaponType } from './items.ts';
@@ -53,6 +53,7 @@ export function catalogMods(properties: CatalogProperty[], random = () => .5): M
     const value = min + Math.floor(roll * (max - min + 1));
     if (extraProperties[code]) add({ [extraProperties[code]]: value });
     else if (LEVEL_PROPERTIES[code]) { const [key, divisor] = LEVEL_PROPERTIES[code]; add({ [key]: (Number(param) || value) / divisor }); }
+    else if (code === 'oskill' && ['Critical Strike', 'Evade'].includes(param)) add({ [param === 'Evade' ? 'grantedEvade' : 'grantedCriticalStrike']: value });
     else if (code === 'skill' && catalogSkill(param)) add({ [`skill_${catalogSkill(param)}`]: value });
     else if (code === 'aura' && catalogSkill(param) && isAura(catalogSkill(param)!)) add({ [`aura_${catalogSkill(param)}`]: value });
     else if (code === 'rep-dur') add({ repairDurability: Number(param) / 100 });
@@ -90,7 +91,7 @@ export function catalogPropertyStatus(property: CatalogProperty): 'active' | 'ot
   if (code.startsWith('*') || ['bloody', 'state', 'fade'].includes(code)) return 'unused';
   if (['nec', 'bar', 'dru', 'ass', 'skill-rand'].includes(code) || code === 'skilltab' && !['0','1','2','3','4','5','9','10','11'].includes(param) || code === 'skill' && !catalogSkill(param)) return 'other-class';
   if (code === 'aura') return catalogSkill(param) && isAura(catalogSkill(param)!) ? 'active' : 'inactive';
-  if (code === 'rep-quant') return 'active';
+  if (code === 'rep-quant' || code === 'oskill' && ['Critical Strike', 'Evade'].includes(param)) return 'active';
   if (itemTrigger(property)) return 'active';
   return extraProperties[code] || LEVEL_PROPERTIES[code] || supportsAffixProperty(code) || ['skill', 'all-stats', 'dmg-norm', 'reduce-ac', 'randclassskill', 'rep-dur', 'howl', 'dmg-mag', 'dmg-elem', 'res-all-max'].includes(code) ? 'active' : 'inactive';
 }

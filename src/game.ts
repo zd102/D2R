@@ -16,6 +16,7 @@ import { isAura, isPassive, type ActionId, type Attribute, type DamageType } fro
 import { classSkillMode } from './class-skills';
 import { createWirtsLeg, groundItemName, isAnnihilus, isStoneOfJordan, isWirtsLeg, packItems, placeItems, runeLabel, type DropRank, type RuneId, type Mods } from './items';
 import { rollLoot } from './loot';
+import { buyProgressionBase } from './progression-equipment';
 import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat } from './combat';
 import { BOSSES, ENCOUNTERS, MONSTERS, monsterTactic, type MonsterDef } from './bestiary';
@@ -758,6 +759,14 @@ export class Game {
     if (this.hero.gold < 25) { this.ui.toast('金币不足'); return; }
     if (this.hero.potions[index] >= 99) return;
     this.hero.gold -= 25; this.hero.potions[index]++; this.audio.play('itemBottle'); this.ui.renderPanel(); this.save(false);
+  }
+  buyBase(id: string) {
+    if (!this.profile || this.dead || this.saveConflict || this.ui.panel !== 'shop') return;
+    const previous = structuredClone(this.hero);
+    const item = buyProgressionBase(this.hero, id);
+    if (!item) { this.ui.toast('无法购买', '请检查金币、背包空间与解锁进度'); return; }
+    if (!this.save(false)) { this.hero = previous; return; }
+    this.audio.play('equip'); this.ui.toast(item.name, '已收入背包'); this.ui.renderPanel();
   }
   equip(id: string, slot?: Slot) {
     const container = this.hero.inventory.some(item => item.id === id) ? 'inventory' : 'stash';

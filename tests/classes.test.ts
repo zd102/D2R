@@ -6,7 +6,7 @@ import {EXPERIENCE,skillsForClass,skillValues,isPassive,skillById,type SkillId} 
 import {CLASS_SKILLS,classSkillMode} from '../src/class-skills.ts';
 import {BASES,makeItem,specialItem,itemMods,migrateCatalogItem} from '../src/items.ts';
 import {eligibleAffixes} from '../src/affixes.ts';
-import {CATALOG_SPECIALS} from '../src/item-catalog-data.ts';
+import {CATALOG_SPECIALS} from '../src/item-catalog-current.ts';
 import {SaveStore} from '../src/saves.ts';
 import {classFixture} from './class-fixture.ts';
 import {ATTACKS} from '../src/monster-combat.ts';
@@ -77,7 +77,7 @@ test('all active Amazon and Sorceress skills produce damage, movement, summons o
   }
 });
 test('multi-shot uses unlimited arrows and never shotguns a single body, magic arrow needs no ammo',t=>{
-  t.mock.method(Math,'random',()=>.4);const {hero,combat,enemy,tick}=classFixture('amazon');swapWeapons(hero);hero.skills.multipleShot=20;const target=enemy(2),ammo=hero.ammo.arrows;
+  t.mock.method(Math,'random',()=>.4);const {hero,combat,enemy,tick}=classFixture('amazon');swapWeapons(hero);hero.skills.multipleShot=20;hero.skills.guidedArrow=0;const target=enemy(2),ammo=hero.ammo.arrows;
   const initial=target.hp;combat.castAction('multipleShot');assert.equal(hero.ammo.arrows,ammo);assert.equal(combat.classes.missiles.length,21);tick(1);
   const multi=initial-target.hp;combat.lock=0;target.hp=initial;combat.castAction('attack');tick(1);assert.ok(Math.abs(multi-(initial-target.hp)*.75)<2);
   combat.lock=0;hero.ammo.arrows=0;combat.castAction('magicArrow');assert.equal(combat.classes.missiles.length,1);tick(1);assert.ok(target.hp<initial);
@@ -139,5 +139,5 @@ test('decoy draws melee attacks, intercepts missiles and cannot multiply; Hydra 
   e.actor.group.position.z=9;game.monsterCombat.fire(e,ATTACKS.arrow,e.actor.group.position,new (game.position.constructor)(0,0,-1));game.monsterCombat.update(.7);assert.ok(summon.hp<summon.maxHp-1);assert.equal(hero.hp,hp);
   tick(combat.cooldown('dopplezon'));combat.castAction('dopplezon',true);assert.equal(combat.classes.summons.length,1);
   const replacement=combat.classes.summons[0];assert.notEqual(replacement,summon);assert.equal(replacement.actor,summon.actor,'recasting reuses the rendered model');assert.equal(replacement.hp,replacement.maxHp);assert.equal(summon.hp,0,'pending attacks cannot hurt a replaced summon');assert.equal(summon.life,0);
-  const s=classFixture('sorceress');for(let i=0;i<5;i++){s.tick(s.combat.cooldown('hydra'));s.hero.mana=100;assert.ok(s.combat.castAction('hydra',true));}assert.equal(s.combat.classes.summons.length,3);assert.equal(s.combat.classes.summons[0].actor.group.children.length,3);s.tick(11);assert.equal(s.combat.classes.summons.length,0);
+  const s=classFixture('sorceress');for(let i=0;i<5;i++){s.tick(s.combat.cooldown('hydra'));s.hero.mana=100;assert.ok(s.combat.castAction('hydra',true));}assert.equal(s.combat.classes.summons.length,5);assert.equal(s.combat.classes.summons[0].actor.group.children.length,3);s.tick(11);assert.equal(s.combat.classes.summons.length,0);
 });

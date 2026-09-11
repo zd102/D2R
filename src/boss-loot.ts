@@ -1,5 +1,5 @@
 import { specialPool, specialItem, weightedChoice, slotNames, type Item, type Slot } from './items.ts';
-import { CATALOG_SPECIALS } from './item-catalog-data.ts';
+import { CATALOG_SPECIALS } from './item-catalog-current.ts';
 
 export type BossDropProfile = { levelIndex: number; slots: Slot[]; featured: string[]; uniqueChance: number; runeChance: number; runeTC: [number, number, number]; maxTC: [number, number, number] };
 const themes: [Slot[], string[]][] = [

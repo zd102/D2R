@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BASES, AVAILABLE_RUNEWORDS as RUNEWORDS, RUNES, makeItem, specialItem, socketItem, rollItem, itemMods, isAvailableItem, type RuneWord } from '../src/items.ts';
-import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS } from '../src/item-catalog-data.ts';
+import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS } from '../src/item-catalog-current.ts';
 import { catalogMods, catalogModifierRanges } from '../src/item-catalog.ts';
 import { newHero, identifyItem, serializeSave, parseSave, insertJewel, stats } from '../src/model.ts';
 import { encyclopediaItemPreview, ENCYCLOPEDIA_ITEMS } from '../src/encyclopedia.ts';
@@ -40,7 +40,7 @@ test('every unique and set rolls supported variables to both endpoints and persi
   assert.ok(variableItems > 300);
 });
 
-test('all 77 available recipes roll only on completion and include rune bonuses exactly once on every supported slot', () => {
+test('all available recipes roll only on completion and include rune bonuses exactly once on every supported slot', () => {
   for (const word of RUNEWORDS) for (const slot of word.slots) {
     const entry = CATALOG_RUNEWORDS.find(entry => entry.id === word.catalogId)!;
     for (const endpoint of [0, 1]) {

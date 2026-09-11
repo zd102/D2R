@@ -6,7 +6,7 @@ import { PaladinCombat } from '../src/combat.ts';
 import { newHero, gainXp, learnSkill, stats, setAura } from '../src/model.ts';
 import { SKILLS, EXPERIENCE } from '../src/paladin.ts';
 import { makeItem, BASES, specialItem } from '../src/items.ts';
-import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
+import { CATALOG_SPECIALS } from '../src/item-catalog-current.ts';
 import type { Game, Enemy } from '../src/game.ts';
 import { MONSTERS, BOSSES } from '../src/bestiary.ts';
 import { elementalDamage } from '../src/affixes.ts';
@@ -199,10 +199,10 @@ test('zeal makes exactly five attacks over time and charges mana once', t => {
   for (let i = 0; i < 40; i++) combat.update(.05);
   assert.equal(hits, 5); assert.ok(target.hp < 10000); assert.equal(combat.zeal, null); assert.ok(hero.mana >= mana - 2);
 });
-test('classic holy bolt damages undead but not demons and hammer damages along its moving trajectory', () => {
+test('holy bolt pierces undead and demons and hammer damages along its moving trajectory', () => {
   const { combat, enemy } = setup(), demon = enemy('demon', 3), undead = enemy('skeleton', 6);
   combat.castAction('holyBolt', true); for (let i = 0; i < 25; i++) combat.update(.05);
-  assert.equal(demon.hp, 10000); assert.ok(undead.hp < 10000);
+  assert.ok(demon.hp < 10000); assert.ok(undead.hp < 10000); combat.update(1);
   combat.castAction('blessedHammer'); assert.equal(combat.projectiles[0].kind, 'hammer');
   combat.update(.05); const first = combat.projectiles[0].mesh.position.clone(); demon.actor.group.position.copy(first).setY(0);
   combat.update(.03); assert.ok(demon.hp < 10000); assert.ok(combat.projectiles[0].mesh.position.distanceTo(first) > 0);
@@ -249,9 +249,9 @@ test('conversion creates an ally, holy freeze slows immune enemies, vengeance ap
   setAura(hero, null); combat.lock = 0; const types: string[] = [], original = combat.damage.bind(combat); combat.damage = (...args) => { types.push(args[2]); return original(...args); };
   combat.castAction('vengeance'); assert.deepEqual(types, ['physical', 'fire', 'cold', 'lightning']);
 });
-test('fist of heavens has a one second delay and holy shield expires in game time', () => {
+test('fist of heavens has a 0.4 second delay and holy shield expires in game time', () => {
   const { hero, combat, enemy } = setup(); enemy();
-  combat.castAction('fistOfHeavens'); const mana = hero.mana; combat.lock = 0; combat.castAction('fistOfHeavens'); assert.equal(hero.mana, mana); assert.equal(combat.fohDelay, 1);
+  combat.castAction('fistOfHeavens'); const mana = hero.mana; combat.lock = 0; combat.castAction('fistOfHeavens'); assert.equal(hero.mana, mana); assert.equal(combat.fohDelay, .4);
   combat.fohDelay = 0; combat.castAction('holyShield'); assert.equal(hero.holyShield, 60); combat.update(1); assert.equal(hero.holyShield, 59);
 });
 test('lethal damage creates a persistent corpse and interrupts a zeal sequence', () => {

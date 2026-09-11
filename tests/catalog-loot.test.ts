@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BASES, SPECIAL_ITEMS, RUNEWORDS, RUNE_ORDER, MOD_NAMES, makeItem, specialItem, specialPool, runewordFits, socketItem, itemMods, filledSockets } from '../src/items.ts';
-import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, CATALOG_SETS, EXCLUDED_QUEST_ITEMS } from '../src/item-catalog-data.ts';
+import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, CATALOG_SETS, EXCLUDED_QUEST_ITEMS } from '../src/item-catalog-current.ts';
 import { BOSS_DROP_PROFILES, bossSpecialPool } from '../src/boss-loot.ts';
 import { AREA_LEVELS } from '../src/campaign.ts';
 import { runeDistribution, rollLoot } from '../src/loot.ts';

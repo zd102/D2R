@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave } from '../src/model.ts';
 import { BASES, makeItem, specialItem, socketItem, placeItems } from '../src/items.ts';
-import { CATALOG_SPECIALS } from '../src/item-catalog-data.ts';
+import { CATALOG_SPECIALS } from '../src/item-catalog-current.ts';
 import { savedProfile, inventoryItems, openSocketEditor } from './browser-helpers.mjs';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';

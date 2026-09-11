@@ -32,7 +32,7 @@ const rows = [
   ['iceArrow','急冻箭','bow',1,'bow','箭矢冻结普通敌人，首领仅减速。'],
   ['guidedArrow','引导箭','bow',2,'bow','箭矢追踪目标并必定命中，不能穿透墙壁。'],
   ['immolationArrow','牺牲之箭','bow',3,'bow','命中爆炸并留下燃烧区域，具有施放间隔。'],
-  ['strafe','炮轰','bow',2,'bow','连续自动射击附近敌人，施放期间站定并逐箭消耗弹药。'],
+  ['strafe','炮轰','bow',2,'bow','连续自动射击附近敌人，使用完整武器伤害并提高准确率；射击期间站定。'],
   ['freezingArrow','冻结之箭','bow',1,'bow','箭矢造成范围冰冷伤害，冻结普通敌人。'],
   ['iceBolt','冰弹','cold',2,'spell','发射冰弹，造成冰冷伤害并减速。'],
   ['frozenArmor','冰封装甲','cold',3,'buff','增加防御；受到近战攻击后冻结攻击者。三种冰甲互相替换。'],
@@ -63,13 +63,19 @@ const rows = [
   ['enchant','强化','fire',3,'buff','暂时提高自身武器的准确率及火焰伤害，切换武器后仍然有效。'],
   ['meteor','陨石','fire',2,'spell','短暂预警后陨石砸向指定位置，造成爆炸并留下火焰。'],
   ['fireMastery','支配火焰','fire',1,'passive','提高所有火焰技能伤害。'],
-  ['hydra','九头海蛇','fire',3,'summon','召唤三头火蛇射击附近敌人，最多同时存在三组，持续 10 秒。'],
+  ['hydra','九头海蛇','fire',3,'summon','召唤三头火蛇射击附近敌人，无额外施放延迟，最多六组，持续 10 秒。'],
 ] as const;
 export type ExtraSkillId = typeof rows[number][0];
 const names = new Map(rows.map(row => [row[0],row[1]]));
 const originalNames = new Map(Object.entries(ORIGINAL_CLASS_SKILLS).map(([id,row])=>[row.name,id as ExtraSkillId]));
 export const classSkillMode = (id: string) => rows.find(row=>row[0]===id)?.[4];
 export const classSkillSynergies = (id: ExtraSkillId): Partial<Record<SkillId, number>> => {
+  // Selected D2R 2.4/2.6 rules, kept outside the generated LoD source table.
+  if(id==='multipleShot') return { guidedArrow:12 };
+  if(id==='guidedArrow') return { multipleShot:12 };
+  if(id==='strafe') return { multipleShot:5,guidedArrow:10 };
+  if(id==='nova') return { staticField:5 };
+  if(id==='thunderStorm') return { staticField:7 };
   if(id==='blaze') return { warmth:4,fireWall:1 };
   if(id==='fireWall') return { warmth:4,inferno:1 };
   const source=ORIGINAL_CLASS_SKILLS[id];
@@ -109,9 +115,9 @@ export function extraSkillValues(id: ExtraSkillId, rank: number, hard: Partial<R
     case 'lightningBolt':v.percent=100;break;
     case 'magicArrow':v.damage=rank;v.percent=rank;v.attack=10+9*n;break;
     case 'fireArrow':case 'coldArrow':v.percent=Math.min(100,3+2*n);v.attack=10+9*n;break;
-    case 'multipleShot':v.hits=Math.min(24,rank+1);break;
-    case 'guidedArrow':v.damage=5*n;break;
-    case 'strafe':v.damage=5*rank;v.hits=Math.min(10,rank+4);v.secondary=2+Math.floor(rank/4);break;
+    case 'multipleShot':v.damage=12*p('guidedArrow');v.hits=Math.min(24,rank+1);break;
+    case 'guidedArrow':v.damage=7*n+12*p('multipleShot');break;
+    case 'strafe':v.damage=5*rank+5*p('multipleShot')+10*p('guidedArrow');v.attack=30+9*n;v.hits=Math.min(10,rank+4);v.secondary=2+Math.floor(rank/4);break;
     case 'explodingArrow':case 'immolationArrow':case 'freezingArrow':v.radius=2.5;v.attack=20+9*n;break;
     case 'iceArrow':v.attack=20+9*n;v.duration*=1+.05*p('freezingArrow');break;
     case 'innerSight':v.secondary=tier(rank,source.min);v.duration=8+4*n;v.radius=12;break;
@@ -132,12 +138,13 @@ export function extraSkillValues(id: ExtraSkillId, rank: number, hard: Partial<R
     case 'enchant':v.attack=20+9*n;v.duration=144+24*n;break;
     case 'blaze':v.duration=4.6+n;break;
     case 'inferno':v.radius=Math.min(8,3+rank*.2);v.cost=Math.max(1,v.cost*8);v.duration=.6;break;
-    case 'thunderStorm':v.duration=32+8*n;v.radius=11;v.secondary=Math.max(.8,3.5-rank*.1);break;
+    case 'thunderStorm':v.duration=144+24*n;v.radius=11;v.secondary=Math.max(.8,3.5-rank*.1);break;
     case 'hydra':v.duration=10;v.hits=3;v.radius=12;break;
     case 'blizzard':v.duration=4;v.radius=3.5;break;
     case 'meteor':v.duration=4;v.radius=3;break;
     case 'fireWall':v.duration=3.6;v.radius=Math.min(7,3+rank*.15);break;
-    case 'nova':case 'frostNova':v.radius=6;break;
+    case 'nova':v.cost=Math.max(1,v.cost-2);v.radius=6;break;
+    case 'frostNova':v.radius=6;break;
     case 'chargedBolt':v.hits=Math.min(24,rank+2);break;
     case 'chainLightning':v.hits=Math.min(12,5+Math.floor(rank/5));break;
     case 'fireBall':v.radius=2.2;break;

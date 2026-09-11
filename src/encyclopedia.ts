@@ -1,5 +1,5 @@
 import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS, RUNE_ORDER, RUNES, makeItem, specialItem, runewordFits, socketItem, isAvailableItem, type Item, type ItemBase, type SpecialItem, type RuneWord, type RuneId, type Slot } from './items.ts';
-import { CATALOG_SPECIALS, CATALOG_RUNEWORDS } from './item-catalog-data.ts';
+import { CATALOG_SPECIALS, CATALOG_RUNEWORDS } from './item-catalog-current.ts';
 import { AFFIX_BASES } from './affix-data.ts';
 import { MONSTERS, BOSSES, ENCOUNTERS, type MonsterDef } from './bestiary.ts';
 import { LEVELS, SPECIAL_LEVELS } from './campaign.ts';

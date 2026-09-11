@@ -5,12 +5,12 @@ import { runePool, rollRune, rollLoot, rollCharm, upgradeRune, runeUpgradeCost }
 import { newHero, stats, parseSave, serializeSave, equipReason } from '../src/model.ts';
 const seeded = (seed = 73) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 
-test('all 33 runes and the full LoD catalog remain, with 77 recipes craftable by playable classes', () => {
+test('all 33 runes and the full LoD catalog remain, with 83 recipes craftable by playable classes', () => {
   assert.equal(RUNE_ORDER.length, 33); assert.deepEqual(Object.keys(RUNES), [...RUNE_ORDER]);
-  assert.equal(RUNEWORDS.length, 78); assert.ok(BASES.length >= 500); assert.equal(SPECIAL_ITEMS.length, 506);
+  assert.equal(RUNEWORDS.length, 84); assert.ok(BASES.length >= 500); assert.equal(SPECIAL_ITEMS.length, 506);
   assert.equal(new Set(BASES.map(b => b.name)).size, BASES.length);
   for (const id of RUNE_ORDER) for (const slot of ['weapon', 'armor', 'shield'] as const) assert.ok(Object.keys(RUNES[id][slot]).length, `${id}: ${slot}`);
-  assert.equal(AVAILABLE_RUNEWORDS.length, 77);
+  assert.equal(AVAILABLE_RUNEWORDS.length, 83);
   for (const word of AVAILABLE_RUNEWORDS) {
     const base = BASES.find(b => (b.sockets ?? 0) >= word.runes.length && runewordFits({ ...makeItem(b), sockets: word.runes.length }, word));
     assert.ok(base, `${word.name} has a droppable base`);

@@ -11,14 +11,14 @@ const define = (id: SkillId, name: string, tree: SkillTree, level: number, colum
 export const SKILLS: SkillDefinition[] = [
   define('sacrifice', '牺牲', 'combat', 1, 1, [], 'sword', '以生命强化单次近战攻击，承受物理伤害的 5% 反噬。', { redemption: '+15% 伤害 / 点', fanaticism: '+5% 伤害 / 点' }),
   define('smite', '重击', 'combat', 1, 3, [], 'shield', '盾击必定命中，击退并击晕敌人。需要盾牌，不附带元素伤害或吸取。'),
-  define('holyBolt', '圣光弹', 'combat', 6, 2, [], 'sparkles', '神圣弹击伤不死生物，治疗被转化的盟友。', { blessedHammer: '+50% 魔法伤害 / 点', fistOfHeavens: '+50% 魔法伤害 / 点', prayer: '+15% 治疗 / 点' }),
+  define('holyBolt', '圣光弹', 'combat', 6, 2, [], 'sparkles', '穿透恶魔与不死生物，治疗沿途被转化的盟友。', { fistOfHeavens: '+50% 魔法伤害 / 点', prayer: '+20% 治疗 / 点' }),
   define('zeal', '热诚', 'combat', 12, 1, ['sacrifice'], 'swords', '连续攻击附近敌人，最高五次，提升准确率。', { sacrifice: '+12% 伤害 / 点' }),
   define('charge', '冲锋', 'combat', 12, 3, ['smite'], 'footprints', '冲向远处目标并施以强力打击。', { vigor: '+20% 伤害 / 点', might: '+20% 伤害 / 点' }),
   define('vengeance', '复仇', 'combat', 18, 1, ['zeal'], 'flame', '武器同时附加火焰、冰冷与闪电伤害。', { resistFire: '+10% 火焰伤害 / 点', resistCold: '+10% 冰冷伤害 / 点', resistLightning: '+10% 闪电伤害 / 点', salvation: '+2% 三系伤害 / 点' }),
   define('blessedHammer', '祝福之锤', 'combat', 18, 2, ['holyBolt'], 'hammer', '召唤向外盘旋的圣锤，沿轨迹造成魔法伤害。', { blessedAim: '+14% 魔法伤害 / 点', vigor: '+14% 魔法伤害 / 点', concentration: '激活时获得一半灵气伤害加成' }),
   define('conversion', '转化', 'combat', 24, 1, ['vengeance'], 'users', '近战命中有概率使普通敌人为你战斗 16 秒。'),
   define('holyShield', '神圣之盾', 'combat', 24, 3, ['charge', 'blessedHammer'], 'shield-check', '暂时强化防御、格挡和重击伤害。需要盾牌。', { defiance: '+15% 防御 / 点' }),
-  define('fistOfHeavens', '天堂之拳', 'combat', 30, 2, ['conversion', 'blessedHammer'], 'zap', '天雷击中目标，放出伤害周围不死生物的圣光弹。', { holyBolt: '+15% 圣光弹伤害 / 点', holyShock: '+7% 闪电伤害 / 点' }),
+  define('fistOfHeavens', '天堂之拳', 'combat', 30, 2, ['conversion', 'blessedHammer'], 'zap', '天雷击中目标，放出穿透恶魔与不死生物的圣光弹，施放延迟 0.4 秒。', { holyBolt: '+15% 圣光弹伤害 / 点', holyShock: '+7% 闪电伤害 / 点' }),
   define('might', '力量', 'offensive', 1, 1, [], 'sword', '提高自身与附近盟友的物理伤害。'),
   define('holyFire', '圣火', 'offensive', 6, 2, ['might'], 'flame', '武器附加火焰伤害，每两秒灼烧附近敌人。', { resistFire: '+18% 火焰伤害 / 点', salvation: '+6% 火焰伤害 / 点' }),
   define('thorns', '荆棘', 'offensive', 6, 3, [], 'sun', '将受到的近战物理伤害反弹给攻击者。'),
@@ -68,7 +68,7 @@ export function skillValues(id: ActionId, rank: number, hard: Partial<Record<Ski
   switch (id) {
     case 'sacrifice': v.damage = 180 + 15 * (rank - 1) + 15 * p('redemption') + 5 * p('fanaticism'); v.attack = 20 + 7 * (rank - 1); break;
     case 'smite': v.cost = 2; v.damage = 15 * rank; v.duration = .4 + .2 * rank; break;
-    case 'holyBolt': v.cost = 2 + Math.floor((rank - 1) / 2) / 8; v.type = 'magic'; v.min = tierValue(rank, 8, [8, 10, 13, 16, 20]); v.max = tierValue(rank, 16, [8, 11, 15, 18, 23]); v.damage = 50 * (p('blessedHammer') + p('fistOfHeavens')); v.healing = (3.5 + 3 * (rank - 1)) * (1 + .15 * p('prayer')); break;
+    case 'holyBolt': v.cost = 2 + Math.floor((rank - 1) / 2) / 8; v.type = 'magic'; v.min = tierValue(rank, 8, [8, 10, 13, 16, 20]); v.max = tierValue(rank, 16, [8, 11, 15, 18, 23]); v.min *= 1.5; v.max *= 1.5; v.damage = 50 * p('fistOfHeavens'); v.healing = (3.5 + 3 * (rank - 1)) * (1 + .20 * p('prayer')); break;
     case 'zeal': v.cost = 2; v.hits = Math.min(5, rank + 1); v.attack = 10 * rank; v.damage = Math.max(0, rank - 4) * 6 + 12 * p('sacrifice'); break;
     case 'charge': v.cost = 7; v.damage = 100 + 25 * (rank - 1) + 20 * (p('might') + p('vigor')); v.attack = 50 + 15 * (rank - 1); break;
     case 'vengeance': v.cost = 3 + .1875 * (rank - 1); v.percent = 70 + 6 * (rank - 1) + 2 * p('salvation'); v.attack = 20 + 10 * (rank - 1); v.duration = 1.2 + .6 * (rank - 1); break;

@@ -132,14 +132,15 @@ export class PaladinCombat {
       g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); return true;
     }
     if (id === 'fistOfHeavens' && target) {
-      this.fohDelay = 1; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
+      this.fohDelay = .4; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
       this.damage(target, v.min + Math.random() * (v.max - v.min), 'lightning');
-      for (const enemy of g.enemies) if (this.hostile(enemy) && isUndead(enemy) && enemy.actor.group.position.distanceTo(point) < 8) {
+      const holyHits = new Set<number>([target.id]);
+      for (const enemy of g.enemies) if (this.hostile(enemy) && (isUndead(enemy) || (enemy.definition?.race ?? enemy.kind) === 'demon') && enemy.actor.group.position.distanceTo(point) < 8) {
         const mesh = createProjectileVisual('magic','bolt',.12,g.projectileVisuals);
         mesh.position.copy(point).setY(.9); g.world.scene.add(mesh);
         const flight = enemy.actor.group.position.clone().sub(point).setY(0).normalize(); if (!flight.lengthSq()) flight.copy(direction);
         // Outgoing bolts must leave the impact target before testing other bodies.
-        this.projectiles.push({ mesh, origin: point.clone(), direction: flight, phase: 0, age: 0, life: .75, damage: v.secondary, healing: 0, kind: 'bolt', hit: new Set(enemy === target ? [] : [target.id]), snapshot: this.snapshot(), speed: 16, pierce: 0, magicArrow: 0, explosion: 0 });
+        this.projectiles.push({ mesh, origin: point.clone(), direction: flight, phase: 0, age: 0, life: .75, damage: v.secondary, healing: 0, kind: 'bolt', hit: holyHits, snapshot: this.snapshot(), speed: 16, pierce: 0, magicArrow: 0, explosion: 0 });
       }
       g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); return true;
     }
@@ -184,7 +185,7 @@ export class PaladinCombat {
     const smite = id === 'smite', weaponDamage = projectile ? s.rangedMin + Math.random() * (s.rangedMax - s.rangedMin) + magicArrow + (id === 'magicArrow' ? v.damage : 0) : s.weaponMin + Math.random() * (s.weaponMax - s.weaponMin);
     let physical = smite ? (s.smiteMin + Math.random() * (s.smiteMax - s.smiteMin)) * (1 + (s.smiteDamageBonus + v.damage) / 100) : weaponDamage * (1 + (s.damageBonus + (id==='magicArrow'?0:v.damage)) / 100);
     if (!smite) physical += weaponDamage * (isUndead(enemy) ? s.mods.damageUndead ?? 0 : enemy.definition?.race === 'demon' ? s.mods.damageDemons ?? 0 : 0) / 100;
-    if(['multipleShot','strafe'].includes(id)) physical *= .75;
+    if(id==='multipleShot') physical *= .75;
     const critical = !smite && id !== 'sacrifice' && (s.criticalStrike>0&&Math.random()*100<s.criticalStrike || Math.random() * 100 < (s.mods.deadlyStrike ?? 0)); if (critical) physical *= 2;
     if (Math.random() * 100 < (s.mods.crushingBlow ?? 0)) this.damage(enemy, resistedDamage(enemy.hp / playerLifeFactor(enemy.playerCount) * (enemy.boss ? .125 : .25) * (projectile ? .5 : 1), Math.max(0, this.physicalResistance(enemy))), 'physical', true, false, snapshot);
     const classConversion = ['magicArrow','fireArrow','coldArrow','lightningBolt'].includes(id);
@@ -201,7 +202,7 @@ export class PaladinCombat {
         let amount = type === 'poison' ? s.mods.poisonDamage ?? 0 : elementalDamage(s.mods, type);
         if (id === 'vengeance' && type !== 'poison') amount += Math.max(0, weaponDamage - (s.mods.damageFlat ?? 0)) * (v.percent + 10 * h.skills[({ fire: 'resistFire', cold: 'resistCold', lightning: 'resistLightning' } as const)[type]]) / 100;
         for (const aura of s.auras) if (aura.type === type && ['holyFire', 'holyFreeze', 'holyShock'].includes(aura.id)) amount += (aura.min + Math.random() * (aura.max - aura.min)) * aura.secondary * (1 + (projectile || type === 'poison' ? 0 : s.mods[`${type}SkillDamage`] ?? 0) / 100);
-        if(['multipleShot','strafe'].includes(id))amount*=.75;
+        if(id==='multipleShot')amount*=.75;
         if (amount > 0 && !enemy.dead) {
           const elementalDealt = this.damage(enemy, amount, type, false, false, snapshot);
           if (type === 'cold' && elementalDealt > 0) enemy.coldTime = Math.max(enemy.coldTime, (s.mods.coldDuration ?? (v.duration || 2)) / [1, 2, 4][diff]);
@@ -267,8 +268,8 @@ export class PaladinCombat {
           && clearShot(g.world.grid, previous, enemy.actor.group.position);
       }).sort((a, b) => a.actor.group.position.distanceToSquared(previous) - b.actor.group.position.distanceToSquared(previous));
       for (const enemy of hits) {
-        if (projectile.kind === 'bolt' && projectile.healing > 0 && enemy.converted > 0) { enemy.hp = Math.min(enemy.maxHp, enemy.hp + projectile.healing); return false; }
-        if (!this.hostile(enemy) || projectile.kind === 'bolt' && !isUndead(enemy)) continue;
+        if (projectile.kind === 'bolt' && projectile.healing > 0 && enemy.converted > 0) { enemy.hp = Math.min(enemy.maxHp, enemy.hp + projectile.healing); projectile.hit.add(enemy.id); continue; }
+        if (!this.hostile(enemy) || projectile.kind === 'bolt' && !isUndead(enemy) && (enemy.definition?.race ?? enemy.kind) !== 'demon') continue;
         projectile.hit.add(enemy.id);
         if (projectile.kind === 'arrow' || projectile.kind === 'throw') {
           const point = enemy.actor.group.position.clone(), hit = this.weaponHit(enemy, 'attack', projectile);
@@ -276,7 +277,7 @@ export class PaladinCombat {
           if ((hit || projectile.explosion) && Math.random() * 100 >= projectile.pierce) return false;
         } else {
           this.damage(enemy, projectile.damage, 'magic', projectile.kind === 'bolt', false, projectile.snapshot);
-          if (projectile.kind === 'bolt') return false;
+          // Holy bolts pierce; the hit set prevents repeat damage to a body.
         }
       }
     }

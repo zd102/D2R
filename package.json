@@ -25,6 +25,7 @@
     "test:item-art": "node tests/item-art-browser.mjs",
     "test:ranged": "node tests/ranged-browser.mjs",
     "test:classes": "node tests/classes-browser.mjs",
+    "test:modern": "node tests/modern-browser.mjs",
     "test:item-rolls": "node tests/item-rolls-browser.mjs",
     "test:shared-stash": "node tests/shared-stash-browser.mjs && node tests/storage-equipment-browser.mjs",
     "test:ui": "node tests/ui-layout-browser.mjs && node tests/ui-interactions-browser.mjs && node tests/ui-accessibility-browser.mjs && node tests/inventory-details-browser.mjs",
