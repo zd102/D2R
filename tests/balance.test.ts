@@ -33,7 +33,7 @@ test('level gaps discourage low-area farming and high-level XP slows smoothly wi
 
 test('the 75-level campaign has a measured progression curve for thorough and partial clearing, with no difficulty-entry XP dead zone', () => {
   for (const fraction of [.65, 1]) {
-    const rows = simulateProgression(fraction), thresholds = [[39, 44], [66, 71], [88, 91]];
+    const rows = simulateProgression(fraction), thresholds = [[40, 45], [67, 72], [89, 92]];
     let previous = 1;
     for (const row of rows) { assert.ok(row.level > previous && row.level < 99); previous = row.level; }
     for (let diff = 0; diff < 3; diff++) {

@@ -269,7 +269,8 @@ export function repairCost(hero: HeroState) { return [...Object.values(hero.equi
 export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item) { if (item.maxDurability) item.durability = item.maxDurability; } return true; }
 export function respec(hero: HeroState) {
   const diff = difficulty(hero); if (hero.respecUsed.includes(diff) || !hero.questRewards.includes(`${diff}:shrine0`)) return false;
-  const base = CLASSES[hero.classId].attributes;
+  const bonus = hero.questRewards.filter(key => /^[0-2]:jungle$/.test(key)).length * 5;
+  const base = Object.fromEntries(Object.entries(CLASSES[hero.classId].attributes).map(([key, value]) => [key, value + bonus])) as Record<Attribute, number>;
   hero.respecUsed.push(diff); hero.points += Object.keys(base).reduce((sum, key) => sum + hero[key as Attribute] - base[key as Attribute], 0);
   Object.assign(hero, base); hero.skillPoints += Object.values(hero.skills).reduce((sum, rank) => sum + rank, 0); hero.skills = emptySkills(); hero.activeAura = null; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.buffs = {};
   for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) hero.bindings[key] = 'attack'; clampResources(hero); return true;
@@ -279,6 +280,27 @@ export function grantQuestReward(hero: HeroState, event: 'shrine0' | 'shrine1' |
   if (event === 'shrine0' || event === 'shrine1') hero.skillPoints++;
   if (event === 'shrine2') { hero.points += 5; hero.bonusLife += 20; hero.bonusResist += 10; }
   if (event === 'boss') hero.skillPoints += 2; return true;
+}
+export const CAMPAIGN_REWARDS: Record<number, { key: string; label: string }> = {
+  5: { key: 'shrine1', label: '技能点 +2' },
+  11: { key: 'jungle', label: '全属性 +5' },
+  16: { key: 'boss', label: '技能点 +2' },
+  22: { key: 'resistance', label: '所有抗性 +5' },
+  23: { key: 'summit', label: '升级 1 级' },
+};
+export function campaignRewardClaimed(hero: HeroState, index: number, diff: number = difficulty(hero)) {
+  const reward = CAMPAIGN_REWARDS[index];
+  return !!reward && (hero.questRewards.includes(`${diff}:${reward.key}`)
+    || reward.key === 'resistance' && hero.questRewards.includes(`${diff}:shrine2`));
+}
+function grantCampaignReward(hero: HeroState, index: number) {
+  const reward = CAMPAIGN_REWARDS[index];
+  if (!reward || campaignRewardClaimed(hero, index)) return;
+  hero.questRewards.push(`${difficulty(hero)}:${reward.key}`);
+  if (index === 5 || index === 16) hero.skillPoints += 2;
+  if (index === 11) for (const key of ['strength', 'dexterity', 'vitality', 'energy'] as const) hero[key] += 5;
+  if (index === 22) hero.bonusResist += 5;
+  if (index === 23) gainXp(hero, xpForLevel(hero.level));
 }
 export function prepareCampaignReplay(hero: HeroState): boolean {
   const { campaign, difficultyLevel: diff } = hero, index = campaign.current;
@@ -320,16 +342,14 @@ export function completeCampaignLevel(hero: HeroState) {
     campaign.cleared[diff]++;
     hero.gold += 100 + index * 35 + diff * 250;
     if (index === 0) grantQuestReward(hero, 'shrine0');
-    if (index === 5) grantQuestReward(hero, 'shrine1');
-    if (index === 16) grantQuestReward(hero, 'boss');
-    const reward = index === 10 ? 'life' : index === 12 ? 'attributes' : index === 22 ? 'resistance' : null;
+    const reward = index === 10 ? 'life' : index === 12 ? 'attributes' : null;
     if (reward && !hero.questRewards.includes(`${diff}:${reward}`) && !hero.questRewards.includes(`${diff}:shrine2`)) {
       hero.questRewards.push(`${diff}:${reward}`);
       if (reward === 'life') hero.bonusLife += 20;
       if (reward === 'attributes') hero.points += 5;
-      if (reward === 'resistance') hero.bonusResist += 10;
     }
   }
+  grantCampaignReward(hero, index);
   hero.unlockedDifficulty = unlockedCampaignDifficulty(campaign);
   return true;
 }
@@ -427,7 +447,7 @@ export function parseSave(raw: string | null): HeroState | null {
     hero.stash = Array.isArray(h.stash) ? h.stash.map(uniqueItem).filter((item: Item | null): item is Item => !!item).slice(0, 200) : [];
     if (!packItems(hero.inventory)) { const items = hero.inventory; hero.inventory = []; for (const item of items) { if (packItems([...hero.inventory, item])) hero.inventory.push(item); else hero.stash.push(item); } placeItems(hero.inventory); }
     hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)).slice(0, 1000) : []; hero.identifyScrolls = integer(h.identifyScrolls, 0, 0, 99);
-    hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(shrine[0-2]|boss|life|attributes|resistance)$/.test(key)))] : [];
+    hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(shrine[0-2]|boss|life|attributes|resistance|jungle|summit)$/.test(key)))] : [];
     hero.respecUsed = Array.isArray(h.respecUsed) ? [...new Set<number>(h.respecUsed.filter((value: unknown) => value === 0 || value === 1 || value === 2))] : [];
     hero.bonusLife = integer(h.bonusLife, 0, 0, 60); hero.bonusResist = integer(h.bonusResist, 0, 0, 30); hero.holyShield = decimal(h.holyShield, 0, 0, 3600); hero.poison = decimal(h.poison, 0, 0, 120); hero.curse = decimal(h.curse, 0, 0, 120); hero.cold = decimal(h.cold, 0, 0, 120); hero.running = h.running !== false;
     hero.holyShieldLevel = integer(h.holyShieldLevel, 0, 0, 100);

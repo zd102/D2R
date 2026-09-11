@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ACTS, LEVELS, newCampaign, canEnterLevel, questComplete, levelLayout, levelTuning } from '../src/campaign.ts';
-import { newHero, parseSave, serializeSave, selectCampaignLevel, prepareCampaignReplay, completeCampaignLevel, recordQuestKill, activateQuestObject, grantQuestReward } from '../src/model.ts';
+import { newHero, parseSave, serializeSave, selectCampaignLevel, prepareCampaignReplay, completeCampaignLevel, recordQuestKill, activateQuestObject, grantQuestReward, respec, stats } from '../src/model.ts';
 import { SaveStore, PROFILE_PREFIX } from '../src/saves.ts';
 
 function finishQuest(hero: ReturnType<typeof newHero>) {
@@ -43,8 +43,8 @@ test('all 75 levels advance in order; only 25 clears unlock the next difficulty'
       assert.equal(hero.unlockedDifficulty, level.index === 24 ? Math.min(2, diff + 1) : diff);
       if (diff < 2 && level.index < 24) assert.equal(canEnterLevel(hero.campaign, 0, diff + 1), false);
     }
-    assert.equal(hero.skillPoints, (diff + 1) * 4); assert.equal(hero.points, (diff + 1) * 5);
-    assert.equal(hero.bonusLife, (diff + 1) * 20); assert.equal(hero.bonusResist, (diff + 1) * 10);
+    assert.equal(hero.skillPoints, (diff + 1) * 6); assert.equal(hero.points, (diff + 1) * 10);
+    assert.equal(hero.bonusLife, (diff + 1) * 20); assert.equal(hero.bonusResist, (diff + 1) * 5);
   }
   assert.deepEqual(hero.campaign.cleared, [25, 25, 25]);
   assert.deepEqual(parseSave(serializeSave(hero)), hero);
@@ -59,7 +59,7 @@ test('replay leaves the frontier and other difficulties intact; partial tasks su
 });
 test('every cleared boss is farmable repeatedly in its own difficulty without repeating permanent rewards', () => {
   const hero = newHero(); hero.campaign.cleared = [25, 25, 25]; hero.unlockedDifficulty = 2;
-  hero.gold = 4321; hero.skillPoints = 8; hero.points = 12; hero.bonusLife = 60; hero.bonusResist = 30; hero.questRewards = ['0:shrine0'];
+  hero.gold = 4321; hero.skillPoints = 8; hero.points = 12; hero.bonusLife = 60; hero.bonusResist = 30; hero.questRewards = ['0:shrine0', ...[0, 1, 2].flatMap(diff => ['shrine1', 'jungle', 'boss', 'resistance', 'summit'].map(key => `${diff}:${key}`))];
   const rewards = () => [hero.gold, hero.skillPoints, hero.points, hero.bonusLife, hero.bonusResist, ...hero.questRewards];
   const before = rewards();
   for (const diff of [0, 1, 2] as const) for (const level of LEVELS) for (let run = 0; run < 2; run++) {
@@ -111,4 +111,47 @@ test('campaign changes are included in independent profile persistence and legac
   const legacy = JSON.stringify(raw); storage.setItem(PROFILE_PREFIX + profile.id, legacy);
   const migrated = store.read(profile.id); finishQuest(migrated.hero); completeCampaignLevel(migrated.hero); store.save(migrated.id, migrated.hero, migrated.revision);
   assert.equal(storage.getItem('eclipse-ii-before-campaign:' + profile.id), legacy); assert.equal(store.read(profile.id).hero.campaign.cleared[0], 1);
+});
+
+for (const diff of [0, 1, 2] as const) test(`permanent campaign rewards persist and cannot be reclaimed in difficulty ${diff}`, () => {
+  let hero = newHero(); hero.campaign.cleared = [25, 25, 25];
+  const attributes = ['strength', 'dexterity', 'vitality', 'energy'] as const;
+  for (const index of [5, 11, 16, 22, 23]) {
+    selectCampaignLevel(hero, index, diff);
+    const before = structuredClone(hero), previousStats = stats(hero);
+    assert.equal(completeCampaignLevel(hero), true);
+    assert.equal(hero.skillPoints - before.skillPoints, index === 5 || index === 16 ? 2 : index === 23 ? 1 : 0);
+    for (const key of attributes) assert.equal(hero[key] - before[key], index === 11 ? 5 : 0);
+    assert.equal(hero.bonusResist - before.bonusResist, index === 22 ? 5 : 0);
+    if (index === 22) for (const type of ['fire', 'cold', 'lightning', 'poison'] as const) assert.equal(stats(hero).resistances[type] - previousStats.resistances[type], 5);
+    assert.equal(hero.level - before.level, index === 23 ? 1 : 0);
+    assert.equal(hero.points - before.points, index === 23 ? 5 : 0);
+    hero = parseSave(serializeSave(hero))!;
+    const after = structuredClone(hero);
+    selectCampaignLevel(hero, index, diff); completeCampaignLevel(hero);
+    for (const key of [...attributes, 'skillPoints', 'points', 'bonusResist', 'level', 'xp', 'gold', 'questRewards'] as const) assert.deepEqual(hero[key], after[key]);
+  }
+  hero.questRewards.push(`${diff}:shrine0`); hero.strength += 10;
+  const points = hero.points;
+  assert.equal(respec(hero), true); assert.equal(hero.points, points + 10);
+  for (const key of attributes) assert.equal(hero[key], newHero()[key] + 5);
+  assert.deepEqual(parseSave(serializeSave(hero)), hero);
+});
+
+test('summit reward preserves current experience and respects level 99 cap', () => {
+  for (const level of [50, 98, 99]) {
+    const hero = newHero(); hero.campaign.cleared = [25, 0, 0]; hero.level = level; hero.xp = level === 99 ? 0 : 123;
+    selectCampaignLevel(hero, 23); completeCampaignLevel(hero);
+    assert.equal(hero.level, Math.min(99, level + 1)); assert.equal(hero.xp, level >= 98 ? 0 : 123);
+    assert.equal(hero.skillPoints, level === 99 ? 0 : 1); assert.equal(hero.points, level === 99 ? 0 : 5);
+    assert.ok(hero.questRewards.includes('0:summit'));
+  }
+});
+
+test('legacy claimed rewards are retained without duplicate grants', () => {
+  const hero = newHero(); hero.campaign.cleared = [25, 0, 0];
+  hero.questRewards = ['0:shrine1', '0:boss', '0:shrine2']; hero.bonusResist = 10;
+  for (const index of [5, 16, 22]) { selectCampaignLevel(hero, index); completeCampaignLevel(hero); }
+  assert.equal(hero.skillPoints, 0); assert.equal(hero.bonusResist, 10);
+  assert.deepEqual(hero.questRewards, ['0:shrine1', '0:boss', '0:shrine2']);
 });
