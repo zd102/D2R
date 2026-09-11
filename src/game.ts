@@ -20,7 +20,7 @@ import { buyProgressionBase } from './progression-equipment';
 import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat, type AttackSnapshot } from './combat';
 import { MercenaryCombat } from './mercenary-combat';
-import { mercenaryUnlocked, hireMercenary, mercenaryStats } from './mercenary';
+import { mercenaryUnlocked, hireMercenary, mercenaryStats, feedMercenaryPotion, mercenaryPotionReason } from './mercenary';
 import { BOSSES, ENCOUNTERS, MONSTERS, monsterTactic, type MonsterDef } from './bestiary';
 import { createMonsterActor } from './monster-models';
 import { MonsterCombat } from './monster-combat';
@@ -542,6 +542,10 @@ export class Game {
       if (key === 'tab' || key === 'm') { this.ui.togglePanel('map'); return; }
       if (key === 'j') { this.ui.togglePanel('quest'); return; }
       if (this.paused || this.dead) return;
+      // Shift+Digit1 is reported as "!" on common keyboard layouts.
+      if (event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && (event.code === 'Digit1' || event.code === 'Numpad1' || key === '1')) {
+        event.preventDefault(); this.begin(); this.drinkMercenary(); return;
+      }
       this.begin(); this.keys.add(key);
       if (key === 'x') { this.swapWeapons(); return; }
       if (key === 'v') { this.hero.running = !this.hero.running; return; }
@@ -738,6 +742,14 @@ export class Game {
     if (!this.hero.potions[index]) { this.ui.toast('药剂已用尽'); return; }
     this.hero.potions[index]--; this.combat.regen[index] += index ? 80 : 160;
     this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), index === 0 ? 0xe25c65 : 0x63c8ed, 15); this.audio.play('potion'); this.save(false);
+  }
+  drinkMercenary() {
+    if (!this.profile || this.paused || this.dead || this.saveConflict) return false;
+    const reason = mercenaryPotionReason(this.hero);
+    if (reason) { this.ui.toast(reason); return false; }
+    if (!feedMercenaryPotion(this.hero)) return false;
+    if (this.mercenary.position) this.burst(this.mercenary.position.clone().setY(1), 0xe25c65, 15);
+    this.audio.play('potion'); this.ui.toast('米山使用了生命药剂', '持续恢复 160 点生命'); this.save(false); return true;
   }
   contextAction() {
     if (this.dead) return null;

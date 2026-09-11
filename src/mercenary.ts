@@ -8,7 +8,25 @@ export const MERCENARY_SLOTS = ['weapon', 'helm', 'armor'] as const;
 export type MercenarySlot = typeof MERCENARY_SLOTS[number];
 export const MERCENARY_AURAS = ['prayer', 'defiance', 'blessedAim', 'might', 'holyFreeze', 'thorns'] as const;
 export type MercenaryAura = typeof MERCENARY_AURAS[number];
-export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number };
+export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number };
+export const MERCENARY_POTION = { healing: 160, perSecond: 30 } as const;
+export function mercenaryPotionReason(hero: HeroState) {
+  const merc = hero.mercenary;
+  if (!merc) return '尚未雇佣米山';
+  if (merc.status !== 'alive' || merc.hp <= 0) return '米山已阵亡，需要重新雇佣';
+  if (merc.hp >= mercenaryStats(hero).maxHp) return '米山生命值已满';
+  return hero.potions[0] > 0 ? '' : '生命药剂已用尽';
+}
+export function feedMercenaryPotion(hero: HeroState) {
+  if (mercenaryPotionReason(hero)) return false;
+  hero.potions[0]--; hero.mercenary!.potionHealing = (hero.mercenary!.potionHealing ?? 0) + MERCENARY_POTION.healing; return true;
+}
+export function updateMercenaryPotion(hero: HeroState, dt: number, maxHp = mercenaryStats(hero).maxHp) {
+  const merc = hero.mercenary;
+  if (!merc || merc.status !== 'alive' || merc.hp <= 0 || !Number.isFinite(dt) || dt <= 0) return;
+  const restored = Math.min(merc.potionHealing ?? 0, MERCENARY_POTION.perSecond * dt);
+  merc.potionHealing = Math.max(0, (merc.potionHealing ?? 0) - restored); merc.hp = Math.min(maxHp, merc.hp + restored);
+}
 export const mercenaryUnlocked = (hero: HeroState) => hero.campaign.cleared.some(count => count >= 5);
 export const mercenaryCost = (hero: HeroState) => Math.min(50000, 300 + hero.level * 80 + hero.level * hero.level * 5);
 export const mercenaryBase = (level: number) => ({ strength: 40 + level * 2, dexterity: 25 + Math.floor(level * 1.5), life: 100 + level * 18, resistance: Math.min(70, 10 + level) });
@@ -128,5 +146,6 @@ export function parseMercenary(hero: HeroState, value: unknown, parseItem: (valu
   hero.mercenary = merc;
   merc.hp = Math.max(0, Math.min(mercenaryStats(hero).maxHp, typeof data.hp === 'number' && Number.isFinite(data.hp) ? data.hp : 0));
   if (merc.status === 'dead' || !merc.hp) { merc.status = 'dead'; merc.hp = 0; }
+  merc.potionHealing = merc.status === 'alive' && typeof data.potionHealing === 'number' && Number.isFinite(data.potionHealing) ? Math.max(0, Math.min(1000000, data.potionHealing)) : 0;
   for (const key of ['cold', 'poison'] as const) merc[key] = typeof data[key] === 'number' && Number.isFinite(data[key]) ? Math.max(0, Math.min(120, data[key]!)) : 0;
 }

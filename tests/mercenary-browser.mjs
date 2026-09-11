@@ -65,6 +65,30 @@ try {
     await page.locator('[data-mercenary-slot="weapon"] summary').click();
     await page.keyboard.press('Escape');
 
+    const potionCount = await page.evaluate(() => {
+      const g = window.mercenaryVerification;
+      g.hero.hp = 20; g.hero.mercenary.hp = 100; g.hero.mercenary.aura = 'might'; g.hero.mercenary.potionHealing = 0;
+      return g.hero.potions[0];
+    });
+    await page.keyboard.down('Shift'); await page.keyboard.down('Digit1'); await page.keyboard.down('Digit1');
+    await page.keyboard.up('Digit1'); await page.keyboard.up('Shift');
+    await page.waitForFunction(() => window.mercenaryVerification.hero.mercenary.hp > 100);
+    assert.equal((await savedProfile(page)).hero.potions[0], potionCount - 1, 'Shift+1 and OS key repeat consume one bottle');
+    assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.hp), 20, 'Shift+1 does not heal the player');
+    await page.keyboard.press('o'); await page.keyboard.press('Shift+Digit1');
+    assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.potions[0]), potionCount - 1, 'Paused input cannot feed potions');
+    await page.keyboard.press('Escape');
+    await page.evaluate(async () => { const g = window.mercenaryVerification; const { mercenaryStats } = await import('/src/mercenary.ts'); g.hero.mercenary.hp = mercenaryStats(g.hero).maxHp; g.hero.mercenary.potionHealing = 0; });
+    await page.keyboard.press('Shift+Digit1');
+    assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.potions[0]), potionCount - 1, 'Full health does not waste a bottle');
+    await page.evaluate(() => { const g = window.mercenaryVerification; g.hero.mercenary.hp = 100; g.hero.potions[0] = 0; });
+    await page.keyboard.press('Shift+Digit1');
+    assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.mercenary.hp), 100, 'Empty belt cannot heal the mercenary');
+    await page.evaluate(count => { const g = window.mercenaryVerification; g.hero.potions[0] = count; g.hero.hp = 20; g.combat.regen[0] = 0; }, potionCount - 1);
+    await page.keyboard.press('Digit1'); await page.waitForFunction(() => window.mercenaryVerification.hero.hp > 20);
+    assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.mercenary.hp), 100, 'Plain 1 still heals only the player');
+    await page.evaluate(() => { const g = window.mercenaryVerification; g.combat.regen[0] = 0; g.hero.mercenary.aura = 'holyFreeze'; });
+
     const combat = await page.evaluate(async () => {
       const g = window.mercenaryVerification, { stats } = await import('/src/model.ts'), { ATTACKS } = await import('/src/monster-combat.ts');
       g.enterLevel(0, 0); g.paused = true; g.invincible = 0;
@@ -107,6 +131,10 @@ try {
     assert.ok(combat.dealt > 0 && combat.attacks >= 2); assert.ok(combat.healed); assert.equal(combat.playerHp, 20); assert.ok(combat.slow < 1);
     assert.equal(combat.chosen, 'mercenary'); for (const key of ['receivedMelee', 'receivedMissile', 'receivedHazard', 'prayerHealed', 'itemAura', 'reflected', 'killCredit', 'followed', 'dead', 'campDead', 'fieldHireRejected']) assert.equal(combat[key], true, key);
     assert.equal(combat.durability, combat.finalDurability);
+    await page.keyboard.press('Escape');
+    const deadPotions = await page.evaluate(() => window.mercenaryVerification.hero.potions[0]);
+    await page.keyboard.press('Shift+Digit1');
+    assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.potions[0]), deadPotions, 'Feeding cannot revive a dead mercenary');
     await page.reload(); await page.getByRole('button', { name: '进入旅程', exact: true }).click();
     await page.waitForFunction(() => window.eclipseState?.mercenary?.status === 'dead');
     assert.equal(await page.evaluate(() => window.eclipseState.mercenary.position), null);
@@ -114,7 +142,7 @@ try {
     const gold = (await savedProfile(page)).hero.gold; await page.locator('[data-action="hire-mercenary"]').click();
     saved = (await savedProfile(page)).hero; assert.equal(saved.gold, gold - mercenaryCost(saved)); assert.equal(saved.mercenary.status, 'alive'); assert.equal(saved.mercenary.equipment.weapon.id, spear.id);
     await page.screenshot({ path: `${output}/rehired-${width}.png` });
-    console.log(`Mercenary merchant, equipment, all auras, combat, death and rehire passed at ${width}px`);
+    console.log(`Mercenary merchant, equipment, auras, combat, Shift+1 potions, death and rehire passed at ${width}px`);
     await page.close();
   }
   assert.deepEqual(errors, []);

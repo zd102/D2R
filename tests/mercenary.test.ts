@@ -4,6 +4,7 @@ import { newHero, stats, gainXp, parseSave, serializeSave, emptyEquipment } from
 import { xpForLevel } from '../src/paladin.ts';
 import { BASES, makeItem, packItems } from '../src/items.ts';
 import { mercenaryUnlocked, mercenaryCost, hireMercenary, mercenaryStats, mercenaryBase, mercenaryAuras, selectMercenaryAura, equipMercenary, unequipMercenary, activeMercenaryEquipment, mercenaryEquipReason, setMercenaryDistance, MERCENARY_AURAS } from '../src/mercenary.ts';
+import { feedMercenaryPotion, updateMercenaryPotion } from '../src/mercenary.ts';
 
 const item = (code: string, id = code) => makeItem(BASES.find(base => base.baseCode === code)!, id);
 function hero(level = 30) { const h = newHero(); h.level = level; h.campaign.cleared[0] = 5; h.gold = 100000; assert.ok(hireMercenary(h, true)); return h; }
@@ -99,4 +100,24 @@ test('save migration, death, rehire and item de-duplication preserve guard posse
 test('malformed guard resources and aura values are sanitized without corrupting the character', () => {
   const h = hero(), data = JSON.parse(serializeSave(h)); data.hero.mercenary.hp = -1; data.hero.mercenary.aura = 'constructor'; data.hero.mercenary.poison = 'bad';
   const loaded = parseSave(JSON.stringify(data))!; assert.equal(loaded.mercenary!.status, 'dead'); assert.equal(loaded.mercenary!.aura, 'prayer'); assert.equal(loaded.mercenary!.poison, 0);
+});
+
+test('feeding a health potion consumes one shared bottle and heals only the mercenary over time', () => {
+  const h = hero(); h.mercenary!.hp = 100; const playerHp = h.hp, count = h.potions[0];
+  assert.ok(feedMercenaryPotion(h)); assert.equal(h.potions[0], count - 1); assert.equal(h.mercenary!.hp, 100);
+  updateMercenaryPotion(h, 1); assert.equal(h.mercenary!.hp, 130); assert.equal(h.hp, playerHp);
+  const loaded = parseSave(serializeSave(h))!; assert.equal(loaded.mercenary!.potionHealing, 130);
+  updateMercenaryPotion(loaded, 10); assert.equal(loaded.mercenary!.hp, 260); assert.equal(loaded.mercenary!.potionHealing, 0);
+  loaded.mercenary!.hp = mercenaryStats(loaded).maxHp - 1; feedMercenaryPotion(loaded); updateMercenaryPotion(loaded, 1);
+  assert.equal(loaded.mercenary!.hp, mercenaryStats(loaded).maxHp);
+});
+
+test('potion use preserves bottles without an injured living mercenary, and cannot revive the dead', () => {
+  const h = newHero(), count = h.potions[0]; assert.equal(feedMercenaryPotion(h), false); assert.equal(h.potions[0], count);
+  const hired = hero(); assert.equal(feedMercenaryPotion(hired), false);
+  hired.mercenary!.hp = 100; hired.potions[0] = 0; assert.equal(feedMercenaryPotion(hired), false);
+  hired.potions[0] = 3; feedMercenaryPotion(hired); hired.mercenary!.hp = 0; hired.mercenary!.status = 'dead';
+  assert.equal(feedMercenaryPotion(hired), false); updateMercenaryPotion(hired, 10); assert.equal(hired.mercenary!.hp, 0); assert.equal(hired.potions[0], 2);
+  const loaded = parseSave(serializeSave(hired))!; assert.equal(loaded.mercenary!.potionHealing, 0); assert.ok(hireMercenary(loaded, true));
+  assert.equal(loaded.mercenary!.potionHealing ?? 0, 0);
 });
