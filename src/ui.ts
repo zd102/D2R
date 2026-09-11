@@ -279,6 +279,7 @@ export class UI {
         case 'profiles': this.game.returnToProfiles(); break;
         case 'camp': this.game.returnToCamp(); break;
         case 'camp-portal': this.game.useCampPortal(); break;
+        case 'return-portal': this.game.useReturnPortal(); break;
         case 'mystery-portal': this.game.useMysteryPortal(); break;
         case 'base-merchant': this.game.useBaseMerchant(); break;
         case 'mercenary-merchant': this.game.useMercenaryMerchant(); break;
@@ -483,6 +484,7 @@ export class UI {
     if (this.game.inCamp) {
       dot(CAMP.portal.x, CAMP.portal.z, '#63c8c8', large ? 6 : 4, true);
       dot(CAMP.mysteryPortal.x, CAMP.mysteryPortal.z, '#c48bea', large ? 6 : 4, true);
+      if (this.game.campReturn) dot(CAMP.returnPortal.x, CAMP.returnPortal.z, '#8cf5cf', large ? 6 : 4, true);
       dot(CAMP.baseMerchant.x, CAMP.baseMerchant.z, '#d6c492', large ? 5 : 3);
       if (mercenaryUnlocked(this.game.hero)) dot(CAMP.mercenaryMerchant.x, CAMP.mercenaryMerchant.z, '#a6d6ae', large ? 5 : 3);
       dot(CAMP.supply.x, CAMP.supply.z, '#d6c492', large ? 5 : 3);
@@ -618,6 +620,17 @@ export class UI {
         const key = 'mystery-portal'; aliveKeys.add(key); let label = this.labelNodes.get(key);
         if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = 'mystery-portal'; setMarkup(label, `${icon('sparkles')}神秘传送阵`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
         label.hidden = game.paused; label.style.transform = `translate(${point.x}px, ${Math.max(90, point.y)}px) translate(-50%, -100%)`;
+      }
+    }
+    if (game.inCamp && game.campReturn) {
+      const point = game.project(new THREE.Vector3(CAMP.returnPortal.x, 2.8, CAMP.returnPortal.z));
+      if (point.visible && Math.hypot(game.position.x - CAMP.returnPortal.x, game.position.z - CAMP.returnPortal.z) < 16) {
+        const key = 'return-portal'; aliveKeys.add(key); let label = this.labelNodes.get(key);
+        if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = key; label.setAttribute('aria-label', '返程传送门'); this.labels.append(label); this.labelNodes.set(key, label); }
+        const direction = point.x < 80 ? '← ' : point.x > innerWidth - 80 ? '→ ' : '↶ ';
+        setText(label, `${direction}返程传送门`);
+        label.title = `返回${game.campReturn.world.level.name} · 继续上次关卡`;
+        label.hidden = game.paused; label.style.transform = `translate(${Math.max(80, Math.min(innerWidth - 80, point.x))}px, ${Math.max(100, Math.min(innerHeight - 190, point.y))}px) translate(-50%, -100%)`;
       }
     }
     const mysteryCorpse = game.world.mysteryCorpse;

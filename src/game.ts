@@ -43,6 +43,13 @@ export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: n
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 type PointerGesture = { id: number; button: number; x: number; y: number; started: number; dragging: boolean; stationary: boolean; mode: 'move' | 'attack' | 'interact' | 'cast' };
+// Session-only: keep the actual encounter frozen, never serialize it into a profile.
+type CampReturn = {
+  world: GameWorld; position: THREE.Vector3; specialArea?: SpecialArea;
+  enemies: Enemy[]; loot: Loot[]; effects: Effect[]; visited: Set<string>;
+  combat: PaladinCombat; monsterCombat: MonsterCombat; monsterBatches: MonsterBatches;
+  projectileVisuals: ProjectileVisualPool; cooldowns: ReturnType<typeof emptyCooldowns>;
+};
 export type Skill = SkillSlot;
 export class Game {
   world = new GameWorld(LEVELS[0], true);
@@ -80,7 +87,8 @@ export class Game {
   target?: Enemy;
   pendingPickup?: number;
   pendingPortal = false;
-  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' | 'mercenaryMerchant' = 'portal';
+  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' | 'mercenaryMerchant' | 'returnPortal' = 'portal';
+  campReturn?: CampReturn;
   pendingMysteryCorpse = false;
   pendingChest?: number;
   heldAttack = false;
@@ -178,32 +186,37 @@ export class Game {
   get level() { return this.specialArea ? SPECIAL_LEVELS[this.specialArea] : LEVELS[this.hero.campaign.current]; }
   get inCamp() { return this.world.isCamp; }
   get areaName() { return this.inCamp ? CAMP.name : this.level.name; }
-  loadArea(inCamp: boolean) {
+  loadArea(inCamp: boolean, resume?: CampReturn) {
+    const suspending = this.campReturn?.world === this.world;
     this.renderBudget.reset();
-    this.monsterBatches.dispose();
+    if (!suspending) this.monsterBatches.dispose();
     this.audio.stopEffects?.();
     this.releaseInput();
     this.mercenary.clear();
     if (this.mercenaryVendor) this.disposeObject(this.mercenaryVendor.group);
     this.mercenaryVendor = undefined;
-    this.combat?.classes.clear();
-    this.projectileVisuals.clear();
+    if (!suspending) { this.combat?.classes.clear(); this.projectileVisuals.clear(); }
     this.world.scene.remove(this.actor.group, this.marker, this.selection, this.playerRing);
     if(this.actor.group.userData.classId!==this.hero.classId) {
       const light=this.actor.group.getObjectByName('hero-light');light?.removeFromParent();
       this.disposeObject(this.actor.group);this.actor=createActor('hero',this.hero.classId);if(light)this.actor.group.add(light);
     }
-    this.world.dispose(); this.world = new GameWorld(this.level, inCamp);
-    this.monsterBatches = new MonsterBatches(this.world.scene);
+    if (suspending) this.world.physics.removeBody(this.body);
+    else this.world.dispose();
+    this.world = resume?.world ?? new GameWorld(this.level, inCamp);
+    this.monsterBatches = resume?.monsterBatches ?? new MonsterBatches(this.world.scene);
+    this.projectileVisuals = resume?.projectileVisuals ?? new ProjectileVisualPool();
+    if (inCamp && this.campReturn) this.world.returnPortal = this.world.makePortal(CAMP.returnPortal.x, CAMP.returnPortal.z);
     (this.composer.passes[0] as RenderPass).scene = this.world.scene;
-    const spawn = inCamp ? CAMP.spawn : this.world.layout.spawn;
+    const spawn = resume?.position ?? (inCamp ? CAMP.spawn : this.world.layout.spawn);
     this.body = this.world.body(spawn.x, spawn.z); this.actor.group.position.set(spawn.x, 0, spawn.z); this.actor.group.scale.setScalar(1);
     const next = inCamp ? CAMP.portal : this.world.layout.route[1];
     this.actor.group.rotation.set(0, Math.atan2(next.x - spawn.x, next.z - spawn.z), 0);
     this.world.scene.add(this.actor.group, this.marker, this.selection, this.playerRing);
     this.marker.visible = this.selection.visible = false; this.playerRing.position.set(spawn.x, .09, spawn.z);
-    this.enemies = []; this.loot = []; this.effects = []; this.visited.clear(); this.combat = new PaladinCombat(this);
-    this.monsterCombat = new MonsterCombat(this);
+    this.enemies = resume?.enemies ?? []; this.loot = resume?.loot ?? []; this.effects = resume?.effects ?? [];
+    this.visited = resume?.visited ?? new Set(); this.combat = resume?.combat ?? new PaladinCombat(this);
+    this.monsterCombat = resume?.monsterCombat ?? new MonsterCombat(this);
     this.mercenary.sync();
     if (inCamp && mercenaryUnlocked(this.hero)) {
       this.mercenaryVendor = createActor('hero', 'paladin');
@@ -211,14 +224,15 @@ export class Game {
       this.mercenaryVendor.group.rotation.y = -Math.PI / 2;
       this.world.scene.add(this.mercenaryVendor.group);
     }
-    this.cooldowns = emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
+    this.cooldowns = resume?.cooldowns ?? emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
     this.ui.hoveredEnemy = undefined; this.ui.floats.forEach(float => float.element.remove()); this.ui.floats = [];
-    if (!inCamp && !this.specialArea) {
+    if (!inCamp && !this.specialArea && !resume) {
       this.hero.campaign.objects.forEach(id => this.world.completeObjective(id)); this.world.exit.visible = this.hero.bossDefeated;
     }
     this.renderer.domElement.setAttribute('aria-label', `${this.areaName}游戏场景`);
     document.getElementById('app')!.classList.toggle('is-camp', inCamp);
-    this.spawnEnemies(); this.ui.closePanel(); this.resize(); this.audio.play('portal');
+    if (!resume) this.spawnEnemies();
+    this.ui.closePanel(); this.resize(); this.audio.play('portal');
   }
   previewClass(classId: HeroState['classId']) {
     if(this.profile||this.actor.group.userData.classId===classId)return;
@@ -235,8 +249,33 @@ export class Game {
     const previous = structuredClone(this.hero);
     prepareCampArrival(this.hero);
     if (!this.save(false)) { this.hero = previous; return false; }
+    this.clearCampReturn();
+    this.campReturn = {
+      world: this.world, position: this.position.clone(), specialArea: this.specialArea,
+      enemies: this.enemies, loot: this.loot, effects: this.effects, visited: this.visited,
+      combat: this.combat, monsterCombat: this.monsterCombat, monsterBatches: this.monsterBatches,
+      projectileVisuals: this.projectileVisuals, cooldowns: this.cooldowns,
+    };
     this.specialArea = undefined;
-    this.loadArea(true); this.ui.toast(CAMP.name, '旅程已保存'); return true;
+    this.loadArea(true); this.ui.toast(CAMP.name, '返程传送门已开启 · 可回到离开的位置'); return true;
+  }
+  clearCampReturn() {
+    const saved = this.campReturn; this.campReturn = undefined;
+    if (!saved) return;
+    saved.monsterBatches.dispose(); saved.projectileVisuals.clear(); saved.world.dispose();
+  }
+  resumeCampReturn() {
+    if (!this.inCamp || !this.profile || this.dead || this.saveConflict || !this.campReturn) return false;
+    if (Math.hypot(this.position.x - CAMP.returnPortal.x, this.position.z - CAMP.returnPortal.z) >= 3.5) return false;
+    if (!this.save(false)) return false;
+    const saved = this.campReturn; this.campReturn = undefined; this.specialArea = saved.specialArea;
+    this.loadArea(false, saved); this.ui.toast(this.level.name, '已返回离开的位置 · 继续探索'); return true;
+  }
+  useReturnPortal() {
+    if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict || !this.campReturn) return;
+    this.begin(); this.pendingCampTarget = 'returnPortal';
+    if (Math.hypot(this.position.x - CAMP.returnPortal.x, this.position.z - CAMP.returnPortal.z) < 3.5) this.resumeCampReturn();
+    else { this.moveTo(new THREE.Vector3(CAMP.returnPortal.x, 0, CAMP.returnPortal.z)); this.pendingPortal = this.path.length > 0; }
   }
   useCampPortal() {
     if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict) return;
@@ -483,6 +522,7 @@ export class Game {
       }
       this.pendingPortal = false; this.pendingChest = undefined;
       if (this.inCamp && !event.shiftKey && this.raycaster.intersectObject(this.world.portal, true).length) { this.useCampPortal(); return; }
+      if (this.inCamp && !event.shiftKey && this.world.returnPortal && this.raycaster.intersectObject(this.world.returnPortal, true).length) { this.useReturnPortal(); return; }
       if (this.inCamp && !event.shiftKey && this.world.mysteryPortal && this.raycaster.intersectObject(this.world.mysteryPortal, true).length) { this.useMysteryPortal(); return; }
       if (this.inCamp && !event.shiftKey && this.world.sharedStash && this.raycaster.intersectObject(this.world.sharedStash, true).length) { this.useSharedStash(); return; }
       const enemy = this.enemyAt(event.clientX, event.clientY);
@@ -755,6 +795,7 @@ export class Game {
     if (this.dead) return null;
     if (this.hero.corpse && Math.hypot(this.position.x - this.hero.corpse.x, this.position.z - this.hero.corpse.z) < 2.8) return { name: '取回遗体装备', kind: 'corpse', id: 0 };
     if (this.inCamp) {
+      if (this.campReturn && Math.hypot(this.position.x - CAMP.returnPortal.x, this.position.z - CAMP.returnPortal.z) < 3.5) return { name: '返程传送门 · 继续上次关卡', kind: 'return-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.stash.x, this.position.z - CAMP.stash.z) < 3.5) return { name: '本地共享仓库', kind: 'shared-stash', id: 0 };
       if (Math.hypot(this.position.x - CAMP.portal.x, this.position.z - CAMP.portal.z) < 3.5) return { name: '传送阵 · 选择关卡', kind: 'camp-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.mysteryPortal.x, this.position.z - CAMP.mysteryPortal.z) < 3.5) return { name: '神秘传送阵', kind: 'mystery-portal', id: 0 };
@@ -782,6 +823,7 @@ export class Game {
     if (action.kind === 'base-shop') { this.ui.openPanel('base-shop'); return; }
     if (action.kind === 'shop') { this.ui.openPanel('shop'); return; }
     if (action.kind === 'camp-portal') { this.ui.openPanel('campaign'); return; }
+    if (action.kind === 'return-portal') { this.resumeCampReturn(); return; }
     if (action.kind === 'mercenary-shop') { this.ui.openPanel('mercenary-shop'); return; }
     if (action.kind === 'mystery-portal') { this.ui.openPanel('mystery-portal'); return; }
     if (action.kind === 'shared-stash') { this.ui.openPanel('shared-stash'); return; }
@@ -888,6 +930,7 @@ export class Game {
     const previous = structuredClone(this.hero);
     if (!selectCampaignLevel(this.hero, index, diff as 0 | 1 | 2, this.inCamp)) return false;
     if (!this.save(false)) { this.hero = previous; return false; }
+    this.clearCampReturn(); this.specialArea = undefined;
     this.loadArea(false); this.ui.toast(this.level.name, `第 ${this.level.act + 1} 章 · 第 ${this.level.step + 1} 关`); return true;
   }
   get cowLegs() { return this.hero.inventory.filter(isWirtsLeg); }
@@ -907,6 +950,7 @@ export class Game {
     const index = this.hero.inventory.indexOf(catalyst); if (index < 0) return false;
     this.hero.inventory.splice(index, 1); placeItems(this.hero.inventory); this.hero.difficultyLevel = diff; this.hero.bossDefeated = false; this.specialArea = area;
     if (!this.save(false)) { this.hero = previousHero; this.specialArea = previousArea; return false; }
+    this.clearCampReturn();
     this.loadArea(false); this.ui.toast(this.level.name, area === 'cow' ? ` ${['普通', '噩梦', '地狱'][diff]}难度` : '毕业挑战'); return true;
   }
   burst(origin: THREE.Vector3, color: number, count: number) {
@@ -976,6 +1020,7 @@ export class Game {
     this.world.physics.step(1 / 60, dt === 1 / 60 ? undefined : dt, 3);
     this.position.set(this.body.position.x, 0, this.body.position.z);
     const campTarget = CAMP[this.pendingCampTarget];
+    if (this.pendingPortal && this.pendingCampTarget === 'returnPortal' && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.pendingPortal = false; this.resumeCampReturn(); return; }
     if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'mercenaryMerchant' ? 'mercenary-shop' : this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
     if (this.pendingMysteryCorpse) {
       const corpse = this.world.mysteryCorpse;

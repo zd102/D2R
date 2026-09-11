@@ -35,6 +35,7 @@ try {
     hp: game.hero.hp, mana: game.hero.mana, kills: game.hero.kills, gold: game.hero.gold,
     inventory: game.hero.inventory.length, shrines: [...game.hero.shrines], stage: game.hero.stage,
     paused: game.paused, dead: game.dead, started: game.started, inCamp: game.inCamp,
+    campReturn: game.campReturn ? { area: game.campReturn.world.level.id, position: { x: game.campReturn.position.x, z: game.campReturn.position.z } } : null,
     bossDefeated: game.hero.bossDefeated, playerCount: game.hero.playerCount,
     campaign: structuredClone(game.hero.campaign), difficulty: game.hero.difficultyLevel, unlockedDifficulty: game.hero.unlockedDifficulty,
     area: { id: game.inCamp ? CAMP.id : game.level.id, name: game.areaName, act: game.inCamp ? null : game.level.act, step: game.inCamp ? null : game.level.step, questReady: !game.inCamp && questComplete(game.hero.campaign), seed: game.inCamp ? null : game.world.layout.seed, gridSize: game.world.grid.width, gridWidth: game.world.grid.width, gridHeight: game.world.grid.height, floorCells: game.world.floorCells.length },

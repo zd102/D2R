@@ -13,6 +13,7 @@
     "test:item-effects": "node tests/item-effects-browser.mjs",
     "test:mercenary": "node tests/mercenary-browser.mjs",
     "test:maps": "node tests/maps-chests-browser.mjs",
+    "test:camp-return": "node tests/camp-return-browser.mjs",
     "test:map-orientation": "node tests/map-orientation-browser.mjs",
     "test:scenery": "node tests/scenery-browser.mjs",
     "test:performance": "node tests/performance-browser.mjs",

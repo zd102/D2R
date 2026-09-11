@@ -128,6 +128,7 @@ export class GameWorld {
   isCamp: boolean;
   sharedStash?: THREE.Group;
   mysteryPortal?: THREE.Group;
+  returnPortal?: THREE.Group;
   mysteryCorpse?: MysteryCorpse;
   floorCells: { x: number; z: number }[] = [];
   constructor(level = LEVELS[0], isCamp = false, seed = nextMapSeed()) {
@@ -185,7 +186,13 @@ export class GameWorld {
     const timber = mat(0x64675b), redCanvas = mat(0x923f4b), blueCanvas = mat(0x4b7885);
     for (let z = -13; z <= 18; z++) for (let x = -15; x <= 15; x++) {
       this.floorCells.push({ x, z });
-      if (Math.abs(x) <= 2 || Math.abs(z - 8) <= 2 || Math.hypot(x - CAMP.portal.x, z - CAMP.portal.z) < 3.5 || Math.hypot(x - CAMP.mysteryPortal.x, z - CAMP.mysteryPortal.z) < 3.5) {
+      const facilities = [CAMP.portal, CAMP.mysteryPortal, CAMP.returnPortal, CAMP.supply, CAMP.baseMerchant, CAMP.mercenaryMerchant, CAMP.stash];
+      const onPath = facilities.some(p => {
+        const dx = p.x - CAMP.spawn.x, dz = p.z - CAMP.spawn.z;
+        const t = Math.max(0, Math.min(1, ((x - CAMP.spawn.x) * dx + (z - CAMP.spawn.z) * dz) / (dx * dx + dz * dz)));
+        return Math.hypot(x - CAMP.spawn.x - t * dx, z - CAMP.spawn.z - t * dz) < 1.6;
+      });
+      if (Math.abs(x) <= 1 || onPath || facilities.some(p => Math.hypot(x - p.x, z - p.z) < 3)) {
         mesh(this.staticGroup, box, paving, x, .015, z, .96, .13, .96);
       }
     }
@@ -206,7 +213,7 @@ export class GameWorld {
     for (let row = 0; row < 57; row++) for (let column = 0; column < 57; column++) {
       if (column < 13 || column > 43 || row < 15 || row > 46) this.grid.setWalkableAt(column, row, false);
     }
-    for (const [x, z, color] of [[-9, 1, redCanvas], [8, 1, blueCanvas], [-6, -8, blueCanvas], [7, -8, redCanvas]] as const) {
+    for (const [x, z, color] of [[-11, -1, redCanvas], [11, 1, blueCanvas], [-10, -9, blueCanvas], [9, -8, redCanvas]] as const) {
       const tent = new THREE.Group(); tent.position.set(x, 0, z); this.staticGroup.add(tent);
       const roof = new THREE.BufferGeometry();
       roof.setAttribute('position', new THREE.Float32BufferAttribute([
@@ -224,11 +231,11 @@ export class GameWorld {
     }
     for (let i = 0; i < 9; i++) {
       const angle = i / 9 * Math.PI * 2;
-      mesh(this.staticGroup, new THREE.DodecahedronGeometry(.32), stone, Math.cos(angle), .2, 3 + Math.sin(angle), 1, .7, 1);
+      mesh(this.staticGroup, new THREE.DodecahedronGeometry(.32), stone, Math.cos(angle), .2, -5 + Math.sin(angle), 1, .7, 1);
     }
-    for (const angle of [-.6, .6]) mesh(this.staticGroup, cylinder, timber, 0, .3, 3, .18, 1.8, .18).rotation.set(Math.PI / 2, 0, angle);
-    this.torch(0, 3, .6, true); this.addCollider(0, 3, 2, 2);
-    for (const [x, z] of [[-12, 8], [10, 8], [0, -8]]) this.torch(x, z, 2, true);
+    for (const angle of [-.6, .6]) mesh(this.staticGroup, cylinder, timber, 0, .3, -5, .18, 1.8, .18).rotation.set(Math.PI / 2, 0, angle);
+    this.torch(0, -5, .6, true); this.addCollider(0, -5, 2, 2);
+    for (const [x, z] of [[-13, 12], [12, 15], [0, -11]]) this.torch(x, z, 2, true);
     const { x, z } = CAMP.supply;
     mesh(this.staticGroup, box, timber, x, .75, z, 2.4, .18, 1.2);
     for (const side of [-1, 1]) mesh(this.staticGroup, box, timber, x + side, .35, z, .15, .7, 1);
@@ -617,7 +624,7 @@ export class GameWorld {
       if (torch.light) torch.light.intensity = 6.5 + Math.sin(time * 11 + torch.phase) * 1.2;
     }
     this.shrineMeshes.forEach(shrine => { const indicator = shrine.getObjectByName('indicator'); if (indicator) indicator.scale.setScalar(shrine.userData.complete ? 1 : 1 + Math.sin(time * 2) * .04); });
-    for (const portal of [this.portal, this.mysteryPortal]) portal?.children.forEach((child, i) => { if (child.userData.portal) { child.rotation.z = time * .15 * (i % 2 ? 1 : -1); child.scale.setScalar(1 + Math.sin(time * 2 + i) * .055); } });
+    for (const portal of [this.portal, this.mysteryPortal, this.returnPortal]) portal?.children.forEach((child, i) => { if (child.userData.portal) { child.rotation.z = time * .15 * (i % 2 ? 1 : -1); child.scale.setScalar(1 + Math.sin(time * 2 + i) * .055); } });
     const mark = this.mysteryCorpse?.group.getObjectByName('mystery-mark'); if (mark && !this.mysteryCorpse!.opened) mark.scale.setScalar(1 + Math.sin(time * 2.4) * .12);
     this.rune.rotation.z = time * .015;
     const positions = this.particles.geometry.attributes.position;
