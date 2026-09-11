@@ -1,3 +1,4 @@
+import { playerLifeFactor } from './player-count.ts';
 import * as THREE from 'three';
 import { castSound, impactSound, weaponSound } from './audio-bank.ts';
 import type { Game, Enemy, Skill } from './game';
@@ -185,7 +186,7 @@ export class PaladinCombat {
     if (!smite) physical += weaponDamage * (isUndead(enemy) ? s.mods.damageUndead ?? 0 : enemy.definition?.race === 'demon' ? s.mods.damageDemons ?? 0 : 0) / 100;
     if(['multipleShot','strafe'].includes(id)) physical *= .75;
     const critical = !smite && id !== 'sacrifice' && (s.criticalStrike>0&&Math.random()*100<s.criticalStrike || Math.random() * 100 < (s.mods.deadlyStrike ?? 0)); if (critical) physical *= 2;
-    if (Math.random() * 100 < (s.mods.crushingBlow ?? 0)) this.damage(enemy, resistedDamage(enemy.hp * (enemy.boss ? .125 : .25) * (projectile ? .5 : 1), Math.max(0, this.physicalResistance(enemy))), 'physical', true, false, snapshot);
+    if (Math.random() * 100 < (s.mods.crushingBlow ?? 0)) this.damage(enemy, resistedDamage(enemy.hp / playerLifeFactor(enemy.playerCount) * (enemy.boss ? .125 : .25) * (projectile ? .5 : 1), Math.max(0, this.physicalResistance(enemy))), 'physical', true, false, snapshot);
     const classConversion = ['magicArrow','fireArrow','coldArrow','lightningBolt'].includes(id);
     const conversion = Math.min(100, classConversion ? v.percent : magicArrow) / 100;
     const dealt = this.damage(enemy, physical * (1 - conversion), 'physical', false, critical, snapshot);

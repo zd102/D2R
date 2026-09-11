@@ -1,3 +1,4 @@
+import { playerDropChance } from './player-count.ts';
 import { EXPANSION_MOD_NAMES, EXTRA_RUNES, EXTRA_BASES, EXTRA_RUNEWORDS, EXTRA_UNIQUES } from './item-expansion.ts';
 import { AFFIX_MOD_NAMES, applyAffixes, type CharmSize } from './affixes.ts';
 import { expandBases, expandSpecials, expandRunewords, catalogMods, rollCatalogMods } from './item-catalog.ts';
@@ -23,9 +24,10 @@ export const DROP_RATES = {
   actBoss: { equipment: 1, rune: .70, charm: .04 },
 } as const;
 export type DropRank = keyof typeof DROP_RATES;
-export function rollDropKinds(rank: DropRank, random = Math.random) {
+export function rollDropKinds(rank: DropRank, random = Math.random, players = 1) {
   const rates = DROP_RATES[rank];
-  return { equipment: random() < rates.equipment, rune: random() < rates.rune, charm: random() < rates.charm };
+  const count = rank === 'elite' || rank === 'miniboss' ? 1 : players;
+  return { equipment: random() < playerDropChance(rates.equipment, count), rune: random() < playerDropChance(rates.rune, count), charm: random() < playerDropChance(rates.charm, count) };
 }
 const runeData = {
   el: { name: '艾尔', level: 11, weapon: { attackRating: 50, lightRadius: 1 }, armor: { defense: 15, lightRadius: 1 }, shield: { defense: 15, lightRadius: 1 } },

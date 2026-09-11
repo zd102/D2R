@@ -1,3 +1,4 @@
+import { parsePlayerCount, type PlayerCount } from './player-count';
 import * as THREE from 'three';
 import { cycleDialogFocus } from './ui-components';
 import type * as CANNON from 'cannon-es';
@@ -35,7 +36,7 @@ import { MonsterBatches } from './monster-batches';
 import { RenderBudget } from './render-budget';
 import { createImpact, createLightning, disposeVisual, updateVisual, ProjectileVisualPool } from './visual-effects';
 
-export type Enemy = { xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
+export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 type PointerGesture = { id: number; button: number; x: number; y: number; started: number; dragging: boolean; stationary: boolean; mode: 'move' | 'attack' | 'interact' | 'cast' };
@@ -321,16 +322,24 @@ export class Game {
   }
   spawnEnemy(x: number, z: number, kind: 'skeleton' | 'demon' | 'boss', definition = kind === 'boss' ? this.specialArea === 'uberDiablo' ? BOSSES[19] : this.specialArea === 'cow' ? MONSTERS.hellCow : BOSSES[this.level.index] : MONSTERS[kind === 'skeleton' ? 'skeleton' : ENCOUNTERS[this.level.index][0]], elite = false) {
     const boss = kind === 'boss'; elite = elite && !boss;
-    const actor = createMonsterActor(definition, boss), tuning = monsterStats(definition, this.level, difficulty(this.hero), boss, elite);
+    const actor = createMonsterActor(definition, boss), tuning = monsterStats(definition, this.level, difficulty(this.hero), boss, elite, this.hero.playerCount);
     if (elite) {
       actor.group.scale.multiplyScalar(1.2);
       const ring = makeRing(.65, 0xeac66c, .75); ring.position.y = .09; actor.group.add(ring);
     }
     actor.group.position.set(x, 0, z); this.world.scene.add(actor.group);
-    const enemy: Enemy = { id: this.nextId++, name: boss ? this.level.boss : elite ? `精英 · ${definition.name}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, speed: definition.speed * (elite ? 1.1 : 1), cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
+    const enemy: Enemy = { playerCount: this.hero.playerCount, id: this.nextId++, name: boss ? this.level.boss : elite ? `精英 · ${definition.name}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, speed: definition.speed * (elite ? 1.1 : 1), cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
     this.enemies.push(enemy); this.monsterBatches.add(actor, `${definition.id}:${boss}`); return enemy;
   }
   begin() { if (!this.profile) return; this.started = true; this.audio.unlock(); }
+  setPlayerCount(value: number) {
+    if (parsePlayerCount(value) !== value || !this.profile || this.dead || this.saveConflict) return false;
+    const previous = this.hero.playerCount;
+    this.hero.playerCount = parsePlayerCount(value);
+    if (!this.save(false)) { this.hero.playerCount = previous; return false; }
+    this.ui.toast(`已设置 ${value}pp`, '新生成怪物使用新强度，掉落设置立即生效');
+    return true;
+  }
   setMovementMode(value: string) {
     if (value !== 'mouse' && value !== 'wasd' || value === this.movementMode) return;
     this.releaseInput(); this.marker.visible = false; this.movementMode = value;
@@ -587,7 +596,7 @@ export class Game {
       return;
     }
     // Resolve drops before marking open; a second interaction cannot roll this chest again.
-    const mods = stats(this.hero).mods, drops = rollChestLoot(chestContext(this.level, difficulty(this.hero), mods.magicFind, mods.goldFind));
+    const mods = stats(this.hero).mods, drops = rollChestLoot({ ...chestContext(this.level, difficulty(this.hero), mods.magicFind, mods.goldFind), players: this.hero.playerCount });
     chest.opened = true; this.path = []; this.body.velocity.set(0, 0, 0);
     for (const [i, drop] of drops.entries()) {
       const angle = i * 2.4, desired = { x: chest.x + Math.cos(angle) * 2, z: chest.z + Math.sin(angle) * 2 };
@@ -610,7 +619,7 @@ export class Game {
     enemy.actor.group.rotation.z = -Math.PI / 2; enemy.actor.group.position.y = .2;
     if (this.target === enemy) { this.target = undefined; this.path = []; }
     const rank: DropRank = enemy.boss ? this.level.actBoss ? 'actBoss' : 'miniboss' : enemy.elite ? 'elite' : 'monster';
-    const xp = monsterExperience(this.hero.level, enemy.level, rank, { difficulty: difficulty(this.hero), act: this.level.act, baseLife: enemy.definition?.hp, firstClear: !this.specialArea && this.hero.campaign.cleared[difficulty(this.hero)] === this.level.index });
+    const xp = monsterExperience(this.hero.level, enemy.level, rank, { difficulty: difficulty(this.hero), act: this.level.act, baseLife: enemy.definition?.hp, players: enemy.playerCount, firstClear: !this.specialArea && this.hero.campaign.cleared[difficulty(this.hero)] === this.level.index });
     if (gainXp(this.hero, xp * (enemy.xpScale ?? 1) * (1 + (playerStats.mods.experienceBonus ?? 0) / 100))) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
     const wasReady = !this.specialArea && questComplete(this.hero.campaign);
     if (!enemy.boss && !this.specialArea) recordQuestKill(this.hero);
@@ -627,7 +636,7 @@ export class Game {
   }
   dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level) {
     const mods = stats(this.hero).mods, diff = difficulty(this.hero);
-    const drop = rollLoot({ level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
+    const drop = rollLoot({ players: this.hero.playerCount, level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
     this.addLoot({ id: this.nextId++, x: position.x + .4, z: position.z + .2, gold: drop.gold, mesh: new THREE.Group() });
     drop.items.forEach((item, i) => this.addLoot({ id: this.nextId++, x: position.x - .6 + i * .8, z: position.z + .6, item, mesh: new THREE.Group() }));
     drop.runes.forEach((rune, i) => this.addLoot({ id: this.nextId++, x: position.x + .8, z: position.z - .5 - i * .6, rune, mesh: new THREE.Group() }));

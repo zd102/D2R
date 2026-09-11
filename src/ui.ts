@@ -284,6 +284,10 @@ export class UI {
     this.overlay.addEventListener('change', event => {
       const element = event.target as HTMLInputElement;
       if (element.id === 'quality') this.game.setQuality(element.value);
+      if (element.id === 'player-count') {
+        this.game.setPlayerCount(Number(element.value));
+        if (this.panel === 'pause') { this.renderPanel(); document.getElementById('player-count')?.focus(); }
+      }
       if (element.id === 'movement-mode') {
         this.game.setMovementMode(element.value);
         document.getElementById('movement-hint')!.textContent = MOVEMENT_HINTS[this.game.movementMode];

@@ -1,9 +1,10 @@
+import { playerDropChance } from './player-count.ts';
 import { BASES, RUNE_ORDER, isAvailableItem, makeItem, rollDropKinds, rollItem, specialItem, itemId, weightedChoice, type DropRank, type Item, type RuneId } from './items.ts';
 import { applyAffixes, CHARM_BASES, type CharmSize } from './affixes.ts';
 import { RUNE_TREASURES } from './item-catalog-data.ts';
 import { bossDropProfile, rollBossSpecial } from './boss-loot.ts';
 
-export type LootContext = { level: number; act: number; difficulty: number; rank: DropRank; levelIndex?: number; firstClear?: boolean; countess?: boolean; magicFind?: number; goldFind?: number; cow?: boolean; uberDiablo?: boolean };
+export type LootContext = { players?: number; level: number; act: number; difficulty: number; rank: DropRank; levelIndex?: number; firstClear?: boolean; countess?: boolean; magicFind?: number; goldFind?: number; cow?: boolean; uberDiablo?: boolean };
 const RUNE_MIN_LEVEL = [1, 1, 3, 4, 6, 8, 10, 12, 14, 17, 20, 24, 27, 30, 32, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 80, 81];
 const runeDistributions = new Map<number, { rune: RuneId; weight: number }[]>();
 export function runeDistribution(tier: number): { rune: RuneId; weight: number }[] {
@@ -43,7 +44,7 @@ export function rollSocketBase(level: number, random = Math.random): Item {
 }
 export function rollLoot(context: LootContext, random = Math.random) {
   const { rank } = context, difficulty = Math.max(0, Math.min(2, Math.floor(context.difficulty))), act = Math.max(0, Math.min(4, Math.floor(context.act)));
-  const level = Math.max(1, Math.min(99, Math.floor(context.level))), flags = rollDropKinds(rank, random), items: Item[] = [], runes: RuneId[] = [];
+  const level = Math.max(1, Math.min(99, Math.floor(context.level))), flags = rollDropKinds(rank, random, context.players), items: Item[] = [], runes: RuneId[] = [];
   const boss = rank === 'miniboss' || rank === 'actBoss', elite = rank === 'elite';
   const profile = boss ? bossDropProfile(context.levelIndex) : undefined, countess = boss && (context.countess || context.levelIndex === 3);
   // Resolve rune and currency rolls before quality-dependent draws: MF cannot change them.
@@ -62,7 +63,7 @@ export function rollLoot(context: LootContext, random = Math.random) {
     runes.push(RUNE_ORDER[start + Math.floor(Math.min(1 - Number.EPSILON, Math.max(0, random())) * 11)]);
   }
   const gold = Math.round((10 + level * 2 + random() * 14) * (boss ? 4 : elite ? 2 : 1) * (1 + (context.goldFind ?? 0) / 100));
-  const potion = random() < (boss ? .8 : elite ? .6 : .30) ? random() > .4 ? 0 : 1 : undefined;
+  const potion = random() < playerDropChance(boss ? .8 : elite ? .6 : .30, rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? random() > .4 ? 0 : 1 : undefined;
   const treasureClass = profile?.maxTC[difficulty] ?? Math.min(87, Math.ceil((level + 3) / 3) * 3);
   if (flags.equipment) {
     const roll = random(), quality = rank === 'actBoss' ? .72 + roll * .28 : rank === 'miniboss' || elite ? .33 + roll * .67 : roll;

@@ -26,6 +26,20 @@ function setup() {
   return { game, hero, combat, enemy };
 }
 
+test('crushing blow uses monster spawn pp even after the selected setting changes', t => {
+  t.mock.method(Math, 'random', () => 0);
+  const { hero, combat, enemy } = setup();
+  hero.equipment.weapon!.mods.crushingBlow = 100;
+  const amounts: number[] = [];
+  t.mock.method(combat, 'damage', (_enemy: Enemy, amount: number) => { amounts.push(amount); return amount; });
+  for (const players of [1, 8] as const) {
+    const target = enemy(); target.playerCount = players; target.hp = 10000 * (players + 1) / 2;
+    hero.playerCount = players === 1 ? 8 : 1;
+    amounts.length = 0; combat.weaponHit(target, 'attack');
+    assert.equal(amounts[0], 2500);
+  }
+});
+
 test('mouse-aimed spells and melee face the cursor instead of a previously selected target', t => {
   t.mock.method(Math, 'random', () => .5);
   const { game, combat, enemy } = setup(), stale = enemy('demon', -2), forward = enemy('demon', 2);

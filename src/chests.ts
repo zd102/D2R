@@ -1,3 +1,4 @@
+import { playerNoDrop } from './player-count.ts';
 import { CHEST_TREASURES, CHEST_MISC, CHEST_RATIOS, type ChestTreasure } from './chest-data.ts';
 import { CATALOG_BASES } from './item-catalog-data.ts';
 import { BASES, SPECIAL_ITEMS, RUNE_ORDER, makeItem, specialItem, weightedChoice, isAvailableItem, type Item, type RuneId, type ItemBase } from './items.ts';
@@ -11,7 +12,7 @@ const unavailableCodes = new Set([
   ...BASES.filter(base => !isAvailableItem(base)).map(base => base.baseCode!),
 ]);
 const availableBaseCodes = new Set(BASES.filter(isAvailableItem).map(base => base.baseCode));
-export type ChestContext = { level: number; act: number; difficulty: number; magicFind?: number; goldFind?: number };
+export type ChestContext = { players?: number; level: number; act: number; difficulty: number; magicFind?: number; goldFind?: number };
 export type ChestDrop = { item?: Item; rune?: RuneId; gold?: number; potion?: 0 | 1 };
 const integerRoll = (max: number, random: () => number) => Math.floor(Math.max(0, Math.min(1 - Number.EPSILON, random())) * max);
 
@@ -32,9 +33,10 @@ export function rollChestCodes(context: ChestContext, random = Math.random): str
     const table = tables.get(code);
     // Removed leaves become empty picks without rerolling equipment or runes.
     if (!table) { if (!unavailableCodes.has(code)) codes.push(code); return; }
-    const total = table.noDrop + table.entries.reduce((sum, [, weight]) => sum + weight, 0);
+    const weight = table.entries.reduce((sum, [, weight]) => sum + weight, 0);
+    const noDrop = playerNoDrop(table.noDrop, weight, context.players), total = noDrop + weight;
     for (let pick = 0; pick < table.picks; pick++) {
-      let roll = integerRoll(total, random) - table.noDrop;
+      let roll = integerRoll(total, random) - noDrop;
       if (roll < 0) continue;
       for (const [entry, weight] of table.entries) { roll -= weight; if (roll < 0) { resolve(entry, depth + 1); break; } }
     }

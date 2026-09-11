@@ -1,3 +1,4 @@
+import { parsePlayerCount, type PlayerCount } from './player-count.ts';
 import { BASE_ATTRIBUTES, PALADIN_BALANCE, SKILLS, skillById, emptySkills, isSkill, isAura, skillValues, xpForLevel, EXPERIENCE, breakpointFrames, FCR, FHR, FBR, type SkillId, type ActionId, type Attribute, type DamageType } from './paladin.ts';
 import { SLOTS, BASES, MOD_NAMES, RUNES, makeItem, addMods, itemMods, itemRequirements, packItems, placeItems, stashRows, socketItem, type Mods, type Modifier, type Slot, type Item, type RuneId } from './items.ts';
 import { levelMods } from './item-effects.ts';
@@ -14,7 +15,7 @@ import { skillsForClass, isPassive } from './paladin.ts';
 export { rarityNames, slotNames, rollItem, SLOTS } from './items.ts';
 export type { Slot, Item, Rarity } from './items.ts';
 export type HeroState = {
-  rulesVersion: 2; classId: ClassId; level: number; xp: number; gold: number; kills: number; points: number;
+  rulesVersion: 2; playerCount: PlayerCount; classId: ClassId; level: number; xp: number; gold: number; kills: number; points: number;
   strength: number; dexterity: number; vitality: number; energy: number;
   skillPoints: number; skills: Record<SkillId, number>; activeAura: SkillId | null;
   bindings: Record<SkillSlot, ActionId>;
@@ -33,7 +34,7 @@ export const emptyEquipment = () => Object.fromEntries(SLOTS.map(slot => [slot, 
 export const difficulty = (hero: HeroState) => hero.difficultyLevel;
 export const difficultyNames = ['普通', '噩梦', '地狱'];
 export const newHero = (classId: ClassId = 'paladin'): HeroState => ({
-  rulesVersion: 2, classId, level: 1, xp: 0, gold: 0, kills: 0, points: 0, ...CLASSES[classId].attributes,
+  rulesVersion: 2, playerCount: 1, classId, level: 1, xp: 0, gold: 0, kills: 0, points: 0, ...CLASSES[classId].attributes,
   skillPoints: 0, skills: emptySkills(), activeAura: null,
   bindings: { attack: 'attack', cleave: 'attack', ward: 'attack', nova: 'attack', dash: 'attack', bolt: classId === 'sorceress' ? 'fireBolt' : 'attack' },
   buffs: {},
@@ -411,6 +412,7 @@ export function parseSave(raw: string | null): HeroState | null {
     const hero = newHero(h.classId ?? 'paladin'), legacy = h.rulesVersion !== 2, base = CLASSES[hero.classId].attributes; hero.level = integer(h.level, 1, 1, 99);
     if (h.rulesVersion !== undefined && h.rulesVersion !== 2) return null;
     for (const key of ['gold', 'kills', 'points', 'skillPoints'] as const) hero[key] = integer(h[key], key === 'skillPoints' ? hero.level - 1 : 0, 0, 10000000);
+    hero.playerCount = parsePlayerCount(h.playerCount);
     hero.xp = decimal(h.xp, 0, 0, hero.level === 99 ? 0 : xpForLevel(hero.level) - 1);
     for (const key of Object.keys(base) as Attribute[]) hero[key] = integer(h[key], base[key], base[key], 10000);
     if (legacy) {

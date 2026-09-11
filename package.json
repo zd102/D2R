@@ -17,6 +17,7 @@
     "test:performance": "node tests/performance-browser.mjs",
     "test:monster-batches": "node tests/monster-batches-browser.mjs",
     "test:campaign-rewards": "node tests/campaign-rewards-browser.mjs",
+    "test:player-count": "node tests/player-count-browser.mjs",
     "test:visuals": "node tests/visuals-browser.mjs",
     "test:models": "node tests/models-browser.mjs",
     "test:elites": "node tests/elites-browser.mjs",
