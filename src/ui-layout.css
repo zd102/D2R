@@ -168,7 +168,9 @@
 #ui-tooltip { position: fixed; z-index: 90; max-width: min(320px, calc(100vw - 16px)); padding: 9px 12px; border: 1px solid #b6a270; border-radius: 4px; background: #101b1bfa; box-shadow: 0 5px 22px #0009; color: #f0e6cc; font: 12px/1.6 'Microsoft YaHei', sans-serif; overflow-wrap: anywhere; pointer-events: none; }
 
 /* Every active effect has its own name, timer and duration bar. */
-#combat-status { position: absolute; left: 20px; top: 130px; width: clamp(185px, calc((100vw - 560px) / 2), 370px); z-index: 6; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+#party-status { --status-top: 130px; --status-bottom: 200px; position: absolute; left: 20px; top: var(--status-top); width: clamp(185px, calc((100vw - 560px) / 2), 370px); max-height: calc(100dvh - var(--status-top) - var(--status-bottom)); z-index: 6; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none; }
+#combat-status { width: 100%; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; pointer-events: auto; }
+#combat-status .status-group { flex-shrink: 0; }
 #toasts { top: auto; bottom: 190px; left: 20px; width: 260px; transform: none; align-items: stretch; }
 .status-group { display: flex; flex-wrap: wrap; gap: 5px; }
 .status-heading { width: 100%; color: #a6d6c0; font-size: 10px; letter-spacing: 2px; text-shadow: 0 2px 4px #000; }
@@ -289,7 +291,8 @@
   .campaign-acts small { display: none; }
   .campaign-acts > button > svg { width: 15px; height: 15px; }
   .campaign-level { min-height: 72px; gap: 8px; padding: 6px 4px; }
-  #combat-status { left: 12px; right: auto; top: 115px; width: calc(100vw - 164px); gap: 6px; }
+  #party-status { --status-top: 115px; --status-bottom: 360px; left: 12px; width: calc(100vw - 164px); }
+  #combat-status { gap: 6px; }
   .status-heading { letter-spacing: 1px; font-size: 9px; }
   .status-chip { flex-basis: 85px; max-width: none; min-height: 30px; padding: 5px 6px 7px; gap: 4px; grid-template-columns: 12px minmax(0, 1fr) auto; }
   .status-chip svg { width: 12px; height: 12px; }
@@ -324,7 +327,8 @@
   .rune-layout .rune-pouch { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .rune-layout > section { overflow: auto; }
   .panel-pause .pause-sigil { display: none; }
-  #combat-status { top: 95px; left: 12px; width: 300px; gap: 4px; }
+  #party-status { --status-top: 95px; --status-bottom: 140px; left: 12px; width: 300px; }
+  #combat-status { gap: 4px; }
   #toasts { bottom: 145px; left: 50%; width: 220px; transform: translateX(-50%); }
   #toasts .toast:not(:last-child) { display: none; }
   .status-heading { font-size: 9px; }

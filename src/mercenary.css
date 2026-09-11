@@ -1,140 +1,125 @@
-.panel.panel-mercenary, .panel.panel-mercenary-shop { width: min(1120px, calc(100vw - 24px)); }
-.mercenary-screen { display: grid; gap: 16px; color: #d5d0bb; }
+.panel.panel-mercenary, .panel.panel-mercenary-shop { width: min(820px, calc(100vw - 24px)); max-height: min(720px, calc(100dvh - 32px)); }
+.panel.panel-mercenary .panel-header, .panel.panel-mercenary-shop .panel-header { min-height: 54px; padding: 8px 14px; }
+.panel.panel-mercenary .panel-header h2, .panel.panel-mercenary-shop .panel-header h2 { font-size: 21px; }
+.panel-mercenary .panel-description, .panel-mercenary-shop .panel-description, .panel-mercenary .panel-heading > small, .panel-mercenary-shop .panel-heading > small { display: none; }
+.panel-mercenary .panel-emblem, .panel-mercenary-shop .panel-emblem { width: 30px; height: 34px; }
+.panel.panel-mercenary .panel-close, .panel.panel-mercenary-shop .panel-close { margin-left: auto; min-height: 36px; }
+.panel-mercenary .panel-body, .panel-mercenary-shop .panel-body { padding: 14px 16px; }
+.mercenary-screen { display: grid; gap: 12px; color: #d5d0bb; }
 .mercenary-screen h3, .mercenary-screen h4, .mercenary-screen p { margin: 0; }
-.mercenary-screen h3 { font-size: 15px; color: #e2c997; }
-.mercenary-screen small, .mercenary-screen p { color: #aab4aa; font-size: 11px; line-height: 1.65; }
+.mercenary-screen h3 { font-size: 13px; color: #e2c997; }
+.mercenary-screen small, .mercenary-screen p { color: #aab4aa; font-size: 11px; line-height: 1.5; }
 .mercenary-screen h3 small { margin-left: 7px; font-weight: 400; }
 .mercenary-screen button { cursor: pointer; }
 .mercenary-screen button:disabled { opacity: .45; cursor: default; }
-.mercenary-screen button:focus-visible, .mercenary-screen summary:focus-visible { outline: 2px solid #e4d09c; outline-offset: 3px; }
-.mercenary-banner { display: flex; align-items: center; gap: 13px; }
-.mercenary-emblem { display: grid; place-items: center; width: 48px; height: 52px; border: 1px solid #8f805a; background: linear-gradient(145deg, #343d36, #111919); }
-.mercenary-emblem svg { width: 26px; height: 26px; color: #dfc58c; }
-.mercenary-banner h3 { font-size: 25px; margin-top: 3px; }
-.mercenary-banner h3 span { font-size: 14px; margin-left: 10px; color: #b8c6ae; }
-.mercenary-status-badge { margin-left: auto; padding: 5px 12px; border: 1px solid #806c50; background: #70503420; color: #c6ac81; font-size: 12px; }
-.mercenary-status-badge.alive { border-color: #6b8d6655; background: #73976e18; color: #b0d6a9; }
-.mercenary-contract { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 15px; border: 1px solid #79644070; background: #c6a2510a; }
-.mercenary-contract > div { flex: 1; }
-.mercenary-contract strong { font-size: 13px; color: #dbc492; }
-.mercenary-contract small { display: block; }
-.mercenary-contract .primary-button { margin: 0; width: auto; flex-shrink: 0; font-size: 12px; padding: 10px 13px; min-height: 40px; }
-.mercenary-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 20px; align-items: start; }
-.mercenary-overview { background: #111c19; border: 1px solid #80946d30; padding: 14px; display: grid; gap: 14px; }
-.mercenary-life { height: 27px; position: relative; background: #0c1312; border: 1px solid #617957; text-align: center; overflow: hidden; }
+.mercenary-screen button:focus-visible, .mercenary-screen summary:focus-visible { outline: 2px solid #e4d09c; outline-offset: 2px; }
+.mercenary-contract { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid #79644050; }
+.mercenary-contract .primary-button { margin: 0; width: auto; flex-shrink: 0; font-size: 11px; padding: 7px 10px; min-height: 34px; }
+.mercenary-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px 24px; padding: 10px 12px; background: #111c19; border: 1px solid #80946d30; }
+.mercenary-life-summary > strong { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 400; color: #e2c997; }
+.mercenary-life-summary > strong small { margin-left: 7px; font-size: 10px; }
+.mercenary-life { height: 21px; position: relative; background: #0c1312; border: 1px solid #617957; text-align: center; overflow: hidden; }
 .mercenary-life i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #365440, #648058); }
-.mercenary-life span { position: relative; line-height: 25px; font-size: 12px; }
-.mercenary-current-aura { display: flex; align-items: center; gap: 9px; font-size: 12px; }
-.mercenary-current-aura > svg { color: #d2b978; width: 21px; }
+.mercenary-life span { position: relative; line-height: 19px; font-size: 11px; }
+.mercenary-current-aura { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.mercenary-current-aura > svg { color: #d2b978; width: 19px; flex-shrink: 0; }
 .mercenary-current-aura div { flex: 1; }
 .mercenary-current-aura small { display: block; font-size: 10px; }
-.mercenary-current-aura b { color: #d5c59b; font-weight: 400; }
-.mercenary-stat-details summary { display: flex; align-items: center; justify-content: space-between; min-height: 30px; color: #bdc7b1; font-size: 12px; cursor: pointer; }
-.mercenary-stat-details summary svg { width: 14px; }
+.mercenary-current-aura b { color: #d5c59b; font-weight: 400; white-space: nowrap; }
+.mercenary-stat-details { grid-column: 1 / -1; grid-row: 2; }
+.mercenary-stat-details summary { display: flex; align-items: center; gap: 6px; min-height: 28px; color: #bdc7b1; font-size: 11px; cursor: pointer; }
+.mercenary-stat-details summary svg { width: 13px; height: 13px; }
 .mercenary-stat-details[open] summary svg { transform: rotate(90deg); }
-.mercenary-stats { display: grid; margin: 8px 0 12px; }
-.mercenary-stats > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 0; font-size: 11px; border-bottom: 1px solid #70816b22; }
+.mercenary-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; margin: 4px 0 10px; }
+.mercenary-stats > div { display: flex; justify-content: space-between; gap: 6px; padding: 6px 0; font-size: 11px; border-bottom: 1px solid #70816b22; }
 .mercenary-stats dt { color: #aeb6a8; }
 .mercenary-stats dd { margin: 0; color: #e5d4a8; }
-.mercenary-resistances { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; text-align: center; }
-.mercenary-resistances small, .mercenary-resistances b { display: block; }
-.mercenary-resistances b { font-size: 12px; margin-top: 3px; color: #d3d9bf; font-weight: 400; }
-.mercenary-potion-tip { display: flex; gap: 10px; align-items: center; border-top: 1px solid #6d7b6233; padding-top: 12px; font-size: 11px; }
-.mercenary-potion-tip kbd { border: 1px solid #86785470; padding: 5px; color: #e1cfa2; white-space: nowrap; }
-.mercenary-potion-tip small { display: block; font-size: 10px; }
+.mercenary-resistances { display: flex; gap: 20px; }
+.mercenary-resistances b { margin-left: 7px; font-size: 11px; color: #d3d9bf; font-weight: 400; }
+.mercenary-potion-tip { grid-column: 2; grid-row: 2; justify-self: end; align-self: start; display: flex; gap: 7px; align-items: center; min-height: 28px; font-size: 10px; pointer-events: none; }
+.mercenary-potion-tip kbd { color: #e1cfa2; white-space: nowrap; }
 .mercenary-main { min-width: 0; }
-.mercenary-tabs { display: flex; gap: 18px; border-bottom: 1px solid #89734c66; margin-bottom: 16px; }
-.mercenary-tabs button { display: flex; align-items: center; gap: 7px; padding: 0 8px 12px; min-height: 38px; border: 0; border-bottom: 2px solid transparent; color: #96a492; background: transparent; font-size: 13px; }
+.mercenary-tabs { display: flex; gap: 18px; border-bottom: 1px solid #89734c66; margin-bottom: 12px; }
+.mercenary-tabs button { display: flex; align-items: center; gap: 7px; padding: 0 6px 8px; min-height: 34px; border: 0; border-bottom: 2px solid transparent; color: #96a492; background: transparent; font-size: 13px; }
 .mercenary-tabs button svg { width: 16px; height: 16px; }
 .mercenary-tabs button[aria-selected="true"] { color: #e3c68a; border-bottom-color: #cbae6d; }
-.mercenary-gear-heading { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 10px; align-items: center; }
-.mercenary-gear-heading > span { color: #8e9d8b; font-size: 11px; }
-.mercenary-equipment { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.mercenary-slot { display: grid; justify-items: center; align-content: start; gap: 6px; min-width: 0; padding: 10px; border: 1px solid #70815d40; background: linear-gradient(155deg, #243026, #111b19); text-align: center; }
+.mercenary-gear-heading { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; align-items: center; }
+.mercenary-gear-heading > span { color: #8e9d8b; font-size: 10px; }
+.mercenary-equipment { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mercenary-slot { display: grid; align-content: start; gap: 5px; min-width: 0; padding: 8px; border: 1px solid #70815d40; background: #15211c; }
 .mercenary-slot.selected, .mercenary-candidates > .selected { border-color: #bea16b; background-color: #a18a4220; }
-.mercenary-slot-name { font-size: 11px; color: #a6b198; }
-.mercenary-item-select { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 4px; background: none; border: none; color: #d3c5a3; text-align: left; }
-.mercenary-item-select .item-art { flex-shrink: 0; width: 34px; height: 48px; }
+.mercenary-slot-name { font-size: 10px; color: #a6b198; }
+.mercenary-item-select { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; min-height: 40px; padding: 2px; background: none; border: none; color: #d3c5a3; text-align: left; }
+.mercenary-item-select > .item-visual { flex: 0 0 26px; width: 26px; height: 34px; }
+.mercenary-item-select .item-art { flex-shrink: 0; width: 26px; height: 34px; }
 .mercenary-item-select strong { font-weight: 400; font-size: 12px; }
 .mercenary-item-select small { display: block; font-size: 10px; }
-.mercenary-item-select > span { min-width: 0; overflow-wrap: anywhere; }
-.mercenary-slot .mercenary-item-select { flex-direction: column; text-align: center; font-size: 12px; gap: 6px; }
-.mercenary-slot .mercenary-item-select .item-art { width: 44px; height: 54px; }
-.mercenary-slot .mercenary-item-select > span { min-height: 30px; display: flex; align-items: center; line-height: 1.3; }
-.mercenary-take, .mercenary-equip { min-height: 34px; border: 1px solid #89734c66; padding: 6px 10px; background: #17221d; color: #d8c294; font-size: 11px; }
-.mercenary-take { width: 100%; }
-.mercenary-empty-slot { display: grid; place-items: center; min-height: 114px; color: #6f7f6c; font-size: 11px; gap: 10px; }
-.mercenary-empty-slot svg { width: 35px; height: 35px; opacity: .5; }
-.mercenary-loadout { margin-top: 18px; display: grid; grid-template-columns: minmax(160px, .85fr) minmax(0, 1.4fr); gap: 15px; align-items: start; }
-.mercenary-bag > p { margin: 6px 0 10px; }
-.mercenary-candidates { display: grid; gap: 8px; max-height: 390px; overflow-y: auto; padding: 2px; }
-.mercenary-candidates > div { min-width: 0; border: 1px solid #6d795a44; background: #101a18; padding: 8px; display: grid; gap: 5px; }
-.mercenary-inspector { border: 1px solid #7a715244; min-width: 0; padding: 13px; background: #0c1513; }
-.mercenary-inspector .item-detail-scroll { margin-top: 10px; max-height: 340px; overflow-y: auto; }
-.mercenary-inspector .item-summary { gap: 10px; }
-.mercenary-inspector .item-summary h3 { font-size: 15px; }
-.mercenary-inspector .item-showcase { width: 52px; height: 68px; min-width: 52px; }
-.mercenary-inspector .item-showcase .item-art { width: 44px; height: 60px; }
-.mercenary-inspector .item-basics { gap: 5px; }
+.mercenary-item-select > span { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.mercenary-take, .mercenary-equip { min-height: 30px; border: 1px solid #89734c66; padding: 5px 10px; background: #17221d; color: #d8c294; font-size: 11px; }
+.mercenary-take { justify-self: end; border-color: transparent; padding: 3px 8px; }
+.mercenary-empty-slot { display: flex; align-items: center; justify-content: center; min-height: 68px; color: #6f7f6c; font-size: 11px; gap: 8px; }
+.mercenary-empty-slot svg { width: 24px; height: 24px; opacity: .5; }
+.mercenary-loadout { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
+.mercenary-loadout:has(.mercenary-inspector) { grid-template-columns: minmax(180px, .85fr) minmax(0, 1.15fr); }
+.mercenary-candidates { display: grid; gap: 6px; max-height: 225px; overflow-y: auto; padding: 2px; margin-top: 8px; }
+.mercenary-candidates > div { min-width: 0; border: 1px solid #6d795a44; background: #101a18; padding: 5px 8px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px; }
+.mercenary-candidates .reduced { grid-column: 1 / -1; }
+.mercenary-inspector { border: 1px solid #7a715244; min-width: 0; padding: 10px; background: #0c1513; }
+.mercenary-inspector .item-detail-scroll { margin-top: 8px; max-height: 210px; overflow-y: auto; }
+.mercenary-inspector .item-summary { gap: 8px; }
+.mercenary-inspector .item-summary h3 { font-size: 14px; }
+.mercenary-inspector .item-showcase { width: 32px; height: 42px; min-width: 32px; }
+.mercenary-inspector .item-showcase .item-art { width: 26px; height: 36px; }
+.mercenary-inspector .item-basics { gap: 4px; }
 .mercenary-inspector .item-affixes { font-size: 11px; }
-.mercenary-empty { padding: 22px 9px; text-align: center; color: #a9b397; font-size: 12px; }
-.mercenary-empty small { display: block; margin-top: 8px; }
-.mercenary-candidates > .mercenary-empty { display: block; }
-.mercenary-comparison { margin-top: 12px; border-top: 1px solid #7a715244; padding-top: 12px; }
-.mercenary-comparison h4 { font-size: 12px; color: #d7c290; }
-.mercenary-comparison dl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px 12px; margin: 8px 0 0; font-size: 11px; }
+.mercenary-empty { padding: 12px 8px; text-align: center; color: #a9b397; font-size: 11px; }
+.mercenary-comparison { margin-top: 8px; border-top: 1px solid #7a715244; padding-top: 8px; }
+.mercenary-comparison h4 { font-size: 11px; color: #d7c290; }
+.mercenary-comparison dl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px 12px; margin: 6px 0 0; font-size: 11px; }
 .mercenary-comparison dl div { display: flex; justify-content: space-between; }
 .mercenary-comparison dd { margin: 0; }
-.mercenary-footnote { margin-top: 12px !important; }
+.mercenary-footnote { margin-top: 10px !important; font-size: 10px !important; }
 .mercenary-screen .improved { color: #abcfa0; }
 .mercenary-screen .reduced { color: #df9981; }
-.mercenary-aura-heading { display: flex; gap: 14px; justify-content: space-between; margin-bottom: 14px; }
-.mercenary-aura-heading p { margin-top: 5px; }
-.mercenary-aura-heading > span { font-size: 11px; color: #c7b783; white-space: nowrap; }
-.mercenary-auras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.mercenary-auras button { display: flex; position: relative; align-items: flex-start; gap: 10px; text-align: left; padding: 14px 12px 33px; min-height: 148px; border: 1px solid #64785955; background: #14221c; }
-.mercenary-auras button.selected { border-color: #d3b36d; background: linear-gradient(130deg, #89703822, #17251f); box-shadow: inset 3px 0 #c4a367; }
-.mercenary-aura-icon { flex-shrink: 0; display: grid; place-items: center; width: 27px; height: 30px; color: #c7b17c; }
-.mercenary-aura-icon svg { width: 23px; height: 23px; }
-.mercenary-aura-copy { display: grid; gap: 8px; min-width: 0; }
-.mercenary-aura-copy strong { color: #e0c997; font-size: 13px; font-weight: 400; }
+.mercenary-aura-heading { display: flex; gap: 12px; justify-content: space-between; margin-bottom: 8px; }
+.mercenary-aura-heading > span { font-size: 11px; color: #c7b783; }
+.mercenary-auras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mercenary-auras button { display: flex; position: relative; align-items: flex-start; gap: 8px; text-align: left; padding: 10px 28px 10px 10px; min-height: 84px; border: 1px solid #64785955; background: #14221c; }
+.mercenary-auras button.selected { border-color: #d3b36d; background: #89703822; box-shadow: inset 2px 0 #c4a367; }
+.mercenary-aura-icon { flex-shrink: 0; color: #c7b17c; }
+.mercenary-aura-icon svg { width: 20px; height: 20px; }
+.mercenary-aura-copy { display: grid; gap: 4px; min-width: 0; }
+.mercenary-aura-copy strong { color: #e0c997; font-size: 12px; font-weight: 400; }
 .mercenary-aura-copy strong small { margin-left: 6px; color: #b8c79f; }
-.mercenary-aura-copy > span { font-size: 12px; color: #c8cfbb; line-height: 1.6; }
+.mercenary-aura-copy > span { font-size: 11px; color: #c8cfbb; line-height: 1.5; }
 .mercenary-aura-copy > small { font-size: 10px; }
-.mercenary-aura-check { position: absolute; right: 12px; bottom: 10px; font-size: 10px; color: #a7b39a; }
-.selected .mercenary-aura-check { color: #e1c587; }
-.mercenary-extra-auras { margin-top: 16px; padding: 15px; background: #16221b; border: 1px solid #72856433; }
-.mercenary-extra-auras > span { display: inline-block; font-size: 12px; padding: 7px 10px; margin: 10px 8px 8px 0; border: 1px solid #97aa7433; }
-.mercenary-extra-auras b { margin-left: 8px; color: #d7c695; font-weight: 400; }
-.mercenary-extra-auras > p { margin-top: 8px; }
-.mercenary-extra-auras > small { display: block; }
-.mercenary-locked { padding: 45px 20px; text-align: center; display: grid; justify-items: center; gap: 15px; }
-.mercenary-locked > svg { width: 50px; height: 50px; color: #c6ae76; }
-#mercenary-status { position: fixed; left: 24px; top: 100px; z-index: 12; display: grid; width: 160px; padding: 9px 12px; text-align: left; color: #dfd0ab; background: #121c1bea; border: 1px solid #758e6a77; gap: 5px; }
+.mercenary-aura-check { position: absolute; right: 9px; top: 10px; color: #e1c587; }
+.mercenary-aura-check svg { width: 14px; height: 14px; }
+.mercenary-extra-auras { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 10px; font-size: 11px; }
+.mercenary-extra-auras b { margin-left: 4px; color: #d7c695; font-weight: 400; }
+.mercenary-locked { padding: 25px 16px; text-align: center; display: grid; justify-items: center; gap: 12px; }
+.mercenary-locked > svg { width: 36px; height: 36px; color: #c6ae76; }
+#mercenary-status { flex-shrink: 0; display: grid; width: 160px; max-width: 100%; padding: 7px 10px; text-align: left; color: #dfd0ab; background: #121c1bea; border: 1px solid #758e6a77; gap: 4px; pointer-events: auto; font-size: 12px; }
 #mercenary-status[hidden] { display: none; }
-#mercenary-status small { color: #bac9b0; font-size: 11px; }
-#mercenary-status progress { width: 100%; height: 6px; accent-color: #8caa77; }
-@media (max-width: 900px) { .mercenary-layout { grid-template-columns: 210px minmax(0, 1fr); gap: 13px; } .mercenary-loadout { grid-template-columns: 1fr; } }
-@media (max-width: 700px), (max-height: 580px) {
-  .mercenary-layout { grid-template-columns: 1fr; gap: 14px; }
-  .mercenary-overview { gap: 9px; padding: 12px; }
-  .mercenary-banner { gap: 10px; }
-  .mercenary-contract { padding: 10px 12px; gap: 9px; }
-  .mercenary-contract > div { flex-basis: 100%; }
-  .mercenary-contract .primary-button { width: 100%; }
-  .mercenary-potion-tip { padding-top: 8px; }
-  .mercenary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
-  .mercenary-stats > div { display: grid; gap: 4px; }
-  .mercenary-gear-heading > span { display: none; }
-  .mercenary-slot { padding: 8px 5px; }
-  .mercenary-slot .mercenary-item-select > span { font-size: 11px; }
-  .mercenary-take { padding: 5px; }
-  .mercenary-loadout { grid-template-columns: 1fr; }
-  .mercenary-candidates { max-height: 245px; }
-  .mercenary-candidates > div { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-  .mercenary-candidates .reduced { grid-column: 1 / -1; }
+#mercenary-status small { color: #bac9b0; font-size: 10px; }
+#mercenary-status progress { width: 100%; height: 5px; accent-color: #8caa77; }
+@media (max-width: 700px) {
+  .panel.panel-mercenary, .panel.panel-mercenary-shop { max-height: calc(100dvh - 24px); }
+  .mercenary-overview { column-gap: 12px; }
+  .mercenary-life-summary > strong small { display: block; margin: 2px 0 0; }
+  .mercenary-current-aura > svg { display: none; }
+  .mercenary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+  .mercenary-stats > div { display: grid; gap: 3px; }
+  .mercenary-resistances { justify-content: space-between; gap: 4px; }
+  .mercenary-slot { padding: 6px; }
+  .mercenary-slot .mercenary-item-select { gap: 4px; }
+  .mercenary-item-select > span { font-size: 11px; }
+  .mercenary-loadout:has(.mercenary-inspector) { grid-template-columns: 1fr; }
   .mercenary-auras { grid-template-columns: 1fr; }
-  .mercenary-auras button { min-height: 116px; }
-  .mercenary-aura-heading { flex-direction: column; gap: 6px; }
+  .mercenary-auras button { min-height: 76px; padding: 8px 28px 8px 10px; }
+  .mercenary-contract { flex-wrap: wrap; gap: 6px; }
+  #mercenary-status { width: 150px; }
 }
-@media (max-width: 700px) { #mercenary-status { left: 12px; top: 78px; width: 136px; padding: 7px 9px; font-size: 12px; } }
+@media (max-height: 580px) and (min-width: 701px) {
+  .panel.panel-mercenary, .panel.panel-mercenary-shop { max-height: calc(100dvh - 24px); }
+}

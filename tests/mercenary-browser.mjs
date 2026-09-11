@@ -44,6 +44,9 @@ try {
     await expect(page.locator('.panel-mercenary-shop')).toBeVisible();
     await page.locator('[data-action="hire-mercenary"]').click();
     await expect(page.locator('[data-action="hire-mercenary"]')).toBeDisabled();
+    assert.equal(await page.locator('.mercenary-stat-details').evaluate(node => node.open), false, 'Detailed stats are collapsed by default');
+    await expect(page.locator('.mercenary-inspector')).toHaveCount(0);
+    assert.ok(await page.locator('.panel').evaluate(node => node.getBoundingClientRect().width <= 820), 'The mercenary panel stays compact');
     let saved = (await savedProfile(page)).hero;
     assert.equal(saved.gold, h.gold - mercenaryCost(h)); assert.equal(saved.mercenary.status, 'alive');
     await page.locator('[data-mercenary-item="merc-armor"]').click();
@@ -156,6 +159,32 @@ try {
     const gold = (await savedProfile(page)).hero.gold; await page.locator('[data-action="hire-mercenary"]').click();
     saved = (await savedProfile(page)).hero; assert.equal(saved.gold, gold - mercenaryCost(saved)); assert.equal(saved.mercenary.status, 'alive'); assert.equal(saved.mercenary.equipment.weapon.id, spear.id);
     await page.screenshot({ path: `${output}/rehired-${width}.png` });
+    // Keep simulation still while measuring simultaneous companion, buff and boss HUDs.
+    await page.evaluate(() => { const g = window.mercenaryVerification; cancelAnimationFrame(g.frameId); g.ui.closePanel(); });
+    const hudViewports = width === 390 ? [[390, 844], [844, 390]] : [[width, width === 360 ? 740 : 960]];
+    for (const [hudWidth, hudHeight] of hudViewports) {
+      await page.setViewportSize({ width: hudWidth, height: hudHeight });
+      for (const bossVisible of [false, true]) {
+        await page.evaluate(bossVisible => {
+          const g = window.mercenaryVerification; g.paused = false;
+          g.hero.buffs = Object.fromEntries(['frozenArmor', 'enchant', 'energyShield', 'blaze', 'thunderStorm'].map(id => [id, { rank: 20, remaining: 60 }]));
+          g.hero.poison = g.hero.curse = g.hero.cold = 30; g.hero.mercenary.aura = 'prayer'; g.ui.update(0);
+          document.getElementById('boss-bar').hidden = !bossVisible;
+        }, bossVisible);
+        await expect(page.locator('#mercenary-status')).toBeVisible(); await expect(page.locator('#combat-status')).toBeVisible();
+        const overlaps = await page.evaluate(() => {
+          const selectors = ['#mercenary-status', '#combat-status', '.topbar', '.world-info', '#boss-bar', '.hud', '#joystick', '#mobile-attack'];
+          const visible = selectors.map(selector => ({ selector, node: document.querySelector(selector) })).filter(({ node }) => node.getClientRects().length).map(({ selector, node }) => ({ selector, rect: node.getBoundingClientRect() }));
+          return visible.slice(0, 2).flatMap(a => visible.filter(b => b !== a && a.rect.right > b.rect.left && a.rect.left < b.rect.right && a.rect.bottom > b.rect.top && a.rect.top < b.rect.bottom).map(b => `${a.selector} overlaps ${b.selector}`));
+        });
+        assert.deepEqual(overlaps, [], `Companion and effects fit ${hudWidth}x${hudHeight}, boss=${bossVisible}`);
+        assert.ok(await page.locator('#combat-status').evaluate(node => {
+          node.scrollTop = node.scrollHeight; const last = node.querySelector('.status-group:last-child .status-chip:last-child').getBoundingClientRect(), bounds = node.getBoundingClientRect();
+          const visible = last.top >= bounds.top && last.bottom <= bounds.bottom + 1; node.scrollTop = 0; return visible;
+        }), 'All buffs remain accessible by scrolling');
+        await page.screenshot({ path: `${output}/hud-${hudWidth}-boss-${bossVisible}.png` });
+      }
+    }
     console.log(`Mercenary merchant, equipment, auras, combat, Shift+1 potions, death and rehire passed at ${width}px`);
     await page.close();
   }

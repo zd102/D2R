@@ -91,7 +91,7 @@ export class UI {
       </aside>
       <div id="boss-bar" hidden><span>尸体发火</span><div><i></i></div><small>守关首领</small></div>
       <div id="world-labels"></div><div id="floating-text"></div><div id="toasts" aria-live="polite"></div>
-      <aside id="combat-status" aria-label="角色增益与减益" hidden><div class="status-group debuffs" data-status-group="debuff" aria-label="减益状态"></div><div class="status-group buffs" data-status-group="buff" aria-label="增益状态"></div></aside>
+      <div id="party-status"><button id="mercenary-status" data-panel="mercenary" data-tip="O 管理佣兵 · Shift+1 给米山使用生命药剂" hidden></button><aside id="combat-status" aria-label="角色增益与减益" hidden><div class="status-group debuffs" data-status-group="debuff" aria-label="减益状态"></div><div class="status-group buffs" data-status-group="buff" aria-label="增益状态"></div></aside></div>
       <div id="ui-tooltip" role="tooltip" hidden></div>
       <div class="area-caption"><span class="ornament-line"></span><span>邪恶洞窟</span><small>DEN OF EVIL</small></div>
       <button id="context-action" hidden><kbd>F</kbd><span></span>${icon('chevron-right')}</button>
@@ -110,7 +110,7 @@ export class UI {
         </div>
         <div class="resource mana"><div class="orb-frame"><div class="orb"><div class="orb-fill" id="mana-fill"></div><div class="orb-shine"></div><span id="mana-value">15<small>/ 15</small></span></div></div><div class="resource-caption"><span>法力</span><small id="mana-percent">100%</small></div></div>
       </footer>
-      <button id="mercenary-status" data-panel="mercenary" data-tip="O 管理佣兵 · Shift+1 给米山使用生命药剂" hidden></button><div id="overlay" hidden></div><div class="corner-mark">ECLIPSE II <span>·</span> LOCAL REALM</div>
+      <div id="overlay" hidden></div><div class="corner-mark">ECLIPSE II <span>·</span> LOCAL REALM</div>
     `);
     this.mapCanvas = document.getElementById('minimap') as HTMLCanvasElement; this.mapCtx = this.mapCanvas.getContext('2d')!;
     this.overlay = document.getElementById('overlay')!; this.toastContainer = document.getElementById('toasts')!; this.labels = document.getElementById('world-labels')!;
