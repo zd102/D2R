@@ -1,4 +1,4 @@
-import { unlockedBaseOffers } from './progression-equipment';
+import type { HeroState } from './model';
 import { CLASSES } from './classes';
 import type { SkillId } from './paladin';
 import * as THREE from 'three';
@@ -13,7 +13,7 @@ import { CharacterScreen } from './character-ui';
 import { SharedStashScreen } from './shared-stash-ui';
 import { skillLevel, difficulty, difficultyNames } from './model';
 import { skillName, skillIcon, skillValues, type Attribute } from './paladin';
-import { runeLabel, groundItemName } from './items';
+import { BASES, runeLabel, groundItemName } from './items';
 import { CAMP } from './camp';
 import { EncyclopediaScreen } from './encyclopedia-ui';
 import { heroStatuses, statusTime } from './status-effects';
@@ -23,7 +23,7 @@ import { itemDetails } from './item-details-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
-type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'death' | 'campaign' | 'shared-stash' | 'mystery-portal' | ProfilePanel;
+type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'base-shop' | 'death' | 'campaign' | 'shared-stash' | 'mystery-portal' | ProfilePanel;
 const icons = { KeyRound, Package, Search, FilterX, ChevronLeft, Undo2, Upload, Download, FileJson, FolderOpen, Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, UserRound, Users, UserPlus, Pencil, ArrowLeft, Map: MapIcon, ScrollText, Settings, Pause, Volume2, VolumeX, Maximize, Save, X, ChevronRight, Plus, Coins, Shield, Gem, Heart, Skull, Check, RotateCcw, Play, Trash2, ArrowUp, Droplets, Sparkles, Compass, Crosshair };
 const icon = (name: string, cls = '') => `<i data-lucide="${name}" class="${cls}"></i>`;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -36,9 +36,12 @@ const tooltipItemKey = (element?: HTMLElement) => element?.dataset.item ?? eleme
 function setText(element: Element, value: string) { if (element.textContent !== value) element.textContent = value; }
 function setMarkup(element: Element, value: string) { if (element.innerHTML !== value) element.innerHTML = value; }
 
-function progressionBaseShop(hero: Parameters<typeof unlockedBaseOffers>[0]) {
-  const offers = unlockedBaseOffers(hero);
-  return `<h3>旅者底材</h3><p class="quest-story">随等级与战役进度解锁。符文可从首领掉落获得，也可在符文页升阶。</p><div class="shop-items">${offers.map(offer => `<div><div class="shop-item-icon gold-text"><i data-lucide="hammer"></i></div><div><h3>${offer.purpose}</h3><small>普通有孔底材 · 需自行镶嵌符文</small></div><button class="secondary-button" data-buy-base="${offer.id}" ${hero.gold < offer.price ? 'disabled' : ''}><i data-lucide="coins"></i>${offer.price}</button></div>`).join('') || '<p>15 级且完成普通第一幕后开始供应。</p>'}</div>`;
+function progressionBaseShop(hero: HeroState) {
+  const stock = hero.baseStock;
+  return `<p class="quest-story">每次通关关卡后刷新 5 件随机有孔底材，每件限购一次。${stock.offers.length ? ['普通', '噩梦', '地狱'][stock.difficulty] + '难度货单' : '首次通关后开始供应'}。</p><div class="shop-items">${stock.offers.map(offer => {
+    const base = BASES.find(base => base.baseCode === offer.code)!;
+    return `<div><div class="shop-item-icon gold-text"><i data-lucide="hammer"></i></div><div><h3>${base.name} · ${offer.sockets} 孔</h3><small>等级 ${base.requiredLevel ?? (base.level > 30 ? base.level - 10 : 1)} · 力量 ${base.strength ?? 0} · 敏捷 ${base.dexterity ?? 0}${base.requiredClass ? ' · ' + Object.values(CLASSES).find(character => character.code === base.requiredClass)?.name + '专属' : ''}</small></div><button class="secondary-button" data-buy-base="${offer.id}" ${offer.sold || hero.gold < offer.price ? 'disabled' : ''}>${offer.sold ? '已售罄' : `<i data-lucide="coins"></i>${offer.price}`}</button></div>`;
+  }).join('')}</div><div class="inventory-gold">${hero.gold.toLocaleString()}<small>金币</small></div>`;
 }
 
 export class UI {
@@ -272,6 +275,7 @@ export class UI {
         case 'camp': this.game.returnToCamp(); break;
         case 'camp-portal': this.game.useCampPortal(); break;
         case 'mystery-portal': this.game.useMysteryPortal(); break;
+        case 'base-merchant': this.game.useBaseMerchant(); break;
         case 'shared-stash': this.game.useSharedStash(); break;
         case 'mystery-corpse': this.game.openMysteriousCorpse(); break;
         case 'run-mode': this.game.hero.running = !this.game.hero.running; this.game.save(false); break;
@@ -331,6 +335,7 @@ export class UI {
     if (!this.game.profile && !this.isProfilePanel(panel)) return;
     if (this.game.saveConflict && panel !== 'save-conflict') return;
     if (this.game.dead && panel !== 'death' && panel !== 'save-conflict') return;
+    if (panel === 'base-shop' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.baseMerchant.x, this.game.position.z - CAMP.baseMerchant.z) >= 3.5)) return;
     if (panel === 'shared-stash' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.stash.x, this.game.position.z - CAMP.stash.z) >= 3.5)) return;
     if (!this.panel) {
       const focused = document.activeElement;
@@ -377,6 +382,7 @@ export class UI {
     this.overlay.classList.remove('profile-overlay');
     const h = this.game.hero, s = stats(h);
     const titles: Record<Exclude<Panel, ProfilePanel>, [string, string]> = {
+      'base-shop': ['底材商人', 'BASE MERCHANT'],
       'shared-stash': ['本地共享仓库', 'SHARED STASH'],
       'mystery-portal': ['神秘传送阵', 'MYSTERIOUS PORTAL'],
       campaign: [this.game.inCamp ? '远征传送阵' : '章节关卡', 'CAMPAIGN'],
@@ -414,7 +420,8 @@ export class UI {
       content = settingsPanel(this.game);
     } else if (this.panel === 'shop') {
       content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${([0, 1] as const).map(index => `<div><div class="shop-item-icon ${index === 0 ? 'red-text' : 'blue-text'}">${icon(index === 0 ? 'flame' : 'droplets')}</div><div><h3>${index === 0 ? '生命' : '法力'}药剂</h3><small>持有 ${h.potions[index]}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < 25 ? 'disabled' : ''}>${icon('coins')}25</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
-      content += progressionBaseShop(h);
+    } else if (this.panel === 'base-shop') {
+      content = progressionBaseShop(h);
     } else if (this.panel === 'death') {
       content = `<div class="end-mark death-mark">${icon('skull')}</div><p class="end-story">灰烬尚温，誓约未尽。</p><div class="end-stats"><span>等级 <b>${h.level}</b></span><span>击杀 <b>${h.kills}</b></span></div><p class="death-cost">遗体保留装备 · 遗失 ${h.corpse?.gold ?? 0} 金币</p><button class="primary-button" data-action="revive">${icon('rotate-ccw')}在传送阵重生</button>`;
     }
@@ -456,6 +463,7 @@ export class UI {
     if (this.game.inCamp) {
       dot(CAMP.portal.x, CAMP.portal.z, '#63c8c8', large ? 6 : 4, true);
       dot(CAMP.mysteryPortal.x, CAMP.mysteryPortal.z, '#c48bea', large ? 6 : 4, true);
+      dot(CAMP.baseMerchant.x, CAMP.baseMerchant.z, '#d6c492', large ? 5 : 3);
       dot(CAMP.supply.x, CAMP.supply.z, '#d6c492', large ? 5 : 3);
       dot(CAMP.stash.x, CAMP.stash.z, '#e7c273', large ? 5 : 3);
     } else {
@@ -544,6 +552,12 @@ export class UI {
       label.style.transform = `translate(${point.x}px, ${y}px) translate(-50%, -100%)`;
     }
     if (game.inCamp) {
+      const merchantPoint = game.project(new THREE.Vector3(CAMP.baseMerchant.x, 2, CAMP.baseMerchant.z));
+      if (merchantPoint.visible && merchantPoint.x > 45 && merchantPoint.x < innerWidth - 45 && merchantPoint.y > 50 && merchantPoint.y < innerHeight - 110) {
+        const key = 'base-merchant'; aliveKeys.add(key); let label = this.labelNodes.get(key);
+        if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = key; setMarkup(label, `${icon('hammer')}底材商人`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
+        label.hidden = game.paused; label.style.transform = `translate(${merchantPoint.x}px,${merchantPoint.y}px) translate(-50%, -100%)`;
+      }
       const stashPoint = game.project(new THREE.Vector3(CAMP.stash.x, 1.4, CAMP.stash.z));
       if (stashPoint.visible && stashPoint.x > 65 && stashPoint.x < innerWidth - 65 && stashPoint.y > 50 && stashPoint.y < innerHeight - 150) {
         const key = 'shared-stash'; aliveKeys.add(key); let label = this.labelNodes.get(key);

@@ -7,8 +7,6 @@ import { newHero, stats, skillLevel, swapWeapons, serializeSave, parseSave, acti
 import { CATALOG_SPECIALS as OLD_SPECIALS } from '../src/item-catalog-data.ts';
 import { ADDED_RUNEWORDS } from '../src/item-catalog-current.ts';
 import { catalogMods, unappliedItemEffects } from '../src/item-catalog.ts';
-import { BASE_OFFERS, buyProgressionBase, unlockedBaseOffers } from '../src/progression-equipment.ts';
-import { runePool } from '../src/loot.ts';
 import { MONSTERS } from '../src/bestiary.ts';
 
 function craft(code: string, id: string) {
@@ -99,18 +97,4 @@ test('curated uniques improve new drops while old numerical rolls remain untouch
       assert.deepEqual(loaded.stash[0].catalogRolls,legacy.catalogRolls,key);
     }
   }
-});
-
-test('progression bases require both campaign and level, support actual recipes, and never charge on failure', () => {
-  const hero=newHero('amazon'); hero.gold=100000; hero.level=99;
-  assert.deepEqual(unlockedBaseOffers(hero),[]); assert.equal(buyProgressionBase(hero,'insight-bow'),undefined);
-  hero.campaign.cleared=[10,0,0]; hero.level=26; assert.equal(buyProgressionBase(hero,'insight-bow'),undefined);
-  hero.level=27; const bow=buyProgressionBase(hero,'insight-bow')!; assert.ok(bow); assert.equal(hero.gold,97600);
-  const word=RUNEWORDS.find(word=>word.catalogId==='Runeword62')!;
-  const available=runePool(28,0,2); assert.ok(word.runes.every(rune=>available.includes(rune)));
-  for(const rune of word.runes)assert.ok(socketItem(bow,rune,()=>.5)); assert.equal(bow.name,word.name);
-  const gold=hero.gold; assert.equal(buyProgressionBase(hero,'unknown'),undefined); assert.equal(hero.gold,gold);
-  hero.inventory=Array.from({length:40},(_,i)=>({...makeItem(BASES.find(base=>base.baseCode==='rin')!,String(i)),width:1,height:1}));
-  assert.equal(buyProgressionBase(hero,'insight-bow'),undefined); assert.equal(hero.gold,gold);
-  for(const offer of BASE_OFFERS)assert.ok(BASES.find(base=>base.baseCode===offer.code)!.sockets!>=offer.sockets);
 });

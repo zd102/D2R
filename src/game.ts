@@ -76,7 +76,7 @@ export class Game {
   target?: Enemy;
   pendingPickup?: number;
   pendingPortal = false;
-  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' = 'portal';
+  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' = 'portal';
   pendingMysteryCorpse = false;
   pendingChest?: number;
   heldAttack = false;
@@ -229,6 +229,12 @@ export class Game {
     this.begin(); this.pendingCampTarget = 'portal';
     if (Math.hypot(this.position.x - CAMP.portal.x, this.position.z - CAMP.portal.z) < 3.5) this.ui.openPanel('campaign');
     else { this.moveTo(new THREE.Vector3(CAMP.portal.x, 0, CAMP.portal.z)); this.pendingPortal = this.path.length > 0; }
+  }
+  useBaseMerchant() {
+    if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict) return;
+    this.begin(); this.pendingCampTarget = 'baseMerchant';
+    if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) this.ui.openPanel('base-shop');
+    else { this.moveTo(new THREE.Vector3(CAMP.baseMerchant.x, 0, CAMP.baseMerchant.z)); this.pendingPortal = this.path.length > 0; }
   }
   useSharedStash() {
     if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict) return;
@@ -704,6 +710,7 @@ export class Game {
       if (Math.hypot(this.position.x - CAMP.stash.x, this.position.z - CAMP.stash.z) < 3.5) return { name: '本地共享仓库', kind: 'shared-stash', id: 0 };
       if (Math.hypot(this.position.x - CAMP.portal.x, this.position.z - CAMP.portal.z) < 3.5) return { name: '传送阵 · 选择关卡', kind: 'camp-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.mysteryPortal.x, this.position.z - CAMP.mysteryPortal.z) < 3.5) return { name: '神秘传送阵', kind: 'mystery-portal', id: 0 };
+      if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) return { name: '底材商人', kind: 'base-shop', id: 0 };
       if (Math.hypot(this.position.x - CAMP.supply.x, this.position.z - CAMP.supply.z) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
       return null;
     }
@@ -723,6 +730,7 @@ export class Game {
     if (this.paused || this.dead) return;
     this.begin(); const action = this.contextAction(); if (!action) return;
     if (action.kind === 'corpse') { if (recoverCorpse(this.hero, !this.inCamp)) { this.ui.toast('装备已取回'); this.save(false); } else this.ui.toast('背包空间不足'); return; }
+    if (action.kind === 'base-shop') { this.ui.openPanel('base-shop'); return; }
     if (action.kind === 'shop') { this.ui.openPanel('shop'); return; }
     if (action.kind === 'camp-portal') { this.ui.openPanel('campaign'); return; }
     if (action.kind === 'mystery-portal') { this.ui.openPanel('mystery-portal'); return; }
@@ -761,10 +769,10 @@ export class Game {
     this.hero.gold -= 25; this.hero.potions[index]++; this.audio.play('itemBottle'); this.ui.renderPanel(); this.save(false);
   }
   buyBase(id: string) {
-    if (!this.profile || this.dead || this.saveConflict || this.ui.panel !== 'shop') return;
+    if (!this.profile || this.dead || this.saveConflict || this.ui.panel !== 'base-shop' || !this.inCamp || Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) >= 3.5) return;
     const previous = structuredClone(this.hero);
     const item = buyProgressionBase(this.hero, id);
-    if (!item) { this.ui.toast('无法购买', '请检查金币、背包空间与解锁进度'); return; }
+    if (!item) { this.ui.toast('无法购买', '请检查金币、背包空间与库存'); return; }
     if (!this.save(false)) { this.hero = previous; return; }
     this.audio.play('equip'); this.ui.toast(item.name, '已收入背包'); this.ui.renderPanel();
   }
@@ -917,7 +925,7 @@ export class Game {
     this.world.physics.step(1 / 60, dt === 1 / 60 ? undefined : dt, 3);
     this.position.set(this.body.position.x, 0, this.body.position.z);
     const campTarget = CAMP[this.pendingCampTarget];
-    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
+    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
     if (this.pendingMysteryCorpse) {
       const corpse = this.world.mysteryCorpse;
       if (!corpse || corpse.opened || !this.path.length && Math.hypot(this.position.x - corpse.x, this.position.z - corpse.z) > 3.2) this.pendingMysteryCorpse = false;

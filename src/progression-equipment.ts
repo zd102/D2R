@@ -1,28 +1,50 @@
-import { BASES, makeItem, packItems, placeItems, type Item } from './items.ts';
+import { BASES, isAvailableItem, itemId, makeItem, packItems, placeItems, type Item } from './items.ts';
+import { AREA_LEVELS } from './campaign.ts';
 import type { HeroState } from './model.ts';
 
-// Modest socket bases, never completed runewords. Gold earned while farming
-// provides a deterministic fallback to the existing random base drops.
-export const BASE_OFFERS = [
-  { id: 'edge-bow', code: 'hbw', sockets: 3, level: 15, cleared: 5, price: 900, purpose: '边缘 · 三孔弓' },
-  { id: 'stealth-armor', code: 'lea', sockets: 2, level: 17, cleared: 5, price: 700, purpose: '隐密 / 烟雾 · 两孔护甲' },
-  { id: 'lore-helm', code: 'cap', sockets: 2, level: 20, cleared: 5, price: 700, purpose: '知识 · 两孔头盔' },
-  { id: 'insight-bow', code: '8hb', sockets: 4, level: 27, cleared: 10, price: 2400, purpose: '眼光 / 和谐 · 四孔剃刀之弓' },
-  { id: 'utility-helm', code: 'msk', sockets: 3, level: 35, cleared: 15, price: 1600, purpose: '功能符文之语 · 三孔面具' },
-  { id: 'hustle-armor', code: 'brs', sockets: 3, level: 39, cleared: 15, price: 1800, purpose: '躁动 · 三孔胸甲' },
-  { id: 'elite-bow', code: '6hb', sockets: 4, level: 65, cleared: 45, price: 8000, purpose: '眼光 / 和谐 · 四孔刀锋弓' },
-] as const;
-export function unlockedBaseOffers(hero: HeroState) {
-  const progress = hero.campaign.cleared.reduce((sum, count) => sum + count, 0);
-  return BASE_OFFERS.filter(offer => hero.level >= offer.level && progress >= offer.cleared);
+export type BaseOffer = { id: string; code: string; sockets: number; price: number; sold: boolean };
+export type BaseStock = { difficulty: 0 | 1 | 2; offers: BaseOffer[] };
+export function basePool(difficulty: 0 | 1 | 2) {
+  const seen = new Set<string>();
+  return BASES.filter(base => {
+    if (!base.baseCode || seen.has(base.baseCode) || !isAvailableItem(base) || !base.sockets || (base.qualityLevel ?? base.level) > AREA_LEVELS[difficulty][24]) return false;
+    seen.add(base.baseCode); return true;
+  });
+}
+export function refreshBaseStock(hero: HeroState, random = Math.random) {
+  const pool = basePool(hero.difficultyLevel);
+  const offers: BaseOffer[] = [];
+  for (let i = 0; i < 5 && pool.length; i++) {
+    const base = pool.splice(Math.min(pool.length - 1, Math.floor(random() * pool.length)), 1)[0];
+    const sockets = 1 + Math.min(base.sockets! - 1, Math.floor(random() * base.sockets!));
+    offers.push({ id: itemId(), code: base.baseCode!, sockets, price: basePrice(base.qualityLevel ?? base.level, sockets), sold: false });
+  }
+  hero.baseStock = { difficulty: hero.difficultyLevel, offers };
+}
+function basePrice(level: number, sockets: number) { return 100 + level * 40 + sockets * 100; }
+export function parseBaseStock(value: unknown): BaseStock {
+  const empty: BaseStock = { difficulty: 0, offers: [] };
+  if (!value || typeof value !== 'object') return empty;
+  const stock = value as BaseStock;
+  if (![0, 1, 2].includes(stock.difficulty) || !Array.isArray(stock.offers) || stock.offers.length !== 5) return empty;
+  const pool = basePool(stock.difficulty), ids = new Set<string>(), codes = new Set<string>();
+  const offers: BaseOffer[] = [];
+  for (const offer of stock.offers) {
+    if (!offer || typeof offer.id !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(offer.id) || ids.has(offer.id) || codes.has(offer.code)) return empty;
+    const base = pool.find(base => base.baseCode === offer.code);
+    if (!base || !Number.isInteger(offer.sockets) || offer.sockets < 1 || offer.sockets > base.sockets! || typeof offer.sold !== 'boolean') return empty;
+    ids.add(offer.id); codes.add(offer.code);
+    offers.push({ id: offer.id, code: offer.code, sockets: offer.sockets, price: basePrice(base.qualityLevel ?? base.level, offer.sockets), sold: offer.sold });
+  }
+  return { difficulty: stock.difficulty, offers };
 }
 export function buyProgressionBase(hero: HeroState, id: string): Item | undefined {
-  const offer = unlockedBaseOffers(hero).find(offer => offer.id === id);
-  if (!offer || hero.gold < offer.price) return;
-  const base = BASES.find(base => base.baseCode === offer.code);
+  const offer = hero.baseStock.offers.find(offer => offer.id === id);
+  if (!offer || offer.sold || hero.gold < offer.price) return;
+  const base = basePool(hero.baseStock.difficulty).find(base => base.baseCode === offer.code);
   if (!base || (base.sockets ?? 0) < offer.sockets) return;
   const item = makeItem(base); item.sockets = offer.sockets;
   if (!packItems([...hero.inventory, item])) return;
-  hero.inventory.push(item); placeItems(hero.inventory); hero.gold -= offer.price;
+  hero.inventory.push(item); placeItems(hero.inventory); hero.gold -= offer.price; offer.sold = true;
   return item;
 }

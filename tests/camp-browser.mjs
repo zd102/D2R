@@ -5,7 +5,7 @@ import { newHero } from '../src/model.ts';
 import { PROFILE_PREFIX } from '../src/saves.ts';
 import { CAMP } from '../src/camp.ts';
 
-const output = '.verification/camp';
+const output = process.env.OUTPUT_DIR || '.verification/camp';
 await mkdir(output, { recursive: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -26,7 +26,7 @@ async function loadCamp(page, creating = false) {
   assert.equal(s.area.id, 'camp'); assert.equal(s.area.name, CAMP.name); assert.equal(s.enemies.length, 0);
   assert.equal(s.enemyProjectiles, 0); assert.equal(s.enemyHazards, 0); assert.equal(s.loot.length, 0);
   assert.deepEqual(s.position, CAMP.spawn);
-  assert.deepEqual(s.objectives.map(p => p.kind), ['camp-portal', 'supply']);
+  assert.deepEqual(s.objectives.map(p => p.kind), ['camp-portal', 'supply', 'base-merchant']);
   for (const p of s.objectives) assert.ok(p.route.length, 'Camp facilities are reachable');
   await pause(page);
   await page.keyboard.press('Escape');

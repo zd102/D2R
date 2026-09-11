@@ -1,3 +1,4 @@
+import { refreshBaseStock, parseBaseStock, type BaseStock } from './progression-equipment.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count.ts';
 import { BASE_ATTRIBUTES, PALADIN_BALANCE, SKILLS, skillById, emptySkills, isSkill, isAura, skillValues, xpForLevel, EXPERIENCE, breakpointFrames, FCR, FHR, FBR, type SkillId, type ActionId, type Attribute, type DamageType } from './paladin.ts';
 import { SLOTS, BASES, MOD_NAMES, RUNES, makeItem, addMods, itemMods, itemRequirements, packItems, placeItems, stashRows, socketItem, type Mods, type Modifier, type Slot, type Item, type RuneId } from './items.ts';
@@ -24,7 +25,7 @@ export type HeroState = {
   ammo: { arrows: number; bolts: number };
   equipment: Record<Slot, Item | null>; alternate: { weapon: Item | null; shield: Item | null }; weaponSet: 0 | 1;
   inventory: Item[]; stash: Item[]; runes: RuneId[]; identifyScrolls: number;
-  campaign: CampaignState;
+  campaign: CampaignState; baseStock: BaseStock;
   stage: number; difficultyLevel: 0 | 1 | 2; unlockedDifficulty: 0 | 1 | 2; shrines: number[]; bossDefeated: boolean; questRewards: string[]; respecUsed: number[];
   bonusLife: number; bonusResist: number; holyShield: number; holyShieldLevel: number; poison: number; curse: number; cold: number;
   corpse: { equipment: Record<Slot, Item | null>; extras: Item[]; x: number; z: number; xpLost: number; gold: number } | null;
@@ -42,7 +43,7 @@ export const newHero = (classId: ClassId = 'paladin'): HeroState => ({
   ammo: { arrows: 0, bolts: 0 },
   equipment: { ...emptyEquipment(), weapon: classId === 'paladin' ? makeItem(BASES[0], 'starter-sword') : classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='jav')!, 'starter-javelin') : { ...makeItem(BASES.find(base=>base.baseCode==='sst')!, 'starter-staff'), mods: { skill_fireBolt: 1 } }, shield: classId === 'sorceress' ? null : makeItem(BASES.find(base => base.name === '圆盾')!, 'starter-shield') },
   alternate: { weapon: classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='sbw')!,'starter-bow') : null, shield: null }, weaponSet: 0, inventory: [], stash: [], runes: [], identifyScrolls: 0,
-  campaign: newCampaign(),
+  campaign: newCampaign(), baseStock: { difficulty: 0, offers: [] },
   questRewards: [], respecUsed: [], bonusLife: 0, bonusResist: 0, holyShield: 0, holyShieldLevel: 0, poison: 0, curse: 0, cold: 0, corpse: null,
 });
 export function activeEquipment(hero: HeroState, equipment = hero.equipment): Item[] {
@@ -354,6 +355,7 @@ export function completeCampaignLevel(hero: HeroState) {
       if (reward === 'attributes') hero.points += 5;
     }
   }
+  refreshBaseStock(hero);
   grantCampaignReward(hero, index);
   hero.unlockedDifficulty = unlockedCampaignDifficulty(campaign);
   return true;
@@ -434,6 +436,7 @@ export function parseSave(raw: string | null): HeroState | null {
     hero.unlockedDifficulty = integer(h.unlockedDifficulty, hero.difficultyLevel, hero.difficultyLevel, 2) as 0 | 1 | 2;
     if (h.campaign !== undefined && (!h.campaign || h.campaign.version !== 1)) return null;
     hero.campaign = parseCampaign(h.campaign);
+    hero.baseStock = parseBaseStock(h.baseStock);
     hero.unlockedDifficulty = unlockedCampaignDifficulty(hero.campaign);
     hero.difficultyLevel = Math.min(hero.difficultyLevel, hero.unlockedDifficulty) as 0 | 1 | 2;
     if (!h.campaign || !canEnterLevel(hero.campaign, hero.campaign.current, hero.difficultyLevel)) {

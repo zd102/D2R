@@ -235,6 +235,14 @@ export class GameWorld {
     for (let i = 0; i < 4; i++) mesh(this.staticGroup, sphere, i % 2 ? blueCanvas : redCanvas, x - .75 + i * .5, 1, z, .16, .24, .16);
     mesh(this.staticGroup, box, timber, x + 2.2, .55, z, 1.2, 1.1, 1.1);
     this.addCollider(x, z, 2.4, 1.2); this.addCollider(x + 2.2, z, 1.2, 1.1);
+    const merchant = new THREE.Group(); merchant.position.set(CAMP.baseMerchant.x, 0, CAMP.baseMerchant.z); this.staticGroup.add(merchant);
+    mesh(merchant, box, timber, 0, .7, 0, 2, .16, 1);
+    for (const side of [-1, 1]) mesh(merchant, box, timber, side * .8, .35, 0, .15, .7, .8);
+    mesh(merchant, box, edgeStone, -.5, .9, 0, .6, .25, .5);
+    mesh(merchant, cylinder, leather, .3, .9, 0, .3, .25, .3);
+    mesh(merchant, cylinder, blueCanvas, 0, .8, -1, .3, 1.2, .3);
+    mesh(merchant, sphere, bone, 0, 1.6, -1, .25, .28, .25);
+    this.addCollider(CAMP.baseMerchant.x, CAMP.baseMerchant.z - .4, 2, 2);
     const chest = new THREE.Group(); chest.position.set(CAMP.stash.x, 0, CAMP.stash.z); this.sharedStash = chest; this.scene.add(chest);
     mesh(chest, box, leather, 0, .45, 0, 2, .9, 1.2);
     mesh(chest, box, timber, 0, .98, 0, 2.1, .2, 1.3);
