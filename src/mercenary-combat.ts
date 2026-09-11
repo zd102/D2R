@@ -137,17 +137,20 @@ export class MercenaryCombat {
     c.triggerItems('att-skill', enemy, snapshot.items);
     const jab = skillValues('jab', 1 + Math.floor(g.hero.level / 5) + (mods.allSkills ?? 0), emptySkills());
     const defense = mods.ignoreDefense && !enemy.boss ? 0 : Math.max(0, enemy.defense - c.classes.defenseReduction(enemy)) * Math.max(0, 1 - (mods.targetDefense ?? 0) / 100 / (enemy.boss ? 2 : 1) - (c.auraAt(enemy, 'conviction', s)?.secondary ?? 0) / 100);
-    if (Math.random() * 100 >= hitChance(s.attackRating * (1 + jab.attack / 100), defense, g.hero.level, enemy.level)) { g.ui.floatText('未命中', enemy.actor.group.position.clone().setY(1.8), 'miss'); return; }
+    const raceAttack = isUndead(enemy) ? mods.attackUndead ?? 0 : enemy.definition?.race === 'demon' ? mods.attackDemons ?? 0 : 0;
+    const attackRating = (s.baseAttackRating + raceAttack) * (1 + (s.attackRatingBonus + jab.attack) / 100);
+    if (Math.random() * 100 >= hitChance(attackRating, defense, g.hero.level, enemy.level)) { g.ui.floatText('未命中', enemy.actor.group.position.clone().setY(1.8), 'miss'); return; }
     if (Math.random() * 100 < (mods.crushingBlow ?? 0)) c.damage(enemy, resistedDamage(enemy.hp / playerLifeFactor(enemy.playerCount) * (enemy.boss ? .125 : .25), Math.max(0, c.physicalResistance(enemy))), 'physical', true, false, snapshot);
     const critical = s.criticalStrike > 0 && Math.random() * 100 < s.criticalStrike || Math.random() * 100 < (mods.deadlyStrike ?? 0);
     const racial = isUndead(enemy) ? mods.damageUndead ?? 0 : enemy.definition?.race === 'demon' ? mods.damageDemons ?? 0 : 0;
     const physical = (s.attackMin + Math.random() * (s.attackMax - s.attackMin)) * Math.max(.1, 1 + (jab.damage + racial) / 100) * (critical ? 2 : 1);
     const dealt = c.damage(enemy, physical, 'physical', false, critical, snapshot);
-    merc.hp = Math.min(s.maxHp, merc.hp + dealt * ((mods.lifeSteal ?? 0) / 100 * leechEffectiveness(enemy, snapshot.difficulty) + (c.itemCurses.get(enemy)?.kind === 'lifeTap' ? .5 : 0)));
+    merc.hp = Math.min(g.hero.level === snapshot.level ? s.maxHp : mercenaryStats(g.hero).maxHp, merc.hp + dealt * ((mods.lifeSteal ?? 0) / 100 * leechEffectiveness(enemy, snapshot.difficulty) + (c.itemCurses.get(enemy)?.kind === 'lifeTap' ? .5 : 0)));
     for (const type of ['fire', 'cold', 'lightning', 'poison'] as const) {
-      let amount = type === 'poison' ? mods.poisonDamage ?? 0 : elementalDamage(mods, type);
+      const itemAmount = type === 'poison' ? mods.poisonDamage ?? 0 : elementalDamage(mods, type);
+      let amount = itemAmount;
       for (const aura of s.auras) if (aura.type === type && ['holyFire', 'holyFreeze', 'holyShock'].includes(aura.id)) amount += (aura.min + Math.random() * (aura.max - aura.min)) * aura.secondary;
-      if (amount > 0 && !enemy.dead) { const hit = c.damage(enemy, amount, type, false, false, snapshot); if (hit && type === 'cold') enemy.coldTime = Math.max(enemy.coldTime, (mods.coldDuration ?? 2) / [1, 2, 4][snapshot.difficulty]); }
+      if (amount > 0 && !enemy.dead) { const hit = c.damage(enemy, amount, type, false, false, snapshot); if (hit && type === 'cold' && itemAmount > 0) enemy.coldTime = Math.max(enemy.coldTime, (mods.coldDuration ?? 2) / [1, 2, 4][snapshot.difficulty]); }
     }
     const magic = (mods.magicMinDamage ?? 0) + Math.random() * ((mods.magicMaxDamage ?? 0) - (mods.magicMinDamage ?? 0));
     if (magic > 0) c.damage(enemy, magic, 'magic', false, false, snapshot);
@@ -177,7 +180,7 @@ export class MercenaryCombat {
     if (type === 'poison' && source) merc.poison = Math.max(merc.poison, 6);
     if (source && merc.hp > 0) {
       g.combat.triggerItems('gethit-skill', source, activeMercenaryEquipment(g.hero));
-      if (!missile && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); const reflected = absorbed.damage * (thorns?.percent ?? 0) / 100 + (s.mods.reflectDamage ?? 0); if (reflected > 0) g.combat.damage(source, reflected, 'physical', false, false, this.snapshot()); }
+      if (!missile && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); const reflected = absorbed.damage * (thorns?.percent ?? 0) / 100 + (thorns?.secondary ?? 0) + (s.mods.reflectDamage ?? 0); if (reflected > 0) g.combat.damage(source, reflected, 'physical', false, false, this.snapshot()); }
     }
     if (merc.hp <= 0) {
       merc.status = 'dead'; merc.cold = merc.poison = merc.potionHealing = 0;

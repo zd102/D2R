@@ -1,4 +1,4 @@
-import { mercenaryPanel } from './mercenary-ui';
+import { mercenaryPanel, type MercenaryPanelState } from './mercenary-ui';
 import { mercenaryUnlocked, mercenaryStats, equipMercenary, unequipMercenary, selectMercenaryAura } from './mercenary';
 import type { HeroState } from './model';
 import { CLASSES } from './classes';
@@ -47,6 +47,7 @@ function progressionBaseShop(hero: HeroState) {
 }
 
 export class UI {
+  mercenaryView: MercenaryPanelState = { tab: 'equipment' };
   panel?: Panel;
   selectedItem?: string;
   hoveredEnemy?: Enemy;
@@ -262,6 +263,8 @@ export class UI {
       if (element.dataset.salvage) this.game.salvage(element.dataset.salvage);
       if (element.dataset.allocate) this.game.allocate(element.dataset.allocate as Attribute, Number(element.dataset.count ?? 1));
       if (element.dataset.buyBase) this.game.buyBase(element.dataset.buyBase);
+      if (element.dataset.mercenaryTab === 'equipment' || element.dataset.mercenaryTab === 'auras') { this.mercenaryView.tab = element.dataset.mercenaryTab; this.renderPanel(); }
+      if (element.dataset.mercenaryItem) { this.mercenaryView.itemId = element.dataset.mercenaryItem; this.renderPanel(); if (innerWidth <= 700) this.overlay.querySelector('.mercenary-inspector')?.scrollIntoView({ block: 'nearest' }); }
       if (element.dataset.mercenaryEquip) this.changeMercenary(() => equipMercenary(this.game.hero, element.dataset.mercenaryEquip!));
       if (element.dataset.mercenaryUnequip) this.changeMercenary(() => unequipMercenary(this.game.hero, element.dataset.mercenaryUnequip!));
       if (element.dataset.mercenaryAura) this.changeMercenary(() => selectMercenaryAura(this.game.hero, element.dataset.mercenaryAura));
@@ -384,6 +387,8 @@ export class UI {
     this.panelOpener = undefined;
   }
   renderPanel() {
+    const mercenaryStats = this.overlay.querySelector<HTMLDetailsElement>('.mercenary-stat-details');
+    if (mercenaryStats) this.mercenaryView.statsOpen = mercenaryStats.open;
     const restoreFocus = rememberDialogFocus(this.overlay);
     this.renderPanelContent();
     restoreFocus();
@@ -414,7 +419,7 @@ export class UI {
     const panelTitle = titles[this.panel as keyof typeof titles];
     let content = '';
     if (this.panel === 'mercenary' || this.panel === 'mercenary-shop') {
-      content = mercenaryPanel(this.game, this.panel === 'mercenary-shop');
+      content = mercenaryPanel(this.game, this.panel === 'mercenary-shop', this.mercenaryView);
     } else if (this.panel === 'shared-stash') {
       content = this.sharedStashScreen.render();
     } else if (this.panel === 'mystery-portal') {

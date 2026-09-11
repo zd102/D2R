@@ -32,7 +32,7 @@ try {
   assert.equal(await lockedPage.evaluate(() => window.mercenaryVerification.hireMercenary()), false);
   await lockedPage.close();
 
-  for (const width of [1440, 390].filter(width => !process.env.MERCENARY_WIDTH || width === Number(process.env.MERCENARY_WIDTH))) {
+  for (const width of [1440, 390, 360].filter(width => !process.env.MERCENARY_WIDTH || width === Number(process.env.MERCENARY_WIDTH))) {
     const h = newHero('sorceress'); h.level = 30; h.campaign.cleared[0] = 5; h.gold = 50000; h.hp = stats(h).maxHp;
     const spear = gear('spr', 'merc-spear'); spear.mods = { damage: 100, lifeSteal: 30, lifeOnKill: 25, ias: 40, aura_meditation: 15 };
     const armor = gear('lea', 'merc-armor'); armor.mods = { life: 80, allRes: 30 };
@@ -40,13 +40,19 @@ try {
     h.inventory = [spear, armor, helm]; placeItems(h.inventory);
     const page = await open(h, width);
     await page.screenshot({ path: `${output}/camp-${width}.png` });
-    await page.locator('[data-action="mercenary-merchant"]').click();
+    await page.keyboard.press('o'); await page.locator('[data-action="find-mercenary"]').click();
     await expect(page.locator('.panel-mercenary-shop')).toBeVisible();
     await page.locator('[data-action="hire-mercenary"]').click();
     await expect(page.locator('[data-action="hire-mercenary"]')).toBeDisabled();
     let saved = (await savedProfile(page)).hero;
     assert.equal(saved.gold, h.gold - mercenaryCost(h)); assert.equal(saved.mercenary.status, 'alive');
+    await page.locator('[data-mercenary-item="merc-armor"]').click();
+    await expect(page.locator('.mercenary-comparison')).toContainText('+80');
     for (const item of h.inventory) await page.locator(`[data-mercenary-equip="${item.id}"]`).click();
+    await page.locator('[data-mercenary-tab="equipment"]').focus(); await page.keyboard.press('ArrowRight');
+    await expect(page.locator('[data-mercenary-tab="auras"]')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('[data-mercenary-tab="auras"]')).toBeFocused();
+    await expect(page.locator('.mercenary-extra-auras')).toContainText('冥思');
     for (const aura of ['prayer', 'defiance', 'blessedAim', 'might', 'holyFreeze', 'thorns']) { await page.locator(`[data-mercenary-aura="${aura}"]`).click(); await expect(page.locator(`[data-mercenary-aura="${aura}"]`)).toHaveAttribute('aria-pressed', 'true'); }
     await page.locator('[data-mercenary-aura="holyFreeze"]').click();
     saved = (await savedProfile(page)).hero; assert.equal(saved.inventory.length, 0); assert.equal(saved.mercenary.equipment.weapon.id, spear.id);
@@ -59,10 +65,18 @@ try {
     await page.locator('#mercenary-status').click(); await page.locator('[data-mercenary-unequip="helm"]').click();
     assert.ok((await savedProfile(page)).hero.inventory.some(item => item.id === helm.id));
     await page.locator(`[data-mercenary-equip="${helm.id}"]`).click();
-    await page.locator('[data-mercenary-slot="weapon"] summary').click();
+    await page.locator('[data-mercenary-item="merc-spear"]').click();
     assert.equal(await page.locator('.panel-body').evaluate(node => node.scrollWidth <= node.clientWidth), true, 'Equipment details fit the panel');
     await page.screenshot({ path: `${output}/equipment-${width}.png` });
-    await page.locator('[data-mercenary-slot="weapon"] summary').click();
+    await expect(page.locator('.mercenary-inspector')).toContainText('生命偷取');
+    if (width === 390) {
+      await page.setViewportSize({ width: 844, height: 390 });
+      assert.equal(await page.locator('.panel-body').evaluate(node => node.scrollWidth <= node.clientWidth), true, 'Landscape equipment fits');
+      await page.locator('[data-mercenary-tab="auras"]').click();
+      assert.equal(await page.locator('.panel-body').evaluate(node => node.scrollWidth <= node.clientWidth), true, 'Landscape auras fit');
+      await page.screenshot({ path: `${output}/landscape.png` });
+      await page.setViewportSize({ width, height: 844 });
+    }
     await page.keyboard.press('Escape');
 
     const potionCount = await page.evaluate(() => {
@@ -138,7 +152,7 @@ try {
     await page.reload(); await page.getByRole('button', { name: '进入旅程', exact: true }).click();
     await page.waitForFunction(() => window.eclipseState?.mercenary?.status === 'dead');
     assert.equal(await page.evaluate(() => window.eclipseState.mercenary.position), null);
-    await page.locator('[data-action="mercenary-merchant"]').click(); await expect(page.locator('.panel-mercenary-shop')).toContainText('已阵亡');
+    await page.keyboard.press('o'); await page.locator('[data-action="find-mercenary"]').click(); await expect(page.locator('.panel-mercenary-shop')).toContainText('已阵亡');
     const gold = (await savedProfile(page)).hero.gold; await page.locator('[data-action="hire-mercenary"]').click();
     saved = (await savedProfile(page)).hero; assert.equal(saved.gold, gold - mercenaryCost(saved)); assert.equal(saved.mercenary.status, 'alive'); assert.equal(saved.mercenary.equipment.weapon.id, spear.id);
     await page.screenshot({ path: `${output}/rehired-${width}.png` });

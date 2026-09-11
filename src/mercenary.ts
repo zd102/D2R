@@ -3,11 +3,11 @@ import { addMods, itemMods, itemRequirements, weaponType, packItems, type Item, 
 import { levelMods } from './item-effects.ts';
 import { catalogItemSetBonuses, catalogSetBonuses } from './item-catalog.ts';
 import { emptySkills, isAura, isSkill, skillValues, type SkillId } from './paladin.ts';
+import { MERCENARY_AURAS, mercenaryAuraRank, mercenaryAuraValues, strongerAura, type MercenaryAura, type AuraEffect } from './mercenary-auras.ts';
+export { MERCENARY_AURAS, mercenaryAuraRank, mercenaryAuraValues, type MercenaryAura } from './mercenary-auras.ts';
 
 export const MERCENARY_SLOTS = ['weapon', 'helm', 'armor'] as const;
 export type MercenarySlot = typeof MERCENARY_SLOTS[number];
-export const MERCENARY_AURAS = ['prayer', 'defiance', 'blessedAim', 'might', 'holyFreeze', 'thorns'] as const;
-export type MercenaryAura = typeof MERCENARY_AURAS[number];
 export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number };
 export const MERCENARY_POTION = { healing: 160, perSecond: 30 } as const;
 export function mercenaryPotionReason(hero: HeroState) {
@@ -30,7 +30,6 @@ export function updateMercenaryPotion(hero: HeroState, dt: number, maxHp = merce
 export const mercenaryUnlocked = (hero: HeroState) => hero.campaign.cleared.some(count => count >= 5);
 export const mercenaryCost = (hero: HeroState) => Math.min(50000, 300 + hero.level * 80 + hero.level * hero.level * 5);
 export const mercenaryBase = (level: number) => ({ strength: 40 + level * 2, dexterity: 25 + Math.floor(level * 1.5), life: 100 + level * 18, resistance: Math.min(70, 10 + level) });
-export const mercenaryAuraRank = (level: number) => Math.min(20, 1 + Math.floor((level - 1) / 4));
 export const isMercenaryAura = (value: unknown): value is MercenaryAura => MERCENARY_AURAS.includes(value as MercenaryAura);
 export function mercenaryItemAllowed(item: Item, slot: string = item.slot) {
   return MERCENARY_SLOTS.includes(slot as MercenarySlot) && item.slot === slot && !item.requiredClass && !item.misc && !item.charm && !item.jewel
@@ -60,11 +59,12 @@ export function setMercenaryDistance(hero: HeroState, distance: number) { distan
 export function mercenaryAuras(hero: HeroState, includeInactive = false) {
   const merc = hero.mercenary;
   if (!merc || !includeInactive && (merc.status !== 'alive' || merc.hp <= 0)) return [];
-  const mods = mercenaryMods(hero), ranks = new Map<SkillId, number>([[merc.aura, mercenaryAuraRank(hero.level) + (mods.allSkills ?? 0)]]);
+  const mods = mercenaryMods(hero), native = mercenaryAuraValues(merc.aura, hero.level, mods.allSkills), auras = new Map<SkillId, AuraEffect>([[merc.aura, native]]);
   for (const [key, rank] of Object.entries(mods)) if (key.startsWith('aura_') && isSkill(key.slice(5)) && isAura(key.slice(5) as SkillId)) {
-    const id = key.slice(5) as SkillId; ranks.set(id, Math.max(rank, ranks.get(id) ?? 0));
+    const id = key.slice(5) as SkillId, aura = { id, rank, ...skillValues(id, rank, emptySkills()) }, previous = auras.get(id);
+    if (!previous || strongerAura(aura, previous)) auras.set(id, aura);
   }
-  return [...ranks].map(([id, rank]) => ({ id, rank, ...skillValues(id, rank, emptySkills()), mercenary: true }));
+  return [...auras.values()].map(aura => ({ ...aura, mercenary: true }));
 }
 export const isPartyAura = (id: SkillId) => !['holyFire', 'holyFreeze', 'holyShock', 'sanctuary', 'conviction', 'redemption'].includes(id);
 export function mercenaryPartyAuras(hero: HeroState) { return mercenaryAuras(hero).filter(aura => isPartyAura(aura.id) && (distances.get(hero) ?? 0) <= aura.radius); }
@@ -78,19 +78,22 @@ export function mercenaryStats(hero: HeroState) {
   const auras = mercenaryAuras(hero, true).map(aura => ({ ...aura, mercenary: false }));
   for (const aura of equippedAuras({ ...hero, mercenary: null }).filter(aura => isPartyAura(aura.id) && (distances.get(hero) ?? 0) <= aura.radius)) {
     const index = auras.findIndex(other => other.id === aura.id);
-    if (index < 0) auras.push(aura); else if (auras[index].rank < aura.rank) auras[index] = aura;
+    if (index < 0) auras.push(aura); else if (strongerAura(aura, auras[index])) auras[index] = aura;
   }
   const result = stats(proxy, auras);
   // D2 hirelings gain life directly; item vitality and mana are not useful to them.
   result.maxHp -= (result.vitality - proxy.vitality) * 3;
   result.defense += Math.floor((20 + hero.level * 6) * (1 + (auras.find(aura => aura.id === 'defiance')?.percent ?? 0) / 100)); result.armor = result.defense;
-  // Desert guards jab in melee, including when holding a javelin. Base damage is
-  // added after weapon scaling, following D2's hireling damage formula.
+  // Desert guards jab in melee, including when holding a javelin. Native damage
+  // receives offensive aura bonuses, so Might also benefits modest weapons.
   result.ranged = undefined;
-  const bonus = result.strength + (result.mods.damage ?? 0) - (result.weapon ? itemMods(result.weapon).damage ?? 0 : 0) + result.auras.reduce((sum, aura) => sum + (['might', 'concentration', 'fanaticism'].includes(aura.id) ? aura.damage : 0), 0);
+  const auraDamage = result.auras.reduce((sum, aura) => sum + (['might', 'concentration', 'fanaticism'].includes(aura.id) ? aura.damage : 0), 0);
+  const weapon = result.weapon, active = activeMercenaryEquipment(hero);
+  const localDamage = weapon ? (itemMods(weapon).damage ?? 0) + (catalogItemSetBonuses(weapon, active).damage ?? 0) : 0;
+  const bonus = result.strength + (result.mods.damage ?? 0) - localDamage + auraDamage;
   result.damageBonus = bonus;
-  result.attackMin = result.weaponMin * (1 + bonus / 100) + 3 + hero.level * 1.1;
-  result.attackMax = result.weaponMax * (1 + bonus / 100) + 6 + hero.level * 1.7;
+  result.attackMin = result.weaponMin * (1 + bonus / 100) + (3 + hero.level * 1.1) * (1 + auraDamage / 100);
+  result.attackMax = result.weaponMax * (1 + bonus / 100) + (6 + hero.level * 1.7) * (1 + auraDamage / 100);
   result.attack = (result.attackMin + result.attackMax) / 2;
   result.baseAttackRating += hero.level * 12; result.attackRating = Math.floor(result.baseAttackRating * (1 + result.attackRatingBonus / 100));
   return result;
@@ -100,6 +103,11 @@ export function hireMercenary(hero: HeroState, inReach: boolean) {
   hero.gold -= mercenaryCost(hero);
   hero.mercenary = { status: 'alive', hp: 1, aura: hero.mercenary?.aura ?? 'prayer', equipment: hero.mercenary?.equipment ?? { weapon: null, helm: null, armor: null }, cold: 0, poison: 0 };
   hero.mercenary.hp = mercenaryStats(hero).maxHp; setMercenaryDistance(hero, 0); return true;
+}
+export function mercenaryEquipmentPreview(hero: HeroState, item: Item) {
+  if (!hero.mercenary || mercenaryEquipReason(hero, item)) return null;
+  const preview = { ...hero, mercenary: { ...hero.mercenary, equipment: { ...hero.mercenary.equipment, [item.slot]: item } } };
+  setMercenaryDistance(preview, distances.get(hero) ?? 0); return mercenaryStats(preview);
 }
 export function selectMercenaryAura(hero: HeroState, aura: unknown) {
   if (!hero.mercenary || !isMercenaryAura(aura)) return false;

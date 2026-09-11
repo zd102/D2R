@@ -14,6 +14,7 @@ import { rangedBase } from './items.ts';
 import { CLASSES, isClassId, type ClassId } from './classes.ts';
 import { skillsForClass, isPassive } from './paladin.ts';
 import { mercenaryPartyAuras, mercenaryStats, parseMercenary, type MercenaryState } from './mercenary.ts';
+import { strongerAura } from './mercenary-auras.ts';
 export { rarityNames, slotNames, rollItem, SLOTS } from './items.ts';
 export type { Slot, Item, Rarity } from './items.ts';
 export type HeroState = {
@@ -104,7 +105,7 @@ export function equippedAuras(hero: HeroState, mods = equipmentMods(hero)) {
   const auras = [...ranks].map(([id, rank]) => ({ id, rank, ...skillValues(id, rank, hero.skills), mercenary: false }));
   for (const aura of mercenaryPartyAuras(hero)) {
     const index = auras.findIndex(other => other.id === aura.id);
-    if (index < 0) auras.push(aura); else if (auras[index].rank < aura.rank) auras[index] = aura;
+    if (index < 0) auras.push(aura); else if (strongerAura(aura, auras[index])) auras[index] = aura;
   }
   return auras;
 }

@@ -20,6 +20,7 @@ import { CURSE_NAMES, type ItemCurse } from './item-effects.ts';
 import { ClassCombat } from './class-combat.ts';
 import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
 import { isPassive } from './paladin.ts';
+import { strongerAura } from './mercenary-auras.ts';
 
 export type AttackSnapshot = { stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3; mercenary?: boolean };
 export type Projectile = { mesh: THREE.Mesh; origin: THREE.Vector3; direction: THREE.Vector3; phase: number; age: number; life: number; damage: number; healing: number; kind: 'hammer' | 'bolt' | 'arrow' | 'throw'; hit: Set<number>; snapshot: AttackSnapshot; speed: number; pierce: number; magicArrow: number; explosion: number };
@@ -67,7 +68,7 @@ export class PaladinCombat {
   inAura(enemy: Enemy) { return enemy.actor.group.position.distanceTo(this.game.position) <= stats(this.game.hero).aura.radius; }
   auraAt(enemy: Enemy, id: SkillId, s = stats(this.game.hero), origin = this.game.position) {
     const own = s.auras.find(aura => !aura.mercenary && aura.id === id && enemy.actor.group.position.distanceTo(origin) <= aura.radius), merc = this.game.mercenary?.auraAt(enemy, id);
-    return merc && (!own || merc.rank > own.rank) ? merc : own;
+    return merc && (!own || strongerAura(merc, own)) ? merc : own;
   }
   snapshot(): AttackSnapshot { const h = this.game.hero; return { stats: stats(h), level: h.level, difficulty: difficulty(h), skills: { ...h.skills }, items: structuredClone([...activeEquipment(h), ...activeCharms(h)]), origin: this.game.position.clone() }; }
   reach(id: ActionId) { return this.classes.reach(id) ?? (id === 'attack' && stats(this.game.hero).ranged ? 14 : ['holyBolt', 'fistOfHeavens', 'charge'].includes(id) ? 12 : id === 'blessedHammer' ? 5 : 2.5); }
@@ -331,7 +332,7 @@ export class PaladinCombat {
         else this.classes.hit(source, id, v, this.snapshot());
       }
     }
-    if (!self && !missile && source && type === 'physical') { const thorns = this.auraAt(source, 'thorns', s); if (thorns) this.damage(source, damage * thorns.percent / 100, 'physical'); }
+    if (!self && !missile && source && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); if (thorns) this.damage(source, damage * thorns.percent / 100 + thorns.secondary, 'physical'); }
     if (!self && !missile && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
     if (!self && !missile && source && type === 'physical' && s.mods.lightningReflect) this.damage(source, s.mods.lightningReflect, 'lightning');
     if (h.hp <= 0) { g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; this.classes.clear(); g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
@@ -433,7 +434,7 @@ export class PaladinCombat {
     // Movement needs only aura ranks/range, not a full character stat rebuild for
     // every monster. Read equipment live so breakage and weapon swaps apply now.
     const aura = equippedAuras(this.game.hero).find(aura => aura.id === 'holyFreeze' && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius), merc = this.game.mercenary?.auraAt(enemy, 'holyFreeze');
-    return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, (merc?.percent ?? 0) / 100, enemy.coldTime > 0 ? .5 : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0));
+    return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, (merc?.percent ?? 0) / 100 * (enemy.boss ? .5 : 1), enemy.coldTime > 0 ? .5 : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0));
   }
   allyUpdate(enemy: Enemy, dt: number) {
     if (enemy.converted <= 0) return false;
