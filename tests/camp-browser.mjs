@@ -26,7 +26,7 @@ async function loadCamp(page, creating = false) {
   assert.equal(s.area.id, 'camp'); assert.equal(s.area.name, CAMP.name); assert.equal(s.enemies.length, 0);
   assert.equal(s.enemyProjectiles, 0); assert.equal(s.enemyHazards, 0); assert.equal(s.loot.length, 0);
   assert.deepEqual(s.position, CAMP.spawn);
-  assert.deepEqual(s.objectives.map(p => p.kind), ['camp-portal', 'supply', 'base-merchant']);
+  assert.deepEqual(s.objectives.map(p => p.kind), ['camp-portal', 'supply', 'base-merchant', ...(s.campaign.cleared.some(count => count >= 5) ? ['mercenary-merchant'] : [])]);
   for (const p of s.objectives) assert.ok(p.route.length, 'Camp facilities are reachable');
   await pause(page);
   await page.keyboard.press('Escape');

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { castSound } from './audio-bank.ts';
+import type { MercenaryAlly } from './mercenary-combat.ts';
 import type { Enemy } from './game.ts';
 import type { PaladinCombat, Projectile, AttackSnapshot } from './combat.ts';
 import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
@@ -12,6 +13,7 @@ import { playHeroAction } from './hero-models.ts';
 import { createProjectileVisual, createNova, decorateGround, createMeteor, updateVisual } from './visual-effects.ts';
 import { createActor, animateActor, gridWalkable, makeRing, type Actor } from './world.ts';
 
+export type CombatAlly = ClassSummon | MercenaryAlly;
 type Missile = Projectile & { skill: ExtraSkillId; values: SkillValues; weapon: boolean; radius: number; target?: Enemy; secondary?: boolean; pulse: number; targetHits?:Map<number,number> };
 type Field = { mesh: THREE.Mesh; id: ExtraSkillId; point: THREE.Vector3; direction: THREE.Vector3; values: SkillValues; snapshot: AttackSnapshot; radius: number; life: number; delay: number; tick: number; once: boolean };
 export type ClassSummon = { id: 'valkyrie'|'dopplezon'|'hydra'; actor: Actor; hp: number; maxHp: number; life: number; timer: number; rank: number; snapshot: AttackSnapshot; path: THREE.Vector3[]; rethink: number };
@@ -184,13 +186,14 @@ export class ClassCombat {
     g.world.scene.add(actor.group);const hp=id==='dopplezon'?stats(g.hero).maxHp*v.percent/100:id==='hydra'?200+rank*20:v.healing;
     this.summons.push({id,actor,hp,maxHp:hp,life:v.duration||3600,timer:0,rank,snapshot:this.combat.snapshot(),path:[],rethink:0});g.burst(point.clone().setY(1),id==='hydra'?0xff9a61:0xbde8c4,18);
   }
-  target(enemy:Enemy) { return this.summons.filter(s=>s.id!=='hydra'&&s.hp>0&&s.actor.group.position.distanceTo(enemy.actor.group.position)<10&&clearShot(this.game.world.grid,enemy.actor.group.position,s.actor.group.position)).sort((a,b)=>a.actor.group.position.distanceToSquared(enemy.actor.group.position)-b.actor.group.position.distanceToSquared(enemy.actor.group.position))[0]; }
+  allies(): CombatAlly[] { const merc = this.game.mercenary?.ally; return merc ? [...this.summons, merc] : this.summons; }
+  target(enemy:Enemy) { return this.allies().filter(s=>s.id!=='hydra'&&s.hp>0&&s.actor.group.position.distanceTo(enemy.actor.group.position)<10&&clearShot(this.game.world.grid,enemy.actor.group.position,s.actor.group.position)).sort((a,b)=>a.actor.group.position.distanceToSquared(enemy.actor.group.position)-b.actor.group.position.distanceToSquared(enemy.actor.group.position))[0]; }
   hydraActor():Actor {
     const group=new THREE.Group(), material=new THREE.MeshStandardMaterial({color:0xba5b33,emissive:0x541407}), eye=new THREE.MeshBasicMaterial({color:0xffd899});
     for(let head=0;head<3;head++){const neck=new THREE.Group();neck.position.x=(head-1)*.4;group.add(neck);const body=new THREE.Mesh(new THREE.CylinderGeometry(.10,.19,1.2+head*.15,7),material);body.position.y=.6+head*.075;neck.add(body);const skull=new THREE.Mesh(new THREE.SphereGeometry(.22,8,6),material);skull.position.set(0,1.25+head*.15,.1);skull.scale.z=1.5;neck.add(skull);for(const side of [-1,1]){const pupil=new THREE.Mesh(new THREE.SphereGeometry(.045,6,4),eye);pupil.position.set(side*.15,skull.position.y+.04,.27);neck.add(pupil);}}
     const limb=()=>new THREE.Group();return {group,leftLeg:limb(),rightLeg:limb(),leftArm:limb(),rightArm:limb(),kind:'hydra',animate:(time)=>{group.children.forEach((neck,i)=>neck.rotation.z=Math.sin(time*2+i)*.07);}};
   }
-  hurtSummon(summon:ClassSummon,amount:number,type:DamageType='physical') {const resistance=summon.id==='valkyrie'&&!['physical','magic'].includes(type)?Math.min(85,summon.rank*2):0;summon.hp=Math.max(0,summon.hp-amount*(1-resistance/100));this.game.burst(summon.actor.group.position.clone().setY(1),0xe7c9a1,3);}
+  hurtSummon(summon:CombatAlly,amount:number,type:DamageType='physical',source?:Enemy,missile=false) {if(summon.id==='mercenary'){this.game.mercenary.hurt(amount,type,source,missile);return;}const resistance=summon.id==='valkyrie'&&!['physical','magic'].includes(type)?Math.min(85,summon.rank*2):0;summon.hp=Math.max(0,summon.hp-amount*(1-resistance/100));this.game.burst(summon.actor.group.position.clone().setY(1),0xe7c9a1,3);}
   missileSpeed(enemy:Enemy) {return (this.debuffs.get(enemy)?.missiles??0)>0?.33:1;}
   defenseReduction(enemy:Enemy) {const debuff=this.debuffs.get(enemy);return debuff&&debuff.sight>0?debuff.defense:0;}
   update(dt:number) {

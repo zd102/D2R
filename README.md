@@ -160,6 +160,7 @@ npm run test:audio
 - `src/ui-theme.css`、`src/ui-components.ts`、`src/settings-ui.ts`：统一视觉样式、可复用面板框架与设置界面。
 - `src/item-details-ui.ts`、`src/item-details.css`、`src/equipment-ui.ts`：完整装备详情与背包、仓库共用的装备栏。
 - `src/model.ts`：角色数据、装备与存档校验。
+- `src/mercenary.ts`、`src/mercenary-combat.ts`、`src/mercenary-ui.ts`：第一章通关后雇佣米山，等级同步、装备生效、六种光环与阵亡后重新雇佣；操作及平衡见 [佣兵系统](docs/mercenaries.md)，浏览器回归运行 `npm run test:mercenary`。
 - `src/paladin.ts`：圣骑士 30 技能定义、协同、数值与经验表。
 - `src/balance.ts`：怪物经验、等级差与高等级经验折减、各类怪物和首领实战属性。
 - `src/items.ts`：底材、词缀、暗金与套装、符文之语、背包布局。

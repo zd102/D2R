@@ -1,3 +1,5 @@
+import { mercenaryPanel } from './mercenary-ui';
+import { mercenaryUnlocked, mercenaryStats, equipMercenary, unequipMercenary, selectMercenaryAura } from './mercenary';
 import type { HeroState } from './model';
 import { CLASSES } from './classes';
 import type { SkillId } from './paladin';
@@ -23,7 +25,7 @@ import { itemDetails } from './item-details-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
-type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'base-shop' | 'death' | 'campaign' | 'shared-stash' | 'mystery-portal' | ProfilePanel;
+type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'base-shop' | 'mercenary' | 'mercenary-shop' | 'death' | 'campaign' | 'shared-stash' | 'mystery-portal' | ProfilePanel;
 const icons = { KeyRound, Package, Search, FilterX, ChevronLeft, Undo2, Upload, Download, FileJson, FolderOpen, Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, UserRound, Users, UserPlus, Pencil, ArrowLeft, Map: MapIcon, ScrollText, Settings, Pause, Volume2, VolumeX, Maximize, Save, X, ChevronRight, Plus, Coins, Shield, Gem, Heart, Skull, Check, RotateCcw, Play, Trash2, ArrowUp, Droplets, Sparkles, Compass, Crosshair };
 const icon = (name: string, cls = '') => `<i data-lucide="${name}" class="${cls}"></i>`;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -107,7 +109,7 @@ export class UI {
         </div>
         <div class="resource mana"><div class="orb-frame"><div class="orb"><div class="orb-fill" id="mana-fill"></div><div class="orb-shine"></div><span id="mana-value">15<small>/ 15</small></span></div></div><div class="resource-caption"><span>法力</span><small id="mana-percent">100%</small></div></div>
       </footer>
-      <div id="overlay" hidden></div><div class="corner-mark">ECLIPSE II <span>·</span> LOCAL REALM</div>
+      <button id="mercenary-status" data-panel="mercenary" hidden></button><div id="overlay" hidden></div><div class="corner-mark">ECLIPSE II <span>·</span> LOCAL REALM</div>
     `);
     this.mapCanvas = document.getElementById('minimap') as HTMLCanvasElement; this.mapCtx = this.mapCanvas.getContext('2d')!;
     this.overlay = document.getElementById('overlay')!; this.toastContainer = document.getElementById('toasts')!; this.labels = document.getElementById('world-labels')!;
@@ -260,6 +262,9 @@ export class UI {
       if (element.dataset.salvage) this.game.salvage(element.dataset.salvage);
       if (element.dataset.allocate) this.game.allocate(element.dataset.allocate as Attribute, Number(element.dataset.count ?? 1));
       if (element.dataset.buyBase) this.game.buyBase(element.dataset.buyBase);
+      if (element.dataset.mercenaryEquip) this.changeMercenary(() => equipMercenary(this.game.hero, element.dataset.mercenaryEquip!));
+      if (element.dataset.mercenaryUnequip) this.changeMercenary(() => unequipMercenary(this.game.hero, element.dataset.mercenaryUnequip!));
+      if (element.dataset.mercenaryAura) this.changeMercenary(() => selectMercenaryAura(this.game.hero, element.dataset.mercenaryAura));
       if (element.dataset.buy) this.game.buy(Number(element.dataset.buy) as 0 | 1);
       if (element.dataset.loot) this.game.pickup(Number(element.dataset.loot));
       if (element.dataset.chest !== undefined) this.game.openChest(Number(element.dataset.chest));
@@ -276,6 +281,9 @@ export class UI {
         case 'camp-portal': this.game.useCampPortal(); break;
         case 'mystery-portal': this.game.useMysteryPortal(); break;
         case 'base-merchant': this.game.useBaseMerchant(); break;
+        case 'mercenary-merchant': this.game.useMercenaryMerchant(); break;
+        case 'hire-mercenary': this.game.hireMercenary(); break;
+        case 'find-mercenary': this.closePanel(); this.game.useMercenaryMerchant(); break;
         case 'shared-stash': this.game.useSharedStash(); break;
         case 'mystery-corpse': this.game.openMysteriousCorpse(); break;
         case 'run-mode': this.game.hero.running = !this.game.hero.running; this.game.save(false); break;
@@ -329,6 +337,13 @@ export class UI {
     if (slider) { slider.value = String(Math.round(this.game.audio.volume * 100)); document.getElementById('volume-value')!.textContent = `${slider.value}%`; }
   }
   togglePanel(panel: Panel) { this.panel === panel ? this.closePanel() : this.openPanel(panel); }
+  changeMercenary(change: () => boolean) {
+    if (!this.game.profile || this.game.dead || this.game.saveConflict || !['mercenary', 'mercenary-shop'].includes(this.panel ?? '')) return;
+    const previous = structuredClone(this.game.hero);
+    if (!change()) { this.toast('无法移动装备', '请检查装备需求和背包空间'); return; }
+    if (!this.game.save(false)) { this.game.hero = previous; this.game.mercenary.clear(); this.game.mercenary.sync(); return; }
+    this.game.mercenary.sync(); this.renderPanel();
+  }
   isProfilePanel(panel = this.panel) { return ['profiles', 'new-profile', 'rename-profile', 'delete-profile', 'import-profile', 'save-conflict', 'encyclopedia'].includes(panel ?? ''); }
   openPanel(panel: Panel) {
     if (this.sharedStashScreen?.busy) return;
@@ -336,6 +351,7 @@ export class UI {
     if (this.game.saveConflict && panel !== 'save-conflict') return;
     if (this.game.dead && panel !== 'death' && panel !== 'save-conflict') return;
     if (panel === 'base-shop' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.baseMerchant.x, this.game.position.z - CAMP.baseMerchant.z) >= 3.5)) return;
+    if (panel === 'mercenary-shop' && !this.game.atMercenaryMerchant) return;
     if (panel === 'shared-stash' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.stash.x, this.game.position.z - CAMP.stash.z) >= 3.5)) return;
     if (!this.panel) {
       const focused = document.activeElement;
@@ -383,6 +399,8 @@ export class UI {
     const h = this.game.hero, s = stats(h);
     const titles: Record<Exclude<Panel, ProfilePanel>, [string, string]> = {
       'base-shop': ['底材商人', 'BASE MERCHANT'],
+      'mercenary': ['佣兵 · 米山', 'DESERT MERCENARY'],
+      'mercenary-shop': ['佣兵商人', 'MERCENARY CAPTAIN'],
       'shared-stash': ['本地共享仓库', 'SHARED STASH'],
       'mystery-portal': ['神秘传送阵', 'MYSTERIOUS PORTAL'],
       campaign: [this.game.inCamp ? '远征传送阵' : '章节关卡', 'CAMPAIGN'],
@@ -394,7 +412,9 @@ export class UI {
     titles.map = [this.game.areaName, 'AREA MAP'];
     const panelTitle = titles[this.panel as keyof typeof titles];
     let content = '';
-    if (this.panel === 'shared-stash') {
+    if (this.panel === 'mercenary' || this.panel === 'mercenary-shop') {
+      content = mercenaryPanel(this.game, this.panel === 'mercenary-shop');
+    } else if (this.panel === 'shared-stash') {
       content = this.sharedStashScreen.render();
     } else if (this.panel === 'mystery-portal') {
       const legs = this.game.cowLegs, soj = this.game.hero.inventory.find(item => item.catalogId === 'unique-122' || item.name === '乔丹之石');
@@ -464,6 +484,7 @@ export class UI {
       dot(CAMP.portal.x, CAMP.portal.z, '#63c8c8', large ? 6 : 4, true);
       dot(CAMP.mysteryPortal.x, CAMP.mysteryPortal.z, '#c48bea', large ? 6 : 4, true);
       dot(CAMP.baseMerchant.x, CAMP.baseMerchant.z, '#d6c492', large ? 5 : 3);
+      if (mercenaryUnlocked(this.game.hero)) dot(CAMP.mercenaryMerchant.x, CAMP.mercenaryMerchant.z, '#a6d6ae', large ? 5 : 3);
       dot(CAMP.supply.x, CAMP.supply.z, '#d6c492', large ? 5 : 3);
       dot(CAMP.stash.x, CAMP.stash.z, '#e7c273', large ? 5 : 3);
     } else {
@@ -473,12 +494,20 @@ export class UI {
       dot(layout.supply.x, layout.supply.z, '#63c8c8', large ? 5 : 3);
       for (const chest of this.game.world.chests) if (this.game.visited.has(`${Math.floor(chest.x / 3)},${Math.floor(chest.z / 3)}`)) dot(chest.x, chest.z, chest.opened ? '#686b60' : '#e1b968', large ? 4 : 2.5);
     }
+    const mercenary = this.game.mercenary.position;
+    if (mercenary) dot(mercenary.x, mercenary.z, '#81d9c8', large ? 4 : 2.5, true);
     dot(this.game.position.x, this.game.position.z, '#fff2c7', large ? 5 : 3, true);
     if (large) { ctx.fillStyle = '#7f8c84'; ctx.font = '13px Georgia'; ctx.fillText('N', w / 2 + 14, 30); const p = point(0, 22); ctx.textAlign = 'center'; ctx.fillStyle = '#c0b397'; ctx.font = '15px serif'; ctx.fillText(this.game.inCamp ? CAMP.name : '归途之门', p.x, p.y + 23); }
   }
   update(dt: number) {
     if (!this.game.profile) return;
     const game = this.game, h = game.hero, s = stats(h);
+    const mercenaryStatus = document.getElementById('mercenary-status')!;
+    mercenaryStatus.hidden = !game.profile || !mercenaryUnlocked(h) || !!this.panel;
+    if (!mercenaryStatus.hidden) {
+      const merc = h.mercenary, maxHp = mercenaryStats(h).maxHp;
+      setMarkup(mercenaryStatus, merc ? `<span>米山 · Lv. ${h.level} <kbd>O</kbd></span><small>${merc.status === 'dead' ? '已阵亡 · 需重新雇佣' : `${skillName(merc.aura)} · ${Math.ceil(merc.hp)} / ${maxHp}`}</small><progress aria-label="米山生命" max="${maxHp}" value="${merc.hp}"></progress>` : '<span>佣兵 · O</span><small>可在营地雇佣米山</small>');
+    }
     this.updateStatuses(s);
     if (this.tooltipTarget && !this.tooltipTarget.isConnected) this.hideTooltip();
     this.timer += dt;
@@ -553,6 +582,14 @@ export class UI {
     }
     if (game.inCamp) {
       const merchantPoint = game.project(new THREE.Vector3(CAMP.baseMerchant.x, 2, CAMP.baseMerchant.z));
+      if (mercenaryUnlocked(h)) {
+        const p = game.project(new THREE.Vector3(CAMP.mercenaryMerchant.x, 2, CAMP.mercenaryMerchant.z));
+        if (p.visible && p.x > 40 && p.x < innerWidth - 40 && p.y > 50 && p.y < innerHeight - 110) {
+          const key = 'mercenary-merchant'; aliveKeys.add(key); let label = this.labelNodes.get(key);
+          if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = key; setMarkup(label, `${icon('swords')}佣兵商人`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
+          label.hidden = game.paused; label.style.transform = `translate(${p.x}px,${p.y}px) translate(-50%, -100%)`;
+        }
+      }
       if (merchantPoint.visible && merchantPoint.x > 45 && merchantPoint.x < innerWidth - 45 && merchantPoint.y > 50 && merchantPoint.y < innerHeight - 110) {
         const key = 'base-merchant'; aliveKeys.add(key); let label = this.labelNodes.get(key);
         if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = key; setMarkup(label, `${icon('hammer')}底材商人`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }

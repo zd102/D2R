@@ -13,9 +13,11 @@ import type { SkillSlot } from './controls.ts';
 import { rangedBase } from './items.ts';
 import { CLASSES, isClassId, type ClassId } from './classes.ts';
 import { skillsForClass, isPassive } from './paladin.ts';
+import { mercenaryPartyAuras, mercenaryStats, parseMercenary, type MercenaryState } from './mercenary.ts';
 export { rarityNames, slotNames, rollItem, SLOTS } from './items.ts';
 export type { Slot, Item, Rarity } from './items.ts';
 export type HeroState = {
+  mercenary: MercenaryState | null;
   rulesVersion: 2; playerCount: PlayerCount; classId: ClassId; level: number; xp: number; gold: number; kills: number; points: number;
   strength: number; dexterity: number; vitality: number; energy: number;
   skillPoints: number; skills: Record<SkillId, number>; activeAura: SkillId | null;
@@ -35,6 +37,7 @@ export const emptyEquipment = () => Object.fromEntries(SLOTS.map(slot => [slot, 
 export const difficulty = (hero: HeroState) => hero.difficultyLevel;
 export const difficultyNames = ['普通', '噩梦', '地狱'];
 export const newHero = (classId: ClassId = 'paladin'): HeroState => ({
+  mercenary: null,
   rulesVersion: 2, playerCount: 1, classId, level: 1, xp: 0, gold: 0, kills: 0, points: 0, ...CLASSES[classId].attributes,
   skillPoints: 0, skills: emptySkills(), activeAura: null,
   bindings: { attack: 'attack', cleave: 'attack', ward: 'attack', nova: 'attack', dash: 'attack', bolt: classId === 'sorceress' ? 'fireBolt' : 'attack' },
@@ -98,10 +101,15 @@ export function equippedAuras(hero: HeroState, mods = equipmentMods(hero)) {
   const selected = auraValues(hero, mods), ranks = new Map<SkillId, number>();
   for (const id of Object.keys(hero.skills) as SkillId[]) if (isAura(id) && mods[`aura_${id}`]) ranks.set(id, mods[`aura_${id}`]!);
   if (selected.id) ranks.set(selected.id, Math.max(ranks.get(selected.id) ?? 0, selected.rank));
-  return [...ranks].map(([id, rank]) => ({ id, rank, ...skillValues(id, rank, hero.skills) }));
+  const auras = [...ranks].map(([id, rank]) => ({ id, rank, ...skillValues(id, rank, hero.skills), mercenary: false }));
+  for (const aura of mercenaryPartyAuras(hero)) {
+    const index = auras.findIndex(other => other.id === aura.id);
+    if (index < 0) auras.push(aura); else if (auras[index].rank < aura.rank) auras[index] = aura;
+  }
+  return auras;
 }
-export function stats(hero: HeroState) {
-  const mods = equipmentMods(hero), active = activeEquipment(hero), aura = auraValues(hero, mods), auras = equippedAuras(hero, mods);
+export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippedAuras>) {
+  const mods = equipmentMods(hero), active = activeEquipment(hero), aura = auraValues(hero, mods), auras = providedAuras ?? equippedAuras(hero, mods);
   const character = CLASSES[hero.classId], passive = (id: SkillId) => skillValues(id, skillLevel(hero,id,mods),hero.skills);
   const buffs = hero.buffs ?? {}, buff = (id: SkillId) => skillValues(id, buffs[id]?.remaining ? buffs[id]!.rank : 0,hero.skills);
   mods.fireSkillDamage = (mods.fireSkillDamage ?? 0) + passive('fireMastery').percent;
@@ -163,7 +171,7 @@ export function gainXp(hero: HeroState, amount: number): boolean {
   hero.xp += Math.floor(amount); let leveled = false;
   while (hero.level < 99 && hero.xp >= xpForLevel(hero.level)) { hero.xp -= xpForLevel(hero.level); hero.level++; hero.points += 5; hero.skillPoints++; leveled = true; }
   if (hero.level === 99) hero.xp = 0;
-  if (leveled) { const s = stats(hero); hero.hp = s.maxHp; hero.mana = s.maxMana; hero.stamina = s.maxStamina; }
+  if (leveled) { const s = stats(hero); hero.hp = s.maxHp; hero.mana = s.maxMana; hero.stamina = s.maxStamina; if (hero.mercenary?.status === 'alive') hero.mercenary.hp = mercenaryStats(hero).maxHp; }
   return leveled;
 }
 export function learnReason(hero: HeroState, id: SkillId): string {
@@ -465,6 +473,7 @@ export function parseSave(raw: string | null): HeroState | null {
       const extras = Array.isArray(h.corpse.extras) ? h.corpse.extras.map(uniqueItem).filter((item: Item | null): item is Item => !!item).slice(0, 200) : [];
       hero.corpse = { equipment, extras, x: decimal(h.corpse.x, 0, -FIELD_BOUND, FIELD_BOUND), z: decimal(h.corpse.z, 11, -FIELD_BOUND, FIELD_BOUND), xpLost: integer(h.corpse.xpLost, 0, 0, 1000000000), gold: integer(h.corpse.gold, 0, 0, 10000000) };
     }
+    parseMercenary(hero, h.mercenary, uniqueItem);
     for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) { const id = h.bindings?.[key]; if (isSkill(id) && !isPassive(id) && skillLevel(hero, id) && !(key === 'attack' && isAura(id))) hero.bindings[key] = id; }
     for(const skill of skillsForClass(hero.classId)) if(skill.mode === 'buff' && h.buffs?.[skill.id]) {
       const buff=h.buffs[skill.id]; hero.buffs[skill.id]={remaining:decimal(buff.remaining,0,0,3600),rank:integer(buff.rank,0,0,100)};

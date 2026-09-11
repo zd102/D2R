@@ -10,6 +10,8 @@ const panelInfo: Record<string, [string, string]> = {
   map: ['map', '查看区域、目标与传送阵'],
   pause: ['settings', '调整设置，随时继续冒险'],
   'base-shop': ['hammer', '通关刷新货单，每件限购一次'],
+  'mercenary-shop': ['swords', '雇佣米山，让沙漠卫士与你并肩作战'],
+  mercenary: ['swords', '配置装备与光环，查看同伴状态'],
   shop: ['heart-pulse', '恢复状态，补充旅途所需'],
   death: ['skull', '重整旗鼓，取回你的装备'],
   'mystery-portal': ['sparkles', '献上秘藏之物，开启未知之门'],

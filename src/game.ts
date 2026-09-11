@@ -18,7 +18,9 @@ import { createWirtsLeg, groundItemName, isAnnihilus, isStoneOfJordan, isWirtsLe
 import { rollLoot } from './loot';
 import { buyProgressionBase } from './progression-equipment';
 import { rollChestLoot, chestContext } from './chests';
-import { PaladinCombat } from './combat';
+import { PaladinCombat, type AttackSnapshot } from './combat';
+import { MercenaryCombat } from './mercenary-combat';
+import { mercenaryUnlocked, hireMercenary, mercenaryStats } from './mercenary';
 import { BOSSES, ENCOUNTERS, MONSTERS, monsterTactic, type MonsterDef } from './bestiary';
 import { createMonsterActor } from './monster-models';
 import { MonsterCombat } from './monster-combat';
@@ -37,7 +39,7 @@ import { MonsterBatches } from './monster-batches';
 import { RenderBudget } from './render-budget';
 import { createImpact, createLightning, disposeVisual, updateVisual, ProjectileVisualPool } from './visual-effects';
 
-export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; poison?: { dps: number; remaining: number }; slow?: { percent: number; remaining: number } };
+export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; bleedSnapshot?: AttackSnapshot; poison?: { dps: number; remaining: number; snapshot?: AttackSnapshot }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 type PointerGesture = { id: number; button: number; x: number; y: number; started: number; dragging: boolean; stationary: boolean; mode: 'move' | 'attack' | 'interact' | 'cast' };
@@ -54,6 +56,8 @@ export class Game {
   body: CANNON.Body;
   audio = new GameAudio(nativeAudioManifest);
   ui: UI;
+  mercenary = new MercenaryCombat(this);
+  mercenaryVendor?: Actor;
   combat: PaladinCombat;
   monsterCombat = new MonsterCombat(this);
   enemies: Enemy[] = [];
@@ -76,7 +80,7 @@ export class Game {
   target?: Enemy;
   pendingPickup?: number;
   pendingPortal = false;
-  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' = 'portal';
+  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' | 'mercenaryMerchant' = 'portal';
   pendingMysteryCorpse = false;
   pendingChest?: number;
   heldAttack = false;
@@ -179,6 +183,9 @@ export class Game {
     this.monsterBatches.dispose();
     this.audio.stopEffects?.();
     this.releaseInput();
+    this.mercenary.clear();
+    if (this.mercenaryVendor) this.disposeObject(this.mercenaryVendor.group);
+    this.mercenaryVendor = undefined;
     this.combat?.classes.clear();
     this.projectileVisuals.clear();
     this.world.scene.remove(this.actor.group, this.marker, this.selection, this.playerRing);
@@ -197,6 +204,13 @@ export class Game {
     this.marker.visible = this.selection.visible = false; this.playerRing.position.set(spawn.x, .09, spawn.z);
     this.enemies = []; this.loot = []; this.effects = []; this.visited.clear(); this.combat = new PaladinCombat(this);
     this.monsterCombat = new MonsterCombat(this);
+    this.mercenary.sync();
+    if (inCamp && mercenaryUnlocked(this.hero)) {
+      this.mercenaryVendor = createActor('hero', 'paladin');
+      this.mercenaryVendor.group.position.set(CAMP.mercenaryMerchant.x, 0, CAMP.mercenaryMerchant.z);
+      this.mercenaryVendor.group.rotation.y = -Math.PI / 2;
+      this.world.scene.add(this.mercenaryVendor.group);
+    }
     this.cooldowns = emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
     this.ui.hoveredEnemy = undefined; this.ui.floats.forEach(float => float.element.remove()); this.ui.floats = [];
     if (!inCamp && !this.specialArea) {
@@ -235,6 +249,22 @@ export class Game {
     this.begin(); this.pendingCampTarget = 'baseMerchant';
     if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) this.ui.openPanel('base-shop');
     else { this.moveTo(new THREE.Vector3(CAMP.baseMerchant.x, 0, CAMP.baseMerchant.z)); this.pendingPortal = this.path.length > 0; }
+  }
+  get atMercenaryMerchant() {
+    return this.inCamp && !!this.profile && !this.dead && !this.saveConflict && mercenaryUnlocked(this.hero) && Math.hypot(this.position.x - CAMP.mercenaryMerchant.x, this.position.z - CAMP.mercenaryMerchant.z) < 3.5;
+  }
+  useMercenaryMerchant() {
+    if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict || !mercenaryUnlocked(this.hero)) return;
+    this.begin(); this.pendingCampTarget = 'mercenaryMerchant';
+    if (this.atMercenaryMerchant) this.ui.openPanel('mercenary-shop');
+    else { this.moveTo(new THREE.Vector3(CAMP.mercenaryMerchant.x, 0, CAMP.mercenaryMerchant.z)); this.pendingPortal = this.path.length > 0; }
+  }
+  hireMercenary() {
+    if (!this.atMercenaryMerchant) return false;
+    const previous = structuredClone(this.hero);
+    if (!hireMercenary(this.hero, true)) return false;
+    if (!this.save(false)) { this.hero = previous; return false; }
+    this.mercenary.sync(); this.ui.toast('米山已加入队伍', `等级 ${this.hero.level} · 按 O 管理装备与光环`); this.ui.renderPanel(); return true;
   }
   useSharedStash() {
     if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict) return;
@@ -505,6 +535,7 @@ export class Game {
       if (['tab', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) event.preventDefault();
       if (event.repeat) return;
       if (key === 'escape') { this.ui.panel ? this.ui.closePanel() : this.ui.openPanel('pause'); return; }
+      if (key === 'o') { this.ui.togglePanel('mercenary'); return; }
       if (key === 'i') { this.ui.togglePanel('inventory'); return; }
       if (key === 'c') { this.ui.togglePanel('character'); return; }
       if (key === 't') { this.ui.togglePanel('skills'); return; }
@@ -613,36 +644,41 @@ export class Game {
     this.audio.play('chest', { position: chest });
   }
   hurtEnemy(enemy: Enemy, damage: number) { this.combat.damage(enemy, damage, 'physical'); }
-  killEnemy(enemy: Enemy, rewardMods?: Mods) {
+  killEnemy(enemy: Enemy, rewardMods?: Mods, mercenaryKill = false) {
     if (enemy.dead) return;
     enemy.dead = true; this.monsterCombat.cancel(enemy); this.monsterCombat.onDeath(enemy); this.world.physics.removeBody(enemy.body);
     if (enemy.summoned) { enemy.redeemed = true; enemy.actor.group.visible = false; if (this.target === enemy) { this.target = undefined; this.path = []; } return; }
     this.audio.play(deathSound(enemy.definition?.model, enemy.boss), { position: enemy.actor.group.position, nativeKey: `monsterDeath:${enemy.definition?.model}` });
     this.hero.kills++;
     const playerStats = stats(this.hero); if (rewardMods) playerStats.mods = rewardMods;
-    this.hero.mana = Math.min(playerStats.maxMana, this.hero.mana + (playerStats.mods.manaOnKill ?? 0));
-    this.hero.hp = Math.min(playerStats.maxHp, this.hero.hp + (playerStats.mods.lifeOnKill ?? 0) + (enemy.definition?.race === 'demon' ? playerStats.mods.lifeOnDemonKill ?? 0 : 0));
+    const restoredLife = (playerStats.mods.lifeOnKill ?? 0) + (enemy.definition?.race === 'demon' ? playerStats.mods.lifeOnDemonKill ?? 0 : 0);
+    if (mercenaryKill) { const merc = this.hero.mercenary; if (merc?.status === 'alive') merc.hp = Math.min(mercenaryStats(this.hero).maxHp, merc.hp + restoredLife); }
+    else { this.hero.mana = Math.min(playerStats.maxMana, this.hero.mana + (playerStats.mods.manaOnKill ?? 0)); this.hero.hp = Math.min(playerStats.maxHp, this.hero.hp + restoredLife); }
     if (playerStats.mods.restInPeace) enemy.redeemed = true;
     enemy.actor.group.rotation.z = -Math.PI / 2; enemy.actor.group.position.y = .2;
     if (this.target === enemy) { this.target = undefined; this.path = []; }
     const rank: DropRank = enemy.boss ? this.level.actBoss ? 'actBoss' : 'miniboss' : enemy.elite ? 'elite' : 'monster';
     const xp = monsterExperience(this.hero.level, enemy.level, rank, { difficulty: difficulty(this.hero), act: this.level.act, baseLife: enemy.definition?.hp, players: enemy.playerCount, firstClear: !this.specialArea && this.hero.campaign.cleared[difficulty(this.hero)] === this.level.index });
-    if (gainXp(this.hero, xp * (enemy.xpScale ?? 1) * (1 + (playerStats.mods.experienceBonus ?? 0) / 100))) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
+    const experienceBonus = mercenaryKill ? stats(this.hero).mods.experienceBonus : playerStats.mods.experienceBonus;
+    if (gainXp(this.hero, xp * (enemy.xpScale ?? 1) * (1 + (experienceBonus ?? 0) / 100))) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
     const wasReady = !this.specialArea && questComplete(this.hero.campaign);
     if (!enemy.boss && !this.specialArea) recordQuestKill(this.hero);
     if (!this.specialArea && !wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.audio.play('quest'); this.save(false); }
-    if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level);
+    if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level, mercenaryKill ? rewardMods : undefined);
     if (enemy.boss) {
       if (this.specialArea) {
         this.hero.bossDefeated = true; this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`); this.save(false); return;
       }
+      const hadMercenaryMerchant = mercenaryUnlocked(this.hero);
       if (!completeCampaignLevel(this.hero)) return;
+      if (!hadMercenaryMerchant && mercenaryUnlocked(this.hero)) this.ui.toast('佣兵商人已解锁', '返回营地可花金币雇佣米山');
       this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`);
       this.save(false);
     }
   }
-  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level) {
+  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level, mercenaryMods?: Mods) {
     const mods = stats(this.hero).mods, diff = difficulty(this.hero);
+    mods.magicFind = (mods.magicFind ?? 0) + (mercenaryMods?.magicFind ?? 0); mods.goldFind = (mods.goldFind ?? 0) + (mercenaryMods?.goldFind ?? 0);
     const drop = rollLoot({ players: this.hero.playerCount, level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
     this.addLoot({ id: this.nextId++, x: position.x + .4, z: position.z + .2, gold: drop.gold, mesh: new THREE.Group() });
     drop.items.forEach((item, i) => this.addLoot({ id: this.nextId++, x: position.x - .6 + i * .8, z: position.z + .6, item, mesh: new THREE.Group() }));
@@ -711,6 +747,7 @@ export class Game {
       if (Math.hypot(this.position.x - CAMP.portal.x, this.position.z - CAMP.portal.z) < 3.5) return { name: '传送阵 · 选择关卡', kind: 'camp-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.mysteryPortal.x, this.position.z - CAMP.mysteryPortal.z) < 3.5) return { name: '神秘传送阵', kind: 'mystery-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) return { name: '底材商人', kind: 'base-shop', id: 0 };
+      if (this.atMercenaryMerchant) return { name: '佣兵商人', kind: 'mercenary-shop', id: 0 };
       if (Math.hypot(this.position.x - CAMP.supply.x, this.position.z - CAMP.supply.z) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
       return null;
     }
@@ -733,6 +770,7 @@ export class Game {
     if (action.kind === 'base-shop') { this.ui.openPanel('base-shop'); return; }
     if (action.kind === 'shop') { this.ui.openPanel('shop'); return; }
     if (action.kind === 'camp-portal') { this.ui.openPanel('campaign'); return; }
+    if (action.kind === 'mercenary-shop') { this.ui.openPanel('mercenary-shop'); return; }
     if (action.kind === 'mystery-portal') { this.ui.openPanel('mystery-portal'); return; }
     if (action.kind === 'shared-stash') { this.ui.openPanel('shared-stash'); return; }
     if (action.kind === 'mystery-corpse') { this.openMysteriousCorpse(); return; }
@@ -880,6 +918,7 @@ export class Game {
     if (this.paused || this.dead) return;
     this.attackTime = Math.max(0, this.attackTime - dt * 3.5); this.invincible = Math.max(0, this.invincible - dt);
     if (this.pointerAimActive) this.updatePointerAim();
+    this.mercenary.update(dt);
     this.combat.update(dt); if (this.dead) return;
     const s = stats(this.hero);
     const input = movementInput(this.keys, this.movementMode);
@@ -925,7 +964,7 @@ export class Game {
     this.world.physics.step(1 / 60, dt === 1 / 60 ? undefined : dt, 3);
     this.position.set(this.body.position.x, 0, this.body.position.z);
     const campTarget = CAMP[this.pendingCampTarget];
-    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
+    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'mercenaryMerchant' ? 'mercenary-shop' : this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
     if (this.pendingMysteryCorpse) {
       const corpse = this.world.mysteryCorpse;
       if (!corpse || corpse.opened || !this.path.length && Math.hypot(this.position.x - corpse.x, this.position.z - corpse.z) > 3.2) this.pendingMysteryCorpse = false;

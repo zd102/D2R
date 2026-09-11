@@ -21,7 +21,7 @@ import { ClassCombat } from './class-combat.ts';
 import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
 import { isPassive } from './paladin.ts';
 
-export type AttackSnapshot = { stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3 };
+export type AttackSnapshot = { stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3; mercenary?: boolean };
 export type Projectile = { mesh: THREE.Mesh; origin: THREE.Vector3; direction: THREE.Vector3; phase: number; age: number; life: number; damage: number; healing: number; kind: 'hammer' | 'bolt' | 'arrow' | 'throw'; hit: Set<number>; snapshot: AttackSnapshot; speed: number; pierce: number; magicArrow: number; explosion: number };
 export class PaladinCombat {
   game: Game;
@@ -65,7 +65,10 @@ export class PaladinCombat {
   }
   hostile(enemy: Enemy) { return !enemy.dead && enemy.converted <= 0 && (!enemy.boss || !!this.game.specialArea || questComplete(this.game.hero.campaign)); }
   inAura(enemy: Enemy) { return enemy.actor.group.position.distanceTo(this.game.position) <= stats(this.game.hero).aura.radius; }
-  auraAt(enemy: Enemy, id: SkillId, s = stats(this.game.hero)) { return s.auras.find(aura => aura.id === id && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius); }
+  auraAt(enemy: Enemy, id: SkillId, s = stats(this.game.hero), origin = this.game.position) {
+    const own = s.auras.find(aura => !aura.mercenary && aura.id === id && enemy.actor.group.position.distanceTo(origin) <= aura.radius), merc = this.game.mercenary?.auraAt(enemy, id);
+    return merc && (!own || merc.rank > own.rank) ? merc : own;
+  }
   snapshot(): AttackSnapshot { const h = this.game.hero; return { stats: stats(h), level: h.level, difficulty: difficulty(h), skills: { ...h.skills }, items: structuredClone([...activeEquipment(h), ...activeCharms(h)]), origin: this.game.position.clone() }; }
   reach(id: ActionId) { return this.classes.reach(id) ?? (id === 'attack' && stats(this.game.hero).ranged ? 14 : ['holyBolt', 'fistOfHeavens', 'charge'].includes(id) ? 12 : id === 'blessedHammer' ? 5 : 2.5); }
   canReach(enemy: Enemy, id: ActionId) { return enemy.actor.group.position.distanceTo(this.game.position) < this.reach(id) && clearShot(this.game.world.grid, this.game.position, enemy.actor.group.position); }
@@ -215,7 +218,7 @@ export class PaladinCombat {
         if (dps > 0 && (!enemy.poison || dps >= enemy.poison.dps)) enemy.poison = { dps, remaining: poison.seconds };
       }
     }
-    if (Math.random() * 100 < (s.mods.openWounds ?? 0)) enemy.bleed = 8;
+    if (Math.random() * 100 < (s.mods.openWounds ?? 0)) { enemy.bleed = 8; enemy.bleedSnapshot = snapshot; }
     if (s.mods.preventHeal) enemy.preventHeal = true;
     if (!enemy.dead) this.triggerItems('hit-skill', enemy, snapshot?.items);
     if (s.mods.slowTarget) enemy.slow = { percent: Math.max(enemy.slow?.percent ?? 0, Math.min(enemy.boss ? 50 : 90, s.mods.slowTarget)), remaining: 30 };
@@ -285,14 +288,14 @@ export class PaladinCombat {
   }
   damage(enemy: Enemy, amount: number, type: DamageType, ignoreResist = false, critical = false, snapshot?: AttackSnapshot) {
     const g = this.game; if (!this.hostile(enemy)) return 0;
-    const s = snapshot?.stats ?? stats(g.hero), conviction = ['fire', 'cold', 'lightning'].includes(type) ? this.auraAt(enemy, 'conviction', s)?.percent ?? 0 : 0;
+    const s = snapshot?.stats ?? stats(g.hero), conviction = ['fire', 'cold', 'lightning'].includes(type) ? this.auraAt(enemy, 'conviction', s, snapshot?.origin)?.percent ?? 0 : 0;
     const sanctuary = type === 'physical' && isUndead(enemy) && this.auraAt(enemy, 'sanctuary', s);
     const dealt = Math.max(0, Math.floor(itemDamage(amount, type, s.mods, ignoreResist || sanctuary ? 0 : type === 'physical' ? this.physicalResistance(enemy) : enemy.resistances[type], conviction)));
     enemy.hp -= dealt; enemy.active = true;
     g.ui.floatText(dealt ? String(dealt) : '免疫', enemy.actor.group.position.clone().setY(1.8), critical ? 'critical' : type === 'physical' ? 'damage' : 'magic-damage');
     if (dealt) g.audio.play(impactSound(type, enemy.definition?.model), { position: enemy.actor.group.position, gain: critical ? 1 : .85 });
     if (dealt) g.burst(enemy.actor.group.position.clone().setY(.8), type === 'fire' ? 0xf09669 : type === 'cold' ? 0x80cfea : 0xe8d79c, 3);
-    if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods); else if (dealt) g.monsterCombat?.onHit(enemy); return dealt;
+    if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods, snapshot?.mercenary); else if (dealt) g.monsterCombat?.onHit(enemy); return dealt;
   }
   hurt(amount: number, type: DamageType = 'physical', source?: Enemy, self = false, missile = false) {
     const g = this.game, h = g.hero, s = stats(h); if (g.inCamp || g.dead || !self && g.invincible > 0) return;
@@ -396,12 +399,13 @@ export class PaladinCombat {
       enemy.stunned = Math.max(0, enemy.stunned - dt); enemy.coldTime = Math.max(0, enemy.coldTime - dt); enemy.converted = Math.max(0, enemy.converted - dt);
       if (enemy.slow) { enemy.slow.remaining -= dt; if (enemy.slow.remaining <= 0) delete enemy.slow; }
       const curse = this.itemCurses.get(enemy); if (curse) { curse.remaining -= dt; if (curse.remaining <= 0) this.itemCurses.delete(enemy); }
-      if (enemy.bleed > 0 && !enemy.dead) { enemy.hp -= Math.min(dt, enemy.bleed) * openWoundsDps(h.level, enemy.boss); enemy.bleed = Math.max(0, enemy.bleed - dt); if (enemy.hp <= 0) g.killEnemy(enemy); }
+      if (enemy.bleed > 0 && !enemy.dead) { enemy.hp -= Math.min(dt, enemy.bleed) * openWoundsDps(enemy.bleedSnapshot?.level ?? h.level, enemy.boss); enemy.bleed = Math.max(0, enemy.bleed - dt); if (enemy.hp <= 0) g.killEnemy(enemy, enemy.bleedSnapshot?.stats.mods, enemy.bleedSnapshot?.mercenary); }
       if (enemy.poison && !enemy.dead) {
+        const snapshot = enemy.poison.snapshot;
         enemy.hp -= enemy.poison.dps * Math.min(dt, enemy.poison.remaining);
         enemy.poison.remaining -= dt;
         if (enemy.poison.remaining <= 0) delete enemy.poison;
-        if (enemy.hp <= 0) g.killEnemy(enemy);
+        if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods, snapshot?.mercenary);
       }
     }
     clampResources(h);
@@ -410,9 +414,9 @@ export class PaladinCombat {
     const g = this.game, h = g.hero, s = stats(h);
     for (const aura of s.auras) {
     if (aura.id === 'prayer' || aura.id === 'cleansing' || aura.id === 'meditation') {
-      const prayer = skillValues('prayer', skillLevel(h, 'prayer'), h.skills);
-      if (aura.id !== 'prayer' || h.mana >= aura.cost) {
-        if (aura.id === 'prayer') h.mana -= aura.cost;
+      const prayer = aura.id === 'prayer' ? aura : skillValues('prayer', skillLevel(h, 'prayer'), h.skills);
+      if (aura.mercenary || aura.id !== 'prayer' || h.mana >= aura.cost) {
+        if (aura.id === 'prayer' && !aura.mercenary) h.mana -= aura.cost;
         h.hp = Math.min(s.maxHp, h.hp + prayer.healing);
         for (const ally of g.enemies) if (ally.converted > 0 && this.auraAt(ally, aura.id, s)) ally.hp = Math.min(ally.maxHp, ally.hp + prayer.healing);
       }
@@ -428,8 +432,8 @@ export class PaladinCombat {
   slow(enemy: Enemy) {
     // Movement needs only aura ranks/range, not a full character stat rebuild for
     // every monster. Read equipment live so breakage and weapon swaps apply now.
-    const aura = equippedAuras(this.game.hero).find(aura => aura.id === 'holyFreeze' && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius);
-    return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, enemy.coldTime > 0 ? .5 : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0));
+    const aura = equippedAuras(this.game.hero).find(aura => aura.id === 'holyFreeze' && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius), merc = this.game.mercenary?.auraAt(enemy, 'holyFreeze');
+    return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, (merc?.percent ?? 0) / 100, enemy.coldTime > 0 ? .5 : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0));
   }
   allyUpdate(enemy: Enemy, dt: number) {
     if (enemy.converted <= 0) return false;

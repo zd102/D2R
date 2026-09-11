@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { castSound } from './audio-bank.ts';
-import type { ClassSummon } from './class-combat.ts';
+import type { CombatAlly } from './class-combat.ts';
 import type { Enemy, Game } from './game.ts';
 import { MONSTERS, monsterTactic, type AttackId } from './bestiary.ts';
 import type { DamageType } from './paladin.ts';
@@ -44,9 +44,9 @@ export const ATTACKS: Record<AttackId, AttackSpec> = {
   whirlwind: attack('旋风斩', 'line', 'physical', 8, .9, 3.4, .8, 1.3, { duration: 1, move: true }),
 };
 export const ELEMENT_COLORS: Record<DamageType, number> = { physical: 0xf1bd7b, fire: 0xff7045, cold: 0x8bdfff, lightning: 0xffdb84, poison: 0xa1e26b, magic: 0xeaa6dd };
-type Cast = { id: AttackId; spec: AttackSpec; left: number; origin: THREE.Vector3; target: THREE.Vector3; summon?: ClassSummon; corpse?: Enemy; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> };
+type Cast = { id: AttackId; spec: AttackSpec; left: number; origin: THREE.Vector3; target: THREE.Vector3; summon?: CombatAlly; corpse?: Enemy; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> };
 type State = { cast?: Cast; sequence: number; retaliation: number; summons: number; cloned: boolean; frenzy: number; lifetime?: number; abilities: Partial<Record<AttackId, number>>; lastAttack?: AttackId; lastSeen?: THREE.Vector3; memory: number; alerted: boolean; retreat: number; retreatCooldown: number };
-type Missile = { source: Enemy; mesh: THREE.Mesh; velocity: THREE.Vector3; spec: AttackSpec; life: number; volley: { hit: boolean; summons?: Set<ClassSummon> } };
+type Missile = { source: Enemy; mesh: THREE.Mesh; velocity: THREE.Vector3; spec: AttackSpec; life: number; volley: { hit: boolean; summons?: Set<CombatAlly> } };
 type Hazard = { source: Enemy; mesh: THREE.Mesh; spec: AttackSpec; origin: THREE.Vector3; target: THREE.Vector3; life: number; tick: number; hit: boolean; moving: boolean };
 export function segmentDistance(point: { x: number; z: number }, from: { x: number; z: number }, to: { x: number; z: number }) {
   const dx = to.x - from.x, dz = to.z - from.z, length = dx * dx + dz * dz;
@@ -193,7 +193,7 @@ export class MonsterCombat {
     if (spec.shape === 'melee') {
       const point=cast.summon?.actor.group.position??g.position;
       if (point.distanceTo(enemy.actor.group.position) <= spec.radius && this.lineOfSight(enemy.actor.group.position, point)) {
-        if(cast.summon){if(cast.summon.hp>0)g.combat.classes.hurtSummon(cast.summon,enemy.damage*spec.damage,spec.type);}else this.hit(enemy,spec);
+        if(cast.summon){if(cast.summon.hp>0)g.combat.classes.hurtSummon(cast.summon,enemy.damage*spec.damage,spec.type,enemy);}else this.hit(enemy,spec);
         if (id === 'frenzy') this.state(enemy).frenzy = 5;
       }
     } else if (['bolt', 'fan', 'nova'].includes(spec.shape)) {
@@ -280,8 +280,8 @@ export class MonsterCombat {
       const next = p.clone().addScaledVector(direction, Math.min(remaining, dt * 10));
       if (remaining < .4 || !this.canMove(p, next)) { dash.life = 0; enemy.body.velocity.set(0, 0, 0); animateActor(enemy.actor,g.time+enemy.id,false,0); return; }
       else enemy.body.velocity.set(direction.x * 10, 0, direction.z * 10);
-      const summon=g.combat.classes?.summons.find(s=>s.id!=='hydra'&&s.hp>0&&segmentDistance(s.actor.group.position,p,next)<dash.spec.radius+.3);
-      if(!dash.hit&&summon){g.combat.classes.hurtSummon(summon,enemy.damage*dash.spec.damage,dash.spec.type);dash.hit=true;}
+      const summon=g.combat.classes?.allies().find(s=>s.id!=='hydra'&&s.hp>0&&segmentDistance(s.actor.group.position,p,next)<dash.spec.radius+.3);
+      if(!dash.hit&&summon){g.combat.classes.hurtSummon(summon,enemy.damage*dash.spec.damage,dash.spec.type,enemy);dash.hit=true;}
       if (!dash.hit && segmentDistance(g.position, p, next) < dash.spec.radius + .3) { this.hit(enemy, dash.spec); dash.hit = true; }
       animateActor(enemy.actor, g.time + enemy.id, true, .6); return;
     }
@@ -338,8 +338,8 @@ export class MonsterCombat {
       updateVisual(m.mesh,g.time);
       const blocked = !this.lineOfSight(previous, m.mesh.position), cancelled = m.source.dead || m.source.converted > 0;
       const heroHit=segmentDistance(g.position,previous,m.mesh.position)<m.spec.radius+.32;
-      const summon=g.combat.classes?.summons.filter(s=>s.id!=='hydra'&&s.hp>0&&segmentDistance(s.actor.group.position,previous,m.mesh.position)<m.spec.radius+.32&&(!heroHit||s.actor.group.position.distanceToSquared(previous)<g.position.distanceToSquared(previous))).sort((a,b)=>a.actor.group.position.distanceToSquared(previous)-b.actor.group.position.distanceToSquared(previous))[0];
-      if(!cancelled&&!blocked&&summon){m.volley.summons??=new Set();if(!m.volley.summons.has(summon)){g.combat.classes.hurtSummon(summon,m.source.damage*m.spec.damage,m.spec.type);m.volley.summons.add(summon);}m.life=0;}
+      const summon=g.combat.classes?.allies().filter(s=>s.id!=='hydra'&&s.hp>0&&segmentDistance(s.actor.group.position,previous,m.mesh.position)<m.spec.radius+.32&&(!heroHit||s.actor.group.position.distanceToSquared(previous)<g.position.distanceToSquared(previous))).sort((a,b)=>a.actor.group.position.distanceToSquared(previous)-b.actor.group.position.distanceToSquared(previous))[0];
+      if(!cancelled&&!blocked&&summon){m.volley.summons??=new Set();if(!m.volley.summons.has(summon)){g.combat.classes.hurtSummon(summon,m.source.damage*m.spec.damage,m.spec.type,m.source,true);m.volley.summons.add(summon);}m.life=0;}
       else if (!cancelled && !blocked && heroHit) {
         // One volley can hit once even if its other missiles arrive in later frames.
         if (!m.volley.hit) this.hit(m.source, m.spec);
@@ -355,7 +355,7 @@ export class MonsterCombat {
       h.tick = .65;
       const inside = h.spec.shape !== 'pool' ? segmentDistance(g.position, h.origin, h.target) <= h.spec.radius + .3 : g.position.distanceTo(h.target) < h.spec.radius + .25;
       if (inside && this.lineOfSight(h.origin, g.position)) this.hit(h.source, h.spec);
-      for(const summon of g.combat.classes?.summons??[]) {const point=summon.actor.group.position;if(summon.id!=='hydra'&&summon.hp>0&&(h.spec.shape!=='pool'?segmentDistance(point,h.origin,h.target)<=h.spec.radius+.3:point.distanceTo(h.target)<h.spec.radius+.25)&&this.lineOfSight(h.origin,point))g.combat.classes.hurtSummon(summon,h.source.damage*h.spec.damage,h.spec.type);}
+      for(const summon of g.combat.classes?.allies()??[]) {const point=summon.actor.group.position;if(summon.id!=='hydra'&&summon.hp>0&&(h.spec.shape!=='pool'?segmentDistance(point,h.origin,h.target)<=h.spec.radius+.3:point.distanceTo(h.target)<h.spec.radius+.25)&&this.lineOfSight(h.origin,point))g.combat.classes.hurtSummon(summon,h.source.damage*h.spec.damage,h.spec.type,h.source,true);}
     }
     for (let i = g.enemies.length - 1; i >= 0; i--) {
       const enemy = g.enemies[i];

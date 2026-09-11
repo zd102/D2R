@@ -1,3 +1,5 @@
+import './mercenary.css';
+import { mercenaryUnlocked, mercenaryStats } from './mercenary';
 import './style.css';
 import './profiles.css';
 import './character.css';
@@ -25,6 +27,7 @@ try {
     profileId: game.profile?.id ?? null, profileName: game.profile?.name ?? null,
     classId:game.hero.classId, classModel:game.actor.group.userData.classId, buffs:structuredClone(game.hero.buffs),
     classCombat:{missiles:game.combat.classes.missiles.map(m=>({skill:m.skill,x:m.mesh.position.x,z:m.mesh.position.z,direction:m.direction.toArray()})),fields:game.combat.classes.fields.map(f=>({skill:f.id,life:f.life})),summons:game.combat.classes.summons.map(s=>({skill:s.id,hp:s.hp,maxHp:s.maxHp,x:s.actor.group.position.x,z:s.actor.group.position.z}))},
+    mercenary: game.hero.mercenary ? { ...structuredClone(game.hero.mercenary), level: game.hero.level, maxHp: mercenaryStats(game.hero).maxHp, attacks: game.mercenary.attacks, position: game.mercenary.position?.toArray() ?? null } : null,
     position: { x: game.position.x, z: game.position.z }, level: game.hero.level,
     controls: { movementMode: game.movementMode, facing: game.actor.group.rotation.y, aim: { x: game.aim.x, z: game.aim.z }, pointerAim: game.pointerAimActive, gesture: game.pointerGesture?.mode ?? null, dragging: game.pointerGesture?.dragging ?? false,
       destination: game.path.length ? { x: game.path.at(-1)!.x, z: game.path.at(-1)!.z } : null, target: game.target?.id ?? null,
@@ -41,7 +44,7 @@ try {
     ranged: { kind: stats(game.hero).ranged?.kind ?? null, ammo: stats(game.hero).ranged ? 'infinite' : 0, reserves: { ...game.hero.ammo }, model: game.actor.group.userData.rangedKind ?? null },
     enemyProjectiles: game.monsterCombat.missiles.length, enemyHazards: game.monsterCombat.hazards.length,
     enemies: game.enemies.filter(e => !e.dead).map(e => ({ id: e.id, name: e.name, species: e.definition?.id, model: e.definition?.model, attacks: e.definition?.attacks, cast: game.monsterCombat.telegraph(e), summoned: !!e.summoned, boss: e.boss, elite: !!e.elite, level: e.level, hp: e.hp, maxHp: e.maxHp, x: e.actor.group.position.x, z: e.actor.group.position.z, screen: game.project(e.actor.group.position.clone().setY(1)), ...(e.elite ? { route: game.world.path(game.position, e.actor.group.position).map(p => ({ x: p.x, z: p.z, screen: game.project(p) })) } : {}) })),
-    objectives: (game.inCamp ? [{ ...CAMP.portal, kind: 'camp-portal', id: 0 }, { ...CAMP.supply, kind: 'supply', id: 0 }, { ...CAMP.baseMerchant, kind: 'base-merchant', id: 0 }] : [...game.world.layout.objects.map((p, id) => ({ ...p, kind: 'quest', id })), { ...game.world.layout.boss, kind: 'boss', id: 0 }, { ...game.world.layout.supply, kind: 'supply', id: 0 }, { ...game.world.layout.exit, kind: 'exit', id: 0 }]).map(point => ({ ...point, screen: game.project(game.world.portal.position.clone().set(point.x, .3, point.z)), route: game.world.path(game.position, point).map(p => ({ x: p.x, z: p.z, screen: game.project(p) })) })),
+    objectives: (game.inCamp ? [{ ...CAMP.portal, kind: 'camp-portal', id: 0 }, { ...CAMP.supply, kind: 'supply', id: 0 }, { ...CAMP.baseMerchant, kind: 'base-merchant', id: 0 }, ...(mercenaryUnlocked(game.hero) ? [{ ...CAMP.mercenaryMerchant, kind: 'mercenary-merchant', id: 0 }] : [])] : [...game.world.layout.objects.map((p, id) => ({ ...p, kind: 'quest', id })), { ...game.world.layout.boss, kind: 'boss', id: 0 }, { ...game.world.layout.supply, kind: 'supply', id: 0 }, { ...game.world.layout.exit, kind: 'exit', id: 0 }]).map(point => ({ ...point, screen: game.project(game.world.portal.position.clone().set(point.x, .3, point.z)), route: game.world.path(game.position, point).map(p => ({ x: p.x, z: p.z, screen: game.project(p) })) })),
     chests: game.world.chests.map(chest => ({ id: chest.id, x: chest.x, z: chest.z, opened: chest.opened, lidAngle: chest.lid.rotation.x, screen: game.project(chest.group.position.clone().setY(.7)), route: game.world.path(game.position, chest).map(p => ({ x: p.x, z: p.z, screen: game.project(p) })) })),
     loot: game.loot.map(l => ({ id: l.id, x: l.x, z: l.z, item: l.item?.name, gold: l.gold, potion: l.potion, rune: l.rune, screen: game.project(l.mesh.position) })),
     drawCalls: game.renderer.info.render.calls, triangles: game.renderer.info.render.triangles,
