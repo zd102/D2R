@@ -51,9 +51,13 @@ export class PaladinCombat {
   }
   readyIn(id: ActionId) { return Math.max(this.stagger, this.cooldown(id)); }
   get movementLocked() { return this.stagger > 0 || this.movementRecovery > 0 || !!this.zeal || !!this.classes.sequence; }
-  cancelCombo() {
+  cancelCombo(releaseCadence = false) {
+    const id = this.zeal ? 'zeal' : this.classes.sequence?.id;
     this.zeal = null;
     this.classes.sequence = undefined;
+    // Moving out of a combo discards its unperformed hits, but still observes
+    // one weapon swing's attack-speed cadence before another attack can start.
+    if (releaseCadence && id && this.actionCooldowns[id]) this.actionCooldowns[id] = Math.min(this.actionCooldowns[id], stats(this.game.hero).attackFrames / 25);
   }
   startAction(id: ActionId, duration: number) {
     const s=stats(this.game.hero);

@@ -61,18 +61,19 @@ try {
   await page.mouse.up();
 
   await reset();
-  assert.equal(await page.evaluate(() => {
+  const zealDuration = await page.evaluate(() => {
     const g = window.navigationGame;
     g.hero.skills.zeal = 4; g.hero.bindings.attack = 'zeal';
-    return g.combat.castAction('zeal', true);
-  }), true);
+    return g.combat.castAction('zeal', true) && g.combat.cooldown('zeal');
+  });
+  assert.ok(zealDuration > 0);
   await page.mouse.move(920, 470); await page.mouse.click(920, 470);
   const cancelled = await page.evaluate(() => {
     const g = window.navigationGame;
     return { active: !!g.combat.zeal, cooldown: g.combat.cooldown('zeal') };
   });
   assert.equal(cancelled.active, false, 'clicking to move cancels the remaining zeal swings');
-  assert.ok(cancelled.cooldown > 0, 'clicking to move keeps zeal on its normal cadence');
+  assert.ok(cancelled.cooldown > 0 && cancelled.cooldown < zealDuration, 'clicking to move keeps only one attack-speed interval');
   assert.ok((await advance(20)).some(sample => sample.speed > 1), 'clicking to move leaves the hero able to depart');
 
   await page.evaluate(() => {

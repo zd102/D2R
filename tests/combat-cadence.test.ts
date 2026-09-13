@@ -107,6 +107,15 @@ test('cancelling a combo stops its remaining hits without resetting its cooldown
   }
 });
 
+test('moving out of a combo discards its unperformed attack cadence', () => {
+  const { combat, hero } = classFixture('paladin');
+  assert.equal(combat.castAction('zeal', true), true);
+  const fullCombo = combat.cooldown('zeal'), singleAttack = stats(hero).attackFrames / 25;
+  combat.cancelCombo(true);
+  assert.ok(combat.cooldown('zeal') < fullCombo, 'does not wait for the remaining zeal swings');
+  assert.equal(combat.cooldown('zeal'), singleAttack, 'still respects weapon attack speed');
+});
+
 test('hit recovery blocks actions without turning unrelated skill buttons into cooldowns', () => {
   const { combat, hero, game } = classFixture('sorceress');
   hero.bindings.cleave = 'fireBolt';

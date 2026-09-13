@@ -493,7 +493,7 @@ export class Game {
       if (gesture && !gesture.stationary && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) >= dragThreshold) {
         if (!gesture.dragging) { this.pointerDestination = undefined; this.pointerPathTimer = 0; }
         gesture.dragging = true; gesture.mode = 'move'; this.heldAttack = false;
-        this.combat.cancelCombo();
+        this.combat.cancelCombo(true);
         this.bufferedSkill = undefined;
         this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
       }
@@ -543,7 +543,7 @@ export class Game {
       else if (enemy) { if (this.pointerGesture) this.pointerGesture.mode = 'attack'; this.target = enemy; this.heldAttack = true; this.path = []; this.targetDestination = undefined; this.targetPathTimer = 0; }
       else {
         if (this.pointerGesture) this.pointerGesture.mode = 'move';
-        this.combat.cancelCombo();
+        this.combat.cancelCombo(true);
         this.moveTo(this.aim);
       }
     };
