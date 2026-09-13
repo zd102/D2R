@@ -8,6 +8,7 @@ export { MERCENARY_AURAS, mercenaryAuraRank, mercenaryAuraValues, type Mercenary
 
 export const MERCENARY_SLOTS = ['weapon', 'helm', 'armor'] as const;
 export type MercenarySlot = typeof MERCENARY_SLOTS[number];
+export const MERCENARY_JAB = { hits: 2, chainDelay: .1, recovery: .42 } as const;
 export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number };
 export const MERCENARY_POTION = { healing: 160, perSecond: 30 } as const;
 export function mercenaryPotionReason(hero: HeroState) {

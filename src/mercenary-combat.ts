@@ -7,7 +7,7 @@ import { clearShot } from './ranged.ts';
 import { followPath } from './navigation.ts';
 import { hitChance, resistedDamage } from './model.ts';
 import { emptySkills, skillValues, type DamageType, type SkillId } from './paladin.ts';
-import { activeMercenaryEquipment, mercenaryAuras, mercenaryStats, setMercenaryDistance, updateMercenaryPotion } from './mercenary.ts';
+import { activeMercenaryEquipment, MERCENARY_JAB, mercenaryAuras, mercenaryStats, setMercenaryDistance, updateMercenaryPotion } from './mercenary.ts';
 import { elementalDamage, poisonDamage } from './affixes.ts';
 import { absorbDamage, itemDamage } from './item-effects.ts';
 import { isUndead, leechEffectiveness } from './bestiary.ts';
@@ -124,8 +124,8 @@ export class MercenaryCombat {
     }
     if (target && this.target === target && this.canStrike(target) && this.timer <= 0) {
       const direction = destination.clone().sub(point); ally.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
-      if (!this.strikes) this.strikes = 2;
-      this.strike(target); this.strikes--; this.timer = this.strikes ? Math.max(.10, s.attackFrames / 75) : Math.max(.32, s.attackFrames / 40);
+      if (!this.strikes) this.strikes = MERCENARY_JAB.hits;
+      this.strike(target); this.strikes--; this.timer = this.strikes ? Math.max(MERCENARY_JAB.chainDelay, s.attackFrames / 75) : Math.max(MERCENARY_JAB.recovery, s.attackFrames / 40);
       this.swing = 1; this.attacks++; playHeroAction(ally.actor, 'thrust', g.time, .3);
     }
     animateActor(ally.actor, g.time, moving, this.swing);

@@ -1,6 +1,6 @@
 import type { Game } from './game';
 import type { Item } from './items';
-import { mercenaryUnlocked, mercenaryCost, mercenaryStats, mercenaryAuraRank, mercenaryAuraValues, mercenaryAuras, mercenaryEquipReason, mercenaryItemAllowed, mercenaryEquipmentPreview, activeMercenaryEquipment, MERCENARY_AURAS, MERCENARY_SLOTS, type MercenarySlot } from './mercenary';
+import { mercenaryUnlocked, mercenaryCost, mercenaryStats, mercenaryAuraRank, mercenaryAuraValues, mercenaryAuras, mercenaryEquipReason, mercenaryItemAllowed, mercenaryEquipmentPreview, activeMercenaryEquipment, MERCENARY_AURAS, MERCENARY_JAB, MERCENARY_SLOTS, type MercenarySlot } from './mercenary';
 import { skillName, isSkill, isAura, type SkillId } from './paladin';
 import { itemDetails } from './item-details-ui';
 import { itemVisual } from './item-art';
@@ -38,7 +38,7 @@ export function mercenaryPanel(game: Game, merchant: boolean, state: MercenaryPa
   const statsRows: [string, string][] = [
     ['基础物理伤害', `${number(s.attackMin)}–${number(s.attackMax)}`], ['准确率', number(s.attackRating)], ['防御', number(s.defense)],
     ['力量 / 敏捷', `${number(s.strength)} / ${number(s.dexterity)}`],
-    ['突刺频率', `${(2 / (Math.max(.10, s.attackFrames / 75) + Math.max(.32, s.attackFrames / 40))).toFixed(1)} 次/秒`],
+    ['双段突刺频率', `${(MERCENARY_JAB.hits / (Math.max(MERCENARY_JAB.chainDelay, s.attackFrames / 75) + Math.max(MERCENARY_JAB.recovery, s.attackFrames / 40))).toFixed(1)} 次/秒`],
     ['生命偷取', `${s.mods.lifeSteal ?? 0}%`], ['压碎 / 致命', `${s.mods.crushingBlow ?? 0}% / ${s.mods.deadlyStrike ?? 0}%`],
   ];
   let comparison = '';

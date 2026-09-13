@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import { newHero, stats, gainXp, parseSave, serializeSave, emptyEquipment } from '../src/model.ts';
 import { xpForLevel } from '../src/paladin.ts';
 import { BASES, makeItem, packItems } from '../src/items.ts';
-import { mercenaryUnlocked, mercenaryCost, hireMercenary, mercenaryStats, mercenaryBase, mercenaryAuras, selectMercenaryAura, equipMercenary, unequipMercenary, activeMercenaryEquipment, mercenaryEquipReason, setMercenaryDistance, MERCENARY_AURAS } from '../src/mercenary.ts';
+import { mercenaryUnlocked, mercenaryCost, hireMercenary, mercenaryStats, mercenaryBase, mercenaryAuras, selectMercenaryAura, equipMercenary, unequipMercenary, activeMercenaryEquipment, mercenaryEquipReason, setMercenaryDistance, MERCENARY_AURAS, MERCENARY_JAB } from '../src/mercenary.ts';
 import { feedMercenaryPotion, updateMercenaryPotion } from '../src/mercenary.ts';
 
 const item = (code: string, id = code) => makeItem(BASES.find(base => base.baseCode === code)!, id);
 function hero(level = 30) { const h = newHero(); h.level = level; h.campaign.cleared[0] = 5; h.gold = 100000; assert.ok(hireMercenary(h, true)); return h; }
+
+test('mercenary Jab remains a two-hit sequence with a deliberate recovery window', () => {
+  assert.deepEqual(MERCENARY_JAB, { hits: 2, chainDelay: .1, recovery: .42 });
+});
 
 test('hire requires first act completion, a nearby merchant, sufficient gold and no living guard', () => {
   const h = newHero(); h.level = 20; h.gold = 100000;
