@@ -1,6 +1,7 @@
 import { mercenaryPanel, type MercenaryPanelState } from './mercenary-ui';
 import { mercenaryUnlocked, mercenaryStats, equipMercenary, unequipMercenary, selectMercenaryAura } from './mercenary';
 import type { HeroState } from './model';
+import { runewordTooltip } from './runeword-tooltip';
 import { CLASSES } from './classes';
 import type { SkillId } from './paladin';
 import * as THREE from 'three';
@@ -31,7 +32,7 @@ const icon = (name: string, cls = '') => `<i data-lucide="${name}" class="${cls}
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
 const itemIcon = (item: Item) => icon(item.slot === 'weapon' ? 'sword' : item.slot === 'armor' ? 'shield' : 'gem');
 const tip = (label: string) => `aria-label="${label}" data-tip="${label}"`;
-const tooltipItemKey = (element?: HTMLElement) => element?.dataset.item ?? element?.dataset.sharedItem ?? (element?.dataset.loot !== undefined ? `loot:${element.dataset.loot}` : undefined);
+const tooltipItemKey = (element?: HTMLElement) => element?.dataset.item ?? element?.dataset.sharedItem ?? (element?.dataset.runeword ? `runeword:${element.dataset.runeword}` : element?.dataset.loot !== undefined ? `loot:${element.dataset.loot}` : undefined);
 
 // Replacing unchanged text/markup still creates nodes and invalidates layout.
 // Keep HUD values live every frame without rebuilding the surrounding interface.
@@ -143,17 +144,18 @@ export class UI {
   updateTooltip() {
     const target = this.tooltipTarget, tooltip = document.getElementById('ui-tooltip')!;
     if (!target?.isConnected || !target.getClientRects().length || document.documentElement.classList.contains('is-dragging-item')) { this.hideTooltip(); return; }
-    const item = this.tooltipItem(target);
-    if (!item && !target.dataset.tip) { this.hideTooltip(); return; }
+    const item = this.tooltipItem(target), recipe = target.dataset.runeword ? runewordTooltip(target.dataset.runeword) : undefined;
+    if (!item && !recipe && !target.dataset.tip) { this.hideTooltip(); return; }
     tooltip.style.maxHeight = '';
-    tooltip.classList.toggle('item-tooltip', !!item);
-    if (item) { tooltip.innerHTML = itemDetails(this.game.hero, item, { tooltip: true }); this.refreshIcons(); }
+    tooltip.classList.toggle('item-tooltip', !!item || !!recipe);
+    if (recipe) tooltip.innerHTML = recipe;
+    else if (item) { tooltip.innerHTML = itemDetails(this.game.hero, item, { tooltip: true }); this.refreshIcons(); }
     else tooltip.textContent = target.dataset.tip!;
     tooltip.hidden = false;
     const describedBy = new Set((target.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean));
     describedBy.add('ui-tooltip'); target.setAttribute('aria-describedby', [...describedBy].join(' '));
     const rect = target.getBoundingClientRect(), width = tooltip.offsetWidth, height = tooltip.offsetHeight;
-    if (item) {
+    if (item || recipe) {
       const workspace = target.closest('.paperdoll, .diablo-grid')?.getBoundingClientRect() ?? rect;
       const right = workspace.right + 10, left = workspace.left - width - 10;
       const beside = right + width <= innerWidth - 8 || left >= 8;
@@ -200,7 +202,7 @@ export class UI {
       if (document.documentElement.classList.contains('is-dragging-item')) return;
       const tooltip = document.getElementById('ui-tooltip')!;
       if (target instanceof Node && tooltip.contains(target)) { clearTimeout(this.tooltipHideTimer); return; }
-      const next = target instanceof Element ? target.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot], [data-tip]') ?? undefined : undefined;
+      const next = target instanceof Element ? target.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot], [data-tip], [data-runeword]') ?? undefined : undefined;
       if (tooltipItemKey(next) && tooltipItemKey(next) === this.tooltipDismissedKey) return;
       if (tooltipItemKey(next)) this.tooltipDismissedKey = undefined;
       if (next === this.tooltipTarget && !tooltip.hidden) { clearTimeout(this.tooltipHideTimer); return; }
@@ -210,7 +212,7 @@ export class UI {
     document.addEventListener('pointerover', event => { if (event.pointerType !== 'touch' && !event.buttons) showTooltip(event.target); });
     document.addEventListener('pointermove', event => {
       if (!this.tooltipDismissedKey || !(event.target instanceof Element)) return;
-      const item = event.target.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot]');
+      const item = event.target.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot], [data-runeword]');
       if (tooltipItemKey(item ?? undefined) !== this.tooltipDismissedKey) this.tooltipDismissedKey = undefined;
     });
     document.addEventListener('focusin', event => {
@@ -224,6 +226,10 @@ export class UI {
       else this.hideTooltip();
     });
     document.addEventListener('focusout', () => this.hideTooltip());
+    document.addEventListener('click', event => {
+      const recipe = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-runeword]') : null;
+      if (recipe) { this.tooltipDismissedKey = undefined; showTooltip(recipe); }
+    });
     document.addEventListener('pointerdown', event => {
       this.tooltipTouch = event.pointerType === 'touch';
       const item = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-item], [data-shared-item], [data-loot]') : undefined;
@@ -239,6 +245,9 @@ export class UI {
     document.addEventListener('keydown', event => {
       this.tooltipTouch = false;
       if (event.key === 'Tab' || event.key.startsWith('Arrow')) this.tooltipDismissedKey = undefined;
+      if ([' ', 'Enter'].includes(event.key) && event.target instanceof HTMLElement && event.target.matches('[data-runeword]')) {
+        event.preventDefault(); this.tooltipDismissedKey = undefined; showTooltip(event.target); return;
+      }
       const tooltip = document.getElementById('ui-tooltip')!;
       if ([' ', 'Enter'].includes(event.key) && event.target instanceof Element) {
         const item = event.target.closest<HTMLElement>('[data-item], [data-shared-item]');

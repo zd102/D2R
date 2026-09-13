@@ -92,6 +92,8 @@
 .inventory-screen .rune-layout .runeword-list { grid-auto-rows: max-content; gap: 8px; padding-right: 3px; }
 .inventory-screen .rune-layout .runeword-list > div { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; min-height: 94px; }
 .runeword-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.runeword-list [data-runeword] { cursor: help; }
+.runeword-list [data-runeword]:focus-visible { outline: 2px solid #d8bf93; outline-offset: -2px; }
 .inventory-screen .runeword-heading strong { font-size: 15px; }
 .recipe-availability { color: var(--ui-muted); font-size: 10px; flex: none; }
 .recipe-availability.positive { color: var(--ui-good); }

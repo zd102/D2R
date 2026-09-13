@@ -21,6 +21,11 @@
 #ui-tooltip.item-tooltip .set-bonuses { margin: 9px 0 0; font-size: 11px; }
 #ui-tooltip.item-tooltip .unidentified-note { padding: 5px 0; margin: 0; }
 #ui-tooltip.item-tooltip .item-summary small { font-size: 11px; }
+#ui-tooltip .runeword-tooltip p { margin: 6px 0; line-height: 1.6; }
+#ui-tooltip .runeword-tooltip section { border-top: 1px solid #695335; margin-top: 10px; padding-top: 8px; }
+#ui-tooltip .runeword-tooltip h4 { margin: 0; font-size: 12px; color: #d8bf93; }
+#ui-tooltip .recipe-preview-note { color: #b1a78e; font-size: 11px; }
+#ui-tooltip .runeword-tooltip .affix-range { display: block; }
 @media (max-height: 580px) and (min-width: 701px) {
   #ui-tooltip.item-tooltip { width: 410px; padding: 10px; }
   #ui-tooltip.item-tooltip .item-affixes { font-size: 11px; line-height: 1.6; }
