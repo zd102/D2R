@@ -17,6 +17,7 @@
     "test:map-orientation": "node tests/map-orientation-browser.mjs",
     "test:scenery": "node tests/scenery-browser.mjs",
     "test:performance": "node tests/performance-browser.mjs",
+    "test:boss-performance": "node tests/boss-performance-browser.mjs",
     "test:monster-batches": "node tests/monster-batches-browser.mjs",
     "test:campaign-rewards": "node tests/campaign-rewards-browser.mjs",
     "test:player-count": "node tests/player-count-browser.mjs",

@@ -227,7 +227,7 @@ export class Game {
     this.cooldowns = resume?.cooldowns ?? emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
     this.ui.hoveredEnemy = undefined; this.ui.floats.forEach(float => float.element.remove()); this.ui.floats = [];
     if (!inCamp && !this.specialArea && !resume) {
-      this.hero.campaign.objects.forEach(id => this.world.completeObjective(id)); this.world.exit.visible = this.hero.bossDefeated;
+      this.hero.campaign.objects.forEach(id => this.world.completeObjective(id)); this.world.setExitActive(this.hero.bossDefeated);
     }
     this.renderer.domElement.setAttribute('aria-label', `${this.areaName}游戏场景`);
     document.getElementById('app')!.classList.toggle('is-camp', inCamp);
@@ -711,12 +711,12 @@ export class Game {
     if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level, mercenaryKill ? rewardMods : undefined);
     if (enemy.boss) {
       if (this.specialArea) {
-        this.hero.bossDefeated = true; this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`); this.save(false); return;
+        this.hero.bossDefeated = true; this.world.setExitActive(true); this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`); this.save(false); return;
       }
       const hadMercenaryMerchant = mercenaryUnlocked(this.hero);
       if (!completeCampaignLevel(this.hero)) return;
       if (!hadMercenaryMerchant && mercenaryUnlocked(this.hero)) this.ui.toast('佣兵商人已解锁', '返回营地可花金币雇佣米山');
-      this.world.exit.visible = true; this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`);
+      this.world.setExitActive(true); this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`);
       this.save(false);
     }
   }
@@ -1003,7 +1003,7 @@ export class Game {
     }
     if (this.movementMode === 'wasd' && this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.castAction(this.hero.bindings.attack, true);
     const locked = this.combat.movementLocked;
-    const speed = locked ? 0 : (this.hero.running && this.hero.stamina > 0 ? 5.2 : 3) * s.runSpeed;
+    const speed = locked ? 0 : (this.hero.running && this.hero.stamina > 0 ? 7.8 : 4.5) * s.runSpeed;
     if (navigating) { const velocity = followPath(this.position, this.path, speed, dt, (from, to) => this.world.canWalk(from, to)); vx = velocity.x; vz = velocity.z; }
     else { vx *= speed; vz *= speed; }
     this.combat.moving = !!(vx || vz); this.combat.running = this.combat.moving && this.hero.running && this.hero.stamina > 0;

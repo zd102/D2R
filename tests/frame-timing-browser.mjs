@@ -48,13 +48,13 @@ try {
         g.enemies = [];
         const start = g.world.floorCells.find(p => g.world.canWalk(p, { x: p.x + 9, z: p.z }));
         if (!start) throw new Error(`No open measurement route in ${g.level.name}`);
-        for (const mode of ['mouse', 'wasd']) for (const schedule of schedules) {
-          reset(start); g.movementMode = mode;
+        for (const running of [true, false]) for (const mode of ['mouse', 'wasd']) for (const schedule of schedules) {
+          reset(start); g.movementMode = mode; g.hero.running = running;
           if (mode === 'mouse') g.moveTo(g.position.clone().set(start.x + 9, 0, start.z));
           else { g.keys.add('d'); g.keys.add('s'); }
           const before = g.time, beforeRenders = renders;
           schedule.frames.forEach(frame);
-          samples.push({ level, mode, schedule: schedule.name, distance: g.position.x - start.x, sideways: g.position.z - start.z,
+          samples.push({ level, mode, running, schedule: schedule.name, distance: g.position.x - start.x, sideways: g.position.z - start.z,
             elapsed: g.time - before, stamina: g.hero.stamina, renders: renders - beforeRenders, frames: schedule.frames.length });
         }
       }
@@ -84,11 +84,12 @@ try {
     }
   });
   for (const sample of result.samples) {
-    const reference = result.samples.find(other => other.level === sample.level && other.mode === sample.mode && other.schedule === '60 FPS');
+    const reference = result.samples.find(other => other.level === sample.level && other.mode === sample.mode && other.running === sample.running && other.schedule === '60 FPS');
     const context = JSON.stringify(sample);
     assert.ok(Math.abs(sample.elapsed - 1) < 1e-6, `simulation follows wall time: ${context}`);
     assert.ok(Math.abs(sample.distance - reference.distance) < .01, `speed is independent of render FPS: ${context}`);
-    assert.ok(sample.distance > 4.9 && sample.distance < 5, `preserves existing 60 FPS movement: ${context}`);
+    const expected = sample.running ? 7.8 : 4.5;
+    assert.ok(Math.abs(sample.distance - expected * .95) < .05, `50% faster base walking/running speed (with starter armor penalty): ${context}`);
     assert.ok(Math.abs(sample.sideways) < .01, `open route stays straight: ${context}`);
     assert.ok(Math.abs(sample.stamina - reference.stamina) < .01, `stamina follows simulation time: ${context}`);
     assert.equal(sample.renders, sample.frames, 'render only once per displayed frame');

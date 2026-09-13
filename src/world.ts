@@ -123,6 +123,7 @@ export class GameWorld {
   navigationGrid?: PF.Grid;
   ground: THREE.Mesh;
   exit: THREE.Group;
+  private exitLight?: THREE.PointLight;
   level: Level;
   layout: LevelLayout;
   isCamp: boolean;
@@ -173,7 +174,11 @@ export class GameWorld {
       if (level.index === 2) { const point = layout.route[Math.min(2, layout.route.length - 1)]!, offset = rotateMapPoint({ x: 2.6, z: 1.8 }, layout.rotation); this.mysteryCorpse = this.makeMysteriousCorpse(point.x + offset.x, point.z + offset.z); }
       this.exit = this.makePortal(layout.exit.x, layout.exit.z);
     }
-    this.exit.visible = false;
+    // Keep the exit light in the render list even while the portal is hidden.
+    // Changing the number of lights recompiles every lit material on boss death.
+    this.exitLight = this.exit.children.find(child => child instanceof THREE.PointLight) as THREE.PointLight | undefined;
+    if (this.exitLight) this.scene.attach(this.exitLight);
+    this.setExitActive(false);
     const particleGeo = new THREE.BufferGeometry(), pos = new Float32Array(420 * 3);
     for (let i = 0; i < pos.length; i += 3) { pos[i] = (random() - .5) * (offset * 2 + 8); pos[i + 1] = random() * 7; pos[i + 2] = (random() - .5) * (offsetZ * 2 + 8); }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -567,6 +572,10 @@ export class GameWorld {
     let lamp: THREE.PointLight | undefined;
     if (light) { lamp = new THREE.PointLight(0xffa246, 7, 7, 1.6); lamp.position.set(x, y + .4, z); this.scene.add(lamp); }
     this.torches.push({ flame, light: lamp, phase: random() * 6 });
+  }
+  setExitActive(active: boolean) {
+    this.exit.visible = active;
+    if (this.exitLight) this.exitLight.intensity = active ? 8 : 0;
   }
   makePortal(x: number, z: number) {
     const group = new THREE.Group(); group.position.set(x, 0, z); this.scene.add(group);
