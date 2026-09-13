@@ -61,7 +61,9 @@ test('mercenary assists the selected enemy and immediately replaces dead or conv
 });
 
 test('close-range jab chains attack faster while remote targets and town never trigger combat', t => {
-  const f = fixture(t); const near = f.enemy(1, 1.6); f.step(1);
+  // Allow a full second plus one recovery-frame margin: exact one-second samples
+  // can land before the fourth hit when the attack-frame cadence rounds upward.
+  const f = fixture(t); const near = f.enemy(1, 1.6); f.step(1.3);
   assert.ok(f.hits.length >= 4); near.dead = true; f.enemy(2, 29); f.step(.2); assert.equal(f.merc.target, undefined);
   const count = f.hits.length; f.game.inCamp = true; f.enemy(3, 1); f.step(.5); assert.equal(f.hits.length, count);
 });

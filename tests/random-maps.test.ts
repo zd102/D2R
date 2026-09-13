@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LEVELS, SPECIAL_LEVELS, levelLayout, eliteCount, levelTuning } from '../src/campaign.ts';
+import { sceneDesign } from '../src/scene-design.ts';
 import { AREA_MAP_PROFILES, areaMapProfile, MAP_SIZE_LIMIT } from '../src/area-map-profiles.ts';
 import { layoutWalkable } from '../src/level-layouts.ts';
 import { nextMapSeed } from '../src/map-random.ts';
@@ -11,6 +12,9 @@ import { simulateProgression } from './balance-fixtures.ts';
 import { rotateLayout, rotateMapPoint } from '../src/map-orientation.ts';
 
 const seeds = [0, 1, 17, 20260910, 0x7fffffff, 0xffffffff, 811, 91919];
+test('lava areas have dedicated ambient light for stable readable exploration', () => {
+  for (const index of [17, 18, 19]) assert.equal(sceneDesign(LEVELS[index]).ambient, 1.3, LEVELS[index].name);
+});
 test('200 generated maps connect every objective, room, boss, chest and encounter to a safe entrance', () => {
   for (const level of LEVELS) for (const seed of seeds) {
     const layout = levelLayout(level,seed), label = `${level.name}, seed ${seed}`;

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { monsterExperience, experienceFactor, monsterStats } from '../src/balance.ts';
-import { LEVELS, AREA_LEVELS, levelTuning } from '../src/campaign.ts';
+import { LEVELS, AREA_LEVELS, SPECIAL_LEVELS, levelTuning } from '../src/campaign.ts';
 import { BOSSES, ENCOUNTERS, MONSTERS } from '../src/bestiary.ts';
 import { PALADIN_BALANCE, skillValues, xpForLevel } from '../src/paladin.ts';
 import { newHero, gainXp, stats, learnSkill, setAura, serializeSave, parseSave, totalExperience } from '../src/model.ts';
@@ -60,6 +60,14 @@ test('all encounters use finite increasing chapter values, species retain their 
   }
   assert.ok(monsterStats(MONSTERS.zombie, LEVELS[0], 0).maxHp > monsterStats(MONSTERS.fallen, LEVELS[0], 0).maxHp);
   assert.equal(monsterStats(BOSSES[4], LEVELS[4], 0, true).resistances.fire, -30);
+});
+
+test('nightmare begins at the normal cow per-monster combat budget and escalates through every campaign level', () => {
+  const nightmareStart = levelTuning(LEVELS[0], 1), normalCow = levelTuning(SPECIAL_LEVELS.cow, 0);
+  assert.equal(nightmareStart.hp, normalCow.hp);
+  assert.equal(nightmareStart.damage, normalCow.damage);
+  assert.ok(levelTuning(LEVELS[24], 1).hp > nightmareStart.hp);
+  assert.ok(levelTuning(LEVELS[24], 1).damage > nightmareStart.damage);
 });
 
 test('moderate melee and hammer builds stay within monster, boss and incoming-damage budgets in every act', () => {

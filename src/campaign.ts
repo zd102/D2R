@@ -98,8 +98,10 @@ export function levelTuning(level: Level, difficulty: number) {
   if (level.special === 'uberDiablo') return { level: 99, hp: 1, damage: 26, defense: 1800, packs: 0 };
   const areaLevel = AREA_LEVELS[difficulty][level.index];
   // Small steps within an act, a larger jump at the act boundary, independent of hero level.
-  const power = Math.pow(1.85, level.act) * (1 + level.step * .06) * [1, 6, 22][difficulty];
-  return { level: areaLevel, hp: power, damage: Math.pow(1.38, level.act) * (1 + level.step * .05) * [1, 2.5, 5][difficulty], defense: 6 + areaLevel * 3.5, packs: 5 + level.act + Math.floor(level.step / 2) };
+  // Nightmare opens at the same per-monster life and damage budget as normal cows,
+  // then keeps the campaign's established small-step and act-boundary escalation.
+  const power = Math.pow(1.85, level.act) * (1 + level.step * .06) * [1, 15, 22][difficulty];
+  return { level: areaLevel, hp: power, damage: Math.pow(1.38, level.act) * (1 + level.step * .05) * [1, 4.6, 5][difficulty], defense: 6 + areaLevel * 3.5, packs: 5 + level.act + Math.floor(level.step / 2) };
 }
 export type MapPoint = { x: number; z: number };
 export const eliteCount = (level: Level, difficulty: number) => 1 + Math.max(0, Math.min(2, Math.floor(difficulty))) * 2 + Number(level.step >= 3);
