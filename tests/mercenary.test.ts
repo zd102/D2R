@@ -3,14 +3,25 @@ import assert from 'node:assert/strict';
 import { newHero, stats, gainXp, parseSave, serializeSave, emptyEquipment } from '../src/model.ts';
 import { xpForLevel } from '../src/paladin.ts';
 import { BASES, makeItem, packItems } from '../src/items.ts';
-import { mercenaryUnlocked, mercenaryCost, hireMercenary, mercenaryStats, mercenaryBase, mercenaryAuras, selectMercenaryAura, equipMercenary, unequipMercenary, activeMercenaryEquipment, mercenaryEquipReason, setMercenaryDistance, MERCENARY_AURAS, MERCENARY_JAB } from '../src/mercenary.ts';
+import { mercenaryUnlocked, mercenaryCost, hireMercenary, mercenaryStats, mercenaryBase, mercenaryAuras, selectMercenaryAura, equipMercenary, unequipMercenary, activeMercenaryEquipment, mercenaryEquipReason, setMercenaryDistance, MERCENARY_AURAS, MERCENARY_JAB, mercenaryActScaling } from '../src/mercenary.ts';
 import { feedMercenaryPotion, updateMercenaryPotion } from '../src/mercenary.ts';
 
 const item = (code: string, id = code) => makeItem(BASES.find(base => base.baseCode === code)!, id);
-function hero(level = 30) { const h = newHero(); h.level = level; h.campaign.cleared[0] = 5; h.gold = 100000; assert.ok(hireMercenary(h, true)); return h; }
+function hero(level = 30) { const h = newHero(); h.level = level; h.campaign.current = 20; h.campaign.cleared[0] = 5; h.gold = 100000; assert.ok(hireMercenary(h, true)); return h; }
 
 test('mercenary Jab remains a two-hit sequence with a deliberate recovery window', () => {
   assert.deepEqual(MERCENARY_JAB, { hits: 2, chainDelay: .1, recovery: .55 });
+});
+
+test('normal acts one through four heavily limit the guard, while act five and higher difficulties retain full power', () => {
+  const h = hero(), full = mercenaryStats(h);
+  for (const [current, damage, life] of [[0, .3, .5], [10, .4, .6], [15, .55, .75]] as const) {
+    h.campaign.current = current; const scaled = mercenaryStats(h);
+    assert.deepEqual(mercenaryActScaling(h), { damage, life });
+    assert.equal(scaled.attack, full.attack * damage); assert.equal(scaled.maxHp, Math.floor(full.maxHp * life));
+  }
+  h.campaign.current = 20; assert.deepEqual(mercenaryActScaling(h), { damage: 1, life: 1 });
+  h.difficultyLevel = 1; h.campaign.current = 0; assert.deepEqual(mercenaryActScaling(h), { damage: 1, life: 1 }); assert.equal(mercenaryStats(h).attack, full.attack);
 });
 
 test('hire requires first act completion, a nearby merchant, sufficient gold and no living guard', () => {

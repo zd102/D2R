@@ -9,6 +9,13 @@ export { MERCENARY_AURAS, mercenaryAuraRank, mercenaryAuraValues, type Mercenary
 export const MERCENARY_SLOTS = ['weapon', 'helm', 'armor'] as const;
 export type MercenarySlot = typeof MERCENARY_SLOTS[number];
 export const MERCENARY_JAB = { hits: 2, chainDelay: .1, recovery: .55 } as const;
+export const MERCENARY_NORMAL_ACT_SCALING = [
+  { damage: .3, life: .5 }, { damage: .3, life: .5 }, { damage: .4, life: .6 }, { damage: .55, life: .75 }, { damage: 1, life: 1 },
+] as const;
+export function mercenaryActScaling(hero: HeroState) {
+  const act = Math.max(0, Math.min(4, Math.floor(hero.campaign.current / 5)));
+  return hero.difficultyLevel === 0 ? MERCENARY_NORMAL_ACT_SCALING[act] : MERCENARY_NORMAL_ACT_SCALING[4];
+}
 export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number };
 export const MERCENARY_POTION = { healing: 160, perSecond: 30 } as const;
 export function mercenaryPotionReason(hero: HeroState) {
@@ -70,7 +77,7 @@ export function mercenaryAuras(hero: HeroState, includeInactive = false) {
 export const isPartyAura = (id: SkillId) => !['holyFire', 'holyFreeze', 'holyShock', 'sanctuary', 'conviction', 'redemption'].includes(id);
 export function mercenaryPartyAuras(hero: HeroState) { return mercenaryAuras(hero).filter(aura => isPartyAura(aura.id) && (distances.get(hero) ?? 0) <= aura.radius); }
 export function mercenaryStats(hero: HeroState) {
-  const proxy = newHero(), base = mercenaryBase(hero.level), merc = hero.mercenary;
+  const proxy = newHero(), base = mercenaryBase(hero.level), merc = hero.mercenary, actScaling = mercenaryActScaling(hero);
   proxy.level = hero.level; proxy.difficultyLevel = hero.difficultyLevel; proxy.strength = base.strength; proxy.dexterity = base.dexterity;
   proxy.bonusLife = base.life - (55 + (hero.level - 1) * 2); proxy.bonusResist = base.resistance;
   proxy.equipment = emptyEquipment();
@@ -83,7 +90,7 @@ export function mercenaryStats(hero: HeroState) {
   }
   const result = stats(proxy, auras);
   // D2 hirelings gain life directly; item vitality and mana are not useful to them.
-  result.maxHp -= (result.vitality - proxy.vitality) * 3;
+  result.maxHp = Math.floor((result.maxHp - (result.vitality - proxy.vitality) * 3) * actScaling.life);
   result.defense += Math.floor((20 + hero.level * 6) * (1 + (auras.find(aura => aura.id === 'defiance')?.percent ?? 0) / 100)); result.armor = result.defense;
   // Desert guards jab in melee, including when holding a javelin. Native damage
   // receives offensive aura bonuses, so Might also benefits modest weapons.
@@ -93,8 +100,8 @@ export function mercenaryStats(hero: HeroState) {
   const localDamage = weapon ? (itemMods(weapon).damage ?? 0) + (catalogItemSetBonuses(weapon, active).damage ?? 0) : 0;
   const bonus = result.strength + (result.mods.damage ?? 0) - localDamage + auraDamage;
   result.damageBonus = bonus;
-  result.attackMin = result.weaponMin * (1 + bonus / 100) + (3 + hero.level * .9) * (1 + auraDamage / 100);
-  result.attackMax = result.weaponMax * (1 + bonus / 100) + (5 + hero.level * 1.4) * (1 + auraDamage / 100);
+  result.attackMin = (result.weaponMin * (1 + bonus / 100) + (3 + hero.level * .9) * (1 + auraDamage / 100)) * actScaling.damage;
+  result.attackMax = (result.weaponMax * (1 + bonus / 100) + (5 + hero.level * 1.4) * (1 + auraDamage / 100)) * actScaling.damage;
   result.attack = (result.attackMin + result.attackMax) / 2;
   result.baseAttackRating += hero.level * 12; result.attackRating = Math.floor(result.baseAttackRating * (1 + result.attackRatingBonus / 100));
   return result;

@@ -33,7 +33,7 @@ try {
   await lockedPage.close();
 
   for (const width of [1440, 390, 360].filter(width => !process.env.MERCENARY_WIDTH || width === Number(process.env.MERCENARY_WIDTH))) {
-    const h = newHero('sorceress'); h.level = 30; h.campaign.cleared[0] = 5; h.gold = 50000; h.hp = stats(h).maxHp;
+    const h = newHero('sorceress'); h.level = 30; h.campaign.current = 20; h.campaign.cleared[0] = 20; h.gold = 50000; h.hp = stats(h).maxHp;
     const spear = gear('spr', 'merc-spear'); spear.mods = { damage: 100, lifeSteal: 30, lifeOnKill: 25, ias: 40, aura_meditation: 15 };
     const armor = gear('lea', 'merc-armor'); armor.mods = { life: 80, allRes: 30 };
     const helm = gear('cap', 'merc-helm'); helm.mods = { defense: 50 };
