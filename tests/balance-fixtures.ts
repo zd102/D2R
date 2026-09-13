@@ -89,7 +89,7 @@ export function referenceMetrics(hero: HeroState, definition: MonsterDef, index:
       perHit += resistedDamage(amount, enemy.resistances[type]);
     }
   }
-  const attacksPerSecond = action === 'blessedHammer' ? 25 / s.castFrames : skill.hits * 25 / (s.attackFrames + s.zealFrames * (skill.hits - 1));
+  const attacksPerSecond = action === 'blessedHammer' ? 25 / s.castFrames : skill.hits * 25 / (s.zealFrames * (skill.hits - 1));
   const dps = perHit * hit * attacksPerSecond * .65;
   const connectedHit = (type: DamageType, amount: number) => type === 'physical' ? Math.max(0, amount - (s.mods.damageReductionFlat ?? 0)) * (1 - Math.min(50, s.mods.damageReduction ?? 0) / 100) : resistedDamage(Math.max(0, amount - (s.mods.magicReduction ?? 0)), type === 'magic' ? 0 : s.resistances[type]);
   const maxHit = Math.max(...definition.attacks.map(id => connectedHit(ATTACKS[id].type, enemy.damage * ATTACKS[id].damage)));

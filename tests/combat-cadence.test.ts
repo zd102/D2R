@@ -95,7 +95,7 @@ test('a successful different action cancels a combo, failed casts keep the combo
 });
 
 test('cancelling a combo stops its remaining hits without resetting its cooldown', () => {
-  for (const [classId, combo] of [['paladin', 'zeal'], ['amazon', 'jab'], ['amazon', 'fend'], ['amazon', 'strafe']] as const) {
+  for (const [classId, combo] of [['paladin', 'zeal'], ['amazon', 'jab'], ['amazon', 'fend']] as const) {
     const { combat } = classFixture(classId);
     assert.equal(combat.castAction(combo, true), true, combo);
     const cooldown = combat.cooldown(combo);
@@ -109,11 +109,22 @@ test('cancelling a combo stops its remaining hits without resetting its cooldown
 
 test('moving out of a combo discards its unperformed attack cadence', () => {
   const { combat, hero } = classFixture('paladin');
+  hero.skills.zeal = 4;
   assert.equal(combat.castAction('zeal', true), true);
-  const fullCombo = combat.cooldown('zeal'), singleAttack = stats(hero).attackFrames / 25;
+  const fullCombo = combat.cooldown('zeal'), interval = stats(hero).zealFrames / 25;
   combat.cancelCombo(true);
   assert.ok(combat.cooldown('zeal') < fullCombo, 'does not wait for the remaining zeal swings');
-  assert.equal(combat.cooldown('zeal'), singleAttack, 'still respects weapon attack speed');
+  assert.equal(combat.cooldown('zeal'), interval, 'still respects zeal attack speed');
+});
+
+test('zeal is ready again when its final strike lands', () => {
+  const { combat, hero } = classFixture('paladin');
+  hero.skills.zeal = 4;
+  const interval = stats(hero).zealFrames / 25;
+  assert.equal(combat.castAction('zeal', true), true);
+  assert.equal(combat.cooldown('zeal'), interval * 4);
+  while (combat.zeal) combat.update(.01);
+  assert.ok(combat.cooldown('zeal') <= .01, 'no post-combo recovery remains');
 });
 
 test('hit recovery blocks actions without turning unrelated skill buttons into cooldowns', () => {

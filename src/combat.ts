@@ -56,8 +56,11 @@ export class PaladinCombat {
     this.zeal = null;
     this.classes.sequence = undefined;
     // Moving out of a combo discards its unperformed hits, but still observes
-    // one weapon swing's attack-speed cadence before another attack can start.
-    if (releaseCadence && id && this.actionCooldowns[id]) this.actionCooldowns[id] = Math.min(this.actionCooldowns[id], stats(this.game.hero).attackFrames / 25);
+    // the interval of the next attack in that combo.
+    if (releaseCadence && id && this.actionCooldowns[id]) {
+      const s = stats(this.game.hero);
+      this.actionCooldowns[id] = Math.min(this.actionCooldowns[id], id === 'zeal' ? s.zealFrames / 25 : s.attackFrames / 25);
+    }
   }
   startAction(id: ActionId, duration: number) {
     const s=stats(this.game.hero);
@@ -128,7 +131,9 @@ export class PaladinCombat {
     direction.y = 0; direction.normalize(); if (!direction.lengthSq()) direction.set(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
     const casting = ['holyBolt', 'blessedHammer', 'holyShield', 'fistOfHeavens'].includes(id);
     const ranged = id === 'attack' && s.ranged && s.weapon;
-    this.startAction(id, id === 'zeal' ? (s.attackFrames + s.zealFrames * (v.hits - 1)) / 25 : (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25);
+    // Zeal's first strike is immediate; IAS controls only the gaps between its
+    // remaining strikes, so it is ready again when the final strike lands.
+    this.startAction(id, id === 'zeal' ? s.zealFrames * (v.hits - 1) / 25 : (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25);
     h.mana -= v.cost; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
     if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); g.save(false); return true; }
     if (ranged) { this.shootWeapon(origin, direction, target); return true; }
