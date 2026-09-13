@@ -52,7 +52,7 @@ test('all 75 levels advance in order; only 25 clears unlock the next difficulty'
 test('replay leaves the frontier and other difficulties intact; partial tasks survive reloading', () => {
   const hero = newHero(); hero.campaign.cleared = [25, 8, 0]; hero.unlockedDifficulty = 1;
   assert.equal(selectCampaignLevel(hero, 6, 1), true); assert.equal(questComplete(hero.campaign), true); assert.equal(activateQuestObject(hero, 0), false);
-  const loaded = parseSave(serializeSave(hero))!; assert.deepEqual(loaded, hero); completeCampaignLevel(loaded);
+  const loaded = parseSave(serializeSave(hero))!; assert.deepEqual(loaded, { ...hero, cubeUnlocked: true }); completeCampaignLevel(loaded);
   assert.deepEqual(loaded.campaign.cleared, [25, 8, 0]); assert.equal(loaded.difficultyLevel, 1);
   assert.equal(selectCampaignLevel(loaded, 8, 1), true); assert.deepEqual(loaded.campaign.objects, []);
   assert.equal(selectCampaignLevel(loaded, 12, 0), true); assert.deepEqual(loaded.campaign.cleared, [25, 8, 0]);
@@ -81,7 +81,7 @@ test('first-clear tasks and partial progress remain gated on resume and higher d
   const hero = newHero(); hero.campaign.cleared = [25, 1, 0]; hero.difficultyLevel = 1; hero.unlockedDifficulty = 1;
   selectCampaignLevel(hero, 1, 1); activateQuestObject(hero, 0);
   const before = structuredClone(hero); assert.equal(prepareCampaignReplay(hero), false); assert.deepEqual(hero, before); assert.equal(questComplete(hero.campaign), false); assert.equal(completeCampaignLevel(hero), false);
-  const loaded = parseSave(serializeSave(hero))!; assert.equal(prepareCampaignReplay(loaded), false); assert.deepEqual(loaded, before);
+  const loaded = parseSave(serializeSave(hero))!; assert.equal(prepareCampaignReplay(loaded), false); assert.deepEqual(loaded, { ...before, cubeUnlocked: true });
 });
 test('difficulty flags and legacy boss rewards cannot bypass the complete-campaign gate', () => {
   const hero = newHero(); grantQuestReward(hero, 'boss'); assert.equal(hero.unlockedDifficulty, 0);

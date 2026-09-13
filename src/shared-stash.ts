@@ -22,7 +22,7 @@ export function moveSharedItem(hero: HeroState, shared: Item[], request: SharedT
   }
   if (request.direction === 'equip') {
     const item = shared.find(item => item.id === request.itemId); if (!item) throw new Error('物品已被移动，请重新选择');
-    const personal = [...hero.inventory, ...hero.stash, ...Object.values(hero.equipment), ...Object.values(hero.alternate), ...Object.values(hero.corpse?.equipment ?? {}), ...(hero.corpse?.extras ?? [])];
+    const personal = [...hero.inventory, ...hero.stash, ...hero.cube, ...Object.values(hero.equipment), ...Object.values(hero.alternate), ...Object.values(hero.corpse?.equipment ?? {}), ...(hero.corpse?.extras ?? [])];
     if (personal.some(other => other?.id === item.id)) throw new Error('角色已有相同标识的物品，无法重复装备');
     if (request.target && !SLOTS.includes(request.target)) throw new Error('无效的装备栏');
     if (!equipFromItems(hero, shared, item.id, request.target, SHARED_STASH_ROWS)) throw new Error(equipReason(hero, item, request.target) || '共享仓库空间不足，无法放回替换装备');
@@ -37,7 +37,7 @@ export function moveSharedItem(hero: HeroState, shared: Item[], request: SharedT
   const depositing = request.direction === 'deposit', from = depositing ? hero[request.container] : shared, to = depositing ? shared : hero[request.container];
   const item = from.find(item => item.id === request.itemId);
   if (!item) throw new Error('物品已被移动，请重新选择');
-  const personal = [...hero.inventory, ...hero.stash, ...Object.values(hero.equipment), ...Object.values(hero.alternate), ...Object.values(hero.corpse?.equipment ?? {}), ...(hero.corpse?.extras ?? [])];
+  const personal = [...hero.inventory, ...hero.stash, ...hero.cube, ...Object.values(hero.equipment), ...Object.values(hero.alternate), ...Object.values(hero.corpse?.equipment ?? {}), ...(hero.corpse?.extras ?? [])];
   if (depositing ? shared.some(other => other.id === item.id) : personal.some(other => other?.id === item.id)) throw new Error('目标已有相同标识的物品，无法重复转移');
   if (!depositing && request.container === 'stash' && to.length >= 200) throw new Error('个人仓库已满');
   const rows = depositing ? SHARED_STASH_ROWS : request.container === 'inventory' ? 4 : stashRows([...to, item]);

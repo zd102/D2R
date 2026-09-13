@@ -835,6 +835,7 @@ export class Game {
     if (this.enemies.some(e => !e.dead && !e.boss && Math.hypot(e.actor.group.position.x - p.x, e.actor.group.position.z - p.z) < 5)) { this.ui.toast('附近仍有守卫'); return; }
     if (!activateQuestObject(this.hero, action.id)) return;
     this.world.completeObjective(action.id);
+    if (this.level.index === 6 && questComplete(this.hero.campaign)) this.ui.toast('获得赫拉迪克方块', '背包新增 12 格方块空间 · 放入的护符不生效');
     this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana;
     this.burst(new THREE.Vector3(p.x, 2, p.z), ACTS[this.level.act].accent, 25); this.audio.play('quest');
     this.ui.toast(this.level.quest.action, questComplete(this.hero.campaign) ? `任务已完成 · 击败${this.level.boss}` : `${this.hero.campaign.objects.length} / ${this.level.quest.count}`); this.save(false);
@@ -869,7 +870,7 @@ export class Game {
     this.audio.play('equip'); this.ui.toast(item.name, '已收入背包'); this.ui.renderPanel();
   }
   equip(id: string, slot?: Slot) {
-    const container = this.hero.inventory.some(item => item.id === id) ? 'inventory' : 'stash';
+    const container = this.hero.inventory.some(item => item.id === id) ? 'inventory' : this.hero.cube.some(item => item.id === id) ? 'cube' : 'stash';
     if (equipItem(this.hero, id, slot, container)) { this.audio.play('equip'); this.save(false); this.ui.renderPanel(); }
     else { const item = this.hero[container].find(item => item.id === id); this.ui.toast(item ? equipReason(this.hero, item, slot) || (container === 'stash' ? '仓库空间不足' : '背包空间不足') : '物品不存在'); }
   }

@@ -77,6 +77,7 @@ test('single-character export transfers progress and possessions to independent 
   h.campaign.cleared = [25, 7, 0]; h.campaign.current = 6;
   h.inventory = [{ ...h.equipment.weapon!, id: 'bag-sword', x: 0, y: 0 }];
   h.stash = [{ ...h.equipment.shield!, id: 'stash-shield', x: 0, y: 0 }];
+  h.cubeUnlocked = true; h.cube = [{ ...h.equipment.weapon!, id: 'cube-sword', x: 0, y: 0 }];
   h.alternate.weapon = { ...h.equipment.weapon!, id: 'alternate-sword' };
   h.runes = ['el', 'tir']; h.questRewards = ['0:boss']; h.respecUsed = [0];
   h.corpse = { equipment: { ...h.equipment, weapon: null, shield: { ...h.equipment.shield!, id: 'corpse-shield' } }, extras: [], x: 2, z: 3, xpLost: 400, gold: 500 };

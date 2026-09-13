@@ -36,6 +36,15 @@
 .inventory-screen .inventory-grid-scroll .diablo-grid {
   width: 100%; min-width: 0; max-width: none; margin: 0;
 }
+.inventory-screen .inventory-grid-scroll .diablo-grid[data-container=cube] {
+  width: min(30%, 108px); margin: 0;
+}
+.inventory-screen .inventory-grid-scroll:has([data-container=cube]) [data-container=inventory] { max-width: 360px; }
+.inventory-container[data-storage-section=cube] { margin-top: 14px; }
+.inventory-container .inventory-section-heading { margin-bottom: 8px; min-height: 30px; }
+.inventory-container .inventory-section-heading > span:first-child { display: flex; align-items: center; gap: 6px; }
+.inventory-container .inventory-section-heading svg { width: 15px; height: 15px; }
+.cube-storage-note { margin: 8px 0 0; color: var(--ui-muted); font-size: 11px; line-height: 1.5; }
 .inventory-storage-note { flex: none; margin: 10px 0 0; padding-top: 9px; border-top: 1px solid #4b403080; font-size: 11px; line-height: 1.6; color: var(--ui-muted); }
 .inventory-screen .item-detail-scroll { padding-right: 6px; scrollbar-gutter: stable; }
 .inventory-screen .item-summary { grid-template-columns: 50px minmax(0, 1fr); gap: 10px; padding-bottom: 10px; margin-bottom: 10px; }

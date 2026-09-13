@@ -171,12 +171,12 @@ export function socketItem(item: Item, rune: RuneId, random = Math.random): bool
   return true;
 }
 export type ItemPosition = { x: number; y: number; width: number; height: number };
-export function packItems(items: Item[], rows = 4): Map<string, ItemPosition> | null {
+export function packItems(items: Item[], rows = 4, columns = 10): Map<string, ItemPosition> | null {
   const occupied = new Set<number>(), positions = new Map<string, ItemPosition>(), pending: Item[] = [];
-  const fits = (x: number, y: number, width: number, height: number) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x + width <= 10 && y + height <= rows && Array.from({ length: width * height }, (_, n) => (y + Math.floor(n / width)) * 10 + x + n % width).every(cell => !occupied.has(cell));
+  const fits = (x: number, y: number, width: number, height: number) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x + width <= columns && y + height <= rows && Array.from({ length: width * height }, (_, n) => (y + Math.floor(n / width)) * columns + x + n % width).every(cell => !occupied.has(cell));
   const reserve = (item: Item, x: number, y: number) => {
     const [width, height] = footprint(item);
-    for (let n = 0; n < width * height; n++) occupied.add((y + Math.floor(n / width)) * 10 + x + n % width);
+    for (let n = 0; n < width * height; n++) occupied.add((y + Math.floor(n / width)) * columns + x + n % width);
     positions.set(item.id, { x, y, width, height });
   };
   // Reserve saved placements before assigning space to new or legacy items.
@@ -186,15 +186,15 @@ export function packItems(items: Item[], rows = 4): Map<string, ItemPosition> | 
   }
   for (const item of pending) {
     const [width, height] = footprint(item); let found = false;
-    for (let y = 0; y <= rows - height && !found; y++) for (let x = 0; x <= 10 - width; x++) if (fits(x, y, width, height)) { reserve(item, x, y); found = true; break; }
+    for (let y = 0; y <= rows - height && !found; y++) for (let x = 0; x <= columns - width; x++) if (fits(x, y, width, height)) { reserve(item, x, y); found = true; break; }
     if (!found) return null;
   }
   return positions;
 }
-export function itemMovePlan(items: Item[], id: string, x: number, y: number, rows = 4): { positions: Map<string, ItemPosition>; swapped: string[] } | null {
+export function itemMovePlan(items: Item[], id: string, x: number, y: number, rows = 4, columns = 10): { positions: Map<string, ItemPosition>; swapped: string[] } | null {
   if (!Number.isInteger(x) || !Number.isInteger(y) || new Set(items.map(item => item.id)).size !== items.length) return null;
-  const positions = packItems(items, rows), current = positions?.get(id);
-  if (!positions || !current || x < 0 || y < 0 || x + current.width > 10 || y + current.height > rows) return null;
+  const positions = packItems(items, rows, columns), current = positions?.get(id);
+  if (!positions || !current || x < 0 || y < 0 || x + current.width > columns || y + current.height > rows) return null;
   const swapped: string[] = [];
   for (const [otherId, other] of positions) {
     if (otherId === id || x + current.width <= other.x || other.x + other.width <= x || y + current.height <= other.y || other.y + other.height <= y) continue;
@@ -206,24 +206,24 @@ export function itemMovePlan(items: Item[], id: string, x: number, y: number, ro
   positions.set(id, { ...current, x, y });
   const occupied = new Set<number>();
   for (const position of positions.values()) {
-    if (position.x < 0 || position.y < 0 || position.x + position.width > 10 || position.y + position.height > rows) return null;
+    if (position.x < 0 || position.y < 0 || position.x + position.width > columns || position.y + position.height > rows) return null;
     for (let dy = 0; dy < position.height; dy++) for (let dx = 0; dx < position.width; dx++) {
-      const cell = (position.y + dy) * 10 + position.x + dx;
+      const cell = (position.y + dy) * columns + position.x + dx;
       if (occupied.has(cell)) return null; occupied.add(cell);
     }
   }
   return { positions, swapped };
 }
-export function canMoveItem(items: Item[], id: string, x: number, y: number, rows = 4) { return itemMovePlan(items, id, x, y, rows) !== null; }
-export function moveItem(items: Item[], id: string, x: number, y: number, rows = 4) {
-  const plan = itemMovePlan(items, id, x, y, rows); if (!plan) return false;
+export function canMoveItem(items: Item[], id: string, x: number, y: number, rows = 4, columns = 10) { return itemMovePlan(items, id, x, y, rows, columns) !== null; }
+export function moveItem(items: Item[], id: string, x: number, y: number, rows = 4, columns = 10) {
+  const plan = itemMovePlan(items, id, x, y, rows, columns); if (!plan) return false;
   for (const item of items) { const position = plan.positions.get(item.id)!; item.x = position.x; item.y = position.y; }
   return true;
 }
 export function stashRows(items: Item[]) {
   return Math.max(10, Math.ceil(items.reduce((sum, item) => sum + footprint(item)[0] * footprint(item)[1], 0) / 10) + 4, ...items.map(item => (item.y ?? 0) + footprint(item)[1]));
 }
-export function placeItems(items: Item[], rows = 4) { const positions = packItems(items, rows); if (!positions) return false; for (const item of items) { const p = positions.get(item.id)!; item.x = p.x; item.y = p.y; } return true; }
+export function placeItems(items: Item[], rows = 4, columns = 10) { const positions = packItems(items, rows, columns); if (!positions) return false; for (const item of items) { const p = positions.get(item.id)!; item.x = p.x; item.y = p.y; } return true; }
 export type SpecialItem = ItemBase & { base: string; rarity: 'set' | 'unique'; mods: Mods; catalogId?: string; qualityLevel?: number; treasureClass?: number; dropWeight?: number; setId?: string; eventOnly?: boolean };
 export const SPECIAL_ITEMS: SpecialItem[] = expandSpecials([
   { name: '拿各的戒指', base: '戒指', slot: 'ring', rarity: 'unique', level: 7, power: 0, mods: { attackRating: 65, magicFind: 25, magicReduction: 3, reflectDamage: 3 } },

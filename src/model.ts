@@ -27,13 +27,19 @@ export type HeroState = {
   hp: number; mana: number; stamina: number; running: boolean; potions: [number, number];
   ammo: { arrows: number; bolts: number };
   equipment: Record<Slot, Item | null>; alternate: { weapon: Item | null; shield: Item | null }; weaponSet: 0 | 1;
-  inventory: Item[]; stash: Item[]; runes: RuneId[]; identifyScrolls: number;
+  inventory: Item[]; stash: Item[]; cube: Item[]; cubeUnlocked: boolean; runes: RuneId[]; identifyScrolls: number;
   campaign: CampaignState; baseStock: BaseStock;
   stage: number; difficultyLevel: 0 | 1 | 2; unlockedDifficulty: 0 | 1 | 2; shrines: number[]; bossDefeated: boolean; questRewards: string[]; respecUsed: number[];
   bonusLife: number; bonusResist: number; holyShield: number; holyShieldLevel: number; poison: number; curse: number; cold: number;
   corpse: { equipment: Record<Slot, Item | null>; extras: Item[]; x: number; z: number; xpLost: number; gold: number } | null;
 };
 export const SAVE_KEY = 'eclipse-ii-save-v1';
+export type ItemContainer = 'inventory' | 'stash' | 'cube';
+export const CUBE_COLUMNS = 3, CUBE_ROWS = 4;
+export function hasCube(hero: HeroState) {
+  return hero.cubeUnlocked || hero.campaign.cleared.some(cleared => cleared > 6)
+    || hero.campaign.current === 6 && questComplete(hero.campaign);
+}
 export const emptyEquipment = () => Object.fromEntries(SLOTS.map(slot => [slot, null])) as Record<Slot, Item | null>;
 export const difficulty = (hero: HeroState) => hero.difficultyLevel;
 export const difficultyNames = ['普通', '噩梦', '地狱'];
@@ -46,7 +52,7 @@ export const newHero = (classId: ClassId = 'paladin'): HeroState => ({
   hp: CLASSES[classId].life, mana: CLASSES[classId].mana, stamina: CLASSES[classId].stamina, running: true, potions: [6, 4], stage: 1, difficultyLevel: 0, unlockedDifficulty: 0, shrines: [], bossDefeated: false,
   ammo: { arrows: 0, bolts: 0 },
   equipment: { ...emptyEquipment(), weapon: classId === 'paladin' ? makeItem(BASES[0], 'starter-sword') : classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='jav')!, 'starter-javelin') : { ...makeItem(BASES.find(base=>base.baseCode==='sst')!, 'starter-staff'), mods: { skill_fireBolt: 1 } }, shield: classId === 'sorceress' ? null : makeItem(BASES.find(base => base.name === '圆盾')!, 'starter-shield') },
-  alternate: { weapon: classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='sbw')!,'starter-bow') : null, shield: null }, weaponSet: 0, inventory: [], stash: [], runes: [], identifyScrolls: 0,
+  alternate: { weapon: classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='sbw')!,'starter-bow') : null, shield: null }, weaponSet: 0, inventory: [], stash: [], cube: [], cubeUnlocked: false, runes: [], identifyScrolls: 0,
   campaign: newCampaign(), baseStock: { difficulty: 0, offers: [] },
   questRewards: [], respecUsed: [], bonusLife: 0, bonusResist: 0, holyShield: 0, holyShieldLevel: 0, poison: 0, curse: 0, cold: 0, corpse: null,
 });
@@ -206,6 +212,7 @@ export function equipReason(hero: HeroState, item: Item, target: Slot = item.slo
   if (hero.dexterity + (mods.dexterity ?? 0) < itemRequirements(item).dexterity) return `需要敏捷 ${itemRequirements(item).dexterity}`; return '';
 }
 export function equipFromItems(hero: HeroState, items: Item[], id: string, target?: Slot, rows = 4): boolean {
+  if (items === hero.cube && !hasCube(hero)) return false;
   const item = items.find(item => item.id === id); if (!item) return false;
   const slot = target ?? (item.slot === 'ring' && hero.equipment.ring && !hero.equipment.ring2 ? 'ring2' : item.slot);
   if (equipReason(hero, item, slot)) return false;
@@ -213,25 +220,27 @@ export function equipFromItems(hero: HeroState, items: Item[], id: string, targe
   const remove = (key: Slot) => { if (equipment[key]) { remaining.push(equipment[key]!); removed.add(equipment[key]!); } equipment[key] = null; };
   remove(slot); if (item.twoHanded) remove('shield'); if (slot === 'shield' && equipment.weapon?.twoHanded) remove('weapon');
   const layout = remaining.map(item => { const copy = { ...item }; if (removed.has(item)) { delete copy.x; delete copy.y; } return copy; });
-  const positions = packItems(layout, rows);
+  const positions = packItems(layout, rows, items === hero.cube ? CUBE_COLUMNS : 10);
   if (items === hero.stash && remaining.length > 200 || new Set(remaining.map(item => item.id)).size !== remaining.length || !positions) return false;
   for (const item of remaining) { const position = positions.get(item.id)!; item.x = position.x; item.y = position.y; }
   equipment[slot] = item; delete item.x; delete item.y;
   hero.equipment = equipment; items.splice(0, items.length, ...remaining); clampResources(hero); return true;
 }
-export function equipItem(hero: HeroState, id: string, target?: Slot, container: 'inventory' | 'stash' = 'inventory'): boolean {
+export function equipItem(hero: HeroState, id: string, target?: Slot, container: ItemContainer = 'inventory'): boolean {
   const items = hero[container];
-  return equipFromItems(hero, items, id, target, container === 'inventory' ? 4 : stashRows(items));
+  return equipFromItems(hero, items, id, target, container === 'stash' ? stashRows(items) : 4);
 }
 function unequipLayout(hero: HeroState, items: Item[], slot: Slot, rows: number, position?: { x: number; y: number }) {
+  if (items === hero.cube && !hasCube(hero)) return null;
+  const columns = items === hero.cube ? CUBE_COLUMNS : 10;
   const item = hero.equipment[slot];
   if (!item || items.some(other => other.id === item.id) || new Set(items.map(other => other.id)).size !== items.length || items === hero.stash && items.length >= 200) return null;
   if (position && (!Number.isInteger(position.x) || !Number.isInteger(position.y))) return null;
-  const existing = packItems(items, rows); if (!existing) return null;
+  const existing = packItems(items, rows, columns); if (!existing) return null;
   const layout = items.map(other => ({ ...other, x: existing.get(other.id)!.x, y: existing.get(other.id)!.y }));
   const moved = { ...item }; delete moved.x; delete moved.y;
   if (position) { moved.x = position.x; moved.y = position.y; }
-  const positions = packItems([...layout, moved], rows), placed = positions?.get(item.id);
+  const positions = packItems([...layout, moved], rows, columns), placed = positions?.get(item.id);
   if (!positions || position && (placed?.x !== position.x || placed?.y !== position.y)) return null;
   return positions;
 }
@@ -249,33 +258,71 @@ export function swapRingSlots(hero: HeroState, from: Slot, to: Slot) {
   [hero.equipment[from], hero.equipment[to]] = [hero.equipment[to], hero.equipment[from]];
   clampResources(hero); return true;
 }
-export function unequipItem(hero: HeroState, slot: Slot, container: 'inventory' | 'stash' = 'inventory') {
+export function unequipItem(hero: HeroState, slot: Slot, container: ItemContainer = 'inventory') {
   if (container === 'stash' && hero.stash.length >= 200) return false;
-  return unequipToItems(hero, hero[container], slot, container === 'inventory' ? 4 : stashRows([...hero.stash, ...(hero.equipment[slot] ? [hero.equipment[slot]!] : [])]));
+  return unequipToItems(hero, hero[container], slot, container === 'stash' ? stashRows([...hero.stash, ...(hero.equipment[slot] ? [hero.equipment[slot]!] : [])]) : 4);
 }
 export function swapWeapons(hero: HeroState) { [hero.equipment.weapon, hero.alternate.weapon] = [hero.alternate.weapon, hero.equipment.weapon]; [hero.equipment.shield, hero.alternate.shield] = [hero.alternate.shield, hero.equipment.shield]; hero.weaponSet = hero.weaponSet ? 0 : 1; clampResources(hero); }
 export function moveStorage(hero: HeroState, id: string, toStash: boolean) {
-  const from = toStash ? hero.inventory : hero.stash, to = toStash ? hero.stash : hero.inventory, item = from.find(item => item.id === id);
-  const rows = toStash ? stashRows(to) : 4;
-  if (!item || !packItems([...to, item], rows)) return false;
-  from.splice(from.indexOf(item), 1); to.push(item); placeItems(to, rows); clampResources(hero); return true;
+  return transferItem(hero, id, toStash ? 'stash' : 'inventory');
 }
-export function insertRune(hero: HeroState, id: string, rune: RuneId) { const index = hero.runes.indexOf(rune), item = [...hero.inventory, ...hero.stash].find(item => item.id === id); if (index < 0 || !item || !socketItem(item, rune)) return false; hero.runes.splice(index, 1); return true; }
+export function transferItem(hero: HeroState, id: string, destination: ItemContainer, position?: { x: number; y: number }, preview = false) {
+  if (!['inventory', 'stash', 'cube'].includes(destination)) return false;
+  const source = (['inventory', 'stash', 'cube'] as const).find(key => hero[key].some(item => item.id === id));
+  if (!source || source === destination || (source === 'cube' || destination === 'cube') && !hasCube(hero)) return false;
+  const from = hero[source], to = hero[destination], item = from.find(item => item.id === id)!;
+  if (new Set([...from, ...to].map(item => item.id)).size !== from.length + to.length) return false;
+  const moved = { ...item }; delete moved.x; delete moved.y;
+  const rows = destination === 'stash' ? stashRows([...to, moved]) : 4, columns = destination === 'cube' ? CUBE_COLUMNS : 10;
+  const sourceRows = source === 'stash' ? stashRows(from) : 4, sourceColumns = source === 'cube' ? CUBE_COLUMNS : 10;
+  const sourcePositions = packItems(from, sourceRows, sourceColumns), targetPositions = packItems(to, rows, columns);
+  if (!sourcePositions || !targetPositions) return false;
+  const origin = sourcePositions.get(id)!;
+  const sourceLayout = from.filter(other => other !== item).map(other => ({ ...other, ...sourcePositions.get(other.id)! }));
+  const targetLayout = to.map(other => ({ ...other, ...targetPositions.get(other.id)! }));
+  if (position) {
+    const { x, y } = position;
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x + origin.width > columns || y + origin.height > rows) return false;
+    moved.x = x; moved.y = y;
+    for (let i = targetLayout.length - 1; i >= 0; i--) {
+      const other = targetLayout[i];
+      if (x + origin.width <= other.x || other.x + other.width <= x || y + origin.height <= other.y || other.y + other.height <= y) continue;
+      if (other.x < x || other.y < y || other.x + other.width > x + origin.width || other.y + other.height > y + origin.height) return false;
+      targetLayout.splice(i, 1);
+      sourceLayout.push({ ...other, x: origin.x + other.x - x, y: origin.y + other.y - y });
+    }
+  }
+  const nextTarget = [...targetLayout, moved];
+  if (source === 'stash' && sourceLayout.length > 200 || destination === 'stash' && nextTarget.length > 200) return false;
+  const nextSourcePositions = packItems(sourceLayout, sourceRows, sourceColumns), positions = packItems(nextTarget, rows, columns);
+  if (!nextSourcePositions || !positions) return false;
+  if (position && (positions.get(id)!.x !== position.x || positions.get(id)!.y !== position.y)) return false;
+  if (sourceLayout.some(entry => { const p = nextSourcePositions.get(entry.id)!; return p.x !== entry.x || p.y !== entry.y; })) return false;
+  if (preview) return true;
+  const originals = new Map([...from, ...to].map(entry => [entry.id, entry]));
+  const apply = (layout: Item[], placements: Map<string, { x: number; y: number }>) => layout.map(entry => {
+    const original = originals.get(entry.id)!, p = placements.get(entry.id)!; original.x = p.x; original.y = p.y; return original;
+  });
+  from.splice(0, from.length, ...apply(sourceLayout, nextSourcePositions));
+  to.splice(0, to.length, ...apply(nextTarget, positions));
+  clampResources(hero); return true;
+}
+export function insertRune(hero: HeroState, id: string, rune: RuneId) { const index = hero.runes.indexOf(rune), item = [...hero.inventory, ...hero.stash, ...hero.cube].find(item => item.id === id); if (index < 0 || !item || !socketItem(item, rune)) return false; hero.runes.splice(index, 1); return true; }
 export function insertJewel(hero: HeroState, targetId: string, jewelId: string) {
-  const items = [...hero.inventory, ...hero.stash], target = items.find(item => item.id === targetId), jewel = items.find(item => item.id === jewelId);
+  const items = [...hero.inventory, ...hero.stash, ...hero.cube], target = items.find(item => item.id === targetId), jewel = items.find(item => item.id === jewelId);
   if (!target || !jewel?.jewel || target === jewel || target.identified === false || jewel.identified === false || !target.sockets || filledSockets(target) >= target.sockets) return false;
   (target.socketedJewels ??= []).push({ name: jewel.name, mods: { ...jewel.mods }, ...(jewel.catalogId ? { catalogId: jewel.catalogId } : {}), ...(jewel.catalogVersion ? { catalogVersion: jewel.catalogVersion } : {}), ...(jewel.catalogRolls ? { catalogRolls: [...jewel.catalogRolls] } : {}) });
   target.requiredLevel = Math.max(target.requiredLevel ?? 1, jewel.requiredLevel ?? 1);
-  hero.inventory = hero.inventory.filter(item => item !== jewel); hero.stash = hero.stash.filter(item => item !== jewel); return true;
+  hero.inventory = hero.inventory.filter(item => item !== jewel); hero.stash = hero.stash.filter(item => item !== jewel); hero.cube = hero.cube.filter(item => item !== jewel); return true;
 }
 export const IDENTIFY_COST = 80;
 export function identifyItem(hero: HeroState, id: string) {
-  const item = [...hero.inventory, ...hero.stash].find(item => item.id === id);
+  const item = [...hero.inventory, ...hero.stash, ...hero.cube].find(item => item.id === id);
   if (!item || item.identified !== false || hero.gold < IDENTIFY_COST) return false;
   hero.gold -= IDENTIFY_COST; item.identified = true; return true;
 }
 export function sellItem(hero: HeroState, id: string) {
-  const container = [hero.inventory, hero.stash].find(items => items.some(item => item.id === id));
+  const container = [hero.inventory, hero.stash, hero.cube].find(items => items.some(item => item.id === id));
   if (!container) return false;
   const index = container.findIndex(item => item.id === id);
   hero.gold += container[index].value; container.splice(index, 1); clampResources(hero); return true;
@@ -347,12 +394,15 @@ export function recordQuestKill(hero: HeroState) {
 export function activateQuestObject(hero: HeroState, index: number) {
   const quest = LEVELS[hero.campaign.current].quest;
   if (hero.bossDefeated || quest.kind !== 'interact' || !Number.isInteger(index) || index < 0 || index >= quest.count || hero.campaign.objects.includes(index)) return false;
-  hero.campaign.objects.push(index); return true;
+  hero.campaign.objects.push(index);
+  if (hero.campaign.current === 6 && questComplete(hero.campaign)) hero.cubeUnlocked = true;
+  return true;
 }
 export function completeCampaignLevel(hero: HeroState) {
   const { campaign } = hero, index = campaign.current, diff = difficulty(hero);
   if (hero.bossDefeated || !questComplete(campaign) || !canEnterLevel(campaign, index, diff)) return false;
   hero.bossDefeated = true;
+  if (index === 6) hero.cubeUnlocked = true;
   if (index === campaign.cleared[diff]) {
     campaign.cleared[diff]++;
     hero.gold += 100 + index * 35 + diff * 250;
@@ -463,6 +513,14 @@ export function parseSave(raw: string | null): HeroState | null {
     for (const slot of ['weapon', 'shield'] as const) { const item = uniqueItem(h.alternate?.[slot]); if (item?.slot === slot) hero.alternate[slot] = item; } hero.weaponSet = h.weaponSet === 1 ? 1 : 0;
     hero.inventory = Array.isArray(h.inventory) ? h.inventory.map(uniqueItem).filter((item: Item | null): item is Item => !!item).slice(0, 200) : [];
     hero.stash = Array.isArray(h.stash) ? h.stash.map(uniqueItem).filter((item: Item | null): item is Item => !!item).slice(0, 200) : [];
+    hero.cubeUnlocked = h.cubeUnlocked === true || hasCube(hero);
+    const cube = Array.isArray(h.cube) ? h.cube.slice(0, 200).map(uniqueItem).filter((item: Item | null): item is Item => !!item) : [];
+    // Recover malformed/overflow storage into the stash without losing items.
+    for (const item of cube) {
+      if (hero.cubeUnlocked && packItems([...hero.cube, item], CUBE_ROWS, CUBE_COLUMNS)) hero.cube.push(item);
+      else { delete item.x; delete item.y; hero.stash.push(item); }
+    }
+    placeItems(hero.cube, CUBE_ROWS, CUBE_COLUMNS);
     if (!packItems(hero.inventory)) { const items = hero.inventory; hero.inventory = []; for (const item of items) { if (packItems([...hero.inventory, item])) hero.inventory.push(item); else hero.stash.push(item); } placeItems(hero.inventory); }
     hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)).slice(0, 1000) : []; hero.identifyScrolls = integer(h.identifyScrolls, 0, 0, 99);
     hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(shrine[0-2]|boss|life|attributes|resistance|jungle|summit)$/.test(key)))] : [];

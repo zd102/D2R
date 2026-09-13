@@ -138,7 +138,7 @@ export class UI {
     if (target.dataset.loot !== undefined) return this.game.loot.find(loot => loot.id === Number(target.dataset.loot))?.item;
     if (!id) return undefined;
     if (target.dataset.sharedSide === 'shared') return this.sharedStashScreen.state?.items.find(item => item.id === id);
-    return [...h.inventory, ...h.stash, ...Object.values(h.equipment)].find((item): item is Item => !!item && item.id === id);
+    return [...h.inventory, ...h.stash, ...h.cube, ...Object.values(h.equipment)].find((item): item is Item => !!item && item.id === id);
   }
   updateTooltip() {
     const target = this.tooltipTarget, tooltip = document.getElementById('ui-tooltip')!;
