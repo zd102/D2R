@@ -47,6 +47,14 @@
 .cube-storage-note { margin: 8px 0 0; color: var(--ui-muted); font-size: 11px; line-height: 1.5; }
 .inventory-storage-note { flex: none; margin: 10px 0 0; padding-top: 9px; border-top: 1px solid #4b403080; font-size: 11px; line-height: 1.6; color: var(--ui-muted); }
 .inventory-screen .item-detail-scroll { padding-right: 6px; scrollbar-gutter: stable; }
+.item-runewords { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--ui-border); }
+.item-runewords > p { font-size: 11px; color: var(--ui-muted); line-height: 1.6; margin: 6px 0; }
+.item-runeword-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 8px; padding: 9px 0; border-top: 1px solid #4b403080; }
+.item-runeword-row > small { grid-column: 1 / -1; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.item-runeword-row .runeword-inspect { min-width: 0; padding: 6px 0; text-align: left; color: #d8bf93; background: none; border: 0; cursor: help; }
+.item-runeword-row .runeword-inspect:focus-visible { outline: 2px solid #d8bf93; }
+.item-runeword-row .secondary-button { min-height: 34px; padding: 5px 10px; font-size: 11px; }
+.item-runeword-row .missing-runes { color: #d69b80; }
 .inventory-screen .item-summary { grid-template-columns: 50px minmax(0, 1fr); gap: 10px; padding-bottom: 10px; margin-bottom: 10px; }
 .inventory-screen .item-summary .item-showcase { width: 50px; height: 58px; }
 .inventory-screen .item-summary h3 { font-size: 19px; line-height: 1.5; }

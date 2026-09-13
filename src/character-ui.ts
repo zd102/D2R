@@ -15,6 +15,7 @@ import { skillSlotNames } from './controls';
 import { equipmentPanel } from './equipment-ui';
 import { itemDetails } from './item-details-ui';
 import { hasCube, transferItem, CUBE_COLUMNS, type ItemContainer } from './model';
+import { socketRuneword } from './runeword-crafting';
 
 const icon = (name: string) => `<i data-lucide="${name}"></i>`;
 const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -42,6 +43,13 @@ export class CharacterScreen {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button'); if (!button || button.disabled) return;
       const data = button.dataset, h = game.hero; let changed = false, render = false;
       if ((data.cubeStore || data.cubeWithdraw) && game.saveConflict) return;
+      if (data.craftRuneword && data.craftItem) {
+        if (game.saveConflict || ui.sharedStashScreen.busy) return;
+        const previous = structuredClone(h);
+        if (!socketRuneword(h, data.craftItem, data.craftRuneword)) { ui.toast('无法镶嵌', '请检查底材、孔位顺序与符文数量'); ui.renderPanel(); return; }
+        if (!game.save(false)) { game.hero = previous; ui.renderPanel(); return; }
+        game.audio.play('equip'); ui.toast('符文之语已完成'); ui.renderPanel(); return;
+      }
       if (data.tree) { this.tree = data.tree as SkillTree; this.selectedSkill = skillsForClass(h.classId).find(skill => skill.tree === this.tree)!.id; render = true; }
       if (data.selectSkill) { this.selectedSkill = data.selectSkill as SkillId; render = true; }
       if (data.learn) { changed = learnSkill(h, data.learn as SkillId); if (!changed) ui.toast(learnReason(h, data.learn as SkillId)); }
