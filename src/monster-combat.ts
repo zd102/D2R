@@ -44,6 +44,9 @@ export const ATTACKS: Record<AttackId, AttackSpec> = {
   whirlwind: attack('旋风斩', 'line', 'physical', 8, .9, 3.4, .8, 1.3, { duration: 1, move: true }),
 };
 export const ELEMENT_COLORS: Record<DamageType, number> = { physical: 0xf1bd7b, fire: 0xff7045, cold: 0x8bdfff, lightning: 0xffdb84, poison: 0xa1e26b, magic: 0xeaa6dd };
+// Normal mode should establish pressure sooner without changing monster damage.
+// Later difficulties retain their existing combat cadence and detection ranges.
+export const NORMAL_DIFFICULTY_AI = { sightRange: 20, engageRange: 12, memory: 6, cooldownMultiplier: .88 } as const;
 type Cast = { id: AttackId; spec: AttackSpec; left: number; origin: THREE.Vector3; target: THREE.Vector3; summon?: CombatAlly; corpse?: Enemy; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> };
 type State = { cast?: Cast; sequence: number; retaliation: number; summons: number; cloned: boolean; frenzy: number; lifetime?: number; abilities: Partial<Record<AttackId, number>>; lastAttack?: AttackId; lastSeen?: THREE.Vector3; memory: number; alerted: boolean; retreat: number; retreatCooldown: number };
 type Missile = { source: Enemy; mesh: THREE.Mesh; velocity: THREE.Vector3; spec: AttackSpec; life: number; volley: { hit: boolean; summons?: Set<CombatAlly> } };
@@ -239,7 +242,7 @@ export class MonsterCombat {
     this.state(add).lifetime = id === 'clone' ? 16 : 12; state.summons++;
   }
   updateEnemy(enemy: Enemy, dt: number) {
-    const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, targetPoint=g.combat.classes?.target(enemy)?.actor.group.position??g.position, distance = p.distanceTo(targetPoint);
+    const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, targetPoint=g.combat.classes?.target(enemy)?.actor.group.position??g.position, distance = p.distanceTo(targetPoint), normal = g.hero.difficultyLevel === 0 ? NORMAL_DIFFICULTY_AI : undefined;
     enemy.actor.group.userData.hitFlash=Math.max(0,(enemy.actor.group.userData.hitFlash??0)-dt*7);
     enemy.actor.group.userData.release=Math.max(0,(enemy.actor.group.userData.release??0)-dt*5);
     state.retaliation = Math.max(0, state.retaliation - dt); state.frenzy = Math.max(0, state.frenzy - dt);
@@ -248,15 +251,15 @@ export class MonsterCombat {
     enemy.blind = Math.max(0, (enemy.blind ?? 0) - dt); enemy.flee = Math.max(0, (enemy.flee ?? 0) - dt);
     if (enemy.active && !enemy.preventHeal && !enemy.poison && enemy.definition?.model === 'council') enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * .01 * dt);
     if (state.lifetime !== undefined) { state.lifetime -= dt; if (state.lifetime <= 0 || g.enemies.find(e => e.id === enemy.owner)?.dead) { g.killEnemy(enemy); return; } }
-    const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < 18 && this.lineOfSight(p,targetPoint);
-    if (g.started && unlocked && visible && (distance < (enemy.boss ? 12 : 10) || enemy.active)) {
-      enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = 5;
+    const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < (normal?.sightRange ?? 18) && this.lineOfSight(p,targetPoint), engageRange = normal?.engageRange ?? (enemy.boss ? 12 : 10);
+    if (g.started && unlocked && visible && (distance < engageRange || enemy.active)) {
+      enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = normal?.memory ?? 5;
       if (!state.alerted) {
         state.alerted = true;
         for (const ally of g.enemies) {
           if (ally === enemy || ally.dead || ally.boss || ally.converted > 0 || ally.active || ally.pack !== enemy.pack || enemy.pack === undefined) continue;
           if (ally.actor.group.position.distanceTo(p) < 12 && this.lineOfSight(p,ally.actor.group.position)) {
-            ally.active = true; const friend = this.state(ally); friend.lastSeen = targetPoint.clone(); friend.memory = 5; friend.alerted = true;
+            ally.active = true; const friend = this.state(ally); friend.lastSeen = targetPoint.clone(); friend.memory = normal?.memory ?? 5; friend.alerted = true;
           }
         }
       }
@@ -291,7 +294,7 @@ export class MonsterCombat {
       if (state.cast.left <= 0) {
         const cast = state.cast; state.cast = undefined; g.disposeObject(cast.mesh); this.resolve(enemy, cast);
         state.lastAttack = cast.id;
-        state.abilities[cast.id] = cast.spec.cooldown / g.combat.slow(enemy) / (state.frenzy > 0 ? 1.25 : 1);
+        state.abilities[cast.id] = cast.spec.cooldown * (normal?.cooldownMultiplier ?? 1) / g.combat.slow(enemy) / (state.frenzy > 0 ? 1.25 : 1);
         // Strong attacks have their own cooldown; a short recovery allows other tactics between them.
         enemy.cooldown = Math.min(state.abilities[cast.id]!, enemy.boss ? 2 : 1.5);
       }
