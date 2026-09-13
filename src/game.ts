@@ -25,6 +25,7 @@ import { BOSSES, ENCOUNTERS, MONSTERS, monsterTactic, type MonsterDef } from './
 import { createMonsterActor } from './monster-models';
 import { MonsterCombat } from './monster-combat';
 import { monsterExperience, monsterStats } from './balance';
+import { applyMonsterAffixes, rollMonsterAffixes, type MonsterAffix } from './monster-affixes.ts';
 import { SaveStore, SaveError, PROFILE_PREFIX, type SavedProfile } from './saves';
 import { SHARED_STASH_KEY } from './shared-stash';
 import { refreshSharedStorage } from './shared-storage';
@@ -39,7 +40,7 @@ import { MonsterBatches } from './monster-batches';
 import { RenderBudget } from './render-budget';
 import { createImpact, createLightning, disposeVisual, updateVisual, ProjectileVisualPool } from './visual-effects';
 
-export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; bleedSnapshot?: AttackSnapshot; poison?: { dps: number; remaining: number; snapshot?: AttackSnapshot }; slow?: { percent: number; remaining: number } };
+export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; affixes?: MonsterAffix[]; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; bleedSnapshot?: AttackSnapshot; poison?: { dps: number; remaining: number; snapshot?: AttackSnapshot }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 type PointerGesture = { id: number; button: number; x: number; y: number; started: number; dragging: boolean; stationary: boolean; mode: 'move' | 'attack' | 'interact' | 'cast' };
@@ -398,13 +399,18 @@ export class Game {
   }
   spawnEnemy(x: number, z: number, kind: 'skeleton' | 'demon' | 'boss', definition = kind === 'boss' ? this.specialArea === 'uberDiablo' ? BOSSES[19] : this.specialArea === 'cow' ? MONSTERS.hellCow : BOSSES[this.level.index] : MONSTERS[kind === 'skeleton' ? 'skeleton' : ENCOUNTERS[this.level.index][0]], elite = false) {
     const boss = kind === 'boss'; elite = elite && !boss;
-    const actor = createMonsterActor(definition, boss), tuning = monsterStats(definition, this.level, difficulty(this.hero), boss, elite, this.hero.playerCount);
+    const affixTarget = elite || boss && !this.level.actBoss && this.specialArea !== 'uberDiablo';
+    const affixes = affixTarget ? rollMonsterAffixes(difficulty(this.hero), Math.random, definition.speed > 0) : [];
+    const baseTuning = monsterStats(definition, this.level, difficulty(this.hero), boss, elite, this.hero.playerCount);
+    const tuning = applyMonsterAffixes({ ...baseTuning, speed: definition.speed * (elite ? 1.1 : 1) }, affixes);
+    const actor = createMonsterActor(definition, boss);
     if (elite) {
       actor.group.scale.multiplyScalar(1.2);
       const ring = makeRing(.65, 0xeac66c, .75); ring.position.y = .09; actor.group.add(ring);
     }
     actor.group.position.set(x, 0, z); this.world.scene.add(actor.group);
-    const enemy: Enemy = { playerCount: this.hero.playerCount, id: this.nextId++, name: boss ? this.level.boss : elite ? `精英 · ${definition.name}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, speed: definition.speed * (elite ? 1.1 : 1), cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
+    const affixName = affixes.map(affix => affix.name).join(' · ');
+    const enemy: Enemy = { playerCount: this.hero.playerCount, id: this.nextId++, name: boss ? affixName ? `${this.level.boss} · ${affixName}` : this.level.boss : elite ? `精英 · ${definition.name} · ${affixName}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, affixes: affixes.length ? affixes : undefined, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
     this.enemies.push(enemy); this.monsterBatches.add(actor, `${definition.id}:${boss}`); return enemy;
   }
   begin() { if (!this.profile) return; this.started = true; this.audio.unlock(); }

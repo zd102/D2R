@@ -2,7 +2,8 @@ import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { newHero, stats } from '../src/model.ts';
-import { LEVELS, eliteCount, levelTuning } from '../src/campaign.ts';
+import { LEVELS, eliteCount, levelLayout } from '../src/campaign.ts';
+import { encounterPlan } from '../src/encounter-plan.ts';
 import { MONSTERS } from '../src/bestiary.ts';
 import { monsterStats } from '../src/balance.ts';
 import { PROFILE_PREFIX } from '../src/saves.ts';
@@ -66,17 +67,21 @@ try {
   const page = await start({ width: 1440, height: 960 });
   for (const difficulty of [0, 1, 2]) {
     for (const area of LEVELS) {
-      if (difficulty || area.index) await choose(page, area.index, difficulty);
+      await choose(page, area.index, difficulty);
       const s = await state(page), elites = s.enemies.filter(enemy => enemy.elite);
       assert.equal(elites.length, eliteCount(area, difficulty));
       assert.equal(s.enemies.filter(enemy => enemy.boss).length, 1);
-      assert.equal(s.enemies.filter(enemy => !enemy.boss && !enemy.elite).length, levelTuning(area, difficulty).packs * 3);
+      assert.equal(s.enemies.filter(enemy => !enemy.boss && !enemy.elite).length, encounterPlan(area, levelLayout(area, s.area.seed), difficulty).normalCount);
       for (const elite of elites) {
         assert.equal(elite.boss, false); assert.equal(elite.summoned, false);
-        assert.equal(elite.maxHp, monsterStats(MONSTERS[elite.species], area, difficulty, false, true).maxHp);
+        const baseHp = monsterStats(MONSTERS[elite.species], area, difficulty, false, true).maxHp;
+        assert.equal(elite.affixes.length, difficulty + 1);
+        assert.ok(elite.maxHp >= baseHp && elite.maxHp <= Math.round(baseHp * 1.18));
         assert.ok(elite.route.length); const end = elite.route.at(-1);
         assert.ok(Math.hypot(end.x - elite.x, end.z - elite.z) < 1.5, `${area.id}/${difficulty}: elite reachable`);
       }
+      const boss = s.enemies.find(enemy => enemy.boss);
+      assert.equal(boss.affixes.length, area.actBoss ? 0 : difficulty + 1);
     }
     console.log(`All 25 maps: difficulty ${difficulty}, elite counts, attributes, normal packs, boss and routes passed`);
   }
@@ -109,7 +114,7 @@ try {
     const { Game } = await import('/src/game.ts'), { GameWorld, createActor } = await import('/src/world.ts');
     const { newHero } = await import('/src/model.ts'), { LEVELS } = await import('/src/campaign.ts'), { MONSTERS } = await import('/src/bestiary.ts');
     const world = new GameWorld(LEVELS[0]), actor = createActor('hero'), drops = [], ranks = [];
-    const game = { world, actor, position: actor.group.position, body: world.body(0, 11), level: LEVELS[0], hero: newHero(), profile: {}, enemies: [], nextId: 0, paused: false, dead: false, inCamp: false, path: [], begin() {}, save() {}, burst() {}, ui: { toast() {} }, audio: { play() {} }, monsterCombat: { cancel() {} }, addLoot(drop) { drops.push(drop); }, dropLoot(_point, rank) { ranks.push(rank); } };
+    const game = { world, actor, position: actor.group.position, body: world.body(0, 11), level: LEVELS[0], hero: newHero(), profile: {}, enemies: [], nextId: 0, paused: false, dead: false, inCamp: false, path: [], begin() {}, save() {}, burst() {}, ui: { toast() {} }, audio: { play() {} }, monsterBatches: { add() {} }, monsterCombat: { cancel() {}, onDeath() {} }, addLoot(drop) { drops.push(drop); }, dropLoot(_point, rank) { ranks.push(rank); } };
     const original = Math.random;
     try {
       Math.random = () => 0;
