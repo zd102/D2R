@@ -8,7 +8,7 @@ export { MERCENARY_AURAS, mercenaryAuraRank, mercenaryAuraValues, type Mercenary
 
 export const MERCENARY_SLOTS = ['weapon', 'helm', 'armor'] as const;
 export type MercenarySlot = typeof MERCENARY_SLOTS[number];
-export const MERCENARY_JAB = { hits: 2, chainDelay: .1, recovery: .42 } as const;
+export const MERCENARY_JAB = { hits: 2, chainDelay: .1, recovery: .55 } as const;
 export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number };
 export const MERCENARY_POTION = { healing: 160, perSecond: 30 } as const;
 export function mercenaryPotionReason(hero: HeroState) {
@@ -93,8 +93,8 @@ export function mercenaryStats(hero: HeroState) {
   const localDamage = weapon ? (itemMods(weapon).damage ?? 0) + (catalogItemSetBonuses(weapon, active).damage ?? 0) : 0;
   const bonus = result.strength + (result.mods.damage ?? 0) - localDamage + auraDamage;
   result.damageBonus = bonus;
-  result.attackMin = result.weaponMin * (1 + bonus / 100) + (3 + hero.level * 1.1) * (1 + auraDamage / 100);
-  result.attackMax = result.weaponMax * (1 + bonus / 100) + (6 + hero.level * 1.7) * (1 + auraDamage / 100);
+  result.attackMin = result.weaponMin * (1 + bonus / 100) + (3 + hero.level * .9) * (1 + auraDamage / 100);
+  result.attackMax = result.weaponMax * (1 + bonus / 100) + (5 + hero.level * 1.4) * (1 + auraDamage / 100);
   result.attack = (result.attackMin + result.attackMax) / 2;
   result.baseAttackRating += hero.level * 12; result.attackRating = Math.floor(result.baseAttackRating * (1 + result.attackRatingBonus / 100));
   return result;
