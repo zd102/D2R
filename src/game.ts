@@ -487,9 +487,13 @@ export class Game {
         return;
       }
       if (gesture && !(event.buttons & 3)) { this.finishPointerGesture(true); return; }
-      if (gesture && !gesture.stationary && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) >= 6) {
+      // A target click needs more pointer tolerance than ground navigation;
+      // otherwise small aim corrections turn a melee attack into movement.
+      const dragThreshold = gesture?.mode === 'attack' ? 16 : 6;
+      if (gesture && !gesture.stationary && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) >= dragThreshold) {
         if (!gesture.dragging) { this.pointerDestination = undefined; this.pointerPathTimer = 0; }
         gesture.dragging = true; gesture.mode = 'move'; this.heldAttack = false;
+        this.combat.cancelCombo();
         this.bufferedSkill = undefined;
         this.target = undefined; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
       }
@@ -537,7 +541,11 @@ export class Game {
       }
       if (event.shiftKey || this.movementMode === 'wasd') { if (this.pointerGesture) this.pointerGesture.mode = 'attack'; this.path = []; this.target = undefined; this.useSkill('attack', true); this.heldAttack = true; }
       else if (enemy) { if (this.pointerGesture) this.pointerGesture.mode = 'attack'; this.target = enemy; this.heldAttack = true; this.path = []; this.targetDestination = undefined; this.targetPathTimer = 0; }
-      else { if (this.pointerGesture) this.pointerGesture.mode = 'move'; this.moveTo(this.aim); }
+      else {
+        if (this.pointerGesture) this.pointerGesture.mode = 'move';
+        this.combat.cancelCombo();
+        this.moveTo(this.aim);
+      }
     };
     canvas.addEventListener('pointerdown', pointerDown);
     const pointerUp = (event: PointerEvent) => {
@@ -603,12 +611,13 @@ export class Game {
   }
   project(position: THREE.Vector3) { const p = position.clone().project(this.camera); return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight, visible: p.z >= -1 && p.z <= 1 }; }
   enemyAt(x: number, y: number) {
-    let found: Enemy | undefined, best = 45;
+    let found: Enemy | undefined, best = Infinity;
     for (const enemy of this.enemies) {
       if (enemy.dead || enemy.converted > 0) continue;
       const screen = this.project(enemy.actor.group.position.clone().add(new THREE.Vector3(0, enemy.boss ? 1.8 : .9, 0)));
       const d = Math.hypot(x - screen.x, y - screen.y);
-      if (d < best) { best = d; found = enemy; }
+      const radius = enemy.boss ? 70 : 55;
+      if (d < radius && d < best) { best = d; found = enemy; }
     }
     return found;
   }

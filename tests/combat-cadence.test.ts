@@ -94,6 +94,19 @@ test('a successful different action cancels a combo, failed casts keep the combo
   }
 });
 
+test('cancelling a combo stops its remaining hits without resetting its cooldown', () => {
+  for (const [classId, combo] of [['paladin', 'zeal'], ['amazon', 'jab'], ['amazon', 'fend'], ['amazon', 'strafe']] as const) {
+    const { combat } = classFixture(classId);
+    assert.equal(combat.castAction(combo, true), true, combo);
+    const cooldown = combat.cooldown(combo);
+    assert.ok(combat.zeal || combat.classes.sequence, `${combo} begins a combo`);
+    combat.cancelCombo();
+    assert.equal(combat.zeal, null);
+    assert.equal(combat.classes.sequence, undefined);
+    assert.equal(combat.cooldown(combo), cooldown, `${combo} keeps its attack cadence`);
+  }
+});
+
 test('hit recovery blocks actions without turning unrelated skill buttons into cooldowns', () => {
   const { combat, hero, game } = classFixture('sorceress');
   hero.bindings.cleave = 'fireBolt';

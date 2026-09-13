@@ -51,11 +51,15 @@ export class PaladinCombat {
   }
   readyIn(id: ActionId) { return Math.max(this.stagger, this.cooldown(id)); }
   get movementLocked() { return this.stagger > 0 || this.movementRecovery > 0 || !!this.zeal || !!this.classes.sequence; }
+  cancelCombo() {
+    this.zeal = null;
+    this.classes.sequence = undefined;
+  }
   startAction(id: ActionId, duration: number) {
     const s=stats(this.game.hero);
     playHeroAction(this.game.actor,heroAction(id,s.ranged?.kind,s.weapon?weaponType(s.weapon):undefined),this.game.time,duration);
     // Switching actions cancels the unfinished combo, but keeps its own cadence.
-    this.zeal = null; this.classes.sequence = undefined;
+    this.cancelCombo();
     this.lock = duration; this.actionCooldowns[id] = duration;
     this.movementRecovery = Math.min(.12, duration * .35);
   }

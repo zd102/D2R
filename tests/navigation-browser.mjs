@@ -46,6 +46,35 @@ try {
   await reset(); await page.mouse.move(950, 420); await advance(20);
   assert.equal(await page.evaluate(() => window.navigationGame.actor.group.rotation.y), 1.2, 'idle hover preserves facing');
 
+  await reset();
+  const targetClick = await page.evaluate(() => {
+    const g = window.navigationGame, enemy = g.spawnEnemy(0, 12.5, 'skeleton');
+    g.hero.bindings.attack = 'zeal';
+    enemy.hp = enemy.maxHp = 1e6;
+    const screen = g.project(enemy.actor.group.position.clone().setY(.9));
+    return { x: screen.x + 50, y: screen.y };
+  });
+  await page.mouse.move(targetClick.x, targetClick.y); await page.mouse.down();
+  await page.mouse.move(targetClick.x + 8, targetClick.y); await advance(2);
+  assert.equal(await page.evaluate(() => window.navigationGame.pointerGesture?.mode), 'attack', 'small pointer drift keeps a monster click as an attack');
+  assert.ok(await page.evaluate(() => !!window.navigationGame.combat.zeal), 'the enlarged hit area starts the bound melee skill');
+  await page.mouse.up();
+
+  await reset();
+  assert.equal(await page.evaluate(() => {
+    const g = window.navigationGame;
+    g.hero.skills.zeal = 4; g.hero.bindings.attack = 'zeal';
+    return g.combat.castAction('zeal', true);
+  }), true);
+  await page.mouse.move(920, 470); await page.mouse.click(920, 470);
+  const cancelled = await page.evaluate(() => {
+    const g = window.navigationGame;
+    return { active: !!g.combat.zeal, cooldown: g.combat.cooldown('zeal') };
+  });
+  assert.equal(cancelled.active, false, 'clicking to move cancels the remaining zeal swings');
+  assert.ok(cancelled.cooldown > 0, 'clicking to move keeps zeal on its normal cadence');
+  assert.ok((await advance(20)).some(sample => sample.speed > 1), 'clicking to move leaves the hero able to depart');
+
   await page.evaluate(() => {
     const g = window.navigationGame;
     g.moveTo(g.position.clone().set(3.3, 0, 8.3));
