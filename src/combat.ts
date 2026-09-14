@@ -1,3 +1,6 @@
+import { castItemSkill } from './item-skill-combat.ts';
+import { itemSkillKind, type ItemSkillId } from './item-skill-definitions.ts';
+import { withCastingSkill, castingSkillRanks, castingSkillLevel, castingSkillCost, castChargedSkill, reconcileSkillBindings } from './model.ts';
 import { tickPotionTimers } from './potions.ts';
 import { hasMonsterAffix } from './monster-affixes.ts';
 import type { AttackSpec } from './monster-combat.ts';
@@ -25,7 +28,7 @@ import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
 import { isPassive } from './paladin.ts';
 import { strongerAura } from './mercenary-auras.ts';
 
-export type AttackSnapshot = { stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3; mercenary?: boolean };
+export type AttackSnapshot = { skillRanks?: Partial<Record<SkillId,number>>; stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3; mercenary?: boolean };
 export type Projectile = { mesh: THREE.Mesh; origin: THREE.Vector3; direction: THREE.Vector3; phase: number; age: number; life: number; damage: number; healing: number; kind: 'hammer' | 'bolt' | 'arrow' | 'throw'; hit: Set<number>; snapshot: AttackSnapshot; speed: number; pierce: number; magicArrow: number; explosion: number };
 export class PaladinCombat {
   game: Game;
@@ -37,8 +40,8 @@ export class PaladinCombat {
   auraTimer = 0;
   regen: [number, number] = [0, 0];
   repairTime = new WeakMap<Item, number>();
-  itemCurses = new WeakMap<Enemy, { kind: ItemCurse; remaining: number }>();
-  zeal: { hits: number; timer: number; direction: THREE.Vector3; aimed: boolean } | null = null;
+  itemCurses = new WeakMap<Enemy, { kind: ItemCurse; remaining: number; rank?: number }>();
+  zeal: { rank: number; hits: number; timer: number; direction: THREE.Vector3; aimed: boolean } | null = null;
   projectiles: Projectile[] = [];
   auraRing = makeRing(1.3, 0xd8c674, .65);
   shieldRing = makeRing(.7, 0xebdd9d, .8);
@@ -85,7 +88,7 @@ export class PaladinCombat {
     const own = s.auras.find(aura => !aura.mercenary && aura.id === id && enemy.actor.group.position.distanceTo(origin) <= aura.radius), merc = this.game.mercenary?.auraAt(enemy, id);
     return merc && (!own || strongerAura(merc, own)) ? merc : own;
   }
-  snapshot(): AttackSnapshot { const h = this.game.hero; return { stats: stats(h), level: h.level, difficulty: difficulty(h), skills: { ...h.skills }, items: structuredClone([...activeEquipment(h), ...activeCharms(h)]), origin: this.game.position.clone() }; }
+  snapshot(): AttackSnapshot { const h = this.game.hero; return { skillRanks: castingSkillRanks(h), stats: stats(h), level: h.level, difficulty: difficulty(h), skills: { ...h.skills }, items: structuredClone([...activeEquipment(h), ...activeCharms(h)]), origin: this.game.position.clone() }; }
   reach(id: ActionId) { return this.classes.reach(id) ?? (id === 'attack' && stats(this.game.hero).ranged ? 14 : ['holyBolt', 'fistOfHeavens', 'charge'].includes(id) ? 12 : id === 'blessedHammer' ? 5 : 2.5); }
   canReach(enemy: Enemy, id: ActionId) { return enemy.actor.group.position.distanceTo(this.game.position) < this.reach(id) && clearShot(this.game.world.grid, this.game.position, enemy.actor.group.position); }
   triggerItems(event: string, target: Enemy, equipment?: Item[]) {
@@ -114,19 +117,23 @@ export class PaladinCombat {
       .sort((a, b) => a.actor.group.position.distanceToSquared(g.aim) - b.actor.group.position.distanceToSquared(g.aim))[0];
   }
   cast(slot: Skill, aimed = false): boolean {
-    const g = this.game, h = g.hero, id = h.bindings[slot];
+    const g = this.game, h = g.hero; reconcileSkillBindings(h); const id = h.bindings[slot];
     if (g.paused || g.dead) return false; g.begin();
     if (isAura(id)) { setAura(h, h.activeAura === id ? null : id as Exclude<ActionId, 'attack'>); this.auraTimer = 0; g.audio.play('aura', { nativeKey: `cast:${id}` }); g.save(false); return true; }
-    return this.castAction(id, aimed);
+    const charge = h.chargeBindings?.[slot];
+    if (!charge) return this.castAction(id, aimed);
+    const cast = castChargedSkill(h, charge, () => this.castAction(id, aimed)); if(cast)g.save(false); return cast;
   }
   castAction(id: ActionId, aimed = false): boolean {
     if (isAura(id) || isPassive(id)) return false;
     if (this.readyIn(id) > 0 || this.game.paused || this.game.dead) return false;
+    if (itemSkillKind(id)) return castItemSkill(this, id as ItemSkillId, aimed);
     if (classSkillMode(id)) return this.classes.cast(id as ExtraSkillId,aimed);
-    const g = this.game, h = g.hero, s = stats(h), rank = skillLevel(h, id, s.mods), v = skillValues(id, rank, h.skills);
+    const g = this.game, h = g.hero, s = stats(h), rank = castingSkillLevel(h, id, s.mods), v = skillValues(id, rank, h.skills);
     if (id !== 'attack' && !rank || id === 'fistOfHeavens' && this.fohDelay > 0) return false;
     if ((id === 'smite' || id === 'holyShield') && !s.hasShield) { g.ui.toast('需要可用的盾牌'); return false; }
     if (s.ranged && !s.ranged.stack && ['sacrifice', 'zeal', 'vengeance', 'conversion', 'charge'].includes(id)) { if (!this.ammoWarning) g.ui.toast('该技能需要近战武器'); this.ammoWarning = 1; return false; }
+    v.cost = castingSkillCost(h, id, v.cost);
     if (h.mana < v.cost) { g.ui.toast('法力不足'); return false; }
     const origin = g.position.clone();
     const target = aimed ? this.pointedEnemy() : g.target && this.hostile(g.target) && g.target.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, g.target.actor.group.position) ? g.target : g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, enemy.actor.group.position)).sort((a, b) => a.actor.group.position.distanceToSquared(origin) - b.actor.group.position.distanceToSquared(origin))[0];
@@ -170,7 +177,7 @@ export class PaladinCombat {
       for (let step = .25; step <= distance; step += .25) { const next = origin.clone().addScaledVector(direction, step); if (!gridWalkable(g.world.grid, next)) break; last = next; if (step % 1 === 0) g.burst(next.clone().setY(.4), 0xe5ce84, 2); }
       g.body.position.set(last.x, .5, last.z); g.position.copy(last); g.path = []; this.melee(id, direction, aimed); return true;
     }
-    if (id === 'zeal') { this.zeal = { hits: v.hits, timer: 0, direction, aimed }; return true; }
+    if (id === 'zeal') { this.zeal = { rank, hits: v.hits, timer: 0, direction, aimed }; return true; }
     this.melee(id, direction, aimed);
     return true;
   }
@@ -184,7 +191,7 @@ export class PaladinCombat {
     g.audio.play(weaponSound(s.weapon ? weaponType(s.weapon) : undefined));
   }
   melee(id: ActionId, direction: THREE.Vector3, aimed = false) {
-    const g = this.game, h = g.hero, s = stats(h), v = skillValues(id, skillLevel(h, id, s.mods), h.skills);
+    const g = this.game, h = g.hero, s = stats(h), v = skillValues(id, castingSkillLevel(h, id, s.mods), h.skills);
     const enemies = g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(g.position) <= 2.6 && enemy.actor.group.position.clone().sub(g.position).normalize().dot(direction) > (aimed ? .3 : -.3));
     const enemy = (!aimed && g.target && enemies.includes(g.target) ? g.target : enemies.sort((a, b) => a.actor.group.position.distanceToSquared(g.position) - b.actor.group.position.distanceToSquared(g.position))[0]);
     const slash = makeRing(1.7, id === 'vengeance' ? 0x96daef : id === 'sacrifice' ? 0xe5948d : 0xe5d6ae, .85);
@@ -197,10 +204,10 @@ export class PaladinCombat {
   }
   weaponHit(enemy: Enemy, id: ActionId, projectile?: Projectile) {
     const g = this.game, h = g.hero, snapshot = projectile?.snapshot, s = snapshot?.stats ?? stats(h), level = snapshot?.level ?? h.level, diff = snapshot?.difficulty ?? difficulty(h), skills = snapshot?.skills ?? h.skills;
-    const v = skillValues(id, skillLevel(h, id, s.mods), skills), magicArrow = projectile?.magicArrow ?? 0;
+    const v = skillValues(id, (id!=='attack'?snapshot?.skillRanks?.[id]:undefined) ?? castingSkillLevel(h, id, s.mods), skills), magicArrow = projectile?.magicArrow ?? 0;
     const conviction = this.auraAt(enemy, 'conviction', s)?.secondary ?? 0;
     const raceAttack = isUndead(enemy) ? s.mods.attackUndead ?? 0 : enemy.definition?.race === 'demon' ? s.mods.attackDemons ?? 0 : 0;
-    const targetDefense = s.mods.ignoreDefense && !enemy.boss ? 0 : Math.max(0,enemy.defense-this.classes.defenseReduction(enemy)) * Math.max(0, 1 - conviction / 100 - (s.mods.targetDefense ?? 0) / 100 / (enemy.boss ? 2 : 1));
+    const targetDefense = s.mods.ignoreDefense && !enemy.boss ? 0 : Math.max(0,enemy.defense * (this.itemCurses.get(enemy)?.kind==='battleCry'?Math.max(0,1-skillValues('battleCry',this.itemCurses.get(enemy)?.rank??1).secondary/100):1)-this.classes.defenseReduction(enemy)) * Math.max(0, 1 - conviction / 100 - (s.mods.targetDefense ?? 0) / 100 / (enemy.boss ? 2 : 1));
     const chance = hitChance((s.baseAttackRating + raceAttack) * (1 + (s.attackRatingBonus + v.attack + (magicArrow ? 1 + magicArrow * 9 : 0)) / 100), targetDefense, level, enemy.level);
     if (!['smite','guidedArrow'].includes(id) && Math.random() * 100 >= chance) { g.ui.floatText('未命中', enemy.actor.group.position.clone().setY(1.8), 'miss'); return false; }
     const smite = id === 'smite', weaponDamage = projectile ? s.rangedMin + Math.random() * (s.rangedMax - s.rangedMin) + magicArrow + (id === 'magicArrow' ? v.damage : 0) : s.weaponMin + Math.random() * (s.weaponMax - s.weaponMin);
@@ -210,7 +217,7 @@ export class PaladinCombat {
     const critical = !smite && id !== 'sacrifice' && (s.criticalStrike>0&&Math.random()*100<s.criticalStrike || Math.random() * 100 < (s.mods.deadlyStrike ?? 0)); if (critical) physical *= 2;
     if (Math.random() * 100 < (s.mods.crushingBlow ?? 0)) this.damage(enemy, resistedDamage(enemy.hp / playerLifeFactor(enemy.playerCount) * (enemy.boss ? .125 : .25) * (projectile ? .5 : 1), Math.max(0, this.physicalResistance(enemy))), 'physical', true, false, snapshot);
     const classConversion = ['magicArrow','fireArrow','coldArrow','lightningBolt'].includes(id);
-    const conversion = Math.min(100, classConversion ? v.percent : magicArrow) / 100;
+    const conversion = id==='berserk' ? 1 : Math.min(100, classConversion ? v.percent : magicArrow) / 100;
     const dealt = this.damage(enemy, physical * (1 - conversion), 'physical', false, critical, snapshot);
     if (conversion) this.damage(enemy, physical * conversion, classConversion && id !== 'magicArrow' ? v.type : 'magic', false, critical, snapshot);
     const resources = snapshot ? stats(h) : s;
@@ -308,7 +315,9 @@ export class PaladinCombat {
     const g = this.game; if (!this.hostile(enemy)) return 0;
     const s = snapshot?.stats ?? stats(g.hero), conviction = ['fire', 'cold', 'lightning'].includes(type) ? this.auraAt(enemy, 'conviction', s, snapshot?.origin)?.percent ?? 0 : 0;
     const sanctuary = type === 'physical' && isUndead(enemy) && this.auraAt(enemy, 'sanctuary', s);
-    const dealt = Math.max(0, Math.floor(itemDamage(amount * (type === 'physical' && !snapshot?.mercenary && g.monsterCombat?.debuffs?.decrepify ? .5 : 1), type, s.mods, ignoreResist || sanctuary ? 0 : type === 'physical' ? this.physicalResistance(enemy) : enemy.resistances[type], conviction)));
+    const lower = this.itemCurses.get(enemy); const reduction = lower?.kind==='lowerResist' && ['fire','cold','lightning','poison'].includes(type) ? skillValues('lowerResist',lower.rank??1).percent : 0;
+    const resistance = enemy.resistances[type] - (enemy.resistances[type]>=100 ? Math.floor(reduction/5) : reduction);
+    const dealt = Math.max(0, Math.floor(itemDamage(amount * (type === 'physical' && !snapshot?.mercenary && g.monsterCombat?.debuffs?.decrepify ? .5 : 1), type, s.mods, ignoreResist || sanctuary ? 0 : type === 'physical' ? this.physicalResistance(enemy) : resistance, conviction)));
     enemy.hp -= dealt; enemy.active = true;
     g.ui.floatText(String(dealt), enemy.actor.group.position.clone().setY(1.8), critical ? 'critical' : type === 'physical' ? 'damage' : 'magic-damage');
     if (dealt) g.audio.play(impactSound(type, enemy.definition?.model), { position: enemy.actor.group.position, gain: critical ? 1 : .85 });
@@ -319,7 +328,7 @@ export class PaladinCombat {
     const g = this.game, h = g.hero, s = stats(h); if (g.inCamp || g.dead || !self && g.invincible > 0) return false;
     const evasion=this.moving?s.evade:missile?s.avoid:s.dodge;
     if(!self&&source&&evasion>0&&Math.random()*100<evasion){g.ui.floatText('回避',g.position.clone().setY(1.8),'miss');return false;}
-    if (!self && source && type === 'physical') { const curse = this.itemCurses.get(source)?.kind; amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : 1; }
+    if (!self && source && type === 'physical') { const curse = this.itemCurses.get(source)?.kind; amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : curse === 'battleCry' ? Math.max(.05, 1 - skillValues('battleCry',this.itemCurses.get(source)?.rank??1).percent/100) : 1; }
     if (!self && source && type === 'physical') {
       if (!this.running && Math.random() * 100 >= hitChance(g.monsterCombat?.accuracy?.(source) ?? source.attackRating, (s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0)) * (g.monsterCombat?.debuffs?.defense ? [.4, .25, .05][difficulty(h)] : 1) * (g.monsterCombat?.auraAt?.(g.position, 'conviction') ? .7 : 1), source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return false; }
       if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.recover(s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); g.audio.play('block'); return false; }
@@ -328,6 +337,8 @@ export class PaladinCombat {
     let damage = 0;
     for (const part of parts) {
       let value = part.amount;
+      const cyclone=h.buffs.cycloneArmor;
+      if(!self && cyclone && ['fire','cold','lightning'].includes(part.type)) { const capacity=cyclone.absorb??skillValues('cycloneArmor',cyclone.rank).percent, absorbed=Math.min(value,capacity); value-=absorbed; cyclone.absorb=capacity-absorbed; if(cyclone.absorb<=0) delete h.buffs.cycloneArmor; }
       const shield = h.buffs?.energyShield;
       if (!self && part.type !== 'poison' && shield?.remaining) { const v = skillValues('energyShield', shield.rank, h.skills), absorbed = Math.min(value * v.percent / 100, h.mana / v.secondary); h.mana -= absorbed * v.secondary; value -= absorbed; if (h.mana <= 0) delete h.buffs.energyShield; }
       const conviction = ['fire', 'cold', 'lightning'].includes(part.type) && g.monsterCombat?.auraAt?.(g.position, 'conviction') ? 35 : 0;
@@ -362,6 +373,7 @@ export class PaladinCombat {
       }
     }
     if (!self && !missile && source && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); if (thorns) this.damage(source, damage * thorns.percent / 100 + thorns.secondary, 'physical'); }
+    if (!self && !missile && source && type === 'physical') { const curse=this.itemCurses.get(source); const reflected=(curse?.kind==='ironMaiden'?skillValues('ironMaiden',curse.rank??1).percent:0) + (h.buffs.spiritOfBarbs?skillValues('spiritOfBarbs',h.buffs.spiritOfBarbs.rank).percent:0); if(reflected) this.damage(source,damage*reflected/100,'physical'); }
     if (!self && !missile && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
     if (!self && !missile && source && type === 'physical' && s.mods.lightningReflect) this.damage(source, s.mods.lightningReflect, 'lightning');
     if (h.hp <= 0) { g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; this.classes.clear(); g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
@@ -420,7 +432,7 @@ export class PaladinCombat {
           if (direction.lengthSq() > .15 ** 2) this.zeal.direction.copy(direction).normalize();
         } else { const target = g.nearestEnemy(2.6); if (target) this.zeal.direction.copy(target.actor.group.position).sub(g.position).normalize(); }
         g.actor.group.rotation.y = Math.atan2(this.zeal.direction.x, this.zeal.direction.z);
-        this.melee('zeal', this.zeal.direction, this.zeal.aimed);
+        withCastingSkill(h,{id:'zeal',rank:this.zeal.rank},()=>this.melee('zeal', this.zeal!.direction, this.zeal!.aimed));
         if (this.zeal && --this.zeal.hits <= 0) this.zeal = null; else if (this.zeal) this.zeal.timer += s.zealFrames / 25;
       }
     }
@@ -448,8 +460,8 @@ export class PaladinCombat {
     for (const aura of s.auras) {
     if (aura.id === 'prayer' || aura.id === 'cleansing' || aura.id === 'meditation') {
       const prayer = aura.id === 'prayer' ? aura : skillValues('prayer', skillLevel(h, 'prayer'), h.skills);
-      if (aura.mercenary || aura.id !== 'prayer' || h.mana >= aura.cost) {
-        if (aura.id === 'prayer' && !aura.mercenary) h.mana -= aura.cost;
+      if (aura.mercenary || aura.equipment || aura.id !== 'prayer' || h.mana >= aura.cost) {
+        if (aura.id === 'prayer' && !aura.mercenary && !aura.equipment) h.mana -= aura.cost;
         h.hp = Math.min(s.maxHp, h.hp + prayer.healing);
         for (const ally of g.enemies) if (ally.converted > 0 && this.auraAt(ally, aura.id, s)) ally.hp = Math.min(ally.maxHp, ally.hp + prayer.healing);
       }
@@ -458,7 +470,7 @@ export class PaladinCombat {
       enemy.redeemed = true; enemy.actor.group.visible = false; h.hp = Math.min(s.maxHp, h.hp + aura.healing); h.mana = Math.min(s.maxMana, h.mana + aura.healing); g.burst(enemy.actor.group.position.clone().setY(.5), 0xeee1a2, 6);
     }
     if (['holyFire', 'holyFreeze', 'holyShock', 'sanctuary'].includes(aura.id)) for (const enemy of g.enemies) if (this.hostile(enemy) && this.auraAt(enemy, aura.id, s) && (aura.id !== 'sanctuary' || isUndead(enemy))) {
-      this.damage(enemy, aura.min + Math.random() * (aura.max - aura.min), aura.type); if (aura.id === 'sanctuary') this.knockback(enemy, 1);
+      this.damage(enemy, (aura.min + Math.random() * (aura.max - aura.min)) * (aura.pulses ?? 1), aura.type); if (aura.id === 'sanctuary') this.knockback(enemy, 1);
     }
     }
   }

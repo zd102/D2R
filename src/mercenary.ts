@@ -69,10 +69,10 @@ export function mercenaryAuras(hero: HeroState, includeInactive = false) {
   if (!merc || !includeInactive && (merc.status !== 'alive' || merc.hp <= 0)) return [];
   const mods = mercenaryMods(hero), native = mercenaryAuraValues(merc.aura, hero.level, mods.allSkills), auras = new Map<SkillId, AuraEffect>([[merc.aura, native]]);
   for (const [key, rank] of Object.entries(mods)) if (key.startsWith('aura_') && isSkill(key.slice(5)) && isAura(key.slice(5) as SkillId)) {
-    const id = key.slice(5) as SkillId, aura = { id, rank, ...skillValues(id, rank, emptySkills()) }, previous = auras.get(id);
+    const id = key.slice(5) as SkillId, aura = { id, rank, pulses: Math.max(1,activeMercenaryEquipment(hero).filter(item=>(itemMods(item)[`aura_${id}`]??0)>0).length), equipment: true, ...skillValues(id, rank, emptySkills()) }, previous = auras.get(id);
     if (!previous || strongerAura(aura, previous)) auras.set(id, aura);
   }
-  return [...auras.values()].map(aura => ({ ...aura, mercenary: true }));
+  return [...auras.values()].map(aura => ({ ...aura, mercenary: true, equipment: aura.equipment ?? false, pulses: aura.pulses ?? 1 }));
 }
 export const isPartyAura = (id: SkillId) => !['holyFire', 'holyFreeze', 'holyShock', 'sanctuary', 'conviction', 'redemption'].includes(id);
 export function mercenaryPartyAuras(hero: HeroState) { return mercenaryAuras(hero).filter(aura => isPartyAura(aura.id) && (distances.get(hero) ?? 0) <= aura.radius); }

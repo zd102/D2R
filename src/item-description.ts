@@ -1,3 +1,5 @@
+import { itemCharges } from './item-charges.ts';
+import { skillName } from './paladin.ts';
 import { MOD_NAMES, itemMods, rangedBase, type Item, type Modifier, type Mods } from './items.ts';
 import { affixRanges, poisonDamage } from './affixes.ts';
 import { unappliedItemEffects, itemTriggers, catalogModifierRanges, otherClassItemEffects } from './item-catalog.ts';
@@ -27,6 +29,7 @@ export function itemModifierLines(item: Item) {
     const binary = ['cannotBeFrozen', 'halfFreeze', 'indestructible', 'ignoreDefense', 'knockback', 'preventHeal', 'restInPeace'].includes(key);
     lines.push({ text: binary ? MOD_NAMES[key] : `${value > 0 ? '+' : ''}${numeric(value)} ${MOD_NAMES[key]}`, range: range(key) || undefined });
   }
+  for (const charge of itemCharges(item)) lines.push({ text: `等级 ${charge.rank} ${skillName(charge.id)}（聚气 ${charge.remaining}/${charge.maximum}）` });
   for (const trigger of itemTriggers(item)) lines.push({ text: `${trigger.chance}% ${trigger.event === 'hit-skill' ? '击中' : trigger.event === 'gethit-skill' ? '受击' : '攻击'}触发等级 ${trigger.level} ${CURSE_NAMES[trigger.kind]}` });
   for (const effect of otherClassItemEffects(item)) lines.push({ text: effect });
   for (const effect of unappliedItemEffects(item)) lines.push({ text: `未生效：${effect}` });

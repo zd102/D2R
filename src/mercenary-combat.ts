@@ -201,7 +201,7 @@ export class MercenaryCombat {
     const s = mercenaryStats(g.hero), prayer = s.auras.find(aura => aura.id === 'prayer');
     if (prayer) merc.hp = Math.min(s.maxHp, merc.hp + prayer.healing);
     for (const aura of mercenaryAuras(g.hero)) {
-      if (!g.inCamp && ['holyFire', 'holyFreeze', 'holyShock', 'sanctuary'].includes(aura.id)) for (const enemy of g.enemies) if (g.combat.hostile(enemy) && this.auraAt(enemy, aura.id) && (aura.id !== 'sanctuary' || isUndead(enemy))) g.combat.damage(enemy, (aura.min + aura.max) / 2, aura.type, false, false, this.snapshot());
+      if (!g.inCamp && ['holyFire', 'holyFreeze', 'holyShock', 'sanctuary'].includes(aura.id)) for (const enemy of g.enemies) if (g.combat.hostile(enemy) && this.auraAt(enemy, aura.id) && (aura.id !== 'sanctuary' || isUndead(enemy))) g.combat.damage(enemy, (aura.min + aura.max) / 2 * (aura.pulses ?? 1), aura.type, false, false, this.snapshot());
     }
   }
 }

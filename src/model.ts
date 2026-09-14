@@ -1,3 +1,4 @@
+import { itemCharges, chargeGroups, consumeCharge, type ChargeBinding } from './item-charges.ts';
 import { refreshBaseStock, parseBaseStock, type BaseStock } from './progression-equipment.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count.ts';
 import { BASE_ATTRIBUTES, PALADIN_BALANCE, SKILLS, skillById, emptySkills, isSkill, isAura, skillValues, xpForLevel, EXPERIENCE, breakpointFrames, FCR, FHR, FBR, type SkillId, type ActionId, type Attribute, type DamageType } from './paladin.ts';
@@ -22,8 +23,8 @@ export type HeroState = {
   rulesVersion: 2; playerCount: PlayerCount; classId: ClassId; level: number; xp: number; gold: number; kills: number; points: number;
   strength: number; dexterity: number; vitality: number; energy: number;
   skillPoints: number; skills: Record<SkillId, number>; activeAura: SkillId | null;
-  bindings: Record<SkillSlot, ActionId>;
-  buffs: Partial<Record<SkillId, { remaining: number; rank: number }>>;
+  bindings: Record<SkillSlot, ActionId>; chargeBindings?: Partial<Record<SkillSlot, ChargeBinding>>;
+  buffs: Partial<Record<SkillId, { remaining: number; rank: number; absorb?: number }>>;
   hp: number; mana: number; stamina: number; running: boolean; potions: number[]; potionTimers: number[];
   ammo: { arrows: number; bolts: number };
   equipment: Record<Slot, Item | null>; alternate: { weapon: Item | null; shield: Item | null }; weaponSet: 0 | 1;
@@ -94,11 +95,12 @@ export function equipmentMods(hero: HeroState): Mods {
 }
 export function skillLevel(hero: HeroState, id: ActionId, mods = equipmentMods(hero)) {
   if (id === 'attack') return 0;
-  const ownClass = (skillById[id].classId ?? 'paladin') === hero.classId;
-  const grant = id === 'criticalStrike' ? mods.grantedCriticalStrike ?? 0 : id === 'evade' ? mods.grantedEvade ?? 0 : 0;
-  if (!ownClass) return grant ? grant + (mods.allSkills ?? 0) : 0;
+  const ownClass = !skillById[id].itemOnly && (skillById[id].classId ?? 'paladin') === hero.classId;
+  const command = hero.buffs.battleCommand?.remaining ? 1 : 0;
+  const grant = (mods[`oskill_${id}`] ?? 0) + (id === 'criticalStrike' ? mods.grantedCriticalStrike ?? 0 : id === 'evade' ? mods.grantedEvade ?? 0 : 0);
+  if (!ownClass) return grant ? grant + (mods.allSkills ?? 0) + command + (skillById[id].tree==='fire'||['holyFire','fireArrow','explodingArrow','immolationArrow','firestorm','moltenBoulder','volcano','fissure'].includes(id) ? mods.fireSkills??0 : 0) : 0;
   if (!hero.skills[id] && !mods[`skill_${id}`] && !grant) return 0;
-  return hero.skills[id] + Math.min(3, grant) + (mods[`skill_${id}`] ?? 0) + (id === 'holyFire' || skillById[id].tree === 'fire' || ['fireArrow','explodingArrow','immolationArrow'].includes(id) ? mods.fireSkills ?? 0 : 0) + (mods.allSkills ?? 0) + (mods[`${hero.classId}Skills`] ?? 0) + (mods[skillById[id].tree === 'fire' ? 'fireSkillsTab' : `${skillById[id].tree}Skills` as Modifier] ?? 0);
+  return command + hero.skills[id] + Math.min(3, grant) + (mods[`skill_${id}`] ?? 0) + (id === 'holyFire' || skillById[id].tree === 'fire' || ['fireArrow','explodingArrow','immolationArrow'].includes(id) ? mods.fireSkills ?? 0 : 0) + (mods.allSkills ?? 0) + (mods[`${hero.classId}Skills`] ?? 0) + (mods[skillById[id].tree === 'fire' ? 'fireSkillsTab' : `${skillById[id].tree}Skills` as Modifier] ?? 0);
 }
 export function auraValues(hero: HeroState, mods = equipmentMods(hero)) {
   const id = hero.activeAura, rank = id ? skillLevel(hero, id, mods) : 0;
@@ -108,7 +110,8 @@ export function equippedAuras(hero: HeroState, mods = equipmentMods(hero)) {
   const selected = auraValues(hero, mods), ranks = new Map<SkillId, number>();
   for (const id of Object.keys(hero.skills) as SkillId[]) if (isAura(id) && mods[`aura_${id}`]) ranks.set(id, mods[`aura_${id}`]!);
   if (selected.id) ranks.set(selected.id, Math.max(ranks.get(selected.id) ?? 0, selected.rank));
-  const auras = [...ranks].map(([id, rank]) => ({ id, rank, ...skillValues(id, rank, hero.skills), mercenary: false }));
+  const active = activeEquipment(hero);
+  const auras = [...ranks].map(([id, rank]) => ({ id, rank, ...skillValues(id, rank, hero.skills), mercenary: false, equipment: (mods[`aura_${id}`] ?? 0) >= rank, pulses: (mods[`aura_${id}`] ?? 0) >= rank ? Math.max(1,active.filter(item=>(itemMods(item)[`aura_${id}`]??0)>0).length) : 1 }));
   for (const aura of mercenaryPartyAuras(hero)) {
     const index = auras.findIndex(other => other.id === aura.id);
     if (index < 0) auras.push(aura); else if (strongerAura(aura, auras[index])) auras[index] = aura;
@@ -116,12 +119,22 @@ export function equippedAuras(hero: HeroState, mods = equipmentMods(hero)) {
   return auras;
 }
 export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippedAuras>) {
-  const mods = equipmentMods(hero), active = activeEquipment(hero), aura = auraValues(hero, mods), auras = providedAuras ?? equippedAuras(hero, mods);
+  const mods = equipmentMods(hero);
+  const buff = (id: SkillId) => skillValues(id, hero.buffs[id]?.remaining ? hero.buffs[id]!.rank : 0, hero.skills);
+  mods.lifeSteal = (mods.lifeSteal ?? 0) + buff('feralRage').percent;
+  const form = Math.max(buff('wearwolf').percent,buff('wearbear').percent);
+  mods.maxLifePercent = (mods.maxLifePercent ?? 0) + (form ? form + skillValues('shapeShifting',skillLevel(hero,'shapeShifting',mods)).percent : 0) + buff('battleOrders').percent + buff('oakSage').percent;
+  mods.maxManaPercent = (mods.maxManaPercent ?? 0) + buff('battleOrders').percent;
+  mods.damage = (mods.damage ?? 0) + buff('heartOfWolverine').damage;
+  mods.attackRatingPercent = (mods.attackRatingPercent ?? 0) + buff('heartOfWolverine').attack;
+  const active = activeEquipment(hero), aura = auraValues(hero, mods), auras = providedAuras ?? equippedAuras(hero, mods);
   const character = CLASSES[hero.classId], passive = (id: SkillId) => skillValues(id, skillLevel(hero,id,mods),hero.skills);
-  const buffs = hero.buffs ?? {}, buff = (id: SkillId) => skillValues(id, buffs[id]?.remaining ? buffs[id]!.rank : 0,hero.skills);
+
   mods.fireSkillDamage = (mods.fireSkillDamage ?? 0) + passive('fireMastery').percent;
   mods.lightningSkillDamage = (mods.lightningSkillDamage ?? 0) + passive('lightningMastery').percent;
   mods.coldPierce = (mods.coldPierce ?? 0) + passive('coldMastery').percent;
+  const venom = buff('venom');
+  if(venom.min) { mods.poisonMinRate = venom.min * 256 / 10; mods.poisonMaxRate = venom.max * 256 / 10; mods.poisonFrames = 10; }
   const enchant = buff('enchant');
   if(enchant.min) { mods.fireMinDamage=(mods.fireMinDamage??0)+enchant.min; mods.fireMaxDamage=(mods.fireMaxDamage??0)+enchant.max; }
   mods.pierceChance = Math.min(100,(mods.pierceChance??0)+passive('pierce').percent);
@@ -132,7 +145,7 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
   const holy = hero.holyShield > 0 && shield ? skillValues('holyShield', hero.holyShieldLevel || skillLevel(hero, 'holyShield', mods), hero.skills) : null;
   const maxHp = Math.max(1, (character.life + (hero.vitality - character.attributes.vitality) * character.lifePerVitality + (hero.level - 1) * character.lifePerLevel + (mods.life ?? 0) + hero.bonusLife) * (1 + (mods.maxLifePercent ?? 0) / 100) + (attributes.vitality - hero.vitality) * character.lifePerVitality + Math.floor((mods.lifePerLevel ?? 0) * hero.level));
   const maxMana = Math.max(1, (character.mana + (hero.energy - character.attributes.energy) * character.manaPerEnergy + (hero.level - 1) * character.manaPerLevel + (mods.mana ?? 0)) * (1 + (mods.maxManaPercent ?? 0) / 100) + (attributes.energy - hero.energy) * character.manaPerEnergy + Math.floor((mods.manaPerLevel ?? 0) * hero.level));
-  const maxStamina = (character.stamina + attributes.vitality - character.attributes.vitality + hero.level - 1 + (mods.stamina ?? 0)) * (1 + auraStat('vigor', 'secondary') / 100);
+  const maxStamina = (character.stamina + attributes.vitality - character.attributes.vitality + hero.level - 1 + (mods.stamina ?? 0)) * (1 + (auraStat('vigor', 'secondary') + buff('battleOrders').percent) / 100);
   const weaponMods = weapon ? addMods(itemMods(weapon), catalogItemSetBonuses(weapon, active)) : {}, weaponED = weaponMods.damage ?? 0;
   const weaponMin = Math.floor((weapon?.minDamage ?? (weapon ? weapon.power * .65 : 1)) * (1 + weaponED / 100)) + (mods.damageFlat ?? 0) + (mods.minDamage ?? 0);
   const weaponMax = Math.max(weaponMin + 1, Math.floor((weapon?.maxDamage ?? weapon?.power ?? 2) * (1 + (weaponED + Math.floor((weaponMods.damagePercentPerLevel ?? 0) * hero.level)) / 100)) + (mods.damageFlat ?? 0) + (mods.maxDamage ?? 0) + Math.floor((mods.maxDamagePerLevel ?? 0) * hero.level));
@@ -173,7 +186,7 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
     manaRegen: maxMana / PALADIN_BALANCE.manaRecoverySeconds * (1 + ((mods.manaRegen ?? 0) + passive('warmth').percent + auraStat('meditation', 'percent')) / 100), lifeRegen: (mods.replenishLife ?? 0) * 25 / 256, mods, aura, auras,
   };
 }
-export function clampResources(hero: HeroState) { const s = stats(hero); hero.hp = Math.min(hero.hp, s.maxHp); hero.mana = Math.min(hero.mana, s.maxMana); hero.stamina = Math.min(hero.stamina, s.maxStamina); }
+export function clampResources(hero: HeroState) { reconcileSkillBindings(hero); const s = stats(hero); hero.hp = Math.min(hero.hp, s.maxHp); hero.mana = Math.min(hero.mana, s.maxMana); hero.stamina = Math.min(hero.stamina, s.maxStamina); }
 export function gainXp(hero: HeroState, amount: number): boolean {
   if (!Number.isFinite(amount) || amount <= 0 || hero.level >= 99) return false;
   hero.xp += Math.floor(amount); let leveled = false;
@@ -184,7 +197,7 @@ export function gainXp(hero: HeroState, amount: number): boolean {
 }
 export function learnReason(hero: HeroState, id: SkillId): string {
   const skill = skillById[id], rank = hero.skills[id];
-  if ((skill.classId ?? 'paladin') !== hero.classId) return '其他职业的技能';
+  if (skill.itemOnly || (skill.classId ?? 'paladin') !== hero.classId) return '其他职业的技能';
   if (rank >= 20) return '已达到 20 点投入上限';
   if (hero.level < skill.level + rank) return `需要角色等级 ${skill.level + rank}`;
   const missing = skill.requires.filter(prerequisite => !hero.skills[prerequisite]);
@@ -192,7 +205,36 @@ export function learnReason(hero: HeroState, id: SkillId): string {
   return hero.skillPoints ? '' : '没有可用技能点';
 }
 export function learnSkill(hero: HeroState, id: SkillId) { if (!isSkill(id) || learnReason(hero, id)) return false; hero.skillPoints--; hero.skills[id]++; return true; }
-export function bindSkill(hero: HeroState, key: keyof HeroState['bindings'], id: ActionId) { if (id !== 'attack' && (!isSkill(id) || isPassive(id) || !skillLevel(hero, id)) || !Object.hasOwn(hero.bindings, key) || key === 'attack' && isAura(id)) return false; hero.bindings[key] = id; return true; }
+export function bindSkill(hero: HeroState, key: keyof HeroState['bindings'], id: ActionId) { if (id !== 'attack' && (!isSkill(id) || isPassive(id) || !skillLevel(hero, id)) || !Object.hasOwn(hero.bindings, key) || key === 'attack' && isAura(id)) return false; hero.bindings[key] = id; if (hero.chargeBindings) delete hero.chargeBindings[key]; return true; }
+export function availableCharges(hero: HeroState) { return chargeGroups(activeEquipment(hero)); }
+export function bindChargedSkill(hero: HeroState, key: SkillSlot, id: SkillId, rank: number) {
+  if (!Object.hasOwn(hero.bindings, key) || !availableCharges(hero).some(charge => charge.id === id && charge.rank === rank)) return false;
+  hero.bindings[key] = id; (hero.chargeBindings ??= {})[key] = { id, rank }; return true;
+}
+export function reconcileSkillBindings(hero: HeroState) {
+  const mods = equipmentMods(hero), charges = availableCharges(hero);
+  for (const key of Object.keys(hero.bindings) as SkillSlot[]) {
+    const id = hero.bindings[key], charge = hero.chargeBindings?.[key];
+    if (charge ? charge.id !== id || !charges.some(other => other.id === id && other.rank === charge.rank) : id !== 'attack' && !skillLevel(hero, id, mods)) {
+      hero.bindings[key] = 'attack'; if (hero.chargeBindings) delete hero.chargeBindings[key];
+    }
+  }
+  if (hero.activeAura && !skillLevel(hero, hero.activeAura, mods)) hero.activeAura = null;
+}
+// A cast context supplies the selected charge level without turning charges
+// into passive bonuses or modifying the hero's learned skills.
+const chargeCasts = new WeakMap<HeroState, ChargeBinding>();
+export function castingSkillLevel(hero: HeroState, id: ActionId, mods?: Mods) {
+  const charge = chargeCasts.get(hero); return charge?.id === id ? charge.rank : skillLevel(hero, id, mods);
+}
+export function castingSkillRanks(hero: HeroState) { const charge=chargeCasts.get(hero); return charge ? { [charge.id]: charge.rank } : {}; }
+export function withCastingSkill<T>(hero: HeroState, binding: ChargeBinding, action: () => T): T { const previous=chargeCasts.get(hero); chargeCasts.set(hero,binding); try { return action(); } finally { if(previous)chargeCasts.set(hero,previous);else chargeCasts.delete(hero); } }
+export function castingSkillCost(hero: HeroState, id: ActionId, cost: number) { return chargeCasts.get(hero)?.id === id ? 0 : cost; }
+export function castChargedSkill(hero: HeroState, binding: ChargeBinding, cast: () => boolean) {
+  if (!availableCharges(hero).some(charge => charge.id === binding.id && charge.rank === binding.rank && charge.remaining > 0)) return false;
+  const items=activeEquipment(hero);
+  return withCastingSkill(hero,binding,()=>cast() && consumeCharge(items,binding));
+}
 export function setAura(hero: HeroState, id: SkillId | null) { if (id && (!isSkill(id) || !isAura(id) || !skillLevel(hero, id))) return false; hero.activeAura = id; clampResources(hero); return true; }
 export function allocateAttribute(hero: HeroState, key: Attribute, count = 1) {
   if (!Object.hasOwn(BASE_ATTRIBUTES, key) || !Number.isSafeInteger(count) || count < 1 || hero.points < count) return false;
@@ -328,8 +370,8 @@ export function sellItem(hero: HeroState, id: string) {
   const index = container.findIndex(item => item.id === id);
   hero.gold += container[index].value; container.splice(index, 1); clampResources(hero); return true;
 }
-export function repairCost(hero: HeroState) { return [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item?.maxDurability ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0), 0); }
-export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item) { if (item.maxDurability) item.durability = item.maxDurability; } return true; }
+export function repairCost(hero: HeroState) { return [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item ? itemCharges(item).reduce((cost, charge) => cost + (charge.maximum - charge.remaining) * Math.max(1, charge.rank * 5), 0) : 0) + (item?.maxDurability ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0), 0); }
+export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item) { if (item.maxDurability) item.durability = item.maxDurability; item.chargesUsed = {}; } return true; }
 export function respec(hero: HeroState) {
   const diff = difficulty(hero); if (!hero.questRewards.includes(`${diff}:shrine0`)) return false;
   const bonus = hero.questRewards.filter(key => /^[0-2]:jungle$/.test(key)).length * 5;
@@ -460,6 +502,7 @@ export function parseItem(value: unknown): Item | null {
   if (item.catalogVersion === 1 || item.catalogVersion === 2) result.catalogVersion = item.catalogVersion;
   if (Array.isArray(item.catalogRolls)) result.catalogRolls = parseCatalogRolls(item.catalogRolls);
   if (item.mods && typeof item.mods === 'object') { result.mods = {}; for (const key of Object.keys(MOD_NAMES) as Modifier[]) if (item.mods[key] !== undefined) result.mods[key] = decimal(item.mods[key], 0, -1000, ['poisonMinRate', 'poisonMaxRate', 'poisonFrames'].includes(key) ? 65535 : 1000); }
+  if (item.chargesUsed && typeof item.chargesUsed === 'object' && !Array.isArray(item.chargesUsed)) { result.chargesUsed = {}; for (const [key, used] of Object.entries(item.chargesUsed).slice(0, 32)) if (/^\d+:[a-zA-Z]+:\d+$/.test(key)) result.chargesUsed[key] = integer(used, 0, 0, 10000); }
   if (item.sockets !== undefined) result.sockets = integer(item.sockets, 0, 0, 6);
   if (Array.isArray(item.runes)) result.runes = item.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)).slice(0, result.sockets ?? 0);
   if (Array.isArray(item.socketedJewels)) result.socketedJewels = item.socketedJewels.filter((jewel: any) => jewel && typeof jewel.name === 'string' && jewel.name.length <= 60 && jewel.mods && typeof jewel.mods === 'object').slice(0, Math.max(0, (result.sockets ?? 0) - (result.runes?.length ?? 0))).map((jewel: any) => {
@@ -536,8 +579,9 @@ export function parseSave(raw: string | null): HeroState | null {
     }
     parseMercenary(hero, h.mercenary, uniqueItem);
     for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) { const id = h.bindings?.[key]; if (isSkill(id) && !isPassive(id) && skillLevel(hero, id) && !(key === 'attack' && isAura(id))) hero.bindings[key] = id; }
-    for(const skill of skillsForClass(hero.classId)) if(skill.mode === 'buff' && h.buffs?.[skill.id]) {
-      const buff=h.buffs[skill.id]; hero.buffs[skill.id]={remaining:decimal(buff.remaining,0,0,3600),rank:integer(buff.rank,0,0,100)};
+    for (const key of Object.keys(hero.bindings) as SkillSlot[]) { const charge = h.chargeBindings?.[key]; if (charge) { hero.bindings[key]='attack'; if(isSkill(charge.id) && Number.isInteger(charge.rank)) bindChargedSkill(hero, key, charge.id, charge.rank); } }
+    for(const skill of Object.values(skillById)) if(skill.mode === 'buff' && h.buffs?.[skill.id]) {
+      const buff=h.buffs[skill.id]; hero.buffs[skill.id]={remaining:decimal(buff.remaining,0,0,3600),rank:integer(buff.rank,0,0,100), ...(skill.id==='cycloneArmor'?{absorb:decimal(buff.absorb,skillValues('cycloneArmor',integer(buff.rank,0,0,100)).percent,0,100000)}:{})};
     }
     if (isSkill(h.activeAura) && isAura(h.activeAura) && skillLevel(hero, h.activeAura)) hero.activeAura = h.activeAura;
     const s = stats(hero); hero.hp = decimal(h.hp, s.maxHp, 1, s.maxHp); hero.mana = decimal(h.mana, s.maxMana, 0, s.maxMana); hero.stamina = decimal(h.stamina, s.maxStamina, 0, s.maxStamina); return hero;

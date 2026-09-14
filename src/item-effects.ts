@@ -1,13 +1,16 @@
+import { ITEM_SKILL_ROWS } from './item-skill-definitions.ts';
 import { ALL_SKILLS as SKILLS, isAura, type SkillId, type DamageType } from './paladin.ts';
 import { ORIGINAL_CLASS_SKILLS } from './class-skill-data.ts';
 import { CLASSES } from './classes.ts';
 import type { Mods, Modifier } from './items.ts';
 import type { CatalogProperty } from './item-catalog-data.ts';
 
-const skillNames = Object.fromEntries(SKILLS.map(skill => [`skill_${skill.id}`, `${skill.name}（${CLASSES[skill.classId ?? 'paladin'].name}）`])) as Record<`skill_${SkillId}`, string>;
+const skillNames = Object.fromEntries(SKILLS.map(skill => [`skill_${skill.id}`, `${skill.name}（${skill.itemOnly ? '其他职业' : CLASSES[skill.classId ?? 'paladin'].name}）`])) as Record<`skill_${SkillId}`, string>;
 const auraNames = Object.fromEntries(SKILLS.filter(skill=>isAura(skill.id)).map(skill => [`aura_${skill.id}`, `${skill.name}灵气等级（装备赋予）`])) as Record<`aura_${SkillId}`, string>;
 export const EFFECT_MOD_NAMES = {
   ...skillNames, ...auraNames,
+  necromancerSkills: '死灵法师技能', barbarianSkills: '野蛮人技能', druidSkills: '德鲁伊技能', assassinSkills: '刺客技能',
+  ...Object.fromEntries(SKILLS.map(skill => [`oskill_${skill.id}`, `${skill.name}（装备赋予）`])) as Record<`oskill_${SkillId}`, string>,
   grantedCriticalStrike: '双倍打击等级（装备赋予）', grantedEvade: '回避等级（装备赋予）',
   pierceChance: '投射物穿透几率 %', magicArrowLevel: '魔法箭等级', explosiveArrowLevel: '爆炸箭等级', replenishQuantity: '每秒恢复投掷数量', extraQuantity: '投掷数量上限增加',
   fireSkillDamage: '火焰技能伤害 %', coldSkillDamage: '冰冷技能伤害 %', lightningSkillDamage: '闪电技能伤害 %', poisonSkillDamage: '毒素技能伤害 %',
@@ -51,7 +54,7 @@ export function levelMods(mods: Mods, level: number): Mods {
   return result;
 }
 const originalSkills: SkillId[] = ['sacrifice', 'smite', 'might', 'prayer', 'resistFire', 'holyBolt', 'holyFire', 'thorns', 'defiance', 'resistCold', 'zeal', 'charge', 'blessedAim', 'cleansing', 'resistLightning', 'vengeance', 'blessedHammer', 'concentration', 'holyFreeze', 'vigor', 'conversion', 'holyShield', 'holyShock', 'sanctuary', 'meditation', 'fistOfHeavens', 'fanaticism', 'conviction', 'redemption', 'salvation'];
-export function catalogSkill(param: string) { return originalSkills[Number(param) - 96] ?? (Object.entries(ORIGINAL_CLASS_SKILLS).find(([,skill])=>skill.number===Number(param))?.[0] as SkillId | undefined) ?? SKILLS.find(skill => skill.id.toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.id; }
+export function catalogSkill(param: string) { return ITEM_SKILL_ROWS.find(row => String(row[1]) === param || row[2].replaceAll(' ', '').toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.[0] ?? originalSkills[Number(param) - 96] ?? (Object.entries(ORIGINAL_CLASS_SKILLS).find(([,skill])=>skill.number===Number(param))?.[0] as SkillId | undefined) ?? SKILLS.find(skill => skill.id.toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.id; }
 
 export function itemDamage(amount: number, type: DamageType, mods: Mods, resistance: number, conviction = 0) {
   const elemental = type !== 'physical' && type !== 'magic';
@@ -74,8 +77,8 @@ export function openWoundsDps(level: number, boss = false) {
   const [slope, offset] = level <= 15 ? [9, 31] : level <= 30 ? [18, -104] : level <= 45 ? [27, -374] : level <= 60 ? [36, -779] : [45, -1319];
   return (slope * level + offset) * 25 / 256 / (boss ? 2 : 1);
 }
-export type ItemCurse = 'amplify' | 'decrepify' | 'lifeTap' | 'weaken';
-export const CURSE_NAMES: Record<ItemCurse, string> = { amplify: '伤害加深', decrepify: '衰老', lifeTap: '偷取生命', weaken: '削弱' };
+export type ItemCurse = 'amplify' | 'decrepify' | 'lifeTap' | 'weaken' | 'ironMaiden' | 'battleCry' | 'lowerResist';
+export const CURSE_NAMES: Record<ItemCurse, string> = { lowerResist: '降低抵抗', ironMaiden: '攻击反噬', battleCry: '战斗狂嗥', amplify: '伤害加深', decrepify: '衰老', lifeTap: '偷取生命', weaken: '削弱' };
 export function itemTrigger([event, param, chance, level]: CatalogProperty) {
   if (!['hit-skill', 'gethit-skill', 'att-skill'].includes(event)) return undefined;
   const name = param.toLowerCase().replaceAll(' ', '');

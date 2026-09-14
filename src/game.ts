@@ -11,7 +11,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GameWorld, createActor, animateActor, makeRing, gridWalkable, COLORS, type Actor } from './world';
-import { newHero, stats, skillLevel, gainXp, equipItem, equipReason, sellItem, allocateAttribute, swapWeapons, difficulty, recoverCorpse, selectCampaignLevel, completeCampaignLevel, activateQuestObject, recordQuestKill, type HeroState, type Item, type Slot } from './model';
+import { castingSkillLevel, newHero, stats, skillLevel, gainXp, equipItem, equipReason, sellItem, allocateAttribute, swapWeapons, difficulty, recoverCorpse, selectCampaignLevel, completeCampaignLevel, activateQuestObject, recordQuestKill, type HeroState, type Item, type Slot } from './model';
 import { clearShot } from './ranged';
 import { ACTS, LEVELS, SPECIAL_LEVELS, levelTuning, questComplete, canEnterLevel, type SpecialArea } from './campaign';
 import { encounterPlan, cowEncounterPlan } from './encounter-plan';
@@ -801,7 +801,7 @@ export class Game {
   openChest(id: number, telekinesis=false) {
     if (this.inCamp || this.paused || this.dead || this.saveConflict || !this.profile) return;
     const chest = this.world.chests.find(chest => chest.id === id && !chest.opened); if (!chest) return;
-    if(telekinesis&&(!skillLevel(this.hero,'telekinesis')||Math.hypot(this.position.x-chest.x,this.position.z-chest.z)>12||!clearShot(this.world.grid,this.position,chest)))return;
+    if(telekinesis&&(!castingSkillLevel(this.hero,'telekinesis')||Math.hypot(this.position.x-chest.x,this.position.z-chest.z)>12||!clearShot(this.world.grid,this.position,chest)))return;
     this.begin(); this.target = undefined; this.heldAttack = false; this.pendingPickup = undefined; this.pendingPortal = false; this.pendingChest = undefined;
     if (!telekinesis && Math.hypot(this.position.x - chest.x, this.position.z - chest.z) > 3) {
       this.moveTo(new THREE.Vector3(chest.x, 0, chest.z));
@@ -1159,16 +1159,16 @@ export class Game {
       if (this.target && this.combat.hostile(this.target)) {
         const bound = this.hero.bindings.attack;
         this.targetPathTimer = Math.max(0, this.targetPathTimer - dt);
-        if (this.combat.canReach(this.target, bound)) { this.path = []; if (!skillInput && !this.combat.movementLocked) this.combat.castAction(bound); }
+        if (this.combat.canReach(this.target, bound)) { this.path = []; if (!skillInput && !this.combat.movementLocked) this.combat.cast('attack'); }
         else if (this.movementMode === 'mouse' && !this.targetPathTimer && !this.combat.movementLocked
           && (!this.path.length || !this.targetDestination || this.targetDestination.distanceToSquared(this.target.actor.group.position) > .5 ** 2)) {
           this.targetDestination = this.target.actor.group.position.clone(); this.targetPathTimer = .2;
           this.path = this.world.path(this.position, this.targetDestination);
         }
-      } else if (this.movementMode === 'mouse' && this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.castAction(this.hero.bindings.attack, true);
+      } else if (this.movementMode === 'mouse' && this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.cast('attack', true);
       navigating = this.path.length > 0;
     }
-    if (this.movementMode === 'wasd' && this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.castAction(this.hero.bindings.attack, true);
+    if (this.movementMode === 'wasd' && this.heldAttack && !skillInput && !this.combat.movementLocked) this.combat.cast('attack', true);
     const locked = this.combat.movementLocked;
     const speed = locked || this.monsterCombat.imprisoned(this.position) ? 0 : (this.hero.running && this.hero.stamina > 0 ? 7.8 : 4.5) * s.runSpeed * this.monsterCombat.heroSpeed();
     if (navigating) { const velocity = followPath(this.position, this.path, speed, dt, (from, to) => this.world.canWalk(from, to)); vx = velocity.x; vz = velocity.z; }

@@ -3,7 +3,7 @@ import { AFFIX_TYPES, AFFIX_BASES } from './affix-data.ts';
 import { BASE_CODES, rollAffix, supportsAffixProperty } from './affixes.ts';
 import type { ItemBase, Item, Mods, Modifier, RuneWord, RuneId, SpecialItem, WeaponType } from './items.ts';
 import { EFFECT_PROPERTIES, LEVEL_PROPERTIES, catalogSkill, itemTrigger } from './item-effects.ts';
-import { isAura } from './paladin.ts';
+import { isAura, skillById } from './paladin.ts';
 
 export const CLASS_NAMES: Record<string, string> = { ama: '亚马逊', sor: '法师', nec: '死灵法师', pal: '圣骑士', bar: '野蛮人', dru: '德鲁伊', ass: '刺客' };
 const classes: Record<string, string> = { abow: 'ama', aspe: 'ama', ajav: 'ama', orb: 'sor', head: 'nec', ashd: 'pal', phlm: 'bar', pelt: 'dru', h2h: 'ass', h2h2: 'ass' };
@@ -54,6 +54,8 @@ export function catalogMods(properties: CatalogProperty[], random = () => .5): M
     if (extraProperties[code]) add({ [extraProperties[code]]: value });
     else if (LEVEL_PROPERTIES[code]) { const [key, divisor] = LEVEL_PROPERTIES[code]; add({ [key]: (Number(param) || value) / divisor }); }
     else if (code === 'oskill' && ['Critical Strike', 'Evade'].includes(param)) add({ [param === 'Evade' ? 'grantedEvade' : 'grantedCriticalStrike']: value });
+    else if (code === 'oskill' && catalogSkill(param)) add({ [`oskill_${catalogSkill(param)}`]: value });
+    else if (code === 'skill-rand' && catalogSkill(String(value))) add({ [`skill_${catalogSkill(String(value))}`]: Number(param) });
     else if (code === 'skill' && catalogSkill(param)) add({ [`skill_${catalogSkill(param)}`]: value });
     else if (code === 'aura' && catalogSkill(param) && isAura(catalogSkill(param)!)) add({ [`aura_${catalogSkill(param)}`]: value });
     else if (code === 'rep-dur') add({ repairDurability: Number(param) / 100 });
@@ -66,7 +68,7 @@ export function catalogMods(properties: CatalogProperty[], random = () => .5): M
     else if (code === 'dmg-norm') add({ minDamage: min, maxDamage: max });
     else if (code === 'reduce-ac') add({ targetDefense: Math.abs(value) });
     else if (code === 'skilltab' && !['0','1','2','3','4','5','9','10','11'].includes(param)) continue;
-    else if (code === 'randclassskill') add({ paladinSkills: 3 });
+    else if (code === 'randclassskill') add({ [['amazonSkills','sorceressSkills','necromancerSkills','paladinSkills','barbarianSkills','druidSkills','assassinSkills'][value]]: 3 });
     else if (supportsAffixProperty(code)) add(rollAffix({ properties: [[code, Number(param) || 0, min, max]] } as Parameters<typeof rollAffix>[0], () => roll).mods);
   }
   return result;
@@ -89,11 +91,12 @@ export function catalogPropertyStatus(property: CatalogProperty): 'active' | 'ot
   const [rawCode, param] = property;
   const code = rawCode.toLowerCase();
   if (code.startsWith('*') || ['bloody', 'state', 'fade'].includes(code)) return 'unused';
-  if (['nec', 'bar', 'dru', 'ass', 'skill-rand'].includes(code) || code === 'skilltab' && !['0','1','2','3','4','5','9','10','11'].includes(param) || code === 'skill' && !catalogSkill(param)) return 'other-class';
+  if (['nec', 'bar', 'dru', 'ass'].includes(code) || code === 'skilltab' && !['0','1','2','3','4','5','9','10','11'].includes(param) || code === 'skill' && (!catalogSkill(param) || skillById[catalogSkill(param)!].itemOnly)) return 'other-class';
+  if (code === 'oskill' || code === 'charged') return catalogSkill(param) ? 'active' : 'inactive';
   if (code === 'aura') return catalogSkill(param) && isAura(catalogSkill(param)!) ? 'active' : 'inactive';
   if (code === 'rep-quant' || code === 'oskill' && ['Critical Strike', 'Evade'].includes(param)) return 'active';
   if (itemTrigger(property)) return 'active';
-  return extraProperties[code] || LEVEL_PROPERTIES[code] || supportsAffixProperty(code) || ['skill', 'all-stats', 'dmg-norm', 'reduce-ac', 'randclassskill', 'rep-dur', 'howl', 'dmg-mag', 'dmg-elem', 'res-all-max'].includes(code) ? 'active' : 'inactive';
+  return extraProperties[code] || LEVEL_PROPERTIES[code] || supportsAffixProperty(code) || ['skill-rand', 'skill', 'all-stats', 'dmg-norm', 'reduce-ac', 'randclassskill', 'rep-dur', 'howl', 'dmg-mag', 'dmg-elem', 'res-all-max'].includes(code) ? 'active' : 'inactive';
 }
 const inactiveLabels: Record<string, string> = {
   'hit-skill': '击中触发', 'att-skill': '攻击触发', 'gethit-skill': '受击触发', 'kill-skill': '击杀触发', 'death-skill': '死亡触发', 'levelup-skill': '升级触发',
@@ -109,7 +112,16 @@ export function itemTriggers(item: Item) { return originalItemProperties(item).m
 export function catalogModifierRanges(item: Item): Partial<Record<Modifier, [number, number]>> {
   const entry = CATALOG_SPECIALS.find(entry => entry.id === item.catalogId) ?? CATALOG_RUNEWORDS.find(entry => entry.id === item.catalogId);
   if (!entry) return {};
-  const low = catalogMods(entry.properties, () => 0), high = catalogMods(entry.properties, () => 1), rolled = catalogItemMods(item), result: Partial<Record<Modifier, [number, number]>> = {};
+  // Random skill/class identity is fixed on this item; only numerical ranges
+  // vary. Comparing two different identities produces nonexistent modifiers.
+  const endpoint = (bound: number) => {
+    let index = 0;
+    return catalogMods(entry.properties, () => {
+      const current = index++;
+      return ['skill-rand', 'randclassskill'].includes(entry.properties[current][0]) ? item.catalogRolls?.[current] ?? .5 : bound;
+    });
+  };
+  const low = endpoint(0), high = endpoint(1), rolled = catalogItemMods(item), result: Partial<Record<Modifier, [number, number]>> = {};
   for (const key of Object.keys(low) as Modifier[]) {
     const bonus = item.rarity === 'runeword' ? (item.mods?.[key] ?? 0) - (rolled[key] ?? 0) : 0;
     result[key] = [Math.min(low[key]!, high[key] ?? low[key]!) + bonus, Math.max(low[key]!, high[key] ?? low[key]!) + bonus];

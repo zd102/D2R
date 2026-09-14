@@ -16,6 +16,7 @@
     "test:online": "node tests/online-browser.mjs",
     "balance:report": "node scripts/balance-report.ts",
     "items:report": "node scripts/item-attribute-report.ts",
+    "test:item-skills": "node tests/item-skills-browser.mjs",
     "test:item-effects": "node tests/item-effects-browser.mjs",
     "test:potions": "node tests/potions-browser.mjs",
     "test:mercenary": "node tests/mercenary-browser.mjs",

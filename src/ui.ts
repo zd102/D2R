@@ -15,7 +15,7 @@ import { CampaignScreen } from './campaign-ui';
 import { ProfileScreen, type ProfilePanel } from './profiles-ui';
 import { CharacterScreen } from './character-ui';
 import { SharedStashScreen } from './shared-stash-ui';
-import { skillLevel, difficulty, difficultyNames } from './model';
+import { availableCharges, skillLevel, difficulty, difficultyNames } from './model';
 import { skillName, skillIcon, skillValues, type Attribute } from './paladin';
 import { BASES, runeLabel, groundItemName } from './items';
 import { CAMP } from './camp';
@@ -560,7 +560,8 @@ export class UI {
     ammo.hidden = !s.ranged; setText(ammo, s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '');
     document.getElementById('stamina-fill')!.style.width = `${Math.min(100, h.stamina / s.maxStamina * 100)}%`;
     const runButton = document.querySelector<HTMLButtonElement>('[data-action="run-mode"]')!; runButton.setAttribute('aria-pressed', String(h.running)); runButton.dataset.tip = h.running ? '跑步' : '行走';
-    const signature = JSON.stringify([game.movementMode, h.bindings]);
+    const charges=availableCharges(h);
+    const signature = JSON.stringify([game.movementMode, h.bindings, h.chargeBindings, charges]);
     if (signature !== this.bindingsSignature) {
       this.bindingsSignature = signature;
       const keys = skillKeys(game.movementMode);
@@ -569,7 +570,8 @@ export class UI {
         button.querySelector('svg')?.remove(); button.insertAdjacentHTML('beforeend', icon(skillIcon(id)));
         setText(button.querySelector('.skill-name')!, skillName(id));
         setText(button.querySelector('kbd')!, keys[key]);
-        const label = `${skillName(id)} · ${keys[key]}`;
+        const binding=h.chargeBindings?.[key], charge=binding&&charges.find(charge=>charge.id===binding.id&&charge.rank===binding.rank);
+        const label = `${skillName(id)} · ${keys[key]}${charge?` · 聚气 ${charge.remaining}/${charge.maximum}`:''}`;
         button.setAttribute('aria-label', label); button.dataset.tip = label;
       }); this.refreshIcons();
     }
@@ -577,7 +579,8 @@ export class UI {
       const remaining = game.cooldowns[button.dataset.skill as Skill], cooldown = button.querySelector<HTMLElement>('.cooldown')!;
       setText(cooldown, remaining > .1 ? remaining.toFixed(1) : ''); button.classList.toggle('on-cooldown', remaining > .1);
       const id = h.bindings[button.dataset.skill as Skill];
-      button.classList.toggle('no-mana', h.mana < skillValues(id, skillLevel(h, id), h.skills).cost);
+      const binding=h.chargeBindings?.[button.dataset.skill as Skill];
+      button.classList.toggle('no-mana', binding ? !charges.some(charge=>charge.id===binding.id&&charge.rank===binding.rank&&charge.remaining>0) : h.mana < skillValues(id, skillLevel(h, id), h.skills).cost);
       button.classList.toggle('aura-active', h.activeAura === id);
     });
     const action = game.contextAction(), context = document.getElementById('context-action')!;

@@ -2,7 +2,7 @@ import { emptySkills, skillValues, type SkillId, type SkillValues } from './pala
 
 export const MERCENARY_AURAS = ['prayer', 'defiance', 'blessedAim', 'might', 'holyFreeze', 'thorns'] as const;
 export type MercenaryAura = typeof MERCENARY_AURAS[number];
-export type AuraEffect = SkillValues & { id: SkillId; rank: number };
+export type AuraEffect = SkillValues & { id: SkillId; rank: number; pulses?: number; equipment?: boolean };
 export const mercenaryAuraRank = (level: number) => Math.min(20, 1 + Math.floor((Math.max(1, level) - 1) / 5));
 
 // Native hireling auras use the same effect fields as Paladin and item auras,

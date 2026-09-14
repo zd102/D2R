@@ -55,7 +55,7 @@ export type Item = { id: string; name: string; slot: Slot; rarity: Rarity; power
   base?: string; minDamage?: number; maxDamage?: number; smiteMin?: number; smiteMax?: number; block?: number; speed?: number; twoHanded?: boolean;
   requiredLevel?: number; requiredStrength?: number; requiredDexterity?: number; mods?: Mods; durability?: number; maxDurability?: number;
   sockets?: number; runes?: RuneId[]; identified?: boolean; width?: number; height?: number; x?: number; y?: number; setId?: string; charm?: boolean;
-  affixes?: string[]; charmSize?: CharmSize; catalogVersion?: number; catalogRolls?: number[]; quantity?: number;
+  chargesUsed?: Record<string, number>; affixes?: string[]; charmSize?: CharmSize; catalogVersion?: number; catalogRolls?: number[]; quantity?: number;
   baseCode?: string; catalogId?: string; requiredClass?: string; jewel?: boolean; misc?: boolean; event?: 'wirts-leg'; eventDifficulty?: 0 | 1 | 2; socketedJewels?: { name: string; mods: Mods; catalogId?: string; catalogVersion?: number; catalogRolls?: number[] }[];
 };
 export type WeaponType = 'sword' | 'axe' | 'mace' | 'hammer' | 'scepter' | 'polearm' | 'spear' | 'bow' | 'crossbow' | 'dagger' | 'wand' | 'staff' | 'orb' | 'claw' | 'throwing' | 'javelin';
@@ -275,7 +275,7 @@ export function migrateCatalogItem(item: Item) {
   // Preserve every previously rolled modifier, including catalog-v1 items.
   const classEntry=CATALOG_SPECIALS.find(entry=>entry.id===item.catalogId)??CATALOG_RUNEWORDS.find(entry=>entry.id===item.catalogId);
   if(classEntry){item.mods??={};let draw=0;const restored=catalogMods(classEntry.properties,()=>item.catalogRolls?.[draw++]??.5),newKeys=['grantedCriticalStrike','grantedEvade','amazonSkills','sorceressSkills','bowSkills','passiveSkills','javelinSkills','fireSkillsTab','lightningSkills','coldSkills'];
-    for(const [key,value] of Object.entries(restored))if((newKeys.includes(key)||key.startsWith('skill_')&&!Object.hasOwn(item.mods,key))&&item.mods[key as Modifier]===undefined)item.mods[key as Modifier]=value;
+    for(const [key,value] of Object.entries(restored))if((newKeys.includes(key)||['skill_', 'oskill_', 'aura_'].some(prefix=>key.startsWith(prefix))&&!Object.hasOwn(item.mods,key))&&item.mods[key as Modifier]===undefined)item.mods[key as Modifier]=value;
   }
   for (const jewel of item.socketedJewels ?? []) {
     if (jewel.catalogVersion === 2 && jewel.catalogId) continue;

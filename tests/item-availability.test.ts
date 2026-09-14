@@ -84,7 +84,7 @@ test('random jewelry always has properties while common weapons and socket bases
     const item = rollItem(99, 0, false, 0, random);
     if (['rin', 'amu', 'jew'].includes(item.baseCode ?? '')) {
       seen.add(item.baseCode!); assert.equal(item.rarity, 'magic');
-      assert.ok(Object.values(item.mods ?? {}).some(value => value !== 0), item.name);
+      assert.ok(Object.values(item.mods ?? {}).some(value => value !== 0) || itemCharges(item).length > 0, item.name);
     } else { common += Number(item.rarity === 'common'); socketed += Number((item.sockets ?? 0) > 0); }
   }
   assert.deepEqual(seen, new Set(['rin', 'amu', 'jew'])); assert.ok(common > 0 && socketed > 0);
@@ -122,3 +122,4 @@ test('new characters and missing legacy fields receive no unused scrolls or ammo
     assert.deepEqual(parseSave(serializeSave(hero))!.ammo, hero.ammo);
   }
 });
+import { itemCharges } from '../src/item-charges.ts';

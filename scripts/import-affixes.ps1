@@ -23,7 +23,7 @@ $supported = @('ac','ac%','ac/lvl','att','att%','att/lvl','att%/lvl','dmg%','dmg
     'swing1','swing2','swing3','move1','move2','move3','lifesteal','manasteal',
     'mag%','gold%','regen','mana-kill','red-dmg','red-mag','thorns','ease',
     'knock','noheal','ignore-ac','indestruct','half-freeze','regen-stam','stamdrain',
-    'dmg-demon','dmg-undead','att-demon','att-undead','dmg-to-mana','pal','ama','sor','skilltab','sock',
+    'dmg-demon','dmg-undead','att-demon','att-undead','dmg-to-mana','pal','ama','sor','skilltab','charged','sock',
     'fire-min','fire-max','cold-min','cold-max','cold-len','ltng-min','ltng-max',
     'dmg-fire','dmg-cold','dmg-ltng','dmg-pois')
 $affixes = @()

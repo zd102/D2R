@@ -33,7 +33,7 @@ try {
       const hero = newHero(); hero.level = 30; hero.hp = 20; hero.mana = 0;
       hero.equipment.weapon.mods = { lifeOnKill: 10, lifeOnDemonKill: 5, manaOnKill: 3, experienceBonus: 10, restInPeace: 1 };
       const target = { dead: false, boss: false, level: 30, hp: 0, body: {}, definition: { race: 'demon', hp: 30 }, actor: { group: { rotation: {}, position: { x: 0, y: 0, z: 0 } } } };
-      const game = { hero, level: LEVELS[0], monsterCombat: { cancel() {} }, world: { physics: { removeBody() {} } }, dropLoot() {}, ui: { toast() {} }, save() {} };
+      const game = { hero, level: LEVELS[0], monsterCombat: { cancel() {}, onDeath() {} }, audio: { play() {} }, world: { physics: { removeBody() {} } }, dropLoot() {}, ui: { toast() {} }, save() {} };
       const expected = Math.floor(monsterExperience(30, 30, 'monster', { difficulty: 0, act: 0, baseLife: 30, firstClear: true }) * 1.1);
       Game.prototype.killEnemy.call(game, target); Game.prototype.killEnemy.call(game, target);
       return { hp: hero.hp, mana: hero.mana, xp: hero.xp, expected, kills: hero.kills, redeemed: target.redeemed };

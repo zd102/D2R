@@ -1,3 +1,5 @@
+import { type ItemSkillId } from './item-skill-definitions.ts';
+import { withCastingSkill, castingSkillLevel, castingSkillCost } from './model.ts';
 import * as THREE from 'three';
 import { castSound } from './audio-bank.ts';
 import type { MercenaryAlly } from './mercenary-combat.ts';
@@ -16,7 +18,7 @@ import { createActor, animateActor, gridWalkable, makeRing, type Actor } from '.
 export type CombatAlly = ClassSummon | MercenaryAlly;
 type Missile = Projectile & { skill: ExtraSkillId; values: SkillValues; weapon: boolean; radius: number; target?: Enemy; secondary?: boolean; pulse: number; targetHits?:Map<number,number> };
 type Field = { mesh: THREE.Mesh; id: ExtraSkillId; point: THREE.Vector3; direction: THREE.Vector3; values: SkillValues; snapshot: AttackSnapshot; radius: number; life: number; delay: number; tick: number; once: boolean };
-export type ClassSummon = { id: 'valkyrie'|'dopplezon'|'hydra'; actor: Actor; hp: number; maxHp: number; life: number; timer: number; rank: number; snapshot: AttackSnapshot; path: THREE.Vector3[]; rethink: number };
+export type ClassSummon = { itemSkill?: ItemSkillId; id: 'valkyrie'|'dopplezon'|'hydra'; actor: Actor; hp: number; maxHp: number; life: number; timer: number; rank: number; snapshot: AttackSnapshot; path: THREE.Vector3[]; rethink: number };
 const colors: Record<DamageType,number>={physical:0xe6d29b,magic:0xb6b5ff,fire:0xff9453,cold:0x83deff,lightning:0xffe59a,poison:0x9bdb67};
 const rangedSkills = (id: string) => ['bow','javelin'].includes(classSkillMode(id) ?? '');
 const delays: Partial<Record<ExtraSkillId,number>>={poisonJavelin:.6,plagueJavelin:4,immolationArrow:1,meteor:1.2,fireWall:1.4,blizzard:1.8,frozenOrb:1};
@@ -27,13 +29,13 @@ export class ClassCombat {
   summons: ClassSummon[]=[];
   delays: Partial<Record<ExtraSkillId,number>>={};
   debuffs=new WeakMap<Enemy,{ sight:number; defense:number; missiles:number }>();
-  sequence?: { id: ExtraSkillId; remaining:number; timer:number; direction:THREE.Vector3; aimed:boolean; seen:Set<number>; first:boolean };
+  sequence?: { rank:number; id: ExtraSkillId; remaining:number; timer:number; direction:THREE.Vector3; aimed:boolean; seen:Set<number>; first:boolean };
   pulse=0;
   blazePoint?: THREE.Vector3;
   readonly combat: PaladinCombat;
   constructor(combat: PaladinCombat) { this.combat=combat; }
   get game() { return this.combat.game; }
-  value(id:ExtraSkillId) { const h=this.game.hero; return skillValues(id,skillLevel(h,id),h.skills); }
+  value(id:ExtraSkillId) { const h=this.game.hero; return skillValues(id,castingSkillLevel(h,id),h.skills); }
   reach(id:string) { const mode=classSkillMode(id); return mode==='spear'?2.6:mode?14:undefined; }
   nearby(point:THREE.Vector3,radius:number) { return this.game.enemies.filter(enemy=>this.combat.hostile(enemy)&&enemy.actor.group.position.distanceTo(point)<=radius&&clearShot(this.game.world.grid,point,enemy.actor.group.position)).sort((a,b)=>a.actor.group.position.distanceToSquared(point)-b.actor.group.position.distanceToSquared(point)); }
   aim(aimed:boolean) {
@@ -50,7 +52,7 @@ export class ClassCombat {
     return undefined;
   }
   cast(id: ExtraSkillId, aimed:boolean): boolean {
-    const c=this.combat,g=this.game,h=g.hero,s=stats(h),rank=skillLevel(h,id,s.mods),v=skillValues(id,rank,h.skills),mode=classSkillMode(id);
+    const c=this.combat,g=this.game,h=g.hero,s=stats(h),rank=castingSkillLevel(h,id,s.mods),v=skillValues(id,rank,h.skills),mode=classSkillMode(id);
     if(!rank||mode==='passive'||c.readyIn(id)>0||g.paused||g.dead) return false;
     const {point,direction,target}=this.aim(aimed);
     const utility=id==='telekinesis'&&aimed?this.telekinesisTarget(point):undefined;
@@ -59,6 +61,7 @@ export class ClassCombat {
     let destination:THREE.Vector3|undefined;
     if(['teleport','meteor','fireWall','blizzard','valkyrie','dopplezon','hydra'].includes(id)) { destination=this.destination(point,id==='teleport');if(!destination) {g.ui.toast('该位置不可到达');return false;} }
     if(['chainLightning','telekinesis'].includes(id)&&!target&&!utility) {g.ui.toast('没有可作用的目标');return false;}
+    v.cost=castingSkillCost(h,id,v.cost);
     if(h.mana<v.cost) {g.ui.toast('法力不足');return false;}
     let duration=(mode==='bow'||mode==='javelin'?s.rangedFrames:mode==='spear'?s.attackFrames:['lightning','chainLightning'].includes(id)?s.lightningFrames:s.castFrames)/25;
     const hits=id==='strafe'?Math.max(v.secondary,Math.min(v.hits,this.nearby(g.position,14).length)):id==='fend'?Math.max(1,Math.min(v.hits,this.nearby(g.position,2.6).length)):v.hits;
@@ -90,7 +93,7 @@ export class ClassCombat {
     if(id==='telekinesis') {g.beam(g.position.clone().setY(1),target!.actor.group.position.clone().setY(1));this.hit(target!,id,v,c.snapshot());if(!target!.boss){c.knockback(target!,1.2);target!.stunned=Math.max(target!.stunned,.4);}return true;}
     if(id==='meteor'||id==='blizzard'||id==='fireWall'||id==='inferno') {this.field(id,destination??g.position.clone(),direction,v,c.snapshot(),id==='meteor'?1:0);return true;}
     if(id==='jab'||id==='fend'||id==='strafe') {
-      this.sequence={id,remaining:Math.max(1,hits),timer:0,direction,aimed,seen:new Set(),first:true};return true;
+      this.sequence={id,rank,remaining:Math.max(1,hits),timer:0,direction,aimed,seen:new Set(),first:true};return true;
     }
     if(mode==='spear') {this.spear(id,direction,aimed);if(id==='impale'){const weapon=s.weapon!;if(weapon.durability&&!itemMods(weapon).indestructible&&Math.random()*100<v.percent)weapon.durability--;}return true;}
     if(id==='multipleShot'||id==='chargedBolt') {
@@ -174,9 +177,9 @@ export class ClassCombat {
     if(delay){const meteor=createMeteor(point);this.game.world.scene.add(meteor);this.game.effects.push({mesh:meteor,life:delay,duration:delay,type:'beam'});}
     this.fields.push({mesh,id,point:point.clone(),direction:direction.clone(),values:{...values},snapshot,radius,life:id==='poisonJavelin'?1.2:id==='plagueJavelin'?3:values.duration||3,delay,tick:0,once:!!delay});
   }
-  summon(id:ClassSummon['id'],point:THREE.Vector3,rank:number) {
-    const g=this.game,v=this.value(id),existing=this.summons.filter(s=>s.id===id);
-    const previous=existing.length>=(id==='hydra'?6:1)?existing[0]:undefined;
+  summon(id:ClassSummon['id'],point:THREE.Vector3,rank:number,itemSkill?:ItemSkillId) {
+    const g=this.game,v=skillValues(itemSkill??id,rank,g.hero.skills),existing=this.summons.filter(s=>itemSkill ? ['clayGolem','bloodGolem','ironGolem'].includes(itemSkill) ? ['clayGolem','bloodGolem','ironGolem'].includes(s.itemSkill??'') : s.itemSkill===itemSkill : s.id===id&&!s.itemSkill);
+    const previous=existing.length>=(itemSkill==='revive'?rank:itemSkill==='raven'||itemSkill==='summonSpiritWolf'?5:itemSkill==='summonFenris'?3:id==='hydra'?6:1)?existing[0]:undefined;
     if(previous){this.summons.splice(this.summons.indexOf(previous),1);previous.hp=0;previous.life=0;}
     // Recasting refreshes the summon state; its unchanged model can move to the
     // new position without rebuilding geometry or recompiling all its materials.
@@ -184,7 +187,7 @@ export class ClassCombat {
     if(id!=='hydra') {actor.group.getObjectByName('hero-weapon')!.visible=false;actor.group.getObjectByName('hero-javelin')!.visible=true;actor.group.userData.rangedKind='javelin';}
     if(id==='dopplezon')actor.group.traverse(node=>{if(node instanceof THREE.Mesh){const mat=node.material as THREE.MeshStandardMaterial;mat.color?.setHex(0x75cbbb);mat.transparent=true;mat.opacity=.65;}});
     g.world.scene.add(actor.group);const hp=id==='dopplezon'?stats(g.hero).maxHp*v.percent/100:id==='hydra'?200+rank*20:v.healing;
-    this.summons.push({id,actor,hp,maxHp:hp,life:v.duration||3600,timer:0,rank,snapshot:this.combat.snapshot(),path:[],rethink:0});g.burst(point.clone().setY(1),id==='hydra'?0xff9a61:0xbde8c4,18);
+    this.summons.push({id,itemSkill,actor,hp:Math.max(1,hp),maxHp:Math.max(1,hp),life:itemSkill==='revive'?180:v.duration||3600,timer:0,rank,snapshot:this.combat.snapshot(),path:[],rethink:0});g.burst(point.clone().setY(1),id==='hydra'?0xff9a61:0xbde8c4,18);
   }
   allies(): CombatAlly[] { const merc = this.game.mercenary?.ally; return merc ? [...this.summons, merc] : this.summons; }
   target(enemy:Enemy) { return this.allies().filter(s=>s.id!=='hydra'&&s.hp>0&&s.actor.group.position.distanceTo(enemy.actor.group.position)<10&&clearShot(this.game.world.grid,enemy.actor.group.position,s.actor.group.position)).sort((a,b)=>a.actor.group.position.distanceToSquared(enemy.actor.group.position)-b.actor.group.position.distanceToSquared(enemy.actor.group.position))[0]; }
@@ -201,7 +204,7 @@ export class ClassCombat {
     for(const id of Object.keys(this.delays) as ExtraSkillId[])this.delays[id]=Math.max(0,this.delays[id]!-dt);
     for(const [id,buff] of Object.entries(h.buffs??{})) {buff.remaining=Math.max(0,buff.remaining-dt);if(!buff.remaining)delete h.buffs[id as SkillId];}
     for(const enemy of g.enemies){const debuff=this.debuffs.get(enemy);if(debuff){debuff.sight=Math.max(0,debuff.sight-dt);debuff.missiles=Math.max(0,debuff.missiles-dt);}}
-    if(this.sequence){const seq=this.sequence;seq.timer-=dt;if(seq.timer<=0){const {direction,target}=this.aim(seq.aimed);if(seq.id==='strafe'){const s=stats(h);if(!s.weapon||!s.ranged||s.ranged.stack){this.sequence=undefined;}else this.missile(seq.id,g.position,direction,this.value(seq.id),c.snapshot(),target);}else this.spear(seq.id,direction,seq.id==='fend'?false:seq.aimed,seq.id==='fend'?seq.seen:undefined);seq.first=false;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.attackTime=1;playHeroAction(g.actor,seq.id==='strafe'?'shoot':'thrust',g.time,seq.id==='strafe'?.25:.3);if(--seq.remaining<=0)this.sequence=undefined;else seq.timer=seq.id==='strafe'?Math.max(.08,stats(h).rangedFrames/100):.22;}}
+    if(this.sequence){const seq=this.sequence;seq.timer-=dt;if(seq.timer<=0){withCastingSkill(h,{id:seq.id,rank:seq.rank},()=>{const {direction,target}=this.aim(seq.aimed);if(seq.id==='strafe'){const s=stats(h);if(!s.weapon||!s.ranged||s.ranged.stack){this.sequence=undefined;}else this.missile(seq.id,g.position,direction,this.value(seq.id),c.snapshot(),target);}else this.spear(seq.id,direction,seq.id==='fend'?false:seq.aimed,seq.id==='fend'?seq.seen:undefined);seq.first=false;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.attackTime=1;playHeroAction(g.actor,seq.id==='strafe'?'shoot':'thrust',g.time,seq.id==='strafe'?.25:.3);if(--seq.remaining<=0)this.sequence=undefined;else seq.timer=seq.id==='strafe'?Math.max(.08,stats(h).rangedFrames/100):.22;});}}
     for(let i=this.missiles.length-1;i>=0;i--)if(!this.updateMissile(this.missiles[i],dt)){g.disposeObject(this.missiles[i].mesh);this.missiles.splice(i,1);}
     for(let i=this.fields.length-1;i>=0;i--){const f=this.fields[i];updateVisual(f.mesh,g.time,Math.min(1,f.life*3));const particles=f.mesh.getObjectByName(f.values.type+'-field-particles');if(particles)particles.visible=f.delay<=0;if(f.delay>0){f.delay-=dt;continue;}f.life-=dt;f.tick-=dt;
       if(f.life<=0){g.disposeObject(f.mesh);this.fields.splice(i,1);continue;}
@@ -212,9 +215,10 @@ export class ClassCombat {
     const blaze=h.buffs?.blaze;if(blaze&&(!this.blazePoint||this.blazePoint.distanceTo(g.position)>.8)){this.blazePoint=g.position.clone();this.field('blaze',g.position,new THREE.Vector3(0,0,1),{...skillValues('blaze',blaze.rank,h.skills),duration:2,radius:1},c.snapshot());}if(!blaze)this.blazePoint=undefined;
     this.pulse-=dt;if(this.pulse<=0){const storm=h.buffs?.thunderStorm;if(storm){const v=skillValues('thunderStorm',storm.rank,h.skills),target=this.nearby(g.position,v.radius)[0];if(target){g.beam(target.actor.group.position.clone().setY(9),target.actor.group.position.clone());this.hit(target,'thunderStorm',v,c.snapshot());}this.pulse=v.secondary;}else this.pulse=.25;}
     for(let i=this.summons.length-1;i>=0;i--){const summon=this.summons[i];summon.life-=dt;summon.timer-=dt;if(summon.hp<=0||summon.life<=0||g.dead){g.disposeObject(summon.actor.group);this.summons.splice(i,1);continue;}
+      if(summon.itemSkill && ['oakSage','heartOfWolverine','spiritOfBarbs'].includes(summon.itemSkill)) { if(summon.actor.group.position.distanceTo(g.position)<20) h.buffs[summon.itemSkill]={rank:summon.rank,remaining:.1}; continue; }
       const point=summon.actor.group.position,target=this.nearby(point,12)[0];let moving=false;
       if(summon.id==='hydra'){if(target&&summon.timer<=0){summon.timer=1.4;const v=skillValues('hydra',summon.rank,h.skills);for(let head=0;head<3;head++)this.missile('hydra',point.clone().add(new THREE.Vector3((head-1)*.35,0,0)),target.actor.group.position.clone().sub(point).normalize(),v,summon.snapshot,target);}}
-      else if(summon.id==='valkyrie'){const destination=target?.actor.group.position??g.position,distance=point.distanceTo(destination);if(distance>(target?1.8:3)){summon.rethink-=dt;if(summon.rethink<=0){summon.path=g.world.path(point,destination);summon.rethink=.6;}const next=summon.path[0];if(next){const direction=next.clone().sub(point).normalize(),end=point.clone().addScaledVector(direction,Math.min(next.distanceTo(point),dt*4));if(clearShot(g.world.grid,point,end)){point.copy(end);moving=true;summon.actor.group.rotation.y=Math.atan2(direction.x,direction.z);}if(point.distanceTo(next)<.25)summon.path.shift();}}else if(target&&summon.timer<=0){summon.timer=1.2;const v=skillValues('valkyrie',summon.rank,h.skills);this.hit(target,'valkyrie',v,summon.snapshot);const enchant=h.buffs.enchant;if(enchant)this.hit(target,'enchant',skillValues('enchant',enchant.rank,h.skills),c.snapshot());}}
+      else if(summon.id==='valkyrie'){const destination=target?.actor.group.position??g.position,distance=point.distanceTo(destination);if(distance>(target?1.8:3)){summon.rethink-=dt;if(summon.rethink<=0){summon.path=g.world.path(point,destination);summon.rethink=.6;}const next=summon.path[0];if(next){const direction=next.clone().sub(point).normalize(),end=point.clone().addScaledVector(direction,Math.min(next.distanceTo(point),dt*4));if(clearShot(g.world.grid,point,end)){point.copy(end);moving=true;summon.actor.group.rotation.y=Math.atan2(direction.x,direction.z);}if(point.distanceTo(next)<.25)summon.path.shift();}}else if(target&&summon.timer<=0){summon.timer=1.2;const v=skillValues(summon.itemSkill??'valkyrie',summon.rank,h.skills);if(summon.itemSkill){c.damage(target,(v.min+v.max)/2,summon.itemSkill==='plaguePoppy'?'poison':v.type,false,false,summon.snapshot);if(summon.itemSkill==='clayGolem')target.slow={percent:Math.min(60,20+summon.rank*2),remaining:3};if(summon.itemSkill==='raven'&&!target.boss)target.blind=3;}else this.hit(target,'valkyrie',v,summon.snapshot);const enchant=h.buffs.enchant;if(enchant)this.hit(target,'enchant',skillValues('enchant',enchant.rank,h.skills),c.snapshot());}}
       animateActor(summon.actor,g.time+i,moving,summon.timer>1?.7:0);
     }
   }
