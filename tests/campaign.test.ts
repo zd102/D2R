@@ -96,11 +96,11 @@ test('old graveyard characters retain equipment and rewards but start the new ca
   assert.deepEqual(loaded.campaign, newCampaign()); assert.equal(loaded.stage, 1); assert.equal(loaded.difficultyLevel, 0); assert.equal(loaded.bossDefeated, false);
   assert.equal(parseSave(JSON.stringify({ version: 2, hero: { ...hero, campaign: { version: 2 } } })), null);
 });
-test('small-level scaling is gentle and act-boundary scaling is substantially larger', () => {
+test('map scaling stays gentle, with larger act boundaries only in Normal', () => {
   for (const diff of [0, 1, 2]) for (let i = 1; i < LEVELS.length; i++) {
     const previous = levelTuning(LEVELS[i - 1], diff), current = levelTuning(LEVELS[i], diff);
     assert.ok(current.level > previous.level || current.level === 96); assert.ok(current.hp > previous.hp); assert.ok(current.damage > previous.damage);
-    if (i % 5) assert.ok(current.hp / previous.hp <= 1.071);
+    if (diff > 0 || i % 5) assert.ok(current.hp / previous.hp <= 1.071);
     else assert.ok(current.hp / previous.hp > 1.25);
   }
 });

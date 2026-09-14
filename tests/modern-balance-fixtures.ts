@@ -7,15 +7,16 @@ import { LEVELS } from '../src/campaign.ts';
 import { monsterStats } from '../src/balance.ts';
 import { referenceHero } from './balance-fixtures.ts';
 import { classFixture } from './class-fixture.ts';
+import { parsePlayerCount } from '../src/player-count.ts';
 
 export type ModernBuild = 'bow' | 'foh' | 'nova' | 'hydra';
-export function modernHero(level: number, difficulty: 0|1|2, build: ModernBuild) {
+export function modernHero(level: number, difficulty: 0|1|2, build: ModernBuild, campaignIndex = 24) {
   const classId=build==='bow'?'amazon':build==='foh'?'paladin':'sorceress';
   const hero=newHero(classId); gainXp(hero,EXPERIENCE[level-1]); hero.difficultyLevel=difficulty;
-  const gear=referenceHero(level,difficulty,'hammer'); hero.equipment=gear.equipment;
+  const gear=referenceHero(level,difficulty,'hammer',campaignIndex); hero.equipment=gear.equipment;
   hero.bonusLife=gear.bonusLife; hero.bonusResist=gear.bonusResist;
   hero.skillPoints=gear.skillPoints+Object.values(gear.skills).reduce((sum,n)=>sum+n,0);
-  hero.points+=difficulty*5+(level>=27?5:0);
+  for(const key of ['strength','dexterity','vitality','energy'] as const) hero[key]+=(difficulty+Number(campaignIndex>=11))*5;
   if (hero.equipment.amulet?.mods) { delete hero.equipment.amulet.mods.paladinSkills; hero.equipment.amulet.mods[`${classId}Skills`]=1; }
   if(build==='bow') {
     const weapon=makeItem(BASES.find(base=>base.baseCode===(level>=65?'6hb':level>=27?'8hb':'hbw'))!);
@@ -53,13 +54,14 @@ export function modernHero(level: number, difficulty: 0|1|2, build: ModernBuild)
 // Real controllers and projectiles, open arena without map collisions. The
 // scripted player spends 2/3 of its time attacking and 1/3 repositioning.
 export function modernEncounter(level:number,difficulty:0|1|2,index:number,build:ModernBuild,players=1,pack=false) {
-  const hero=modernHero(level,difficulty,build), f=classFixture(hero.classId,false);
+  const hero=modernHero(level,difficulty,build,index), f=classFixture(hero.classId,false);
+  hero.playerCount=parsePlayerCount(players);
   hero.campaign.current=index;hero.campaign.kills=LEVELS[index].quest.count;
   hero.campaign.objects=Array.from({length:LEVELS[index].quest.count},(_,i)=>i);
   Object.assign(f.hero,hero);
   const spawn=(x:number,z:number,_kind:string,definition:MonsterDef,boss=false)=>{
     const enemy=f.enemy(z,x);Object.assign(enemy,monsterStats(definition,LEVELS[index],difficulty,boss,false,players));
-    enemy.hp=enemy.maxHp;enemy.definition=definition;enemy.boss=boss;enemy.speed=definition.speed;enemy.cooldown=1;return enemy;
+    enemy.playerCount=hero.playerCount;enemy.hp=enemy.maxHp;enemy.definition=definition;enemy.boss=boss;enemy.speed=definition.speed;enemy.cooldown=1;return enemy;
   };
   f.game.spawnEnemy=spawn;
   const targets=pack?ENCOUNTERS[index].slice(0,3).map((id,i)=>spawn((i-1)*2,5+i,'demon',MONSTERS[id])):[spawn(0,5,'boss',BOSSES[index],true)];

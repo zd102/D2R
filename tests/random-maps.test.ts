@@ -132,6 +132,6 @@ test('partial and full exploration retain consistent campaign progression across
       assert.ok(Math.max(...levels)-Math.min(...levels)<=1,`fraction ${fraction}, act ${act}: ${levels}`);
     }
     const final=curves[0].filter((_,index)=>index%5===4).map(row=>row.level);
-    assert.deepEqual(final,fraction===1?[45,72,92]:[41,68,90]);
+    assert.deepEqual(final,fraction===1?[39,69,91]:[36,64,89]);
   }
 });

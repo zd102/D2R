@@ -4,6 +4,8 @@ export function parsePlayerCount(value: unknown): PlayerCount {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 8 ? value as PlayerCount : 1;
 }
 export const playerLifeFactor = (players: number = 1) => (parsePlayerCount(players) + 1) / 2;
+// Reward grows more slowly than life: higher PP trades efficiency for drops and challenge.
+export const playerExperienceFactor = (players: number = 1) => Math.sqrt(playerLifeFactor(players));
 // LoD applies the damage/to-hit bonus only in Nightmare and Hell.
 export const playerDamageFactor = (players: number = 1, difficulty = 0) => difficulty > 0 ? 1 + (parsePlayerCount(players) - 1) / 16 : 1;
 export const playerDropExponent = (players: number = 1) => Math.floor((parsePlayerCount(players) + 1) / 2);

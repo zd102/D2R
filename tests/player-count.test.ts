@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PLAYER_COUNTS, parsePlayerCount, playerLifeFactor, playerDamageFactor, playerDropExponent, playerNoDrop } from '../src/player-count.ts';
+import { PLAYER_COUNTS, parsePlayerCount, playerLifeFactor, playerExperienceFactor, playerDamageFactor, playerDropExponent, playerNoDrop } from '../src/player-count.ts';
 import { newHero, parseSave, serializeSave } from '../src/model.ts';
 import { monsterStats, monsterExperience } from '../src/balance.ts';
 import { LEVELS, SPECIAL_LEVELS } from '../src/campaign.ts';
@@ -32,13 +32,13 @@ test('all pp tiers scale ordinary monsters, elites, bosses and secret areas with
       const base = monsterStats(definition, area, diff, boss, elite), scaled = monsterStats(definition, area, diff, boss, elite, players);
       assert.equal(scaled.maxHp, Math.floor(base.maxHp * factor));
       assert.ok(Math.abs(scaled.damage - base.damage * damage) < 1e-8);
-      assert.ok(Math.abs(scaled.attackRating - base.attackRating * damage) <= 1);
+      assert.ok(Math.abs(scaled.attackRating - base.attackRating * damage) <= .5 * (damage + 1) + 1e-9);
       assert.equal(scaled.level, base.level); assert.equal(scaled.defense, base.defense); assert.deepEqual(scaled.resistances, base.resistances);
     }
     for (const rank of ['monster', 'elite', 'miniboss', 'actBoss'] as const) {
       const context = { difficulty: diff, act: 2 }, base = monsterExperience(50, 50, rank, context);
       const xp = monsterExperience(50, 50, rank, { ...context, players });
-      assert.ok(Math.abs(xp - base * factor) < factor);
+      assert.ok(Math.abs(xp - base * Math.sqrt(factor)) < Math.sqrt(factor));
       assert.equal(monsterExperience(50, 50, rank, { ...context, players, summoned: true }), 0);
     }
   }

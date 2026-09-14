@@ -13,7 +13,7 @@ import { GameWorld, createActor, animateActor, makeRing, gridWalkable, COLORS, t
 import { newHero, stats, skillLevel, gainXp, equipItem, equipReason, sellItem, allocateAttribute, swapWeapons, difficulty, recoverCorpse, selectCampaignLevel, completeCampaignLevel, activateQuestObject, recordQuestKill, type HeroState, type Item, type Slot } from './model';
 import { clearShot } from './ranged';
 import { ACTS, LEVELS, SPECIAL_LEVELS, levelTuning, questComplete, canEnterLevel, type SpecialArea } from './campaign';
-import { encounterPlan } from './encounter-plan';
+import { encounterPlan, cowEncounterPlan } from './encounter-plan';
 import { CAMP, prepareCampArrival } from './camp';
 import { isAura, isPassive, type ActionId, type Attribute, type DamageType } from './paladin';
 import { classSkillMode } from './class-skills';
@@ -485,11 +485,10 @@ export class Game {
       const pool = ENCOUNTERS[this.level.index];
       const leader = this.spawnEnemy(point.x, point.z, 'demon', MONSTERS[pool[(this.level.index + i) % pool.length]], true);
       // Move the nearest existing pack to the elite, preserving population and quest counts.
-      const pack = plan.packs.map((p, id) => ({ p, id })).filter(({ id }) => this.enemies.some(e => e.pack === id && !e.champion && !e.elite))
-        .sort((a, b) => Math.hypot(a.p.x - point.x, a.p.z - point.z) - Math.hypot(b.p.x - point.x, b.p.z - point.z))[0];
-      if (pack) {
-        leader.pack = pack.id;
-        const guards = this.enemies.filter(e => e.pack === pack.id && e !== leader);
+      const pack = plan.elitePacks[i];
+      if (pack !== undefined) {
+        leader.pack = pack;
+        const guards = this.enemies.filter(e => e.pack === pack && e !== leader);
         guards.forEach((guard, j) => {
           const desired = { x: point.x + Math.cos(j * 2.4) * 2.5, z: point.z + Math.sin(j * 2.4) * 2.5 };
           const nearby = this.world.path(point, desired).at(-1) ?? point;
@@ -501,14 +500,14 @@ export class Game {
     if (!this.hero.bossDefeated) this.spawnEnemy(layout.boss.x, layout.boss.z, 'boss');
   }
   spawnCowEnemies() {
-    const layout = this.world.layout, sites = layout.rooms.filter(site => Math.hypot(site.x - layout.boss.x, site.z - layout.boss.z) > 14);
+    const layout = this.world.layout, sites = cowEncounterPlan(layout);
     let pack = 0;
     for (const site of sites) {
-      for (let i = 0; i < 9; i++) {
+      for (const [i, rank] of site.ranks.entries()) {
         const desired = { x: site.x + Math.cos(i * 2.4) * (3 + i % 3), z: site.z + Math.sin(i * 2.4) * (3 + i % 3) };
         const point = this.world.path(layout.spawn, desired).at(-1); if (!point) continue;
-        const enemy = this.spawnEnemy(point.x, point.z, 'demon', MONSTERS.hellCow, i === 0 && pack % 2 === 0); enemy.pack = pack;
-        if (i > 0 && i <= 3 && pack % 2 === 0) this.makeChampion(enemy);
+        const enemy = this.spawnEnemy(point.x, point.z, 'demon', MONSTERS.hellCow, rank === 'elite'); enemy.pack = pack;
+        if (rank === 'champion') this.makeChampion(enemy);
       }
       pack++;
     }

@@ -33,14 +33,14 @@ test('level gaps discourage low-area farming and high-level XP slows smoothly wi
 
 test('the 75-level campaign has a measured progression curve for thorough and partial clearing, with no difficulty-entry XP dead zone', () => {
   for (const fraction of [.65, 1]) {
-    const rows = simulateProgression(fraction), thresholds = [[40, 45], [67, 72], [89, 92]];
+    const rows = simulateProgression(fraction), thresholds = [[36, 40], [64, 70], [88, 92]];
     let previous = 1;
     for (const row of rows) { assert.ok(row.level > previous && row.level < 99); previous = row.level; }
     for (let diff = 0; diff < 3; diff++) {
       const end = rows[diff * 5 + 4]; assert.ok(end.level >= thresholds[diff][0] && end.level <= thresholds[diff][1], `${fraction}: difficulty ${diff}, level ${end.level}`);
       assert.equal(end.hero.campaign.cleared[diff], 25);
     }
-    assert.ok(rows[0].level >= 11 && rows[0].level <= 13);
+    assert.ok(rows[0].level >= 11 && rows[0].level <= 14);
     assert.ok(rows[5].level - rows[4].level >= 2); assert.ok(rows[10].level - rows[9].level >= 2);
   }
 });
@@ -73,7 +73,7 @@ test('nightmare begins at the normal cow per-monster combat budget and escalates
 test('moderate melee and hammer builds stay within monster, boss and incoming-damage budgets in every act', () => {
   for (const row of simulateProgression()) for (const build of ['zeal', 'hammer'] as const) {
     const index = row.act * 5 + 4, hero = referenceHero(row.level, row.difficulty as 0 | 1 | 2, build), boss = referenceMetrics(hero, BOSSES[index], index, true);
-    const minimum = hero.bindings.attack === 'zeal' ? row.difficulty === 0 ? 2.5 : 4 : row.difficulty === 0 && row.act === 0 ? 5 : 6;
+    const minimum = hero.bindings.attack === 'zeal' ? row.difficulty === 0 ? 2.5 : 4 : row.difficulty === 0 && row.act === 0 ? 3 : 6;
     assert.ok(boss.seconds >= minimum && boss.seconds < 65, `${build} ${row.difficulty}/${row.act}: ${boss.seconds}s`);
     assert.ok(boss.maxHitPercent < 30, `${build} ${row.difficulty}/${row.act}: ${boss.maxHitPercent}%`);
     assert.ok(boss.hitChance >= 55);

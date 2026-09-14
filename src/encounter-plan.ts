@@ -57,5 +57,21 @@ export function encounterPlan(level: Level, layout: LevelLayout, difficulty: num
     eliteSites.push(p);
     if (eliteSites.length === eliteCount(level, difficulty)) break;
   }
-  return { packs, eliteSites, xpScale, lootScale, normalCount, referenceWeight };
+  const promoted = new Set<number>();
+  const elitePacks = eliteSites.map(site => {
+    const nearest = packs.map((p, id) => ({ p, id })).filter(({ id }) => !promoted.has(id))
+      .sort((a, b) => distance(a.p, site) - distance(b.p, site))[0]?.id;
+    if (nearest !== undefined) promoted.add(nearest);
+    return nearest;
+  });
+  return { packs, eliteSites, elitePacks, xpScale, lootScale, normalCount, referenceWeight };
+}
+
+/** Shared by live spawning and progression simulation, including champion cow guards. */
+export function cowEncounterPlan(layout: LevelLayout) {
+  return layout.rooms.filter(site => distance(site, layout.boss) > 14).map((site, pack) => ({
+    ...site,
+    ranks: Array.from({ length: 9 }, (_, i): 'monster' | 'champion' | 'elite' =>
+      pack % 2 === 0 && i === 0 ? 'elite' : pack % 2 === 0 && i <= 3 ? 'champion' : 'monster'),
+  }));
 }

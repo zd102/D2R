@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {modernEncounter} from './modern-balance-fixtures.ts';
+import {simulateProgression} from './balance-fixtures.ts';
 
 test('modern builds progress through the old bow gap and three difficulties with bounded supplies',t=>{
   let seed=239;t.mock.method(Math,'random',()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/2**32;});
@@ -12,6 +13,15 @@ test('modern builds progress through the old bow gap and three difficulties with
   }
   console.table(rows);
   for(const row of rows){assert.ok(row.won,JSON.stringify(row));assert.ok(row.hpPotions<=8&&row.manaPotions<=8);}
+});
+
+test('bow, FoH, Nova and Hydra can complete 1pp at the recalibrated earned levels',t=>{
+  let seed=239;t.mock.method(Math,'random',()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/2**32;});
+  for(const row of simulateProgression(.65).filter(row=>row.act===4)) for(const build of ['bow','foh','nova','hydra'] as const) for(const pack of [false,true]) {
+    seed=239;
+    const result=modernEncounter(row.level,row.difficulty as 0|1|2,24,build,1,pack);
+    assert.ok(result.won,JSON.stringify(result));assert.ok(result.hpPotions<=8&&result.manaPotions<=8);
+  }
 });
 
 test('8pp takes longer than 1pp against the same pack and retains bounded supplies',t=>{

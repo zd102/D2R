@@ -2,7 +2,7 @@ import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { newHero, serializeSave } from '../src/model.ts';
 import { monsterExperience } from '../src/balance.ts';
-import { savedProfile } from './browser-helpers.mjs';
+import { savedProfile, enterGame } from './browser-helpers.mjs';
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true }), errors = [];
 try {
@@ -21,13 +21,13 @@ try {
       }
     }, serializeSave(hero));
     await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173');
-    await page.getByRole('button', { name: '进入旅程', exact: true }).click();
+    await enterGame(page);
     await page.evaluate(() => cancelAnimationFrame(window.ppGame.frameId));
     await page.keyboard.press('Escape');
     await expect(page.getByLabel('人数难度', { exact: true })).toHaveValue('1');
     assert.equal(await page.locator('#player-count option').count(), 8);
     await page.getByLabel('人数难度', { exact: true }).selectOption('8');
-    await expect(page.locator('#player-count-hint')).toContainText('生命 / 经验 ×4.5');
+    await expect(page.locator('#player-count-hint')).toContainText('生命 ×4.5 · 经验 ×2.12');
     assert.equal((await savedProfile(page)).hero.playerCount, 8);
     assert.equal(await page.locator('.panel-pause').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -84,7 +84,7 @@ try {
       } finally { g.addLoot = addLoot; Math.random = random; }
       return counts;
     }), [0, 0, 1, 1, 1, 1, 1, 1], 'current setting reaches real loot generation');
-    await page.reload(); await page.getByRole('button', { name: '进入旅程', exact: true }).click();
+    await page.reload(); await enterGame(page);
     await page.evaluate(() => cancelAnimationFrame(window.ppGame.frameId));
     await page.keyboard.press('Escape');
     await expect(page.getByLabel('人数难度', { exact: true })).toHaveValue('8');

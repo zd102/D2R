@@ -4,6 +4,7 @@ import { PaladinCombat } from '../src/combat.ts';
 import { MonsterCombat } from '../src/monster-combat.ts';
 import { monsterStats } from '../src/balance.ts';
 import { BOSSES, type MonsterDef } from '../src/bestiary.ts';
+import type { PlayerCount } from '../src/player-count.ts';
 import { LEVELS } from '../src/campaign.ts';
 import { stats, skillLevel } from '../src/model.ts';
 import type { Actor } from '../src/world.ts';
@@ -11,7 +12,7 @@ import { referenceHero, type ReferenceBuild } from './balance-fixtures.ts';
 import type { Enemy, Game } from '../src/game.ts';
 
 // Real combat controllers in an open arena; movement integration omits map collisions.
-export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number, build: ReferenceBuild) {
+export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number, build: ReferenceBuild, players: PlayerCount = 1) {
   // Combat needs world transforms, not rendered geometry. Mesh/material UUIDs
   // consume Math.random and would otherwise change seeded combat on art edits.
   // The actual models, materials and animation are covered by the visual tests.
@@ -20,7 +21,7 @@ export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number
     group.add(leftLeg, rightLeg, leftArm, rightArm);
     return { group, leftLeg, rightLeg, leftArm, rightArm, kind };
   }
-  const hero = referenceHero(level, difficulty, build); hero.campaign.current = index;
+  const hero = referenceHero(level, difficulty, build, index); hero.campaign.current = index; hero.playerCount = players;
   hero.campaign.kills = LEVELS[index].quest.count; hero.campaign.objects = Array.from({ length: LEVELS[index].quest.count }, (_, i) => i);
   const scene = new THREE.Scene(), enemies: Enemy[] = [], resources = new Set<THREE.BufferGeometry | THREE.Material>(), manaCosts = { hp: 0, mana: 0 };
   const dispose = (object: THREE.Object3D) => { object.traverse(node => { if (node instanceof THREE.Mesh) { resources.add(node.geometry); (Array.isArray(node.material) ? node.material : [node.material]).forEach(material => resources.add(material)); } }); object.removeFromParent(); };
@@ -32,9 +33,9 @@ export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number
     killEnemy(enemy: Enemy) { enemy.dead = true; this.monsterCombat.cancel(enemy); },
   };
   const spawn = (x: number, z: number, _kind: string, definition: MonsterDef, boss = false) => {
-    const actor = combatActor(definition.id), tuning = monsterStats(definition, LEVELS[index], difficulty, boss), body = new CANNON.Body({ mass: 1 });
+    const actor = combatActor(definition.id), tuning = monsterStats(definition, LEVELS[index], difficulty, boss, false, players), body = new CANNON.Body({ mass: 1 });
     actor.group.position.set(x, 0, z); body.position.set(x, .5, z); scene.add(actor.group);
-    const enemy = { id: nextId++, name: definition.id, definition, actor, body, ...tuning, hp: tuning.maxHp, boss, dead: false, active: true, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', speed: definition.speed, cooldown: 1, attackTime: 0, path: [], rethink: 0, stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false } as Enemy;
+    const enemy = { playerCount: players, id: nextId++, name: definition.id, definition, actor, body, ...tuning, hp: tuning.maxHp, boss, dead: false, active: true, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', speed: definition.speed, cooldown: 1, attackTime: 0, path: [], rethink: 0, stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false } as Enemy;
     enemies.push(enemy); return enemy;
   };
   game.spawnEnemy = spawn; scene.add(game.actor.group);

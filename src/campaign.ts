@@ -46,10 +46,11 @@ const drafts: Draft[] = [
   ['世界之石大殿', 'WORLDSTONE CHAMBER', 'temple', '毁灭前夕', '消灭王座守军，切断巴尔的最后一道防线。', '消灭王座守军', 'kill', 12, 'seal', '巴尔', 'magic', '毁灭仆从', '死亡之王'],
 ];
 export const AREA_LEVELS = [
-  [1,4,7,10,12, 14,16,18,20,22, 24,25,26,27,28, 30,31,32,33,34, 36,38,40,42,44],
-  [38,39,40,41,43, 44,45,46,47,49, 50,51,52,53,55, 56,57,58,59,61, 62,64,66,68,70],
-  [68,69,70,71,73, 74,75,76,77,79, 80,81,82,83,85, 86,87,88,89,91, 92,93,94,95,96],
+  [1,4,7,10,12, 14,16,18,20,22, 24,25,26,27,28, 29,30,31,32,33, 34,36,38,39,40],
+  [44,45,46,47,48, 49,50,51,52,53, 54,55,56,57,58, 59,60,61,62,63, 64,65,66,67,68],
+  [72,73,74,75,76, 77,78,79,80,81, 82,83,84,85,86, 87,88,89,90,91, 92,93,94,95,96],
 ] as const;
+const COW_LEVELS = [42, 70, 96] as const;
 export const LEVELS: Level[] = drafts.map(([name, english, terrain, questName, description, action, kind, count, prop, boss, bossType, first, second], index) => ({
   id: `act${Math.floor(index / 5) + 1}-${index % 5 + 1}`, index, act: Math.floor(index / 5), step: index % 5, name, english, terrain,
   quest: { name: questName, description, action, kind, count, prop }, enemies: [first, second], boss, bossType, actBoss: index % 5 === 4,
@@ -59,7 +60,7 @@ export const SPECIAL_LEVELS: Record<SpecialArea, Level> = {
   cow: {
     id: 'secret-cow-level', index: 25, act: 4, step: 4, name: '隐藏奶牛关', english: 'THE SECRET COW LEVEL', terrain: 'field',
     quest: { name: '奶牛之王', description: '血色牧场中的号角声从未停歇。', action: '清剿地狱奶牛', kind: 'kill', count: 0, prop: 'seal' },
-    enemies: ['hellCow', 'hellCow'], boss: '奶牛之王', bossType: 'physical', actBoss: false, level: AREA_LEVELS[0][24], special: 'cow',
+    enemies: ['hellCow', 'hellCow'], boss: '奶牛之王', bossType: 'physical', actBoss: false, level: COW_LEVELS[0], special: 'cow',
   },
   uberDiablo: {
     id: 'uber-diablo', index: 26, act: 4, step: 4, name: '超级迪亚波罗', english: 'UBER DIABLO', terrain: 'lava',
@@ -92,16 +93,19 @@ export function parseCampaign(value: unknown): CampaignState {
 export function levelTuning(level: Level, difficulty: number) {
   difficulty = Math.max(0, Math.min(2, Math.floor(difficulty)));
   if (level.special === 'cow') {
-    const areaLevel = [44, 70, 96][difficulty];
-    return { level: areaLevel, hp: [15, 90, 330][difficulty], damage: [4.6, 11.5, 22][difficulty], defense: 6 + areaLevel * 3.7, packs: 30 };
+    const areaLevel = COW_LEVELS[difficulty];
+    return { level: areaLevel, hp: [15, 70, 350][difficulty], damage: [4.6, 11, 23][difficulty], defense: 6 + areaLevel * 3.5, packs: 30 };
   }
   if (level.special === 'uberDiablo') return { level: 99, hp: 1, damage: 26, defense: 1800, packs: 0 };
   const areaLevel = AREA_LEVELS[difficulty][level.index];
-  // Small steps within an act, a larger jump at the act boundary, independent of hero level.
-  // Nightmare opens at the same per-monster life and damage budget as normal cows,
-  // then keeps the campaign's established small-step and act-boundary escalation.
-  const power = Math.pow(1.85, level.act) * (1 + level.step * .06) * [1, 15, 22][difficulty];
-  return { level: areaLevel, hp: power, damage: Math.pow(1.38, level.act) * (1 + level.step * .05) * [1, 4.6, 5][difficulty], defense: 6 + areaLevel * 3.5, packs: 5 + level.act + Math.floor(level.step / 2) };
+  // Fixed area budgets: the next difficulty begins at the previous cow budget.
+  // Interpolate by area level so increasing map levels never hide a strength reset.
+  const progress = (areaLevel - AREA_LEVELS[difficulty][0]) / (AREA_LEVELS[difficulty][24] - AREA_LEVELS[difficulty][0]);
+  const hp = difficulty === 0 ? Math.pow(1.85, level.act) * (1 + level.step * .06)
+    : [1, 15, 70][difficulty] * Math.pow(difficulty === 1 ? 65 / 15 : 330 / 70, progress);
+  const damage = difficulty === 0 ? Math.pow(1.38, level.act) * (1 + level.step * .05)
+    : [1, 4.6, 11][difficulty] * Math.pow(difficulty === 1 ? 10 / 4.6 : 22 / 11, progress);
+  return { level: areaLevel, hp, damage, defense: 6 + areaLevel * 3.5, packs: 5 + level.act + Math.floor(level.step / 2) };
 }
 export type MapPoint = { x: number; z: number };
 export const eliteCount = (level: Level, difficulty: number) => 1 + Math.max(0, Math.min(2, Math.floor(difficulty))) * 2 + Number(level.step >= 3);
