@@ -252,8 +252,10 @@ export class GameWorld {
     for (const side of [-1, 1]) mesh(merchant, box, timber, side * .8, .35, 0, .15, .7, .8);
     mesh(merchant, box, edgeStone, -.5, .9, 0, .6, .25, .5);
     mesh(merchant, cylinder, leather, .3, .9, 0, .3, .25, .3);
-    mesh(merchant, cylinder, blueCanvas, 0, .8, -1, .3, 1.2, .3);
-    mesh(merchant, sphere, bone, 0, 1.6, -1, .25, .28, .25);
+    const vendor = new THREE.Group(); vendor.name = 'base-merchant-body';
+    vendor.position.z = -1; vendor.scale.setScalar(1.35); merchant.add(vendor);
+    mesh(vendor, cylinder, blueCanvas, 0, .8, 0, .3, 1.2, .3);
+    mesh(vendor, sphere, bone, 0, 1.6, 0, .25, .28, .25);
     this.addCollider(CAMP.baseMerchant.x, CAMP.baseMerchant.z - .4, 2, 2);
     const chest = new THREE.Group(); chest.position.set(CAMP.stash.x, 0, CAMP.stash.z); this.sharedStash = chest; this.scene.add(chest);
     mesh(chest, box, leather, 0, .45, 0, 2, .9, 1.2);

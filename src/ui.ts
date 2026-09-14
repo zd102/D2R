@@ -610,9 +610,9 @@ export class UI {
       label.style.transform = `translate(${point.x}px, ${y}px) translate(-50%, -100%)`;
     }
     if (game.inCamp) {
-      const merchantPoint = game.project(new THREE.Vector3(CAMP.baseMerchant.x, 2, CAMP.baseMerchant.z));
+      const merchantPoint = game.project(new THREE.Vector3(CAMP.baseMerchant.x, 2.8, CAMP.baseMerchant.z - 1));
       if (mercenaryUnlocked(h)) {
-        const p = game.project(new THREE.Vector3(CAMP.mercenaryMerchant.x, 2, CAMP.mercenaryMerchant.z));
+        const p = game.project(new THREE.Vector3(CAMP.mercenaryMerchant.x, 2.8, CAMP.mercenaryMerchant.z));
         if (p.visible && p.x > 40 && p.x < innerWidth - 40 && p.y > 50 && p.y < innerHeight - 110) {
           const key = 'mercenary-merchant'; aliveKeys.add(key); let label = this.labelNodes.get(key);
           if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = key; setMarkup(label, `${icon('swords')}佣兵商人`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
@@ -671,7 +671,7 @@ export class UI {
     }
     for (const enemy of game.enemies) {
       if (enemy.dead || enemy.boss || enemy.actor.group.position.distanceTo(game.position) > 16) continue;
-      const point = game.project(enemy.actor.group.position.clone().add(new THREE.Vector3(0, enemy.elite ? 2.5 : 2, 0))); if (!point.visible || point.x < 0 || point.x > innerWidth || point.y < 0 || point.y > innerHeight - 120) continue;
+      const point = game.project(enemy.actor.group.position.clone().add(new THREE.Vector3(0, Number(enemy.actor.group.userData.labelHeight ?? 2) * (enemy.elite ? 1.2 : 1), 0))); if (!point.visible || point.x < 0 || point.x > innerWidth || point.y < 0 || point.y > innerHeight - 120) continue;
       const key = `e${enemy.id}`; aliveKeys.add(key);
       let el = this.labelNodes.get(key);
       if (!el) { el = document.createElement('div'); el.className = 'enemy-label'; setMarkup(el, `<span>${enemy.name}</span><div><i></i></div>`); this.labels.append(el); this.labelNodes.set(key, el); }

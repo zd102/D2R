@@ -144,6 +144,7 @@ try {
   await approach(page, 1); await page.keyboard.press('f');
   assert.equal((await state(page)).chests[1].opened, true);
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: '返回营地', exact: true }).click();
+  await page.waitForFunction(() => window.eclipseState.inCamp && !window.eclipseState.paused);
   assert.equal((await state(page)).chests.length, 0);
   await choose(page, 0); assert.ok((await state(page)).chests.every(chest => !chest.opened));
   assert.notEqual((await state(page)).area.seed,refreshed.seed,'returning from camp creates a new expedition');

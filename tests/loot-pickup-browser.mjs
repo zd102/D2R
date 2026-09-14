@@ -35,6 +35,7 @@ try {
   const distant = s.loot.filter(loot => loot.item && Math.hypot(loot.x - s.position.x, loot.z - s.position.z) > 3.5 && loot.screen.x > 180 && loot.screen.x < 1100 && loot.screen.y > 160 && loot.screen.y < 690)[0];
   assert.ok(distant, 'A distant equipment label is available');
   const rects = await page.locator('.loot-label:visible').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().toJSON()));
+  assert.ok(await page.locator('.loot-label:visible').evaluateAll(elements => elements.every(element => parseFloat(getComputedStyle(element).fontSize) >= 15)), 'Ground labels use readable text');
   for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) assert.ok(rects[i].right <= rects[j].left || rects[j].right <= rects[i].left || rects[i].bottom <= rects[j].top || rects[j].bottom <= rects[i].top, 'Equipment labels do not overlap');
   await page.locator(`[data-loot="${distant.id}"]`).click();
   await page.waitForFunction(id => !window.eclipseState.loot.some(loot => loot.id === id), distant.id);
@@ -44,6 +45,10 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   const cdp = await page.context().newCDPSession(page); await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
   await expect(page.locator('.loot-label:visible').first()).toBeVisible();
+  assert.ok(await page.locator('.loot-label:visible').evaluateAll(elements => elements.every(element => {
+    const rect = element.getBoundingClientRect();
+    return rect.left >= 0 && rect.right <= innerWidth && parseFloat(getComputedStyle(element).fontSize) >= 15;
+  })), 'Mobile ground labels remain readable and inside the viewport');
   const touchRect = await page.locator('.loot-label:visible').first().boundingBox();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: touchRect.x + touchRect.width / 2, y: touchRect.y + touchRect.height / 2, id: 1 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });

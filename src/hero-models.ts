@@ -23,6 +23,8 @@ export function createHeroActor(classId: ClassId): Actor {
   const paladin=classId==='paladin', amazon=classId==='amazon', sorceress=classId==='sorceress';
   const group=new THREE.Group(), rig=new THREE.Group(), chest=new THREE.Group(), head=new THREE.Group();
   group.name=`hero-${classId}`; group.userData.classId=classId; group.userData.bodyPlan='articulated-hero';
+  // Keep the readable body size when the game resets the outer placement scale.
+  rig.scale.setScalar(1.35);
   group.add(rig); rig.add(chest); chest.position.y=1.13; chest.add(head); head.position.y=.43;
   const skin=actorMaterial(paladin?0x70462f:sorceress?0xb88869:0xc69e7b,'skin');
   const leather=actorMaterial(0x3c2c21,'leather'), dark=actorMaterial(0x1b1c1c,'leather'), steel=actorMaterial(0x8a9292,'steel');

@@ -38,7 +38,8 @@ test('every body plan has finite visible geometry and independent animated rigs'
   const signatures = new Set<string>();
   for (const def of models.values()) {
     const actor = createMonsterActor(def), bound = new THREE.Box3().setFromObject(actor.group), size = bound.getSize(new THREE.Vector3());
-    assert.ok(size.x > .2 && size.y > .3 && size.z > .2 && size.length() < 12, def.id);
+    // Large bosses now have up to 1.6x the original visual extent.
+    assert.ok(size.x > .2 && size.y > .3 && size.z > .2 && size.length() < 19.2, def.id);
     assert.ok([size.x, size.y, size.z].every(Number.isFinite));
     const before = actor.group.children[0].position.y; actor.animate!(.43, true, .5);
     assert.notEqual(actor.group.children[0].position.y, before); assert.equal(actor.group.userData.bodyPlan, def.model);

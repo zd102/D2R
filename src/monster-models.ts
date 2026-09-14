@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { monsterVisualScale } from './actor-size.ts';
 import type { Actor } from './world.ts';
 import type { MonsterDef } from './bestiary.ts';
 import { actorMaterial, contourGeometry, mergeActorParts, plateGeometry } from './actor-modeling.ts';
@@ -418,7 +419,8 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   if (boss) {
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(.1), glow); gem.position.set(0, insect ? 1.12 : 1.22, insect ? .4 : .28); rig.add(gem);
   }
-  group.scale.setScalar(def.scale);
+  group.scale.setScalar(monsterVisualScale(def));
+  group.userData.labelHeight = new THREE.Box3().setFromObject(group).max.y + .25;
   group.userData.bodyPlan = model;
   mergeActorParts(rig);
   const actor: Actor = { group, leftLeg, rightLeg, leftArm, rightArm, kind: def.id, animate(time, moving, attacking) {
