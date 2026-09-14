@@ -44,6 +44,6 @@
 
 装备、符文与金币概率不变。护符尺寸权重为小型 50%、大型 25%、超大型 25%；寻魔不改变护符概率、尺寸、词缀池或词缀档位。概率仍是适合本项目 25 关节奏的独立掉落判定，**不是原版完整 Treasure Class 掉落表**。
 
-本次没有加入其他职业技能、聚气、触发法术、自动修复、自动补充数量、照亮范围、按时段变化词缀；含有未实现效果的复合词缀整条排除，而非保留名称却省略效果。圣骑士盾的原生自动词缀、权杖单项技能、无形装备和珠宝仍属后续范围。中文词缀名作了本地化适配，不是完整官方语言包。
+本次词缀重做时未加入其他职业技能、聚气、触发法术、自动修复、自动补充数量、照亮范围、按时段变化词缀；后续功能以当前对应专题为准。圣骑士盾的原生自动词缀、权杖单项技能、超强与无形现已接入，见 [底材生成规则](base-properties.md)。中文词缀名作了本地化适配，不是完整官方语言包。
 
 核对资料：[官方魔法物品规则](https://classic.battle.net/diablo2exp/items/magic.shtml)、[前缀](https://classic.battle.net/diablo2exp/items/magic/pre.shtml)、[后缀](https://classic.battle.net/diablo2exp/items/magic/suf.shtml)、[小护符](https://classic.battle.net/diablo2exp/items/magic/smallcharms.shtml)、[大型护符](https://classic.battle.net/diablo2exp/items/magic/mediumcharms.shtml)、[超大型护符](https://classic.battle.net/diablo2exp/items/magic/largecharms.shtml)。官网个别旧版通用公式、显示名与真实数据字段不一致时，以固定版本数据及引擎逻辑为准。

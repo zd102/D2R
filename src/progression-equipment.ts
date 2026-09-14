@@ -1,6 +1,7 @@
 import { BASES, isAvailableItem, itemId, makeItem, packItems, placeItems, type Item } from './items.ts';
 import { AREA_LEVELS } from './campaign.ts';
 import type { HeroState } from './model.ts';
+import { rollBaseProperties } from './base-properties.ts';
 
 export type BaseOffer = { id: string; code: string; sockets: number; price: number; sold: boolean };
 export type BaseStock = { difficulty: 0 | 1 | 2; offers: BaseOffer[] };
@@ -44,6 +45,10 @@ export function buyProgressionBase(hero: HeroState, id: string): Item | undefine
   const base = basePool(hero.baseStock.difficulty).find(base => base.baseCode === offer.code);
   if (!base || (base.sockets ?? 0) < offer.sockets) return;
   const item = makeItem(base); item.sockets = offer.sockets;
+  item.level = Math.max(base.level, AREA_LEVELS[hero.baseStock.difficulty][24]);
+  // An offer's native rolls stay stable even if a purchase is retried with a full bag.
+  let seed = [...offer.id].reduce((value, char) => Math.imul(value, 31) + char.charCodeAt(0) | 0, 1);
+  rollBaseProperties(item, () => { seed = Math.imul(seed, 1664525) + 1013904223 | 0; return (seed >>> 0) / 4294967296; }, { ethereal: false });
   if (!packItems([...hero.inventory, item])) return;
   hero.inventory.push(item); placeItems(hero.inventory); hero.gold -= offer.price; offer.sold = true;
   return item;

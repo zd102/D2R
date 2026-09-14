@@ -1,3 +1,4 @@
+import { rollBaseProperties } from './base-properties.ts';
 import { specialPool, specialItem, weightedChoice, slotNames, type Item, type Slot } from './items.ts';
 import { CATALOG_SPECIALS } from './item-catalog-current.ts';
 
@@ -56,5 +57,5 @@ export function rollBossSpecial(profile: BossDropProfile, level: number, difficu
   const pool = bossSpecialPool(profile, level, difficulty);
   if (!pool.length) return undefined;
   const template = weightedChoice(pool, item => (item.dropWeight ?? 1) * (profile.featured.includes(specialKeys.get(item.catalogId!) ?? '') ? 4 : 1), random);
-  const item = specialItem(template.name, random); item.level = level; return item;
+  const item = specialItem(template.name, random); item.level = level; return rollBaseProperties(item, random);
 }

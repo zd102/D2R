@@ -1,4 +1,6 @@
 import { rollPotion } from './potions.ts';
+import { rollBaseProperties, rollBaseQuality } from './base-properties.ts';
+import { affixSocketCap } from './affixes.ts';
 import { playerDropChance } from './player-count.ts';
 import { BASES, RUNE_ORDER, isAvailableItem, makeItem, rollDropKinds, rollItem, specialItem, itemId, weightedChoice, type DropRank, type Item, type RuneId } from './items.ts';
 import { applyAffixes, CHARM_BASES, type CharmSize } from './affixes.ts';
@@ -39,12 +41,14 @@ export function rollCharm(level: number, random = Math.random): Item {
   level = Math.max(1, Math.min(99, Math.floor(level)));
   return applyAffixes({ id: itemId(), name: base.name, base: base.name, slot: 'amulet', rarity: 'magic', power: 0, level, value: 80 + level * 8, mods: {}, identified: false, width: 1, height: base.height, charm: true, charmSize: size }, random);
 }
-export function rollSocketBase(level: number, random = Math.random): Item {
+export function rollSocketBase(level: number, random = Math.random, difficulty = 2): Item {
   level = Math.max(1, Math.min(99, Math.floor(level)));
   const bases = BASES.filter(base => isAvailableItem(base) && !base.charm && !base.jewel && !!base.sockets && (base.qualityLevel ?? base.level) <= level + 3);
   const base = weightedChoice(bases, entry => 1 + (entry.qualityLevel ?? entry.level) / Math.max(1, level), random);
   const item = makeItem(base); item.level = level; item.identified = true;
-  const cap = Math.min(base.sockets!, level < 12 ? 2 : level < 26 ? 3 : level < 41 ? 4 : 6);
+  rollBaseQuality(item, base, random, false);
+  rollBaseProperties(item, random);
+  const cap = Math.min(affixSocketCap(item), [3, 4, 6][difficulty]);
   item.sockets = Math.max(1, 1 + Math.floor(random() * cap));
   return item;
 }
@@ -78,17 +82,16 @@ export function rollLoot(context: LootContext, random = Math.random) {
   const potion = random() < playerDropChance(boss ? .8 : elite ? .65 : champion ? .5 : .30, rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? rollPotion(random) : undefined;
   const treasureClass = profile?.maxTC[difficulty] ?? Math.min(87, Math.ceil((level + 3) / 3) * 3);
   if (flags.equipment) {
-    const roll = random(), quality = rank === 'actBoss' ? .72 + roll * .28 : rank === 'miniboss' ? .45 + roll * .55 : elite ? .38 + roll * .62 : champion ? .33 + roll * .67 : roll;
-    items.push(rollItem(level, quality, rank === 'actBoss' && !!context.firstClear, context.magicFind ?? 0, random, treasureClass));
+    const quality = random();
+    items.push(rollItem(level, quality, rank === 'actBoss' && !!context.firstClear, context.magicFind ?? 0, random, treasureClass, difficulty));
   }
-  if (rank === 'actBoss') items.push(rollItem(level, .72 + random() * .28, false, context.magicFind ?? 0, random, treasureClass));
+  if (rank === 'actBoss') items.push(rollItem(level, random(), false, context.magicFind ?? 0, random, treasureClass, difficulty));
   for (let i = 0; i < extraEquipment; i++) {
-    const floor = rank === 'actBoss' ? .72 : boss ? .45 : .33;
-    items.push(rollItem(level, floor + random() * (1 - floor), false, context.magicFind ?? 0, random, treasureClass));
+    items.push(rollItem(level, random(), false, context.magicFind ?? 0, random, treasureClass, difficulty));
   }
   if (flags.charm) items.push(rollCharm(level, random));
   if (profile) { const special = rollBossSpecial(profile, level, difficulty, context.magicFind ?? 0, random); if (special) items.push(special); }
-  if (cowSocketBase) items.push(rollSocketBase(level, random));
+  if (cowSocketBase) items.push(rollSocketBase(level, random, difficulty));
   if (context.uberDiablo) { const item = specialItem('unique-382', random); item.level = level; items.push(item); }
   return { items, runes, gold, potion };
 }

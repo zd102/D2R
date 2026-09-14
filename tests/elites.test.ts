@@ -44,7 +44,7 @@ test('elites use their own loot and cannot gain Countess, Hellforge, event charm
     assert.equal(drop.runes.length, 1); assert.equal(drop.items.length, 4);
     assert.ok(drop.items.every(item => !['unique-382', 'unique-401'].includes(item.catalogId ?? '')));
     assert.ok(drop.runes.every(rune => runePool(context.level, difficulty, context.act).includes(rune)));
-    assert.equal(drop.items[0].rarity, 'magic');
+    assert.equal(drop.items[0].rarity, 'common'); assert.equal(drop.items[0].baseQuality, 'superior');
     assert.equal(rollLoot(context, () => .99).items.length, 0);
     assert.equal(rollLoot(context, () => .99).runes.length, 0);
     const before = rollLoot(context, rng(18)), after = rollLoot({ ...context, magicFind: 500 }, rng(18));

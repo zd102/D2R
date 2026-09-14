@@ -142,7 +142,7 @@ export function otherClassItemEffects(item: Item) {
 }
 export function unappliedItemEffects(item: Item) {
   const properties = originalItemProperties(item);
-  return properties.filter(property => catalogPropertyStatus(property) === 'inactive').map(([code, param, min, max]) => {
+  return properties.filter(property => catalogPropertyStatus(property) === 'inactive' && !(property[0] === 'ethereal' && item.ethereal)).map(([code, param, min, max]) => {
     const label = inactiveLabels[code.toLowerCase()] ?? code;
     return code.endsWith('-skill') ? `${min}% ${label}：等级 ${max} ${param}` : `${label}${param ? ` · ${param}` : ''}${min || max ? `（${min === max ? min : `${min}–${max}`}）` : ''}`;
   });

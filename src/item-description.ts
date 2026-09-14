@@ -4,11 +4,18 @@ import { MOD_NAMES, itemMods, rangedBase, type Item, type Modifier, type Mods } 
 import { affixRanges, poisonDamage } from './affixes.ts';
 import { unappliedItemEffects, itemTriggers, catalogModifierRanges, otherClassItemEffects } from './item-catalog.ts';
 import { CURSE_NAMES } from './item-effects.ts';
+import { catalogSkill } from './item-effects.ts';
+import { BASE_STAFF_SKILLS } from './base-property-data.ts';
 
 const numeric = (value: number) => String(Math.round(value * 1000) / 1000);
 const interval = (min: number, max: number) => min === max ? numeric(min) : `${numeric(min)} - ${numeric(max)}`;
 export function itemModifierLines(item: Item) {
   const mods = itemMods(item), ranges = { ...catalogModifierRanges(item), ...affixRanges(item) }, lines: { text: string; range?: string }[] = [];
+  if (item.ethereal) lines.push({ text: '无形（无法修复）' });
+  for (const mod of item.staffMods ?? []) if (!catalogSkill(String(mod.skill))) {
+    const skill = BASE_STAFF_SKILLS.find(skill => skill.id === mod.skill);
+    if (skill) lines.push({ text: `+${mod.level} ${skill.name}（未开放职业）` });
+  }
   const hidden = new Set<Modifier>(['poisonMinRate', 'poisonMaxRate', 'poisonFrames']);
   const range = (key: Modifier) => {
     const bounds = ranges[key]; if (!bounds || bounds[0] === bounds[1]) return '';

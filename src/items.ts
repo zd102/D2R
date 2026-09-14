@@ -6,6 +6,8 @@ import { EFFECT_MOD_NAMES } from './item-effects.ts';
 import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, LEGACY_CURATED_SPECIALS } from './item-catalog-current.ts';
 import { RANGED_BASES } from './ranged-data.ts';
 import { CLASSES } from './classes.ts';
+import { baseHasType, baseQualityChance, rollBaseProperties, rollBaseQuality } from './base-properties.ts';
+import { BASE_PROPERTY_BASES } from './base-property-data.ts';
 export const SLOTS = ['helm', 'amulet', 'weapon', 'armor', 'shield', 'gloves', 'ring', 'belt', 'ring2', 'boots'] as const;
 export type Slot = typeof SLOTS[number];
 export type Rarity = 'common' | 'magic' | 'rare' | 'set' | 'unique' | 'runeword' | 'legendary';
@@ -52,6 +54,7 @@ export const RUNES = Object.fromEntries(RUNE_ORDER.map(id => [id, runeData[id]])
 export const runeNumber = (id: RuneId) => `#${RUNE_ORDER.indexOf(id) + 1}`;
 export const runeLabel = (id: RuneId) => `${RUNES[id].name} ${runeNumber(id)}`;
 export type Item = { id: string; name: string; slot: Slot; rarity: Rarity; power: number; level: number; value: number;
+  baseQuality?: 'superior' | 'low'; ethereal?: boolean; basePropertiesVersion?: 1; autoMod?: string; staffMods?: { skill: number; level: number }[]; baseMods?: Mods;
   base?: string; minDamage?: number; maxDamage?: number; smiteMin?: number; smiteMax?: number; block?: number; speed?: number; twoHanded?: boolean;
   requiredLevel?: number; requiredStrength?: number; requiredDexterity?: number; mods?: Mods; durability?: number; maxDurability?: number;
   sockets?: number; runes?: RuneId[]; identified?: boolean; width?: number; height?: number; x?: number; y?: number; setId?: string; charm?: boolean;
@@ -104,14 +107,19 @@ export function isAvailableItem(item: { requiredClass?: string; misc?: boolean }
   return !item.misc && (!item.requiredClass || playableClassCodes.has(item.requiredClass));
 }
 export function weaponType(item: Item) { return BASES.find(base => base.name === (item.base ?? item.name))?.weaponType ?? LEGACY_WEAPON_TYPES[item.base ?? item.name]; }
-export function rangedBase(item: Item | null | undefined) { return item?.slot === 'weapon' ? RANGED_BASES[item.baseCode ?? BASES.find(base => base.name === (item.base ?? item.name))?.baseCode ?? ''] : undefined; }
+export function rangedBase(item: Item | null | undefined) {
+  const base = item?.slot === 'weapon' ? RANGED_BASES[item.baseCode ?? BASES.find(base => base.name === (item.base ?? item.name))?.baseCode ?? ''] : undefined;
+  if (!base || !item || (!item.ethereal && item.baseQuality !== 'low')) return base;
+  const factor = item.ethereal ? 1.5 : .75;
+  return { ...base, min: Math.max(1, Math.floor(base.min * factor)), max: Math.max(1, Math.floor(base.max * factor)) };
+}
 export function maxQuantity(item: Item) { const base = rangedBase(item); return base?.stack ? base.stack + Math.max(0, itemMods(item).extraQuantity ?? 0) : 0; }
 export function quantityLeft(item: Item) { return Math.max(0, Math.min(maxQuantity(item), item.quantity ?? maxQuantity(item))); }
 export function groundItemName(item: Item) {
   const name = item.identified === false
     ? item.base ?? (item.baseCode ? BASES.find(base => base.baseCode === item.baseCode)?.name : undefined) ?? slotNames[item.slot]
     : item.name;
-  return `${name}${item.sockets ? ` [${item.sockets}孔]` : ''}`;
+  return `${name}${item.ethereal ? ' [无形]' : ''}${item.sockets ? ` [${item.sockets}孔]` : ''}`;
 }
 export const itemId = () => globalThis.crypto.randomUUID?.() ?? globalThis.crypto.getRandomValues(new Uint32Array(4)).join('-');
 const eventDifficultyNames = ['普通', '噩梦', '地狱'] as const;
@@ -141,6 +149,8 @@ export function makeItem(base: ItemBase, id: string = itemId()): Item {
 export function addMods(target: Mods, source: Mods | undefined) { for (const key of Object.keys(source ?? {}) as Modifier[]) target[key] = (target[key] ?? 0) + source![key]!; return target; }
 export function itemMods(item: Item): Mods {
   const result = { ...item.mods };
+  const type = BASE_PROPERTY_BASES[item.baseCode ?? BASES.find(base => base.name === (item.base ?? item.name))?.baseCode ?? '']?.type;
+  if (type && baseHasType(type, 'blun')) result.damageUndead = (result.damageUndead ?? 0) + 50;
   if (item.rarity !== 'runeword') for (const rune of item.runes ?? []) addMods(result, RUNES[rune][item.slot === 'weapon' ? 'weapon' : item.slot === 'shield' ? 'shield' : 'armor']);
   for (const jewel of item.socketedJewels ?? []) addMods(result, jewel.mods);
   return result;
@@ -301,24 +311,31 @@ export function migrateCatalogItem(item: Item) {
   }
   return item;
 }
-export function rollItem(level: number, roll = Math.random(), forceUnique = false, magicFind = 0, random = Math.random, treasureClass = 99): Item {
+export function rollItem(level: number, roll = Math.random(), forceUnique = false, magicFind = 0, random = Math.random, treasureClass = 99, difficulty = 2): Item {
   level = Math.max(1, Math.min(99, Math.floor(level)));
   const available = BASES.filter(base => isAvailableItem(base) && !base.charm && (base.qualityLevel ?? base.level) <= level + 3 && Math.ceil((base.qualityLevel ?? base.level) / 3) * 3 <= treasureClass);
   const base = weightedChoice(available, base => ['ring', 'amulet'].includes(base.slot) ? 3 : 1 + 5 * ((base.qualityLevel ?? base.level) / Math.max(1, level)) ** 2, random);
   const item = makeItem(base); item.level = level;
-  const mf = Math.max(0, magicFind), uniqueChance = .02 * (1 + mf * 250 / (mf + 250) / 100), setChance = .035 * (1 + mf * 500 / (mf + 500) / 100);
-  item.rarity = forceUnique || roll > 1 - uniqueChance ? 'unique' : roll > 1 - uniqueChance - setChance ? 'set' : roll > .71 - Math.min(.12, mf / 2500) ? 'rare' : roll > .32 ? 'magic' : 'common';
+  // One uniform draw partitions the same conditional probabilities as sequential rolls.
+  let remaining = Math.max(0, Math.min(1 - Number.EPSILON, 1 - roll));
+  for (const [quality, rarity] of [['Unique', 'unique'], ['Set', 'set'], ['Rare', 'rare'], ['Magic', 'magic']] as const) {
+    const chance = baseQualityChance(base, level, quality, magicFind);
+    if (remaining < chance) { item.rarity = rarity; break; }
+    remaining = (remaining - chance) / (1 - chance);
+  }
+  if (forceUnique) item.rarity = 'unique';
   if (item.rarity === 'unique' || item.rarity === 'set') {
-    const candidates = specialPool(level, item.rarity, treasureClass);
-    if (candidates.length) { const special = specialItem(weightedChoice(candidates, entry => entry.dropWeight ?? 1, random).name, random); special.level = level; return special; }
-    item.rarity = 'rare';
+    const candidates = specialPool(level, item.rarity, treasureClass).filter(entry => forceUnique || entry.baseCode === item.baseCode);
+    if (candidates.length) { const special = specialItem(weightedChoice(candidates, entry => entry.dropWeight ?? 1, random).name, random); special.level = level; return rollBaseProperties(special, random); }
+    if (item.maxDurability) item.durability = item.maxDurability *= item.rarity === 'unique' ? 3 : 2;
+    item.rarity = item.rarity === 'unique' ? 'rare' : 'magic';
   }
   // Jewelry has no base stats or crafting use without affixes, as with chest loot.
   if (item.rarity === 'common' && (base.jewel || ['ring', 'amulet'].includes(base.slot))) item.rarity = 'magic';
-  if (item.rarity !== 'common') return applyAffixes(item, random);
-  if (item.rarity === 'common' && base.sockets && random() < .5) { const maximum = Math.min(base.sockets, level < 12 ? 2 : level < 26 ? 3 : level < 41 ? 4 : 6); item.sockets = 1 + Math.floor(random() * maximum); }
+  if (item.rarity !== 'common') return rollBaseProperties(applyAffixes(item, random), random);
+  rollBaseQuality(item, base, random);
   item.identified = true;
-  return item;
+  return rollBaseProperties(item, random, { sockets: true, difficulty });
 }
 export function weightedChoice<T>(values: T[], weight: (value: T) => number, random = Math.random): T {
   if (!values.length) throw new Error('Empty item pool');

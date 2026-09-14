@@ -166,7 +166,7 @@ export function itemArtwork(item: VisualItem): string {
 
 export function itemVisual(item: VisualItem) {
   const rarity=item.rarity??'common', mark=qualityIcons[rarity];
-  return `<span class="item-visual ${rarity}">${itemArtwork(item)}${mark?`<span class="item-quality-mark" aria-hidden="true"><i data-lucide="${mark}"></i></span>`:''}</span>`;
+  return `<span class="item-visual ${rarity}${item.ethereal ? ' ethereal' : ''}">${itemArtwork(item)}${mark?`<span class="item-quality-mark" aria-hidden="true"><i data-lucide="${mark}"></i></span>`:''}</span>`;
 }
 
 export function runeArtwork(id: RuneId) {

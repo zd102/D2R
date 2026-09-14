@@ -3,6 +3,7 @@ import { playerNoDrop } from './player-count.ts';
 import { CHEST_TREASURES, CHEST_MISC, CHEST_RATIOS, type ChestTreasure } from './chest-data.ts';
 import { CATALOG_BASES } from './item-catalog-data.ts';
 import { BASES, SPECIAL_ITEMS, RUNE_ORDER, makeItem, specialItem, weightedChoice, isAvailableItem, type Item, type RuneId, type ItemBase } from './items.ts';
+import { rollBaseProperties, rollBaseQuality } from './base-properties.ts';
 import { applyAffixes } from './affixes.ts';
 import { AREA_LEVELS, type Level } from './campaign.ts';
 
@@ -53,7 +54,7 @@ export function chestQualityChance(base: ItemBase, level: number, quality: 'uniq
   return Math.min(1, 128 / Math.max(1, chance));
 }
 
-export function chestItem(base: ItemBase, level: number, mf = 0, random = Math.random): Item {
+export function chestItem(base: ItemBase, level: number, mf = 0, random = Math.random, difficulty = 2): Item {
   if (!isAvailableItem(base)) throw new Error(`Unavailable chest base: ${base.name}`);
   const item = makeItem(base); item.level = level;
   for (const quality of ['unique', 'set', 'rare', 'magic'] as const) {
@@ -61,14 +62,14 @@ export function chestItem(base: ItemBase, level: number, mf = 0, random = Math.r
     if (random() >= chestQualityChance(base, level, quality, mf) && !(quality === 'magic' && (base.charm || base.jewel || ['rin', 'amu'].includes(base.baseCode ?? '')))) continue;
     if (quality === 'unique' || quality === 'set') {
       const candidates = SPECIAL_ITEMS.filter(entry => isAvailableItem(entry) && entry.baseCode === base.baseCode && entry.rarity === quality && !entry.eventOnly && (entry.qualityLevel ?? entry.level) <= level);
-      if (candidates.length) { const special = specialItem(weightedChoice(candidates, entry => entry.dropWeight ?? 1, random).name, random); special.level = level; return special; }
+      if (candidates.length) { const special = specialItem(weightedChoice(candidates, entry => entry.dropWeight ?? 1, random).name, random); special.level = level; return rollBaseProperties(special, random); }
       item.rarity = quality === 'unique' && !base.charm ? 'rare' : 'magic';
       if (item.maxDurability) item.durability = item.maxDurability *= quality === 'unique' ? 3 : 2;
     } else item.rarity = quality;
-    return applyAffixes(item, random);
+    return rollBaseProperties(applyAffixes(item, random), random);
   }
-  // Low/superior/ethereal quality is not represented by the current equipment model.
-  item.identified = true; return item;
+  rollBaseQuality(item, base, random);
+  item.identified = true; return rollBaseProperties(item, random, { sockets: true, difficulty });
 }
 
 export function rollChestLoot(context: ChestContext, random = Math.random): ChestDrop[] {
@@ -95,7 +96,7 @@ export function rollChestLoot(context: ChestContext, random = Math.random): Ches
   const gold = selected.reduce((sum, entry) => sum + ('gold' in entry ? entry.gold! : 0), 0);
   if (gold < minimumGold) supplies.push({ gold: minimumGold - gold });
   if (!selected.some(entry => 'potion' in entry)) supplies.push({ potion: integerRoll(2, random) as 0 | 1 });
-  return [...selected.map(entry => 'base' in entry ? { item: chestItem(entry.base!, context.level, context.magicFind, random) } : entry), ...supplies];
+  return [...selected.map(entry => 'base' in entry ? { item: chestItem(entry.base!, context.level, context.magicFind, random, context.difficulty) } : entry), ...supplies];
 }
 
 export function chestContext(level: Level, difficulty: number, magicFind = 0, goldFind = 0): ChestContext {

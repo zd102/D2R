@@ -676,7 +676,7 @@ export class UI {
       if ((!loot.item && !loot.rune) || Math.hypot(loot.x - game.position.x, loot.z - game.position.z) > 15) continue;
       const point = game.project(new THREE.Vector3(loot.x, .5, loot.z)); if (point.x < 40 || point.x > innerWidth - 40 || point.y < 40 || point.y > innerHeight - 130) continue;
       const key = `l${loot.id}`; aliveKeys.add(key); let el = this.labelNodes.get(key);
-      if (!el) { el = document.createElement('button'); el.className = `loot-label ${loot.item?.rarity ?? 'runeword'}`; setText(el, (loot.item ? groundItemName(loot.item) : undefined) ?? `${runeLabel(loot.rune!)}符文`); el.dataset.loot = String(loot.id); this.labels.append(el); this.labelNodes.set(key, el); }
+      if (!el) { el = document.createElement('button'); el.className = `loot-label ${loot.item?.rarity ?? 'runeword'}${loot.item?.ethereal ? ' ethereal' : ''}${loot.item?.sockets ? ' socketed' : ''}`; setText(el, (loot.item ? groundItemName(loot.item) : undefined) ?? `${runeLabel(loot.rune!)}符文`); el.dataset.loot = String(loot.id); this.labels.append(el); this.labelNodes.set(key, el); }
       const viewport = `${innerWidth}:${innerHeight}:${devicePixelRatio}`;
       let size = this.labelSizes.get(el);
       if (!size || size.viewport !== viewport) { el.hidden = false; size = { width: el.offsetWidth, height: el.offsetHeight, viewport }; this.labelSizes.set(el, size); }

@@ -50,7 +50,10 @@ test('all available recipes roll only on completion and include rune bonuses exa
       for (const rune of word.runes) for (const [key, value] of Object.entries(RUNES[rune][item.slot === 'weapon' ? 'weapon' : item.slot === 'shield' ? 'shield' : 'armor'])) expected[key as keyof typeof expected] = (expected[key as keyof typeof expected] ?? 0) + value!;
       const base = makeItem(BASES.find(base => base.name === item.base)!);
       for (const [key, value] of Object.entries(base.mods ?? {})) expected[key as keyof typeof expected] = (expected[key as keyof typeof expected] ?? 0) + value!;
-      assert.deepEqual(item.mods, expected, word.name); assert.deepEqual(itemMods(item), expected, word.name);
+      assert.deepEqual(item.mods, expected, word.name);
+      const innate = itemMods({ ...base, mods: {} });
+      for (const [key, value] of Object.entries(innate)) expected[key as keyof typeof expected] = (expected[key as keyof typeof expected] ?? 0) + value!;
+      assert.deepEqual(itemMods(item), expected, word.name);
       const hero = newHero(); hero.stash = [item]; assert.deepEqual(parseSave(serializeSave(hero))!.stash[0], item, word.name);
     }
   }

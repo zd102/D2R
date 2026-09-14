@@ -8,6 +8,7 @@ import type { CatalogProperty } from './item-catalog-data.ts';
 const skillNames = Object.fromEntries(SKILLS.map(skill => [`skill_${skill.id}`, `${skill.name}（${skill.itemOnly ? '其他职业' : CLASSES[skill.classId ?? 'paladin'].name}）`])) as Record<`skill_${SkillId}`, string>;
 const auraNames = Object.fromEntries(SKILLS.filter(skill=>isAura(skill.id)).map(skill => [`aura_${skill.id}`, `${skill.name}灵气等级（装备赋予）`])) as Record<`aura_${SkillId}`, string>;
 export const EFFECT_MOD_NAMES = {
+  maxDurabilityPercent: '耐久上限 %',
   ...skillNames, ...auraNames,
   necromancerSkills: '死灵法师技能', barbarianSkills: '野蛮人技能', druidSkills: '德鲁伊技能', assassinSkills: '刺客技能',
   ...Object.fromEntries(SKILLS.map(skill => [`oskill_${skill.id}`, `${skill.name}（装备赋予）`])) as Record<`oskill_${SkillId}`, string>,

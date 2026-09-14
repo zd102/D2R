@@ -4,18 +4,19 @@ import { mkdir } from 'node:fs/promises';
 import { newHero, stats, serializeSave } from '../src/model.ts';
 import { enterGame, savedProfile } from './browser-helpers.mjs';
 
-await mkdir('.verification', { recursive: true });
+const output = process.env.OUTPUT_DIR || '.verification';
+await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173', errors = [];
 const page = await browser.newPage({ viewport: { width: 1440, height: 960 } }); page.on('pageerror', error => errors.push(error.message));
 const state = () => page.evaluate(() => window.eclipseState);
 try {
   const hero = newHero(); hero.level = 60; hero.vitality = 300; hero.hp = stats(hero).maxHp; hero.strength = 100; hero.equipment.weapon.minDamage = hero.equipment.weapon.maxDamage = 1500;
-  await page.addInitScript(save => {
-    localStorage.setItem('eclipse-ii-save-v1', save); Math.random = () => .1;
+  await page.addInitScript(({ save, native }) => {
+    localStorage.setItem('eclipse-ii-save-v1', save); Math.random = () => native ? .01 : .1;
     // Keep the combat/drop route reproducible; Math.random does not seed maps.
     crypto.getRandomValues = array => { array.fill(2610388045); return array; };
-  }, serializeSave(hero));
+  }, { save: serializeSave(hero), native: process.env.D2R_NATIVE_LOOT === '1' });
   await page.goto(base); await enterGame(page);
   for (let tries = 0; tries < 80 && (await state()).kills < 6; tries++) {
     const s = await state(), target = s.enemies.filter(enemy => !enemy.boss).sort((a, b) => Math.hypot(a.x - s.position.x, a.z - s.position.z) - Math.hypot(b.x - s.position.x, b.z - s.position.z))[0];
@@ -30,6 +31,7 @@ try {
   }
   await page.keyboard.down('ArrowDown'); await page.waitForTimeout(1000); await page.keyboard.up('ArrowDown');
   const s = await state(); assert.ok(s.kills >= 6); assert.ok(s.loot.some(loot => loot.item)); assert.equal(s.inventory, 0, 'Combat and proximity never collect equipment');
+  if (process.env.D2R_NATIVE_LOOT === '1') await expect(page.locator('.loot-label.common.ethereal').first()).toContainText(/超强.*无形/);
   const distant = s.loot.filter(loot => loot.item && Math.hypot(loot.x - s.position.x, loot.z - s.position.z) > 3.5 && loot.screen.x > 180 && loot.screen.x < 1100 && loot.screen.y > 160 && loot.screen.y < 690)[0];
   assert.ok(distant, 'A distant equipment label is available');
   const rects = await page.locator('.loot-label:visible').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().toJSON()));
@@ -38,7 +40,7 @@ try {
   await page.waitForFunction(id => !window.eclipseState.loot.some(loot => loot.id === id), distant.id);
   assert.equal((await state()).inventory, 1, 'A distant click collects only the selected equipment');
   assert.equal((await savedProfile(page)).hero.inventory.length, 1);
-  await page.screenshot({ path: '.verification/click-pickup-desktop.png' });
+  await page.screenshot({ path: `${output}/click-pickup-desktop.png` });
   await page.setViewportSize({ width: 390, height: 844 });
   const cdp = await page.context().newCDPSession(page); await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
   await expect(page.locator('.loot-label:visible').first()).toBeVisible();
@@ -46,7 +48,7 @@ try {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: touchRect.x + touchRect.width / 2, y: touchRect.y + touchRect.height / 2, id: 1 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await page.waitForFunction(() => window.eclipseState.inventory === 2);
-  await page.screenshot({ path: '.verification/click-pickup-mobile.png' });
+  await page.screenshot({ path: `${output}/click-pickup-mobile.png` });
 
   // Exercise the actual game methods with a controlled world to cover rare movement/storage boundaries.
   const checks = await page.evaluate(async () => {
@@ -77,5 +79,5 @@ try {
   });
   console.log('Click pickup and boundary checks:', checks);
   assert.deepEqual(errors, []);
-} catch (error) { console.log('Failure state:', JSON.stringify(await state())); await page.screenshot({ path: '.verification/loot-pickup-failure.png' }); throw error; }
+} catch (error) { console.log('Failure state:', JSON.stringify(await state())); await page.screenshot({ path: `${output}/loot-pickup-failure.png` }); throw error; }
 finally { await browser.close(); }

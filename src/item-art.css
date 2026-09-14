@@ -82,3 +82,5 @@
   .encyclopedia-recipe { gap: 5px; }
   .encyclopedia-recipe>button { min-width: 50px; }
 }
+.item-visual.ethereal .item-art { opacity: .55; }
+.loot-label.common.ethereal, .loot-label.common.socketed { color: #a9a9a9; }

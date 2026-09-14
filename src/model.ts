@@ -370,8 +370,8 @@ export function sellItem(hero: HeroState, id: string) {
   const index = container.findIndex(item => item.id === id);
   hero.gold += container[index].value; container.splice(index, 1); clampResources(hero); return true;
 }
-export function repairCost(hero: HeroState) { return [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item ? itemCharges(item).reduce((cost, charge) => cost + (charge.maximum - charge.remaining) * Math.max(1, charge.rank * 5), 0) : 0) + (item?.maxDurability ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0), 0); }
-export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item) { if (item.maxDurability) item.durability = item.maxDurability; item.chargesUsed = {}; } return true; }
+export function repairCost(hero: HeroState) { return [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item && !item.ethereal ? itemCharges(item).reduce((cost, charge) => cost + (charge.maximum - charge.remaining) * Math.max(1, charge.rank * 5), 0) : 0) + (item?.maxDurability && !item.ethereal ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0), 0); }
+export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item && !item.ethereal) { if (item.maxDurability) item.durability = item.maxDurability; item.chargesUsed = {}; } return true; }
 export function respec(hero: HeroState) {
   const diff = difficulty(hero); if (!hero.questRewards.includes(`${diff}:shrine0`)) return false;
   const bonus = hero.questRewards.filter(key => /^[0-2]:jungle$/.test(key)).length * 5;
@@ -487,6 +487,11 @@ export function parseItem(value: unknown): Item | null {
   if (typeof item.id !== 'string' || item.id.length > 80 || !item.id || typeof item.name !== 'string' || item.name.length > 60 || !SLOTS.includes(item.slot) || !['common', 'magic', 'rare', 'set', 'unique', 'runeword', 'legendary'].includes(item.rarity)) return null;
   if (!['power', 'level', 'value'].every(key => typeof item[key] === 'number' && Number.isFinite(item[key]) && item[key] >= 0 && item[key] <= 1000000)) return null;
   const result: Item = { id: item.id, name: item.name, slot: item.slot, rarity: item.rarity, power: item.power, level: item.level, value: item.value };
+  if (item.baseQuality === 'superior' || item.baseQuality === 'low') result.baseQuality = item.baseQuality;
+  if (typeof item.ethereal === 'boolean') result.ethereal = item.ethereal;
+  if (item.basePropertiesVersion === 1) result.basePropertiesVersion = 1;
+  if (typeof item.autoMod === 'string' && /^\d{1,4}$/.test(item.autoMod)) result.autoMod = item.autoMod;
+  if (Array.isArray(item.staffMods)) result.staffMods = item.staffMods.filter((mod: any) => mod && Number.isInteger(mod.skill) && mod.skill >= 0 && mod.skill < 1000 && Number.isInteger(mod.level) && mod.level >= 1 && mod.level <= 3).slice(0, 3).map((mod: any) => ({ skill: mod.skill, level: mod.level }));
   for (const key of ['base', 'setId', 'baseCode', 'catalogId'] as const) if (typeof item[key] === 'string' && item[key].length <= 60) result[key] = item[key];
   if (typeof item.requiredClass === 'string' && Object.hasOwn(CLASS_NAMES, item.requiredClass)) result.requiredClass = item.requiredClass;
   for (const key of ['minDamage', 'maxDamage', 'smiteMin', 'smiteMax', 'block', 'requiredLevel', 'requiredStrength', 'requiredDexterity', 'durability', 'maxDurability'] as const) if (item[key] !== undefined) result[key] = decimal(item[key], 0, 0, 10000);
@@ -502,6 +507,7 @@ export function parseItem(value: unknown): Item | null {
   if (item.catalogVersion === 1 || item.catalogVersion === 2) result.catalogVersion = item.catalogVersion;
   if (Array.isArray(item.catalogRolls)) result.catalogRolls = parseCatalogRolls(item.catalogRolls);
   if (item.mods && typeof item.mods === 'object') { result.mods = {}; for (const key of Object.keys(MOD_NAMES) as Modifier[]) if (item.mods[key] !== undefined) result.mods[key] = decimal(item.mods[key], 0, -1000, ['poisonMinRate', 'poisonMaxRate', 'poisonFrames'].includes(key) ? 65535 : 1000); }
+  if (item.baseMods && typeof item.baseMods === 'object') { result.baseMods = {}; for (const key of Object.keys(MOD_NAMES) as Modifier[]) if (item.baseMods[key] !== undefined) result.baseMods[key] = decimal(item.baseMods[key], 0, -1000, ['poisonMinRate', 'poisonMaxRate', 'poisonFrames'].includes(key) ? 65535 : 1000); }
   if (item.chargesUsed && typeof item.chargesUsed === 'object' && !Array.isArray(item.chargesUsed)) { result.chargesUsed = {}; for (const [key, used] of Object.entries(item.chargesUsed).slice(0, 32)) if (/^\d+:[a-zA-Z]+:\d+$/.test(key)) result.chargesUsed[key] = integer(used, 0, 0, 10000); }
   if (item.sockets !== undefined) result.sockets = integer(item.sockets, 0, 0, 6);
   if (Array.isArray(item.runes)) result.runes = item.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)).slice(0, result.sockets ?? 0);
