@@ -12,6 +12,10 @@ export type LootContext = { players?: number; level: number; act: number; diffic
 const EXTRA_EQUIPMENT_CHANCES: Record<DropRank, readonly number[]> = {
   monster: [], champion: [.12], elite: [.30, .15], miniboss: [.55, .35], actBoss: [.55, .30],
 };
+// Rank bonuses apply to regular equipment quality, using the existing MF diminishing returns.
+const EQUIPMENT_MAGIC_FIND_BONUS: Record<DropRank, number> = {
+  monster: 0, champion: 0, elite: 100, miniboss: 200, actBoss: 300,
+};
 const COW_BONUS = { socketBase: .20, rune: .20 };
 const RUNE_MIN_LEVEL = [1, 1, 3, 4, 6, 8, 10, 12, 14, 17, 20, 24, 27, 30, 32, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 80, 81];
 const runeDistributions = new Map<number, { rune: RuneId; weight: number }[]>();
@@ -81,13 +85,14 @@ export function rollLoot(context: LootContext, random = Math.random) {
   const gold = Math.round((10 + level * 2 + random() * 14) * (boss ? 4 : elite ? 2.4 : champion ? 1.6 : 1) * (1 + (context.goldFind ?? 0) / 100));
   const potion = random() < playerDropChance(boss ? .8 : elite ? .65 : champion ? .5 : .30, rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? rollPotion(random) : undefined;
   const treasureClass = profile?.maxTC[difficulty] ?? Math.min(87, Math.ceil((level + 3) / 3) * 3);
+  const equipmentMagicFind = Math.max(0, context.magicFind ?? 0) + EQUIPMENT_MAGIC_FIND_BONUS[rank];
   if (flags.equipment) {
     const quality = random();
-    items.push(rollItem(level, quality, rank === 'actBoss' && !!context.firstClear, context.magicFind ?? 0, random, treasureClass, difficulty));
+    items.push(rollItem(level, quality, rank === 'actBoss' && !!context.firstClear, equipmentMagicFind, random, treasureClass, difficulty));
   }
-  if (rank === 'actBoss') items.push(rollItem(level, random(), false, context.magicFind ?? 0, random, treasureClass, difficulty));
+  if (rank === 'actBoss') items.push(rollItem(level, random(), false, equipmentMagicFind, random, treasureClass, difficulty));
   for (let i = 0; i < extraEquipment; i++) {
-    items.push(rollItem(level, random(), false, context.magicFind ?? 0, random, treasureClass, difficulty));
+    items.push(rollItem(level, random(), false, equipmentMagicFind, random, treasureClass, difficulty));
   }
   if (flags.charm) items.push(rollCharm(level, random));
   if (profile) { const special = rollBossSpecial(profile, level, difficulty, context.magicFind ?? 0, random); if (special) items.push(special); }

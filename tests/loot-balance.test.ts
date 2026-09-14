@@ -6,6 +6,30 @@ import { BOSS_DROP_PROFILES } from '../src/boss-loot.ts';
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const context = { level: 85, act: 4, difficulty: 0 };
 
+test('elite and boss equipment quality improves by rank and stacks with player MF without changing other rewards', () => {
+  const rates: number[] = [];
+  for (const rank of ['monster', 'elite', 'miniboss', 'actBoss'] as const) {
+    let equipment = 0, uncommon = 0, rareOrBetter = 0, mfUncommon = 0;
+    for (let seed = 1; seed <= 2500; seed++) {
+      const input = { ...context, rank, difficulty: 2 };
+      const drop = rollLoot(input, seeded(seed * 7919));
+      const mf = rollLoot({ ...input, magicFind: 300 }, seeded(seed * 7919));
+      assert.deepEqual(drop.runes, mf.runes);
+      assert.equal(drop.gold, mf.gold); assert.equal(drop.potion, mf.potion);
+      const items = drop.items.filter(item => !item.charm), mfItems = mf.items.filter(item => !item.charm);
+      assert.equal(items.length, mfItems.length);
+      equipment += items.length;
+      uncommon += items.filter(item => item.rarity !== 'common').length;
+      rareOrBetter += items.filter(item => ['rare', 'set', 'unique'].includes(item.rarity)).length;
+      mfUncommon += mfItems.filter(item => item.rarity !== 'common').length;
+    }
+    rates.push(uncommon / equipment);
+    assert.ok(mfUncommon > uncommon, `${rank}: player MF still improves equipment`);
+    assert.ok(rareOrBetter > 0, `${rank}: rare and special equipment remains available`);
+  }
+  for (let i = 1; i < rates.length; i++) assert.ok(rates[i] > rates[i - 1] + .03, JSON.stringify(rates));
+});
+
 test('regular equipment reaches the new caps and act bosses keep two guaranteed items at every difficulty and PP', () => {
   for (const difficulty of [0, 1, 2]) for (const players of [1, 8]) {
     for (const [rank, cap] of [['monster', 1], ['champion', 2], ['elite', 3], ['miniboss', 3], ['actBoss', 4]] as const) {
