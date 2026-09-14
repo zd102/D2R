@@ -18,7 +18,7 @@ import { isUndead, leechEffectiveness } from './bestiary.ts';
 import { playerLifeFactor } from './player-count.ts';
 
 export type MercenaryAlly = { id: 'mercenary'; actor: Actor; hp: number };
-export const MERCENARY_PURSUIT = { speed: 12, catchUpSpeed: 16, searchRadius: 24, leash: 28, regroupDistance: 36, scanInterval: .12, repathInterval: .18, retryDelay: .8, reach: 2.1 } as const;
+export const MERCENARY_PURSUIT = { speed: 8, catchUpSpeed: 16, searchRadius: 8, leash: 10, regroupDistance: 36, scanInterval: .12, repathInterval: .18, retryDelay: .8, reach: 2.1 } as const;
 export class MercenaryCombat {
   readonly game: Game;
   ally?: MercenaryAlly;
@@ -140,7 +140,7 @@ export class MercenaryCombat {
     if (target && this.target === target && this.canStrike(target) && this.timer <= 0) {
       const direction = destination.clone().sub(point); ally.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
       if (!this.strikes) this.strikes = MERCENARY_JAB.hits;
-      this.strike(target); this.strikes--; this.timer = this.strikes ? Math.max(MERCENARY_JAB.chainDelay, s.attackFrames / 75) : Math.max(MERCENARY_JAB.recovery, s.attackFrames / 40);
+      this.strike(target); this.strikes--; this.timer = this.strikes ? Math.max(.1, MERCENARY_JAB.chainDelay * s.attackFrames / 15) : Math.max(.45, MERCENARY_JAB.recovery * s.attackFrames / 15);
       this.swing = 1; this.attacks++; playHeroAction(ally.actor, 'thrust', g.time, .3);
     }
     animateActor(ally.actor, g.time, moving, this.swing);
@@ -190,6 +190,8 @@ export class MercenaryCombat {
     if (source && type === 'physical' && Math.random() * 100 >= hitChance(g.monsterCombat?.accuracy?.(source) ?? source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, g.hero.level)) return;
     const curse = source && g.combat.itemCurses.get(source)?.kind;
     if (type === 'physical') amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : 1;
+    // Act bosses pressure an unsupported guard; ordinary packs keep his tank role.
+    if (source?.boss && source.definition?.hpByDifficulty) amount *= 1.5;
     const parts = source ? g.monsterCombat?.damageParts?.(source, amount, type, spec) ?? [{ amount, type }] : [{ amount, type }];
     let damage = 0;
     for (const part of parts) {

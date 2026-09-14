@@ -1,7 +1,7 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { mercenaryAuraValues, mercenaryAuraRank, MERCENARY_AURAS } from '../src/mercenary-auras.ts';
-import { hireMercenary, mercenaryStats, mercenaryAuras, setMercenaryDistance } from '../src/mercenary.ts';
+import { hireMercenary, mercenaryStats, mercenaryAuras, mercenaryBase, setMercenaryDistance } from '../src/mercenary.ts';
 import { newHero, stats } from '../src/model.ts';
 import { skillValues, emptySkills } from '../src/paladin.ts';
 import { makeItem, BASES } from '../src/items.ts';
@@ -16,8 +16,8 @@ function combatFixture(t: TestContext, level = 90) {
 
 test('native auras grow throughout levels 1–99 with bounded regeneration, control, retaliation and range', () => {
   for (let level = 1; level <= 99; level++) {
-    const prayer = mercenaryAuraValues('prayer', level), life = 100 + 18 * level;
-    assert.ok(prayer.healing / life >= .015 && prayer.healing / life <= .032);
+    const prayer = mercenaryAuraValues('prayer', level), life = mercenaryBase(level).life;
+    assert.ok(prayer.healing / life >= .007 && prayer.healing / life <= .017);
     for (const aura of MERCENARY_AURAS) {
       const v = mercenaryAuraValues(aura, level), boosted = mercenaryAuraValues(aura, level, 1000);
       assert.ok(v.rank <= 20 && boosted.rank <= 30); assert.ok(v.radius >= 5 && v.radius <= 20 && boosted.radius <= 20);
@@ -39,7 +39,7 @@ test('same-name auras select actual stronger effects rather than comparing diffe
   const h = newHero(); h.level = 90; h.gold = 100000; h.campaign.cleared[0] = 5; hireMercenary(h, true);
   h.skills.prayer = 20; h.activeAura = 'prayer';
   const nativeHeal = mercenaryAuraValues('prayer', 90).healing;
-  assert.ok(nativeHeal > skillValues('prayer', 20, emptySkills()).healing); assert.equal(stats(h).auras.find(aura => aura.id === 'prayer')!.healing, nativeHeal);
+  assert.equal(stats(h).auras.find(aura => aura.id === 'prayer')!.healing, Math.max(nativeHeal, skillValues('prayer', 20, emptySkills()).healing));
   h.mercenary!.aura = 'might'; h.skills.might = 15; h.activeAura = 'might';
   assert.equal(stats(h).auras.filter(aura => aura.id === 'might').length, 1); assert.equal(stats(h).auras.find(aura => aura.id === 'might')!.damage, skillValues('might', 15).damage);
   h.mercenary!.equipment.weapon = makeItem(BASES.find(base => base.baseCode === 'vou')!); h.mercenary!.equipment.weapon!.mods = { aura_might: 20, allSkills: 2 };

@@ -40,7 +40,7 @@ test('Duriel’s Shell grants per-level life, armor, elemental resistance and Ca
   const f = fixture(t), before = mercenaryStats(f.hero), player = stats(f.hero); f.unique('unique-217');
   const after = mercenaryStats(f.hero);
   assert.equal(after.maxHp - before.maxHp, 90); assert.ok(after.defense > before.defense + 500);
-  assert.equal(after.resistances.fire - before.resistances.fire, 20); assert.equal(after.resistances.cold - before.resistances.cold, 50);
+  assert.equal(after.resistances.fire - before.resistances.fire, 20); assert.equal(after.resistances.cold, Math.min(after.maxResistances.cold, before.resistances.cold + 50));
   f.hero.mercenary!.hp = after.maxHp; f.merc.hurt(100, 'cold'); const protectedLoss = after.maxHp - f.hero.mercenary!.hp; assert.equal(f.hero.mercenary!.cold, 0);
   assert.equal(stats(f.hero).maxHp, player.maxHp); assert.ok(unequipMercenary(f.hero, 'armor'));
   f.hero.mercenary!.hp = before.maxHp; f.merc.hurt(100, 'cold'); assert.ok(before.maxHp - f.hero.mercenary!.hp > protectedLoss); assert.ok(f.hero.mercenary!.cold > 0);
@@ -62,6 +62,18 @@ test('crafted Insight grants actual critical strikes and party mana regeneration
   const mod = weapon.mods!.grantedCriticalStrike; weapon.mods!.grantedCriticalStrike = 0; const normal = f.damage(); weapon.mods!.grantedCriticalStrike = mod;
   const critical = f.damage(); assert.ok(critical > normal * 1.6);
   assert.ok(unequipMercenary(f.hero, 'weapon')); assert.equal(stats(f.hero).manaRegen, playerRegen);
+});
+
+test('Guillaume’s Face keeps crushing blow and deadly strike effective despite low native damage', t => {
+  const f = fixture(t), helm = f.unique('set-105'), mods = helm.mods!;
+  const crushing = mods.crushingBlow, deadly = mods.deadlyStrike;
+  assert.ok(crushing! > 0 && deadly! > 0);
+  mods.crushingBlow = 0; mods.deadlyStrike = 0; const ordinary = f.damage();
+  mods.deadlyStrike = deadly; const critical = f.damage();
+  assert.ok(Math.abs(critical - ordinary * 2) <= 1);
+  mods.crushingBlow = crushing; const crushingHit = f.damage();
+  assert.equal(crushingHit - critical, f.target.maxHp / 4);
+  assert.ok(unequipMercenary(f.hero, 'helm')); assert.equal(f.damage(), ordinary);
 });
 
 test('attack rating, Jab and Blessed Aim add percentages and include demon-specific equipment accuracy', t => {

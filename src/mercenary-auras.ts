@@ -1,4 +1,5 @@
 import { emptySkills, skillValues, type SkillId, type SkillValues } from './paladin.ts';
+import { mercenaryBase } from './mercenary-balance.ts';
 
 export const MERCENARY_AURAS = ['prayer', 'defiance', 'blessedAim', 'might', 'holyFreeze', 'thorns'] as const;
 export type MercenaryAura = typeof MERCENARY_AURAS[number];
@@ -12,15 +13,15 @@ export function mercenaryAuraValues(id: MercenaryAura, level: number, allSkills 
   const values = skillValues(id, rank, emptySkills());
   values.cost = 0; values.radius = Math.min(20, 10 + rank * .4);
   switch (id) {
-    case 'prayer': values.healing = Math.round((100 + 18 * level) * (.018 + rank * .0006)); break;
+    case 'prayer': values.healing = Math.max(1, Math.round(mercenaryBase(level).life * (.01 + rank * .0002))); break;
     case 'defiance': values.percent = 60 + 8 * rank; break;
     case 'blessedAim': values.attack = 50 + 10 * rank; break;
     case 'might': values.damage = 25 + 7 * rank; break;
     case 'holyFreeze':
       values.percent = Math.min(45, Math.round(18 + rank * .9));
-      values.min = Math.round(1.5 + level * .3 + rank * .65); values.max = Math.ceil(values.min * 1.3);
-      values.radius = Math.min(14, 5 + rank * .3); values.secondary = 2.5; break;
-    case 'thorns': values.percent = 70 + 10 * rank; values.secondary = Math.round(level * .6 + rank * 2); break;
+      values.min = Math.round(1.5 + level * .12 + rank * .4); values.max = Math.ceil(values.min * 1.3);
+      values.radius = Math.min(14, 5 + rank * .3); values.secondary = 1.5; break;
+    case 'thorns': values.percent = 70 + 10 * rank; values.secondary = Math.round(level * .2 + rank * .75); break;
   }
   return { id, rank, ...values };
 }

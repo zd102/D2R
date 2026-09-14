@@ -9,6 +9,7 @@ import { clearShot } from '../src/ranged.ts';
 import { newHero } from '../src/model.ts';
 import { hireMercenary } from '../src/mercenary.ts';
 import { MercenaryCombat } from '../src/mercenary-combat.ts';
+import { BASES, makeItem } from '../src/items.ts';
 import type { Game, Enemy } from '../src/game.ts';
 
 function fixture(t: TestContext) {
@@ -32,14 +33,17 @@ function fixture(t: TestContext) {
   return { game, world, merc, hits, enemy, block, step };
 }
 
-test('mercenary acquires a foe 20 units away and closes to attack in under two seconds', t => {
-  const f = fixture(t), enemy = f.enemy(1, 20); f.step(1.7);
+test('mercenary guards nearby enemies but never acquires distant packs, even when selected', t => {
+  const f = fixture(t), remote = f.enemy(1, 20); f.game.target = remote; f.step(2);
+  assert.equal(f.merc.target, undefined); assert.equal(f.hits.length, 0); assert.equal(f.merc.position!.x, 0);
+  const enemy = f.enemy(2, 7); f.step(1.5);
   assert.ok(f.hits.includes(enemy.id)); assert.ok(f.merc.position!.distanceTo(enemy.actor.group.position) <= 2.1);
-  assert.ok(f.merc.position!.x > 17, 'The mercenary pursues beyond the old teleport tether');
+  enemy.dead = true; f.step(2); assert.ok(!f.hits.includes(remote.id));
+  assert.ok(f.merc.position!.distanceTo(f.game.position) <= 1.8);
 });
 
 test('mercenary routes around a wall to unseen enemies and never stabs through it', t => {
-  const f = fixture(t), enemy = f.enemy(1, 10); for (let z = -4; z <= 4; z++) f.block(4, z);
+  const f = fixture(t), enemy = f.enemy(1, 7); for (let z = -3; z <= 3; z++) f.block(3, z);
   assert.equal(clearShot(f.world.grid, f.merc.position!, enemy.actor.group.position), false);
   f.step(.5); assert.equal(f.hits.length, 0); assert.equal(f.merc.target, enemy);
   f.step(2.5); assert.ok(f.hits.length > 0); assert.ok(clearShot(f.world.grid, f.merc.position!, enemy.actor.group.position));
@@ -47,25 +51,39 @@ test('mercenary routes around a wall to unseen enemies and never stabs through i
 
 test('unreachable preferred targets cannot block reachable foes or trigger A* every frame', t => {
   const f = fixture(t); for (let z = -64; z <= 64; z++) f.block(3, z);
-  const sealed = f.enemy(1, 6), reachable = f.enemy(2, -12); f.game.target = sealed;
+  const sealed = f.enemy(1, 6), reachable = f.enemy(2, -6); f.game.target = sealed;
   const path = t.mock.method(f.world, 'path'); f.step(1.2);
   assert.ok(f.hits.includes(reachable.id)); assert.ok(!f.hits.includes(sealed.id));
   assert.ok(path.mock.callCount() <= 4, `Unreachable searches are throttled (${path.mock.callCount()})`);
 });
 
 test('mercenary assists the selected enemy and immediately replaces dead or converted targets', t => {
-  const f = fixture(t), near = f.enemy(1, 6), selected = f.enemy(2, 18), converted = f.enemy(3, 1); converted.converted = 10;
+  const f = fixture(t), near = f.enemy(1, 6), selected = f.enemy(2, 8), converted = f.enemy(3, 1); converted.converted = 10;
   f.game.target = selected; f.step(1 / 60); assert.equal(f.merc.target, selected);
   selected.dead = true; f.step(1 / 60); assert.equal(f.merc.target, near);
   near.converted = 10; f.step(1 / 60); assert.equal(f.merc.target, undefined); assert.equal(f.hits.length, 0);
 });
 
-test('close-range jab chains attack faster while remote targets and town never trigger combat', t => {
+test('close-range jab leaves recovery time while remote targets and town never trigger combat', t => {
   // Allow a full second plus one recovery-frame margin: exact one-second samples
   // can land before the fourth hit when the attack-frame cadence rounds upward.
   const f = fixture(t); const near = f.enemy(1, 1.6); f.step(1.3);
   assert.ok(f.hits.length >= 4); near.dead = true; f.enemy(2, 29); f.step(.2); assert.equal(f.merc.target, undefined);
   const count = f.hits.length; f.game.inCamp = true; f.enemy(3, 1); f.step(.5); assert.equal(f.hits.length, count);
+});
+
+test('player retreat breaks pursuit instead of letting the guard clear successive packs', t => {
+  const f = fixture(t), near = f.enemy(1, 7); f.step(.5); assert.equal(f.merc.target, near);
+  f.game.position.x = -6; f.step(2);
+  assert.equal(f.merc.target, undefined); assert.equal(f.hits.length, 0);
+  assert.ok(f.merc.position!.distanceTo(f.game.position) <= 1.8);
+});
+
+test('weapon attack speed improves sustained Jab throughput without removing recovery', t => {
+  const f = fixture(t); f.enemy(1, 1.6); f.step(10); const normal = f.hits.length;
+  const spear = makeItem(BASES.find(base => base.baseCode === 'spr')!); spear.mods = { ias: 75 }; spear.speed = 0;
+  f.game.hero.mercenary!.equipment.weapon = spear; f.merc.timer = 0; f.merc.strikes = 0; f.hits.length = 0;
+  f.step(10); assert.ok(f.hits.length > normal * 1.2); assert.ok(f.hits.length < normal * 2);
 });
 
 test('following catches up at 16 units per second and player teleport regroups the mercenary', t => {
