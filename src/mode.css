@@ -7,3 +7,4 @@
 @media(max-width:520px){.mode-page{padding:16px}.mode-card{padding:26px 20px}.mode-card h1{font-size:25px}}
 
 .mode-card .remember-login{display:flex;align-items:center;gap:10px;cursor:pointer;line-height:1.6}.mode-card .remember-login input{width:18px;height:18px;padding:0;flex:none;accent-color:#d6b876}
+.recovery-card{box-sizing:border-box}.recovery-card button,.recovery-card a{display:block;box-sizing:border-box;width:100%;margin:12px 0;padding:12px;border:1px solid #807050;background:#172128;color:#ead8ae;border-radius:4px;overflow-wrap:anywhere;cursor:pointer;font:inherit}.recovery-card [role=alert]{color:#ffb3a3}
