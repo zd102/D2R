@@ -6,7 +6,8 @@ import { BASES, makeItem } from '../src/items.ts';
 import { LAST_PROFILE_KEY, PROFILE_PREFIX } from '../src/saves.ts';
 import { enterGame, savedProfile } from './browser-helpers.mjs';
 
-await mkdir('.verification', { recursive: true });
+const output = process.env.OUTPUT_DIR || '.verification';
+await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const hero = newHero();
@@ -39,13 +40,13 @@ try {
   await page.locator('[data-item="blocker"]').click(); assert.equal(await page.locator('.item-details h3').textContent(), hero.inventory[1].name, 'Click still selects details');
   await dragTo(page, 'drag-sword', 7, 1, 1.5, 2.5);
   await expect(page.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'true');
-  await page.screenshot({ path: '.verification/inventory-drag-desktop.png' }); await page.mouse.up();
+  await page.screenshot({ path: `${output}/inventory-drag-desktop.png` }); await page.mouse.up();
   assert.deepEqual(await position(page, 'inventory', 'drag-sword'), { x: 7, y: 1 }); assert.deepEqual(await position(page, 'inventory', 'blocker'), { x: 4, y: 0 });
   assert.equal(await page.locator('.item-drag-ghost').count(), 0);
   const beforeInvalid = await savedProfile(page);
   await dragTo(page, 'drag-sword', 3, 0);
   await expect(page.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'false');
-  await page.screenshot({ path: '.verification/inventory-drag-invalid.png' }); await page.mouse.up();
+  await page.screenshot({ path: `${output}/inventory-drag-invalid.png` }); await page.mouse.up();
   assert.deepEqual(await savedProfile(page), beforeInvalid, 'Occupied drop has no mutation or extra save');
   await dragTo(page, 'drag-sword', 9, 1); await expect(page.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'false'); await page.mouse.up();
   assert.deepEqual(await savedProfile(page), beforeInvalid, 'Overflowing footprint stays in place');
@@ -66,7 +67,7 @@ try {
   await page.locator('[data-bag-view="stash"]').click();
   await dragTo(page, 'drag-armor', 8, 7); await expect(page.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'true'); await page.mouse.up();
   assert.deepEqual(await position(page, 'stash', 'drag-armor'), { x: 8, y: 7 });
-  await page.screenshot({ path: '.verification/stash-drag-desktop.png' });
+  await page.screenshot({ path: `${output}/stash-drag-desktop.png` });
   await page.reload(); await enterGame(page); await page.keyboard.press('i');
   assert.deepEqual(await position(page, 'inventory', 'drag-sword'), { x: 6, y: 1 }); await page.locator('[data-bag-view="stash"]').click();
   assert.equal(await page.locator('[data-item="drag-armor"]').evaluate(el => el.style.gridRowStart), '8');
@@ -89,7 +90,7 @@ try {
   let g = await grid(mobile);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: g.x + .5 * g.cell, y: g.y + .5 * g.row, id: 1 }] });
   for (let step = 1; step <= 8; step++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: g.x + (.5 + 7 * step / 8) * g.cell, y: g.y + (.5 + step / 8) * g.row, id: 1 }] });
-  await expect(mobile.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'true'); await mobile.screenshot({ path: '.verification/inventory-drag-mobile.png' });
+  await expect(mobile.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'true'); await mobile.screenshot({ path: `${output}/inventory-drag-mobile.png` });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   assert.deepEqual(await position(mobile, 'inventory', 'drag-sword'), { x: 7, y: 1 });
   await mobile.locator('[data-bag-view="stash"]').tap(); await mobile.locator('[data-item="drag-armor"]').scrollIntoViewIfNeeded();
@@ -114,7 +115,7 @@ try {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   assert.deepEqual(await position(mobile, 'stash', 'drag-armor'), { x: 8, y: 7 });
   assert.equal(await mobile.locator('.panel').evaluate(el => el.scrollTop), 0, 'header stays fixed when placing items');
-  await mobile.screenshot({ path: '.verification/stash-drag-mobile.png' });
+  await mobile.screenshot({ path: `${output}/stash-drag-mobile.png` });
   assert.equal(await mobile.locator('.panel').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
   await mobile.close(); console.log('Real touch dragging, stash, cancellation, edge scrolling and mobile layout passed');
   const tall = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
@@ -131,6 +132,6 @@ try {
   await tall.close();
   assert.deepEqual(errors, []);
 } catch (error) {
-  for (const [index, context] of browser.contexts().entries()) for (const page of context.pages()) await page.screenshot({ path: `.verification/inventory-drag-failure-${index}.png` }).catch(() => {});
+  for (const [index, context] of browser.contexts().entries()) for (const page of context.pages()) await page.screenshot({ path: `${output}/inventory-drag-failure-${index}.png` }).catch(() => {});
   throw error;
 } finally { await browser.close(); }

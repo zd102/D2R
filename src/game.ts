@@ -1,4 +1,7 @@
 import { parsePlayerCount, type PlayerCount } from './player-count';
+import { onlineStore, returnToMode } from './mode';
+import { OnlineSaveStore, OnlineSaveCoordinator } from './online-saves';
+import { OnlineError } from './online-client';
 import * as THREE from 'three';
 import { cycleDialogFocus } from './ui-components';
 import type * as CANNON from 'cannon-es';
@@ -117,7 +120,13 @@ export class Game {
   frameId = 0;
   nextId = 0;
   storageAvailable = true;
-  saves?: SaveStore;
+  saves?: SaveStore | OnlineSaveStore;
+  online = onlineStore;
+  private onlineSaves?: OnlineSaveCoordinator;
+  private onlineOperation = false;
+  onlineState: 'ready' | 'offline' | 'expired' = 'ready';
+  private onlineOverlay?: HTMLElement;
+  get onlineSaveBusy() { return this.onlineOperation || !!this.onlineSaves?.busy; }
   profile?: SavedProfile;
   profileNotice = '';
   saveConflict = false;
@@ -126,8 +135,11 @@ export class Game {
     try { this.movementMode = parseMovementMode(localStorage.getItem(MOVEMENT_MODE_KEY)); } catch { /* Use mouse controls when settings storage is unavailable. */ }
     this.hero = newHero();
     try {
-      this.saves = new SaveStore(localStorage);
-      if (this.saves.migrateLegacy()) this.profileNotice = '原有旅程已迁移为独立角色，旧存档已保留。';
+      if (this.online) this.saves = this.online;
+      else {
+        this.saves = new SaveStore(localStorage);
+        if (this.saves.migrateLegacy()) this.profileNotice = '原有旅程已迁移为独立角色，旧存档已保留。';
+      }
     } catch (error) {
       this.storageAvailable = error instanceof SaveError;
       this.profileNotice = error instanceof SaveError ? error.message : '本地存储不可用，暂时无法创建或载入角色。';
@@ -158,6 +170,7 @@ export class Game {
     window.addEventListener('pagehide', event => { this.save(false); if (event.persisted) this.audio.setHidden(true); else this.audio.dispose(); });
     window.addEventListener('pageshow', () => this.audio.setHidden(document.hidden));
     window.addEventListener('storage', async event => {
+      if (this.online) return;
       if (event.key !== null && event.key !== SHARED_STASH_KEY && !event.key.startsWith(PROFILE_PREFIX)) return;
       if (event.key === null || event.key === SHARED_STASH_KEY) await refreshSharedStorage();
       if (!this.profile) {
@@ -171,7 +184,94 @@ export class Game {
       } catch { /* A removed or damaged record must not be recreated by autosave. */ }
       this.saveConflict = true; this.ui.openPanel('save-conflict');
     });
+    if (this.online) this.setupOnline();
     this.loop();
+  }
+  private setupOnline() {
+    const store = this.online!;
+    this.onlineSaves = new OnlineSaveCoordinator(store);
+    this.onlineSaves.onSaved = profile => {
+      if (this.profile?.id === profile.id) this.profile = profile;
+      this.storageAvailable = true;
+    };
+    this.onlineSaves.onError = error => this.setOnlineState('expired', error instanceof Error ? error.message : '在线存档无法保存，请重新登录。');
+    const overlay = document.createElement('div'); overlay.className = 'online-status'; overlay.hidden = true;
+    overlay.innerHTML = '<section role="alertdialog" aria-modal="true" aria-labelledby="online-state-title"><h2 id="online-state-title">连接已中断</h2><p id="online-state-message"></p><p>服务器保留最后一次成功保存的进度。</p><button class="primary-button" id="online-relogin">重新登录</button><button class="secondary-button" id="online-mode-return">返回模式选择</button></section>';
+    document.body.appendChild(overlay); this.onlineOverlay = overlay;
+    overlay.addEventListener('keydown', event => {
+      if (event.key === 'Tab') { event.preventDefault(); cycleDialogFocus(overlay, event.shiftKey); }
+      event.stopPropagation();
+    });
+    overlay.querySelector('#online-relogin')!.addEventListener('click', () => { store.client.dispose(); returnToMode('online'); });
+    overlay.querySelector('#online-mode-return')!.addEventListener('click', () => { store.client.dispose(); returnToMode(); });
+    store.client.onStatus = (state, message) => {
+      if (state === 'ready' && this.onlineSaves?.busy) return;
+      this.setOnlineState(state, message);
+    };
+    store.client.startHeartbeat();
+    // Pending network operations cannot accept further gameplay or inventory edits.
+    for (const type of ['click', 'pointerdown', 'keydown', 'change', 'submit']) {
+      document.getElementById('app')!.addEventListener(type, event => {
+        if (this.onlineOperation || this.onlineState !== 'ready') { event.preventDefault(); event.stopImmediatePropagation(); }
+      }, true);
+    }
+  }
+  private setOnlineState(state: 'ready' | 'offline' | 'expired', message?: string) {
+    if (this.onlineState === 'expired' && state !== 'expired') return;
+    const changed = this.onlineState !== state;
+    this.onlineState = state;
+    document.getElementById('app')!.inert = state !== 'ready';
+    if (state !== 'ready') {
+      this.releaseInput(); this.paused = true; this.storageAvailable = false;
+      if (this.onlineOverlay) {
+        this.onlineOverlay.hidden = false;
+        this.onlineOverlay.querySelector('#online-state-title')!.textContent = state === 'expired' ? '请重新登录' : '连接已中断';
+        this.onlineOverlay.querySelector('#online-state-message')!.textContent = message || (state === 'expired' ? '会话已失效，旧页面的未确认进度不会覆盖服务器。' : '游戏已暂停，正在重连。心跳中断超过 90 秒后需重新登录。');
+        if (changed) this.onlineOverlay.querySelector<HTMLButtonElement>('button')!.focus();
+      }
+    } else {
+      this.storageAvailable = true;
+      if (this.onlineOverlay) this.onlineOverlay.hidden = true;
+      if (changed && this.profile) this.ui.openPanel('pause');
+    }
+  }
+  async flushSave(notify = false) {
+    if (!this.online) return this.save(notify);
+    if (!this.profile || !this.onlineSaves) return this.onlineState === 'ready';
+    if (this.onlineState === 'expired' || this.saveConflict) return false;
+    this.onlineSaves.request(this.profile.id, this.dead ? { ...this.hero, hp: stats(this.hero).maxHp, mana: stats(this.hero).maxMana } : this.hero);
+    try {
+      await this.onlineSaves.flush();
+      if (notify) this.ui.toast('旅程已保存', this.profile.name);
+      return String(this.onlineState) !== 'expired';
+    } catch { return false; }
+  }
+  /** Execute transitions only after persistence; local callers retain synchronous behavior. */
+  commitSave(success: () => void, rollback: () => void = () => {}) {
+    if (!this.online) { if (!this.save(false)) { rollback(); return false; } success(); return true; }
+    if (this.onlineOperation || this.onlineState !== 'ready') { rollback(); return false; }
+    const paused = this.paused; this.onlineOperation = true; this.paused = true; this.releaseInput();
+    void this.flushSave().then(ok => {
+      this.onlineOperation = false;
+      if (ok) {
+        const reconnected = this.onlineState === 'offline';
+        if (reconnected) this.setOnlineState('ready');
+        this.paused = paused || reconnected; success();
+        if (reconnected && this.profile) this.ui.openPanel('pause');
+      }
+      else rollback();
+    }).catch(error => { this.onlineOperation = false; this.setOnlineState('expired', error instanceof Error ? error.message : '保存失败。'); });
+    return true;
+  }
+  async exitMode() {
+    if (this.onlineOperation) return;
+    this.onlineOperation = true; this.releaseInput(); this.paused = true;
+    try {
+      if (!await this.flushSave(true)) return;
+      if (this.online) await this.online.client.logout();
+      returnToMode();
+    } catch (error) { if (error instanceof OnlineError) this.online?.client.report(error); }
+    finally { this.onlineOperation = false; }
   }
   startProfile(id: string) {
     if (this.profile || !this.saves) return;
@@ -249,17 +349,18 @@ export class Game {
     if (!this.profile || this.dead || this.saveConflict || this.inCamp) return false;
     const previous = structuredClone(this.hero);
     prepareCampArrival(this.hero);
-    if (!this.save(false)) { this.hero = previous; return false; }
-    this.clearCampReturn();
-    this.monsterCombat.clearHeroDebuffs();
-    this.campReturn = {
-      world: this.world, position: this.position.clone(), specialArea: this.specialArea,
-      enemies: this.enemies, loot: this.loot, effects: this.effects, visited: this.visited,
-      combat: this.combat, monsterCombat: this.monsterCombat, monsterBatches: this.monsterBatches,
-      projectileVisuals: this.projectileVisuals, cooldowns: this.cooldowns,
-    };
-    this.specialArea = undefined;
-    this.loadArea(true); this.ui.toast(CAMP.name, '返程传送门已开启 · 可回到离开的位置'); return true;
+    return this.commitSave(() => {
+      this.clearCampReturn();
+      this.monsterCombat.clearHeroDebuffs();
+      this.campReturn = {
+        world: this.world, position: this.position.clone(), specialArea: this.specialArea,
+        enemies: this.enemies, loot: this.loot, effects: this.effects, visited: this.visited,
+        combat: this.combat, monsterCombat: this.monsterCombat, monsterBatches: this.monsterBatches,
+        projectileVisuals: this.projectileVisuals, cooldowns: this.cooldowns,
+      };
+      this.specialArea = undefined;
+      this.loadArea(true); this.ui.toast(CAMP.name, '返程传送门已开启 · 可回到离开的位置');
+    }, () => { this.hero = previous; });
   }
   clearCampReturn() {
     const saved = this.campReturn; this.campReturn = undefined;
@@ -269,9 +370,10 @@ export class Game {
   resumeCampReturn() {
     if (!this.inCamp || !this.profile || this.dead || this.saveConflict || !this.campReturn) return false;
     if (Math.hypot(this.position.x - CAMP.returnPortal.x, this.position.z - CAMP.returnPortal.z) >= 3.5) return false;
-    if (!this.save(false)) return false;
-    const saved = this.campReturn; this.campReturn = undefined; this.specialArea = saved.specialArea;
-    this.loadArea(false, saved); this.ui.toast(this.level.name, '已返回离开的位置 · 继续探索'); return true;
+    return this.commitSave(() => {
+      const saved = this.campReturn!; this.campReturn = undefined; this.specialArea = saved.specialArea;
+      this.loadArea(false, saved); this.ui.toast(this.level.name, '已返回离开的位置 · 继续探索');
+    });
   }
   useReturnPortal() {
     if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict || !this.campReturn) return;
@@ -304,8 +406,9 @@ export class Game {
     if (!this.atMercenaryMerchant) return false;
     const previous = structuredClone(this.hero);
     if (!hireMercenary(this.hero, true)) return false;
-    if (!this.save(false)) { this.hero = previous; return false; }
-    this.mercenary.sync(); this.ui.toast('米山已加入队伍', `等级 ${this.hero.level} · 按 O 管理装备与光环`); this.ui.renderPanel(); return true;
+    return this.commitSave(() => {
+      this.mercenary.sync(); this.ui.toast('米山已加入队伍', `等级 ${this.hero.level} · 按 O 管理装备与光环`); this.ui.renderPanel();
+    }, () => { this.hero = previous; });
   }
   useSharedStash() {
     if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict) return;
@@ -314,9 +417,8 @@ export class Game {
     else { this.moveTo(new THREE.Vector3(CAMP.stash.x, 0, CAMP.stash.z)); this.pendingPortal = this.path.length > 0; }
   }
   returnToProfiles(discard = false) {
-    if (!discard && !this.save()) return;
-    if (discard) this.profile = undefined;
-    location.reload();
+    if (discard) { this.profile = undefined; this.online?.client.dispose(); returnToMode(this.online ? 'online' : 'local'); return; }
+    this.commitSave(() => returnToMode(this.online ? 'online' : 'local'));
   }
   get position() { return this.actor.group.position; }
   resize() {
@@ -433,9 +535,9 @@ export class Game {
     if (parsePlayerCount(value) !== value || !this.profile || this.dead || this.saveConflict) return false;
     const previous = this.hero.playerCount;
     this.hero.playerCount = parsePlayerCount(value);
-    if (!this.save(false)) { this.hero.playerCount = previous; return false; }
-    this.ui.toast(`已设置 ${value}pp`, '新生成怪物使用新强度，掉落设置立即生效');
-    return true;
+    return this.commitSave(() => {
+      this.ui.toast(`已设置 ${value}pp`, '新生成怪物使用新强度，掉落设置立即生效');
+    }, () => { this.hero.playerCount = previous; });
   }
   setMovementMode(value: string) {
     if (value !== 'mouse' && value !== 'wasd' || value === this.movementMode) return;
@@ -837,7 +939,7 @@ export class Game {
     if (this.hero.corpse && Math.hypot(this.position.x - this.hero.corpse.x, this.position.z - this.hero.corpse.z) < 2.8) return { name: '取回遗体装备', kind: 'corpse', id: 0 };
     if (this.inCamp) {
       if (this.campReturn && Math.hypot(this.position.x - CAMP.returnPortal.x, this.position.z - CAMP.returnPortal.z) < 3.5) return { name: '返程传送门 · 继续上次关卡', kind: 'return-portal', id: 0 };
-      if (Math.hypot(this.position.x - CAMP.stash.x, this.position.z - CAMP.stash.z) < 3.5) return { name: '本地共享仓库', kind: 'shared-stash', id: 0 };
+      if (Math.hypot(this.position.x - CAMP.stash.x, this.position.z - CAMP.stash.z) < 3.5) return { name: this.online ? '账号共享仓库' : '本地共享仓库', kind: 'shared-stash', id: 0 };
       if (Math.hypot(this.position.x - CAMP.portal.x, this.position.z - CAMP.portal.z) < 3.5) return { name: '传送阵 · 选择关卡', kind: 'camp-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.mysteryPortal.x, this.position.z - CAMP.mysteryPortal.z) < 3.5) return { name: '神秘传送阵', kind: 'mystery-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) return { name: '底材商人', kind: 'base-shop', id: 0 };
@@ -907,8 +1009,9 @@ export class Game {
     const previous = structuredClone(this.hero);
     const item = buyProgressionBase(this.hero, id);
     if (!item) { this.ui.toast('无法购买', '请检查金币、背包空间与库存'); return; }
-    if (!this.save(false)) { this.hero = previous; return; }
-    this.audio.play('equip'); this.ui.toast(item.name, '已收入背包'); this.ui.renderPanel();
+    return this.commitSave(() => {
+      this.audio.play('equip'); this.ui.toast(item.name, '已收入背包'); this.ui.renderPanel();
+    }, () => { this.hero = previous; });
   }
   equip(id: string, slot?: Slot) {
     const container = this.hero.inventory.some(item => item.id === id) ? 'inventory' : this.hero.cube.some(item => item.id === id) ? 'cube' : 'stash';
@@ -929,8 +1032,14 @@ export class Game {
     if (!this.profile) return true;
     if (!this.saves || this.saveConflict) return false;
     const savedHero = this.dead ? { ...this.hero, hp: stats(this.hero).maxHp, mana: stats(this.hero).maxMana } : this.hero;
+    if (this.onlineSaves) {
+      if (this.onlineState !== 'ready') return false;
+      this.onlineSaves.request(this.profile.id, savedHero);
+      if (notify) void this.onlineSaves.flush().then(() => this.ui.toast('旅程已保存', this.profile?.name)).catch(() => {});
+      return true;
+    }
     try {
-      this.profile = this.saves.save(this.profile.id, savedHero, this.profile.revision);
+      this.profile = (this.saves as SaveStore).save(this.profile.id, savedHero, this.profile.revision);
       this.storageAvailable = true; if (notify) this.ui.toast('旅程已保存', this.profile.name);
       return true;
     } catch (error) {
@@ -972,9 +1081,10 @@ export class Game {
     if (this.dead || !this.profile || this.saveConflict || !canEnterLevel(this.hero.campaign, index, diff)) return false;
     const previous = structuredClone(this.hero);
     if (!selectCampaignLevel(this.hero, index, diff as 0 | 1 | 2, this.inCamp)) return false;
-    if (!this.save(false)) { this.hero = previous; return false; }
-    this.clearCampReturn(); this.specialArea = undefined;
-    this.loadArea(false); this.ui.toast(this.level.name, `第 ${this.level.act + 1} 章 · 第 ${this.level.step + 1} 关`); return true;
+    return this.commitSave(() => {
+      this.clearCampReturn(); this.specialArea = undefined;
+      this.loadArea(false); this.ui.toast(this.level.name, `第 ${this.level.act + 1} 章 · 第 ${this.level.step + 1} 关`);
+    }, () => { this.hero = previous; });
   }
   get cowLegs() { return this.hero.inventory.filter(isWirtsLeg); }
   get canUseUberDiablo() { return this.hero.campaign.cleared[2] >= 25 && this.hero.inventory.some(isStoneOfJordan); }
@@ -992,9 +1102,10 @@ export class Game {
     const previousHero = structuredClone(this.hero), previousArea = this.specialArea;
     const index = this.hero.inventory.indexOf(catalyst); if (index < 0) return false;
     this.hero.inventory.splice(index, 1); placeItems(this.hero.inventory); this.hero.difficultyLevel = diff; this.hero.bossDefeated = false; this.specialArea = area;
-    if (!this.save(false)) { this.hero = previousHero; this.specialArea = previousArea; return false; }
-    this.clearCampReturn();
-    this.loadArea(false); this.ui.toast(this.level.name, area === 'cow' ? ` ${['普通', '噩梦', '地狱'][diff]}难度` : '毕业挑战'); return true;
+    return this.commitSave(() => {
+      this.clearCampReturn();
+      this.loadArea(false); this.ui.toast(this.level.name, area === 'cow' ? ` ${['普通', '噩梦', '地狱'][diff]}难度` : '毕业挑战');
+    }, () => { this.hero = previousHero; this.specialArea = previousArea; });
   }
   burst(origin: THREE.Vector3, color: number, count: number) {
     if(count<=0)return;

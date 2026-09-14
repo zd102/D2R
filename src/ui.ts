@@ -289,6 +289,7 @@ export class UI {
         case 'fullscreen': if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen().catch(() => this.toast('全屏暂不可用')); break;
         case 'revive': this.game.revive(); break;
         case 'profiles': this.game.returnToProfiles(); break;
+        case 'exit-mode': void this.game.exitMode(); break;
         case 'camp': this.game.returnToCamp(); break;
         case 'camp-portal': this.game.useCampPortal(); break;
         case 'return-portal': this.game.useReturnPortal(); break;
@@ -354,8 +355,7 @@ export class UI {
     if (!this.game.profile || this.game.dead || this.game.saveConflict || !['mercenary', 'mercenary-shop'].includes(this.panel ?? '')) return;
     const previous = structuredClone(this.game.hero);
     if (!change()) { this.toast('无法移动装备', '请检查装备需求和背包空间'); return; }
-    if (!this.game.save(false)) { this.game.hero = previous; this.game.mercenary.clear(); this.game.mercenary.sync(); return; }
-    this.game.mercenary.sync(); this.renderPanel();
+    this.game.commitSave(() => { this.game.mercenary.sync(); this.renderPanel(); }, () => { this.game.hero = previous; this.game.mercenary.clear(); this.game.mercenary.sync(); });
   }
   isProfilePanel(panel = this.panel) { return ['profiles', 'new-profile', 'rename-profile', 'delete-profile', 'import-profile', 'save-conflict', 'encyclopedia'].includes(panel ?? ''); }
   openPanel(panel: Panel) {
@@ -379,6 +379,7 @@ export class UI {
     this.hideTooltip();
   }
   closePanel() {
+    if (this.game.online && (this.game.onlineState !== 'ready')) return;
     if (this.sharedStashScreen.busy) return;
     this.hideTooltip();
     this.characterScreen.inventoryDrag.cancel();
@@ -416,7 +417,7 @@ export class UI {
       'base-shop': ['底材商人', 'BASE MERCHANT'],
       'mercenary': ['佣兵 · 米山', 'DESERT MERCENARY'],
       'mercenary-shop': ['佣兵商人', 'MERCENARY CAPTAIN'],
-      'shared-stash': ['本地共享仓库', 'SHARED STASH'],
+      'shared-stash': [this.game.online ? '账号共享仓库' : '本地共享仓库', 'SHARED STASH'],
       'mystery-portal': ['神秘传送阵', 'MYSTERIOUS PORTAL'],
       campaign: [this.game.inCamp ? '远征传送阵' : '章节关卡', 'CAMPAIGN'],
       inventory: ['行囊', 'INVENTORY'], character: ['圣骑士', 'PALADIN'], skills: ['圣骑士技能', 'PALADIN SKILLS'], map: ['区域地图', 'AREA MAP'], quest: ['当前任务', 'QUEST JOURNAL'], pause: ['旅程暂歇', 'PAUSED'], shop: ['旅者补给', 'WAYFARER'], death: ['你已陨落', 'YOU HAVE FALLEN'],
@@ -581,7 +582,7 @@ export class UI {
     const action = game.contextAction(), context = document.getElementById('context-action')!;
     context.hidden = !action || game.paused || game.dead; if (action) setText(context.querySelector('span')!, action.name);
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
-    bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); setText(bar.querySelector('small')!, questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
+    bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); bar.querySelector('span')!.title = boss.name; setText(bar.querySelector('small')!, questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
     const aliveKeys = new Set<string>();
     const controlRects = ['joystick', 'mobile-attack'].map(id => document.getElementById(id)!)
       .filter(element => element.getClientRects().length).map(element => element.getBoundingClientRect());

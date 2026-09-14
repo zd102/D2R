@@ -5,7 +5,7 @@ import { newHero, serializeSave, stats } from '../src/model.ts';
 import { BASES, makeItem, placeItems } from '../src/items.ts';
 import { SHARED_STASH_KEY } from '../src/shared-stash.ts';
 
-const output = '.verification/equipment-drag'; await mkdir(output, { recursive: true });
+const output = process.env.OUTPUT_DIR || '.verification/equipment-drag'; await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true }), errors = [];
 const ring = id => makeItem(BASES.find(base => base.baseCode === 'rin'), id);
 const hero = newHero(); hero.level = 99; hero.strength = hero.dexterity = 999;

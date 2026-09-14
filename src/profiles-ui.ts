@@ -22,6 +22,7 @@ export class ProfileScreen {
   importFileName = '';
   importPending = false;
   importRequest = 0;
+  busy = false;
   creatingClass: ClassId = 'paladin';
   classPreview() {
     const c = CLASSES[this.creatingClass];
@@ -29,9 +30,9 @@ export class ProfileScreen {
   }
   constructor(game: Game, ui: UI) {
     this.game = game; this.ui = ui;
-    ui.overlay.addEventListener('click', event => {
+    ui.overlay.addEventListener('click', async event => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
-      if (!button || button.disabled) return;
+      if (!button || button.disabled || this.busy) return;
       try {
         if (button.dataset.profileId) {
           this.selectedId = button.dataset.profileId; this.render();
@@ -45,14 +46,16 @@ export class ProfileScreen {
           case 'encyclopedia': ui.openPanel('encyclopedia'); break;
           case 'rename': if (profile) { this.editing = profile; ui.openPanel('rename-profile'); } break;
           case 'delete': if (profile) { this.editing = profile; ui.openPanel('delete-profile'); } break;
-          case 'export': if (profile) this.exportCharacter(profile.id); break;
+          case 'export': if (profile) { this.busy = true; button.disabled = true; await this.exportCharacter(profile.id); } break;
+          case 'exit-mode': await game.exitMode(); break;
           case 'import':
             this.importRequest++; this.importPending = false; this.importing = undefined; this.importRaw = undefined; this.importFileName = '';
             ui.openPanel('import-profile'); this.chooseFile(); break;
           case 'choose-file': this.chooseFile(); break;
           case 'confirm-delete':
             if (this.editing && game.saves) {
-              game.saves.delete(this.editing.id, this.editing.revision);
+              this.busy = true; button.disabled = true;
+              await game.saves.delete(this.editing.id, this.editing.revision);
               game.storageAvailable = true;
               this.selectedId = undefined; this.editing = undefined; ui.openPanel('profiles');
             }
@@ -60,26 +63,31 @@ export class ProfileScreen {
           case 'reload-profiles': game.returnToProfiles(true); break;
         }
       } catch (error) { this.error(error); }
+      finally { this.busy = false; if (button.isConnected) button.disabled = false; }
     });
-    ui.overlay.addEventListener('submit', event => {
+    ui.overlay.addEventListener('submit', async event => {
       if (!(event.target instanceof HTMLFormElement) || event.target.id !== 'profile-form') return;
       event.preventDefault();
+      if (this.busy) return;
       const name = new FormData(event.target).get('name');
       if (typeof name !== 'string' || !game.saves) return;
+      this.busy = true;
+      const submit = event.target.querySelector<HTMLButtonElement>('button[type="submit"]'); if (submit) submit.disabled = true;
       try {
         if (ui.panel === 'new-profile') {
           const classId = new FormData(event.target).get('class');
-          const profile = game.saves.create(name, isClassId(classId) ? classId : 'paladin'); this.selectedId = profile.id;
+          const profile = await game.saves.create(name, isClassId(classId) ? classId : 'paladin'); this.selectedId = profile.id;
           ui.openPanel('profiles'); game.startProfile(profile.id);
         } else if (ui.panel === 'rename-profile' && this.editing) {
-          const profile = game.saves.rename(this.editing.id, name, this.editing.revision);
+          const profile = await game.saves.rename(this.editing.id, name, this.editing.revision);
           this.selectedId = profile.id; this.editing = undefined; ui.openPanel('profiles');
         } else if (ui.panel === 'import-profile' && this.importRaw && !this.importPending) {
-          const profile = game.saves.importCharacter(this.importRaw, name);
+          const profile = await game.saves.importCharacter(this.importRaw, name);
           this.selectedId = profile.id; this.importing = undefined; this.importRaw = undefined;
           game.storageAvailable = true; ui.openPanel('profiles'); ui.toast('角色已导入', profile.name);
         }
       } catch (error) { this.error(error); }
+      finally { this.busy = false; if (submit?.isConnected) submit.disabled = false; }
     });
     ui.overlay.addEventListener('change', event => {
       const input = event.target;
@@ -126,9 +134,9 @@ export class ProfileScreen {
       this.importPending = false; this.render(); this.error(error);
     } finally { if (request === this.importRequest) this.importPending = false; }
   }
-  exportCharacter(id: string) {
+  async exportCharacter(id: string) {
     if (!this.game.saves) return;
-    const { filename, content } = this.game.saves.exportCharacter(id);
+    const { filename, content } = await this.game.saves.exportCharacter(id);
     const url = URL.createObjectURL(new Blob([content], { type: 'application/json;charset=utf-8' }));
     const link = document.createElement('a'); link.href = url; link.download = filename;
     document.body.appendChild(link);
@@ -137,7 +145,7 @@ export class ProfileScreen {
   }
   error(error: unknown) {
     const element = document.getElementById('profile-error');
-    if (element) { element.textContent = error instanceof SaveError ? error.message : '本地存储不可用，操作未能完成。'; element.hidden = false; }
+    if (element) { element.textContent = error instanceof SaveError || this.game.online && error instanceof Error ? (error as Error).message : '本地存储不可用，操作未能完成。'; element.hidden = false; }
   }
   render() {
     const { game, ui } = this;
@@ -162,10 +170,10 @@ export class ProfileScreen {
           <span class="profile-emblem" style="color:${CLASSES[h.classId].color}">${icon(CLASSES[h.classId].icon)}</span><span class="profile-info"><strong>${escape(profile.name)}</strong><span>${CLASSES[h.classId].name} <b>Lv. ${h.level}</b><span>${difficultyNames[h.difficultyLevel]} · 第 ${LEVELS[h.campaign.current].act + 1} 章</span></span><small>${LEVELS[h.campaign.current].name} · ${h.campaign.cleared[h.difficultyLevel]} / 25<span>${date(profile.updatedAt)}</span></small></span>${icon(active ? 'check' : 'chevron-right')}
         </button>`;
       }).join('');
-      body = `<div class="roster-label"><span>${this.profiles.length} 位冒险者</span><span class="roster-storage">本地存档<button aria-label="导入角色存档" data-tip="导入角色存档" data-profile-action="import" ${game.saves && game.storageAvailable ? '' : 'disabled'}>${icon('upload')}<span>导入</span></button></span></div>
+      body = `<div class="roster-label"><span>${this.profiles.length} 位冒险者</span><span class="roster-storage">${game.online ? '在线存档' : '本地存档'}<button aria-label="导入角色存档" data-tip="导入角色存档" data-profile-action="import" ${game.saves && game.storageAvailable ? '' : 'disabled'}>${icon('upload')}<span>导入</span></button></span></div>
         <div class="profile-list" role="listbox" aria-label="角色存档">${rows || `<div class="profile-empty">${icon('users')}<h3>尚无角色</h3><span>新的誓约，始于此刻。</span></div>`}</div>
         ${selected ? `<div class="profile-summary"><span>${icon('coins')}${selected.hero.gold.toLocaleString()}</span><span>${icon('skull')}${selected.hero.kills}</span><div class="profile-tools"><button aria-label="导出角色存档" data-tip="导出角色存档" data-profile-action="export">${icon('download')}<span>导出</span></button><button aria-label="重命名角色" data-tip="重命名角色" data-profile-action="rename">${icon('pencil')}<span>改名</span></button><button aria-label="删除角色" data-tip="删除角色" data-profile-action="delete">${icon('trash-2')}<span>删除</span></button></div></div>` : ''}
-        ${error}<div class="profile-commands"><button class="primary-button" data-profile-action="play" ${selected ? '' : 'disabled'}>${icon('play')}进入旅程</button><button class="secondary-button" data-profile-action="new" ${game.saves && game.storageAvailable ? '' : 'disabled'}>${icon('user-plus')}新建角色</button></div>${warning ? `<p class="profile-notice">${escape(warning)}</p>` : ''}`;
+        <div class="online-account-actions"><span class="online-account-name">${game.online ? escape(game.online.client.session!.user.username) : '本地模式'}</span><button data-profile-action="exit-mode">${game.online ? '退出账号' : '切换模式'}</button></div>${error}<div class="profile-commands"><button class="primary-button" data-profile-action="play" ${selected ? '' : 'disabled'}>${icon('play')}进入旅程</button><button class="secondary-button" data-profile-action="new" ${game.saves && game.storageAvailable ? '' : 'disabled'}>${icon('user-plus')}新建角色</button></div>${warning ? `<p class="profile-notice">${escape(warning)}</p>` : ''}`;
     } else if (ui.panel === 'import-profile') {
       title = '导入角色'; subtitle = 'IMPORT CHARACTER';
       const h = this.importing?.hero;

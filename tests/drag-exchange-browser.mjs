@@ -5,7 +5,7 @@ import { newHero, serializeSave, stats } from '../src/model.ts';
 import { BASES, makeItem, placeItems } from '../src/items.ts';
 import { SHARED_STASH_KEY } from '../src/shared-stash.ts';
 
-const output = '.verification/drag-exchange'; await mkdir(output, { recursive: true });
+const output = process.env.OUTPUT_DIR || '.verification/drag-exchange'; await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true }), errors = [];
 const item = (slot, id, x, y) => ({ ...makeItem(BASES.find(base => base.slot === slot), id), x, y });
 const region = prefix => [item('weapon', `${prefix}-large`, 0, 0), item('ring', `${prefix}-a`, 6, 0), item('ring', `${prefix}-b`, 7, 2), item('shield', `${prefix}-partial`, 4, 0)];

@@ -47,8 +47,7 @@ export class CharacterScreen {
         if (game.saveConflict || ui.sharedStashScreen.busy) return;
         const previous = structuredClone(h);
         if (!socketRuneword(h, data.craftItem, data.craftRuneword)) { ui.toast('无法镶嵌', '请检查底材、孔位顺序与符文数量'); ui.renderPanel(); return; }
-        if (!game.save(false)) { game.hero = previous; ui.renderPanel(); return; }
-        game.audio.play('equip'); ui.toast('符文之语已完成'); ui.renderPanel(); return;
+        game.commitSave(() => { game.audio.play('equip'); ui.toast('符文之语已完成'); ui.renderPanel(); }, () => { game.hero = previous; ui.renderPanel(); }); return;
       }
       if (data.tree) { this.tree = data.tree as SkillTree; this.selectedSkill = skillsForClass(h.classId).find(skill => skill.tree === this.tree)!.id; render = true; }
       if (data.selectSkill) { this.selectedSkill = data.selectSkill as SkillId; render = true; }

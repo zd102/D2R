@@ -4,3 +4,7 @@ dist/
 *.log
 public/audio/local/
 scripts/__pycache__/
+server/data/
+.env
+.env.*
+!.env.example

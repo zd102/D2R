@@ -34,7 +34,7 @@ try {
 
     const high = await page.evaluate(() => {
       const g = window.ppGame; g.ui.closePanel(); g.enterLevel(0, 1);
-      const enemy = g.enemies.find(e => !e.boss && !e.elite); window.ppEnemy = enemy;
+      const enemy = g.enemies.find(e => !e.boss && !e.elite && !e.champion); window.ppEnemy = enemy;
       return { hp: enemy.maxHp, damage: enemy.damage, attackRating: enemy.attackRating, players: enemy.playerCount };
     });
     assert.equal(high.players, 8);
@@ -54,7 +54,7 @@ try {
     assert.equal(kill.after - kill.before, Math.floor(xp * kill.xpScale * (1 + kill.experienceBonus / 100)));
     const low = await page.evaluate(() => {
       const g = window.ppGame; g.enterLevel(0, 1);
-      const e = g.enemies.find(e => e.definition.id === window.ppEnemy.definition.id && !e.boss && !e.elite);
+      const e = g.enemies.find(e => e.definition.id === window.ppEnemy.definition.id && !e.boss && !e.elite && !e.champion);
       return { hp: e.maxHp, damage: e.damage, players: e.playerCount };
     });
     assert.equal(low.players, 1); assert.equal(high.hp, Math.floor(low.hp * 4.5));

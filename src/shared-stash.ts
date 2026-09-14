@@ -1,6 +1,5 @@
 import { clampResources, equipFromItems, equipReason, unequipToItems, parseItem, type HeroState } from './model.ts';
 import { SLOTS, moveItem, packItems, placeItems, stashRows, type Item, type Slot } from './items.ts';
-import { sharedTransaction } from './shared-storage.ts';
 
 export const SHARED_STASH_KEY = 'eclipse-ii-shared-stash-v1';
 export const SHARED_STASH_ROWS = 10;
@@ -46,4 +45,3 @@ export function moveSharedItem(hero: HeroState, shared: Item[], request: SharedT
   from.splice(from.indexOf(item), 1); to.push(moved); placeItems(to, rows); clampResources(hero);
 }
 export type SharedLock = <T>(operation: () => T) => Promise<T>;
-export const browserSharedLock: SharedLock = sharedTransaction;

@@ -4,7 +4,8 @@ import { mkdir } from 'node:fs/promises';
 import { newHero, SAVE_KEY, serializeSave } from '../src/model.ts';
 import { PROFILE_PREFIX, LAST_PROFILE_KEY } from '../src/saves.ts';
 
-await mkdir('.verification', { recursive: true });
+const output = process.env.OUTPUT_DIR || '.verification';
+await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const errors = [];
@@ -41,13 +42,13 @@ try {
   assert.equal(await page.evaluate(key => localStorage.getItem(key), SAVE_KEY), original);
   await page.keyboard.press('Escape'); await page.keyboard.press('i'); await page.keyboard.press('e');
   await roster(page); assert.equal((await state(page)).profileId, null, 'No gameplay before selection');
-  await page.screenshot({ path: '.verification/profiles-desktop.png' });
+  await page.screenshot({ path: `${output}/profiles-desktop.png` });
   await page.getByRole('button', { name: '新建角色', exact: true }).click();
   await page.getByRole('textbox', { name: '角色名称', exact: true }).fill('   ');
   await page.getByRole('button', { name: '创建并进入', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '角色名称' }).waitFor();
   await page.getByRole('textbox', { name: '角色名称', exact: true }).fill('晨星');
-  await page.screenshot({ path: '.verification/profiles-create.png' });
+  await page.screenshot({ path: `${output}/profiles-create.png` });
   await page.getByRole('button', { name: '创建并进入', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.profileName === '晨星');
   assert.equal((await state(page)).gold, 0); assert.equal((await state(page)).level, 1);
@@ -112,7 +113,7 @@ try {
     const rect = await mobile.getByRole('dialog').boundingBox();
     assert.ok(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= viewport.width + 1 && rect.y + rect.height <= viewport.height + 1, 'Roster fits viewport');
     assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    await mobile.screenshot({ path: `.verification/profiles-${viewport.width}.png` });
+    await mobile.screenshot({ path: `${output}/profiles-${viewport.width}.png` });
     await mobile.getByRole('button', { name: '进入旅程', exact: true }).tap();
     assert.equal((await state(mobile)).profileName, '守夜者1');
     await mobile.close();
@@ -129,6 +130,6 @@ try {
   assert.deepEqual(errors, []);
   console.log('Mobile portrait/landscape and unavailable storage passed');
 } catch (error) {
-  await page.screenshot({ path: '.verification/profiles-failure.png' });
+  await page.screenshot({ path: `${output}/profiles-failure.png` });
   console.log('Browser errors:', errors); throw error;
 } finally { await browser.close(); }

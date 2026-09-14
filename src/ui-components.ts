@@ -2,7 +2,7 @@ const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&am
 
 const panelInfo: Record<string, [string, string]> = {
   inventory: ['backpack', '整理装备，准备下一场远征'],
-  'shared-stash': ['archive', '在本地角色之间共享你的收藏'],
+  'shared-stash': ['archive', '在角色之间共享你的收藏'],
   character: ['user-round', '查看成长、抗性与战斗能力'],
   skills: ['book-open', '学习技能，配置你的战斗方式'],
   campaign: ['compass', '选择目的地，开启下一段旅程'],

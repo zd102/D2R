@@ -18,12 +18,15 @@ import { questComplete } from './campaign';
 import { CAMP } from './camp';
 import { stats } from './model';
 import { refreshSharedStorage } from './shared-storage';
+import { initializeMode, onlineStore } from './mode';
 
 try {
-  await refreshSharedStorage();
+  await initializeMode();
+  if (!onlineStore) await refreshSharedStorage();
   const game = new Game();
   // A read-only snapshot supports local browser verification without exposing cheats.
   Object.defineProperty(window, 'eclipseState', { get: () => ({
+    mode: game.online ? 'online' : 'local', saveBusy: game.onlineSaveBusy, onlineState: game.onlineState,
     profileId: game.profile?.id ?? null, profileName: game.profile?.name ?? null,
     classId:game.hero.classId, classModel:game.actor.group.userData.classId, buffs:structuredClone(game.hero.buffs),
     classCombat:{missiles:game.combat.classes.missiles.map(m=>({skill:m.skill,x:m.mesh.position.x,z:m.mesh.position.z,direction:m.direction.toArray()})),fields:game.combat.classes.fields.map(f=>({skill:f.id,life:f.life})),summons:game.combat.classes.summons.map(s=>({skill:s.id,hp:s.hp,maxHp:s.maxHp,x:s.actor.group.position.x,z:s.actor.group.position.z}))},

@@ -5,7 +5,7 @@ import { newHero, serializeSave, stats } from '../src/model.ts';
 import { BASES, makeItem, specialItem, SPECIAL_ITEMS, placeItems } from '../src/items.ts';
 import { itemModifierLines } from '../src/item-description.ts';
 
-const output = '.verification/storage-equipment'; await mkdir(output, { recursive: true });
+const output = process.env.OUTPUT_DIR || '.verification/storage-equipment'; await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true }), errors = [];
 try {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {

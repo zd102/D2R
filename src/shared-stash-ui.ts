@@ -49,6 +49,7 @@ export class SharedStashScreen {
     const revision = this.state.revision, unequippedId = request.direction === 'unequip' ? game.hero.equipment[request.slot]?.id : undefined;
     this.busy = true; this.error = ''; this.ui.renderPanel();
     try {
+      if (game.online && !await game.flushSave()) return;
       const result = await game.saves.transferShared(game.profile.id, game.hero, game.profile.revision, revision, request);
       game.profile = result.profile; game.hero = structuredClone(result.profile.hero); game.storageAvailable = true; this.state = result.shared;
       this.selected = request.direction === 'equip' ? { side: 'equipment', id: request.itemId } : request.direction === 'move' ? { side: 'shared', id: request.itemId } : unequippedId ? { side: 'shared', id: unequippedId } : undefined;
@@ -84,7 +85,7 @@ export class SharedStashScreen {
     const hero = this.ui.game.hero, personal = hero[this.view], shared = readable ? this.state?.items ?? [] : [];
     const selected = this.selected && (this.selected.side === 'equipment' ? Object.values(hero.equipment) : this.selected.side === 'shared' ? shared : personal).find(item => item?.id === this.selected!.id);
     const occupied = shared.reduce((sum, item) => sum + footprint(item)[0] * footprint(item)[1], 0), disabled = this.busy || !readable;
-    return `<div class="shared-intro"><i data-lucide="archive"></i><p>直接穿脱装备 · 替换装备放回来源仓库<small>本地角色共用 ${SHARED_STASH_ROWS * 10} 格，可从装备栏直接卸下。</small></p></div>
+    return `<div class="shared-intro"><i data-lucide="archive"></i><p>直接穿脱装备 · 替换装备放回来源仓库<small>${this.ui.game.online ? '同账号在线角色' : '本地角色'}共用 ${SHARED_STASH_ROWS * 10} 格，可从装备栏直接卸下。</small></p></div>
       ${this.error ? `<p class="shared-error" role="alert">${escape(this.error)}</p>` : ''}<div class="shared-workspace" data-pane="${this.pane}"><nav class="shared-mobile-tabs" aria-label="仓库视图">${(['personal', 'shared', 'equipment'] as const).map(side => `<button data-shared-pane="${side}" aria-pressed="${this.pane === side}">${({ personal: '个人物品', shared: '共享仓库', equipment: '装备栏' })[side]}</button>`).join('')}</nav>
       <aside class="shared-loadout">${equipmentPanel(hero, this.selected?.side === 'equipment' ? this.selected.id : undefined, true, disabled)}</aside>
       <div class="shared-columns"><section><div class="shared-tabs" role="tablist" aria-label="个人物品来源">${(['inventory', 'stash'] as const).map(view => `<button role="tab" aria-selected="${view === this.view}" data-shared-view="${view}" ${disabled ? 'disabled' : ''}>${view === 'inventory' ? '背包' : '个人仓库'} <small>${hero[view].length}</small></button>`).join('')}</div>${this.grid(personal, this.view === 'inventory' ? 4 : stashRows(personal), 'personal')}<p class="shared-caption">个人物品 → 穿戴 / 共享仓库</p></section>

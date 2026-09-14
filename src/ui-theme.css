@@ -463,6 +463,7 @@ kbd { font-family: Georgia, "Microsoft YaHei", serif; font-variant-numeric: tabu
   .top-tools { padding: 2px; }
   .quest-track { padding: 8px; }
   #boss-bar { top: 90px; left: 12px; width: calc(100vw - 164px); }
+  #boss-bar > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #boss-bar:not([hidden]) ~ #party-status { --status-top: 164px; }
 }
 @media (max-height: 580px) and (min-width: 701px) {

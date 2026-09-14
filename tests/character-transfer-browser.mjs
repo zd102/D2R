@@ -4,7 +4,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { newHero } from '../src/model.ts';
 import { CHARACTER_FILE_FORMAT, CHARACTER_FILE_LIMIT, PROFILE_PREFIX } from '../src/saves.ts';
 
-const output = '.verification/character-transfer';
+const output = process.env.OUTPUT_DIR || '.verification/character-transfer';
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
