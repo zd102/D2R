@@ -32,13 +32,40 @@ try {
         countess.push(loot.filter(drop => drop.rune).map(drop => drop.rune));
       }
     } finally { Math.random = original; }
-    return { rows, countess };
+    const { refreshBaseStock } = await import('/src/progression-equipment.ts');
+    const merchant = [];
+    for (const difficulty of [0, 1, 2]) {
+      hero.difficultyLevel = difficulty;
+      refreshBaseStock(hero);
+      hero.baseStock.offers.forEach(offer => { offer.sold = true; });
+      const before = JSON.stringify(hero.baseStock), saved = [];
+      const game = {
+        hero, level: SPECIAL_LEVELS.cow, specialArea: 'cow', dead: false,
+        monsterCombat: { cancel() {}, onDeath() {} }, world: { physics: { removeBody() {} }, setExitActive() {} },
+        audio: { play() {} }, ui: { toast() {} }, dropLoot() {},
+        save() { saved.push(structuredClone(hero.baseStock)); },
+      };
+      const enemy = boss => ({ boss, level: 70, xpScale: 0, lootScale: 0, actor: { group: { rotation: {}, position: {} } } });
+      Game.prototype.killEnemy.call(game, enemy(false));
+      const unchangedAfterCow = before === JSON.stringify(hero.baseStock);
+      const king = enemy(true);
+      Game.prototype.killEnemy.call(game, king);
+      const after = JSON.stringify(hero.baseStock);
+      Game.prototype.killEnemy.call(game, king);
+      merchant.push({ difficulty: hero.baseStock.difficulty, unchangedAfterCow,
+        refreshed: before !== after, available: hero.baseStock.offers.filter(offer => !offer.sold).length,
+        saved: saved.length === 1 && JSON.stringify(saved[0]) === after,
+        duplicateUnchanged: after === JSON.stringify(hero.baseStock) });
+    }
+    return { rows, countess, merchant };
   });
   assert.deepEqual(results.rows.map(row => row.equipment), [3, 0, 4, 0, 5, 2, 2, 0, 3, 0]);
   assert.deepEqual(results.rows.map(row => row.runes), [1, 0, 2, 0, 2, 0, 2, 0, 1, 0]);
   assert.ok(results.rows.every(row => row.gold === 1));
   assert.deepEqual(results.rows.map(row => row.annihilus), [0, 0, 0, 0, 0, 0, 0, 0, 1, 1]);
   assert.deepEqual(results.countess, [['ral'], ['io'], ['ist']]);
+  assert.deepEqual(results.merchant, [0, 1, 2].map(difficulty => ({ difficulty, unchangedAfterCow: true,
+    refreshed: true, available: 5, saved: true, duplicateUnchanged: true })));
   assert.deepEqual(errors, []);
   console.log('Live loot generation: equipment caps, boss extras, cow loot, Annihilus and difficulty-capped Countess guarantees passed');
 } finally { await browser.close(); }

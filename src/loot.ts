@@ -12,7 +12,7 @@ export type LootContext = { players?: number; level: number; act: number; diffic
 const EXTRA_EQUIPMENT_CHANCES: Record<DropRank, readonly number[]> = {
   monster: [], champion: [.12], elite: [.30, .15], miniboss: [.55, .35], actBoss: [.55, .30],
 };
-const COW_BONUS = { socketBase: .20, rune: .05 };
+const COW_BONUS = { socketBase: .20, rune: .20 };
 const RUNE_MIN_LEVEL = [1, 1, 3, 4, 6, 8, 10, 12, 14, 17, 20, 24, 27, 30, 32, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 80, 81];
 const runeDistributions = new Map<number, { rune: RuneId; weight: number }[]>();
 export function runeDistribution(tier: number): { rune: RuneId; weight: number }[] {

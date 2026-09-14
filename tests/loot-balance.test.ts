@@ -37,7 +37,7 @@ test('boss bonus runes are rare while extra uniques and first-clear guarantees r
   }
 });
 
-test('cow bonuses can both miss, remain MF-independent and average 20% bases plus 5% runes', () => {
+test('cow bonuses can both miss, remain MF-independent and average 20% bases plus 20% runes', () => {
   const input = { ...context, rank: 'monster' as const, cow: true };
   const miss = rollLoot(input, () => .999999);
   assert.equal(miss.items.length, 0); assert.equal(miss.runes.length, 0);
@@ -55,7 +55,7 @@ test('cow bonuses can both miss, remain MF-independent and average 20% bases plu
     runes += normal.runes.length;
   }
   assert.ok(bases > 850 && bases < 1200, String(bases));
-  assert.ok(runes > 210 && runes < 330, String(runes));
-  const baseOnly = rollLoot(input, () => .18);
-  assert.equal(baseOnly.items.length, 1); assert.ok(baseOnly.items[0].sockets! > 0); assert.equal(baseOnly.runes.length, 0);
+  assert.ok(runes > 850 && runes < 1200, String(runes));
+  const both = rollLoot(input, () => .18);
+  assert.equal(both.items.length, 1); assert.ok(both.items[0].sockets! > 0); assert.equal(both.runes.length, 1);
 });

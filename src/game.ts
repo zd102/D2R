@@ -21,7 +21,7 @@ import { isAura, isPassive, type ActionId, type Attribute, type DamageType } fro
 import { classSkillMode } from './class-skills';
 import { createWirtsLeg, groundItemName, isAnnihilus, isStoneOfJordan, isWirtsLeg, packItems, placeItems, runeLabel, type DropRank, type RuneId, type Mods } from './items';
 import { rollLoot } from './loot';
-import { buyProgressionBase } from './progression-equipment';
+import { buyProgressionBase, refreshBaseStock } from './progression-equipment';
 import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat, type AttackSnapshot } from './combat';
 import { MercenaryCombat } from './mercenary-combat';
@@ -886,6 +886,7 @@ export class Game {
     if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level, mercenaryKill ? rewardMods : undefined);
     if (enemy.boss) {
       if (this.specialArea) {
+        if (this.specialArea === 'cow') refreshBaseStock(this.hero);
         this.hero.bossDefeated = true; this.world.setExitActive(true); this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`); this.save(false); return;
       }
       const hadMercenaryMerchant = mercenaryUnlocked(this.hero);
