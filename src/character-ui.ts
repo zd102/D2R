@@ -89,7 +89,7 @@ export class CharacterScreen {
     ui.overlay.addEventListener('toggle', event => { if (event.target instanceof HTMLDetailsElement && event.target.classList.contains('socket-editor')) this.socketEditorOpen = event.target.open; }, true);
   }
   character() {
-    const h = this.game.hero, s = stats(h), diff = difficulty(h), canRespec = h.questRewards.includes(`${diff}:shrine0`) && !h.respecUsed.includes(diff), c = CLASSES[h.classId];
+    const h = this.game.hero, s = stats(h), diff = difficulty(h), canRespec = h.questRewards.includes(`${diff}:shrine0`), c = CLASSES[h.classId];
     const FCR=c.fcr, FHR=c.fhr, FBR=c.fbr;
     const rows = [
       ['攻击伤害', `${Math.floor(s.attackMin)} - ${Math.floor(s.attackMax)}`], ['准确率', s.attackRating], ['防御', s.defense], ['格挡几率', `${s.block}%`],
@@ -102,8 +102,8 @@ export class CharacterScreen {
       <div><div class="section-label">战斗属性</div><dl class="sheet-stats">${rows.map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`).join('')}</dl><div class="section-label">速度档位</div><div class="breakpoint-list">${[['施法', s.mods.fcr ?? 0, s.castFrames, FCR], ['打击恢复', s.mods.fhr ?? 0, s.recoveryFrames, FHR], ['格挡', s.mods.fbr ?? 0, s.blockFrames, h.holyShield ? [0, 86] : FBR]].map(([label, value, frames, thresholds]) => `<div><span>${label}</span><b>${value}%</b><strong>${frames} 帧</strong><small>下一档 ${next(value as number, thresholds as number[])}${typeof next(value as number, thresholds as number[]) === 'number' ? '%' : ''}</small></div>`).join('')}</div></div></div>
       <details class="advanced-stats"><summary>进阶属性</summary><dl class="sheet-stats">${(['lifeSteal', 'manaSteal', 'crushingBlow', 'deadlyStrike', 'openWounds', 'magicFind', 'damageReduction', 'runWalk', 'allSkills'] as Modifier[]).map(key => `<div><dt>${MOD_NAMES[key]}</dt><dd>${s.mods[key] ?? 0}</dd></div>`).join('')}<div><dt>生命恢复 / 秒</dt><dd>${number(s.lifeRegen)}</dd></div><div><dt>法力恢复 / 秒</dt><dd>${number(s.manaRegen)}</dd></div></dl></details>
       <div class="character-xp"><span>累计经验 ${Math.floor(totalExperience(h)).toLocaleString()}</span><b>${h.level === 99 ? '最高等级' : `${Math.floor(h.xp).toLocaleString()} / ${s.xpNeeded.toLocaleString()}`}</b><div><i style="width:${h.level === 99 ? 100 : Math.min(100, h.xp / s.xpNeeded * 100)}%"></i></div></div>
-      <div class="sheet-actions"><button class="secondary-button" data-panel="skills">${icon('book-open')}技能 <b>${h.skillPoints}</b></button><button class="secondary-button" data-action="respec" ${canRespec ? '' : 'disabled'}>${icon('rotate-ccw')}重置属性与技能</button><small>${h.respecUsed.includes(diff) ? '本难度重置已使用' : canRespec ? '本难度剩余 1 次' : '通关邪恶洞窟后解锁'}</small></div>
-      ${this.respecPending ? `<div class="respec-confirm" role="alert"><strong>重置所有已投入的属性与技能？</strong><p>本难度的重置次数将被消耗。装备需求会重新计算。</p><button class="primary-button" data-action="confirm-respec" ${canRespec ? '' : 'disabled'}>${icon('rotate-ccw')}确认重置</button><button class="text-button" data-action="cancel-respec">取消</button></div>` : ''}</div>`;
+      <div class="sheet-actions"><button class="secondary-button" data-panel="skills">${icon('book-open')}技能 <b>${h.skillPoints}</b></button><button class="secondary-button" data-action="respec" ${canRespec ? '' : 'disabled'}>${icon('rotate-ccw')}重置属性与技能</button><small>${canRespec ? '可不限次数重置' : '通关邪恶洞窟后解锁'}</small></div>
+      ${this.respecPending ? `<div class="respec-confirm" role="alert"><strong>重置所有已投入的属性与技能？</strong><p>返还所有已投入的属性点与技能点，不限次数。技能绑定和临时增益会清除，装备需求会重新计算。</p><button class="primary-button" data-action="confirm-respec" ${canRespec ? '' : 'disabled'}>${icon('rotate-ccw')}确认重置</button><button class="text-button" data-action="cancel-respec">取消</button></div>` : ''}</div>`;
   }
   skillSummary(id: SkillId, rank: number) {
     const h = this.game.hero, v = skillValues(id, rank, h.skills), s = stats(h), rows: [string, string][] = [];

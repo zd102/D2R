@@ -103,7 +103,7 @@ test('quest rewards are once per difficulty and respec preserves total earned po
   const hero = heroAt(30); learnSkill(hero, 'sacrifice'); allocateAttribute(hero, 'vitality', 5);
   for (const diff of [0,1,2] as const) { hero.difficultyLevel = diff; for (const event of ['shrine0','shrine1','shrine2','boss'] as const) { assert.equal(grantQuestReward(hero, event), true); assert.equal(grantQuestReward(hero, event), false); } }
   assert.equal(hero.bonusLife, 60); assert.equal(hero.bonusResist, 30);
-  assert.equal(respec(hero), true); assert.equal(hero.points, 29 * 5 + 15); assert.equal(hero.skillPoints, 29 + 12); assert.equal(respec(hero), false); assert.equal(hero.vitality, 25);
+  assert.equal(respec(hero), true); assert.equal(hero.points, 29 * 5 + 15); assert.equal(hero.skillPoints, 29 + 12); assert.equal(respec(hero), true); assert.equal(hero.points, 29 * 5 + 15); assert.equal(hero.skillPoints, 29 + 12); assert.equal(hero.vitality, 25);
 });
 test('death stores equipment once, loses difficulty XP without level loss, and corpse recovery restores 75 percent', () => {
   const hero = heroAt(40); hero.difficultyLevel = 2; hero.xp = 500000; hero.gold = 1000; const sword = hero.equipment.weapon;

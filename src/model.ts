@@ -330,10 +330,10 @@ export function sellItem(hero: HeroState, id: string) {
 export function repairCost(hero: HeroState) { return [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item?.maxDurability ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0), 0); }
 export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item) { if (item.maxDurability) item.durability = item.maxDurability; } return true; }
 export function respec(hero: HeroState) {
-  const diff = difficulty(hero); if (hero.respecUsed.includes(diff) || !hero.questRewards.includes(`${diff}:shrine0`)) return false;
+  const diff = difficulty(hero); if (!hero.questRewards.includes(`${diff}:shrine0`)) return false;
   const bonus = hero.questRewards.filter(key => /^[0-2]:jungle$/.test(key)).length * 5;
   const base = Object.fromEntries(Object.entries(CLASSES[hero.classId].attributes).map(([key, value]) => [key, value + bonus])) as Record<Attribute, number>;
-  hero.respecUsed.push(diff); hero.points += Object.keys(base).reduce((sum, key) => sum + hero[key as Attribute] - base[key as Attribute], 0);
+  hero.points += Object.keys(base).reduce((sum, key) => sum + hero[key as Attribute] - base[key as Attribute], 0);
   Object.assign(hero, base); hero.skillPoints += Object.values(hero.skills).reduce((sum, rank) => sum + rank, 0); hero.skills = emptySkills(); hero.activeAura = null; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.buffs = {};
   for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) hero.bindings[key] = 'attack'; clampResources(hero); return true;
 }
