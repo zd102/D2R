@@ -4,7 +4,7 @@ import './mode.css';
 
 export let onlineStore: OnlineSaveStore | undefined;
 export function returnToMode(mode?: 'local' | 'online') {
-  try { if (mode) sessionStorage.setItem('eclipse-return-mode', mode); else sessionStorage.removeItem('eclipse-return-mode'); } catch { /* Mode selector is the fallback. */ }
+  try { sessionStorage.setItem('eclipse-return-mode', mode ?? 'select'); } catch { /* Default online entry still offers a mode selector. */ }
   const url = new URL(location.href); if (mode !== 'local') url.searchParams.delete('mode'); location.assign(url.href);
 }
 export async function initializeMode() {
@@ -100,6 +100,6 @@ export async function initializeMode() {
         error(failure);
       }
     };
-    if (resumed === 'online') void connect(); else choose();
+    if (resumed === 'select') choose(); else void connect();
   });
 }

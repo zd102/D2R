@@ -44,7 +44,10 @@ try {
   const page = await pageFor();
   await page.addInitScript(({ prefix }) => { if (!localStorage.getItem('online-local-fixture')) { localStorage.setItem(prefix + 'untouched', 'local-fixture'); localStorage.setItem('online-local-fixture', '1'); } }, { prefix: PROFILE_PREFIX });
   await page.goto(base);
-  await page.getByRole('button', { name: /^在线模式/ }).click(); await auth(page, username, true);
+  await expect(page.locator('#online-username')).toBeVisible();
+  await page.locator('#auth-back').click();
+  await expect(page.locator('#mode-local')).toBeVisible();
+  await page.locator('#mode-online').click(); await auth(page, username, true);
   await expect(page.locator('#auth-notice')).toContainText('注册成功'); await auth(page); await roster(page);
   assert.equal(await page.evaluate(prefix => localStorage.getItem(prefix + 'untouched'), PROFILE_PREFIX), 'local-fixture');
   assert.equal(await page.evaluate(() => window.eclipseState.mode), 'online');
@@ -85,10 +88,10 @@ try {
   });
   await leave(page); await page.screenshot({ path: join(output, 'online-roster.png') });
   // Same browser: shared Cookie cannot grant a second active page.
-  const duplicate = await pageFor(undefined, page.context()); await duplicate.goto(base); await duplicate.getByRole('button', { name: /^在线模式/ }).click();
+  const duplicate = await pageFor(undefined, page.context()); await duplicate.goto(base);
   await expect(duplicate.locator('#mode-error')).toContainText('其他页面'); await duplicate.close();
   // Independent browser: second login rejected until normal logout.
-  const other = await pageFor(); await other.goto(base); await other.getByRole('button', { name: /^在线模式/ }).click(); await auth(other);
+  const other = await pageFor(); await other.goto(base); await auth(other);
   await expect(other.locator('#mode-error')).toContainText('已登录');
   await page.getByRole('button', { name: '退出账号', exact: true }).click(); await page.getByRole('button', { name: /^本地模式/ }).waitFor();
   await auth(other); await roster(other); await enter(other, '上传副本');
@@ -108,7 +111,7 @@ try {
   assert.equal(await other.evaluate(() => window.eclipseState.gold), 9876);
   await leave(other); await other.getByRole('button', { name: '退出账号', exact: true }).click();
   // A separate account sees an empty roster, can upload a local save, and works on mobile.
-  const mobile = await pageFor({ width: 390, height: 844 }); await mobile.goto(base); await mobile.getByRole('button', { name: /^在线模式/ }).click();
+  const mobile = await pageFor({ width: 390, height: 844 }); await mobile.goto(base);
   await auth(mobile, `mobile_${suffix}`, true); await expect(mobile.locator('#auth-notice')).toContainText('注册成功');
   await auth(mobile, `mobile_${suffix}`); await roster(mobile); await expect(mobile.getByRole('option')).toHaveCount(0);
   await mobile.getByRole('button', { name: '导入角色存档', exact: true }).click();
@@ -133,7 +136,7 @@ try {
   const restoredContext = await browser.newContext({ storageState: storage, viewport: { width: 390, height: 844 } });
   contexts.push(restoredContext);
   const restored = await pageFor(undefined, restoredContext);
-  await restored.goto(base); await restored.getByRole('button', { name: /^在线模式/ }).click();
+  await restored.goto(base);
   await roster(restored); await enter(restored, '手机法师');
   assert.equal(await restored.evaluate(() => window.eclipseState.gold), 1234);
   await restored.keyboard.press('Escape');
