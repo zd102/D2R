@@ -21,7 +21,7 @@ test('all PP tiers retain useful difficulty-entry XP and bounded campaign/cow pr
           assert.ok(gapFactor >= .8, `Difficulty entry XP dead zone: ${label}, entry ${row.entryLevel}, area ${level}`);
         }
         if (row.act === 4) {
-          const [min, max] = [[36, 48], [64, 77], [88, 96]][row.difficulty];
+          const [min, max] = [[36, 48], [64, 77], [86, 93]][row.difficulty];
           assert.ok(row.level >= min && row.level <= max, `${label}: level ${row.level}`);
           if (row.cowLevel !== undefined) {
             assert.ok(row.cowLevel >= row.level && row.cowLevel - row.level <= 5, label);

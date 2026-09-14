@@ -18,11 +18,11 @@ test('experience rewards distinguish monsters and bosses, and first-clear bonus 
 
 test('level gaps discourage low-area farming and high-level XP slows smoothly without the level-99 monster zero-XP bug', () => {
   assert.equal(experienceFactor(10, 10), 1); assert.equal(experienceFactor(10, 16), .88);
-  assert.equal(experienceFactor(10, 30), .1); assert.equal(experienceFactor(30, 36), 30 / 36);
+  assert.equal(experienceFactor(10, 30), .02); assert.equal(experienceFactor(30, 36), 30 / 36);
   assert.equal(experienceFactor(30, 24), .81); assert.equal(experienceFactor(30, 20), .05);
   let previous = 1;
   for (let level = 70; level <= 98; level++) { const current = experienceFactor(level, level); assert.ok(current < previous && current > 0); previous = current; }
-  assert.ok(experienceFactor(98, 98) > .0059 * 10);
+  assert.equal(experienceFactor(98, 98), .0059);
   const context = { difficulty: 2, act: 4 };
   assert.ok(monsterExperience(98, 99, 'actBoss', context) > 0);
   assert.ok(monsterExperience(98, 98, 'actBoss', context) < xpForLevel(98) * .03);
@@ -31,9 +31,25 @@ test('level gaps discourage low-area farming and high-level XP slows smoothly wi
   assert.equal(monsterExperience(30, Infinity, 'monster', context), 0);
 });
 
+test('D2R XP penalties preserve the level-25 boundary and multiply high-level and gap penalties', () => {
+  for (const [gap, expected] of [[5, 1], [6, .88], [7, .68], [8, .36], [9, .15], [10, .02], [20, .02]]) {
+    assert.equal(experienceFactor(24, 24 + gap), expected);
+    assert.equal(experienceFactor(25, 25 + gap), 25 / (25 + gap));
+  }
+  for (const level of [24, 25, 69]) for (const [gap, expected] of [[0, 1], [5, 1], [6, .81], [7, .62], [8, .43], [9, .24], [10, .05], [20, .05]]) {
+    assert.equal(experienceFactor(level, level - gap), expected);
+  }
+  assert.equal(experienceFactor(69, 69), 1);
+  for (const [level, expected] of [[70, .9531], [75, .7188], [80, .4844], [85, .25], [90, .0596], [95, .0146], [98, .0059]]) {
+    assert.equal(experienceFactor(level, level), expected);
+    assert.equal(experienceFactor(level, level - 10), .05 * expected);
+    assert.equal(experienceFactor(level, level + 1), level / (level + 1) * expected);
+  }
+});
+
 test('the 75-level campaign has a measured progression curve for thorough and partial clearing, with no difficulty-entry XP dead zone', () => {
   for (const fraction of [.65, 1]) {
-    const rows = simulateProgression(fraction), thresholds = [[36, 40], [64, 70], [88, 92]];
+    const rows = simulateProgression(fraction), thresholds = [[36, 40], [64, 70], [86, 89]];
     let previous = 1;
     for (const row of rows) { assert.ok(row.level > previous && row.level < 99); previous = row.level; }
     for (let diff = 0; diff < 3; diff++) {

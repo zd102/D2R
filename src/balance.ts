@@ -30,7 +30,8 @@ export function baseMonsterAttackRating(definition: MonsterDef, level: number, d
   return monsterTraits(definition).accuracy * DIFFICULTY_POWER[difficulty].attack * playerDamageFactor(players, difficulty) * (25 + level * 7);
 }
 
-// LoD's level-70+ XP factors, softened by square root for this shorter campaign.
+// D2R/LoD level-70+ XP factors, applied after the monster-level gap penalty.
+// https://classic.battle.net/diablo2exp/basics/experience.shtml
 const CLASSIC_HIGH_LEVEL_XP = [.9531,.9063,.8594,.8125,.7656,.7188,.6719,.625,.5781,.5313,.4844,.4375,.3906,.3438,.2969,.25,.1875,.1406,.1055,.0791,.0596,.0449,.0342,.0254,.0195,.0146,.0107,.0078,.0059];
 export function experienceFactor(playerLevel: number, monsterLevel: number) {
   if (playerLevel >= 99 || playerLevel < 1 || monsterLevel < 1 || !Number.isFinite(playerLevel + monsterLevel)) return 0;
@@ -38,8 +39,8 @@ export function experienceFactor(playerLevel: number, monsterLevel: number) {
   let factor = 1;
   if (gap > 5) factor = [.81, .62, .43, .24, .05][Math.min(4, gap - 6)];
   else if (gap < 0 && playerLevel >= 25) factor = playerLevel / monsterLevel;
-  else if (gap < -5) factor = [.88, .68, .36, .15, .1][Math.min(4, -gap - 6)];
-  return factor * (playerLevel < 70 ? 1 : Math.sqrt(CLASSIC_HIGH_LEVEL_XP[Math.floor(playerLevel) - 70]));
+  else if (gap < -5) factor = [.88, .68, .36, .15, .02][Math.min(4, -gap - 6)];
+  return factor * (playerLevel < 70 ? 1 : CLASSIC_HIGH_LEVEL_XP[Math.floor(playerLevel) - 70]);
 }
 export function monsterExperience(playerLevel: number, monsterLevel: number, rank: DropRank, context: { difficulty: number; act: number; baseLife?: number; firstClear?: boolean; summoned?: boolean; players?: number }) {
   if (context.summoned) return 0;

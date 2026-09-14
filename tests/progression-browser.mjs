@@ -23,19 +23,24 @@ try {
   await page.evaluate(() => cancelAnimationFrame(window.progressionGame.frameId));
   let checked = 0;
   for (const players of [1, 5, 8]) for (const difficulty of [0, 1, 2]) for (const index of [0, 24, 25]) {
-    const snapshot = await page.evaluate(({ players, difficulty, index }) => {
+    await page.evaluate(({ players, difficulty, index }) => {
       const g = window.progressionGame;
       g.hero.playerCount = players; g.hero.level = [40, 68, 90][difficulty]; g.hero.xp = 0;
       g.hero.difficultyLevel = difficulty; g.hero.bossDefeated = false;
       if (index === 25) { g.specialArea = 'cow'; g.inCamp = false; g.loadArea(false); }
-      else g.enterLevel(index, difficulty);
+      else if (!g.enterLevel(index, difficulty)) throw new Error(`Cannot enter ${difficulty}/${index}`);
+    }, { players, difficulty, index });
+    // Area transitions complete only after the asynchronous save commits.
+    await page.waitForFunction(() => !window.progressionGame.onlineOperation);
+    const snapshot = await page.evaluate(() => {
+      const g = window.progressionGame;
       const layout = structuredClone(g.world.layout);
       const enemies = g.enemies.map(e => ({ id: e.definition.id, level: e.level, hp: e.maxHp, players: e.playerCount, boss: !!e.boss, elite: !!e.elite, champion: !!e.champion, scale: e.xpScale ?? 1 }));
       const before = structuredClone(g.hero);
       // Kill rewards are exercised without advancing the animation/combat clock.
       for (const e of [...g.enemies]) g.combat.damage(e, 1e12, 'magic', true);
       return { layout, enemies, before, after: structuredClone(g.hero) };
-    }, { players, difficulty, index });
+    });
     const area = index === 25 ? SPECIAL_LEVELS.cow : LEVELS[index];
     if (index === 25) {
       const ranks = cowEncounterPlan(snapshot.layout).flatMap(pack => pack.ranks);
@@ -43,8 +48,8 @@ try {
       assert.equal(snapshot.enemies.filter(e => e.champion).length, ranks.filter(rank => rank === 'champion').length);
     } else {
       const plan = encounterPlan(area, snapshot.layout, difficulty), promoted = new Set(plan.elitePacks);
-      assert.equal(snapshot.enemies.length, plan.normalCount + plan.eliteSites.length + 1);
-      assert.equal(snapshot.enemies.filter(e => e.champion).length, plan.packs.reduce((sum, p, id) => sum + (promoted.has(id) ? p.species.length : 0), 0));
+      assert.equal(snapshot.enemies.length, plan.normalCount + plan.eliteSites.length + 1, JSON.stringify({ players, difficulty, index }));
+      assert.equal(snapshot.enemies.filter(e => e.champion).length, plan.packs.reduce((sum, p, id) => sum + (promoted.has(id) ? p.species.length : 0), 0), JSON.stringify({ players, difficulty, index }));
     }
     const expected = structuredClone(snapshot.before);
     for (const e of snapshot.enemies) {

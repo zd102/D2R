@@ -134,7 +134,7 @@ test('partial and full exploration retain consistent campaign progression across
     const final=curves[0].filter((_,index)=>index%5===4).map(row=>row.level);
     // Species formations and guest elites change individual XP weights slightly,
     // while the total area budget and the one-level seed spread remain bounded.
-    const reference = fraction===1?[39,69,91]:[36,64,89];
+    const reference = fraction===1?[39,69,88]:[36,64,86];
     final.forEach((level, index) => assert.ok(Math.abs(level-reference[index]) <= 1, `${fraction}/${index}: ${level}`));
   }
 });
