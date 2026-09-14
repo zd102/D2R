@@ -34,14 +34,14 @@ test('elite equipment and rune odds are elevated but remain below guardian odds'
   const random = rng(221), counts = { equipment: 0, rune: 0 };
   for (let i = 0; i < 20000; i++) { const drop = rollDropKinds('elite', random); counts.equipment += Number(drop.equipment); counts.rune += Number(drop.rune); }
   assert.ok(Math.abs(counts.equipment / 20000 - .72) < .015);
-  assert.ok(Math.abs(counts.rune / 20000 - .20) < .012);
+  assert.ok(Math.abs(counts.rune / 20000 - .02) < .004);
 });
 
 test('elites use their own loot and cannot gain Countess, Hellforge, event charm or first-clear rewards', () => {
   for (const index of [3, 17, 19, 24]) for (const difficulty of [0, 1, 2]) {
     const context = { level: 85, act: LEVELS[index].act, difficulty, levelIndex: index, rank: 'elite' as const, countess: true, firstClear: true };
     const drop = rollLoot(context, () => 0);
-    assert.equal(drop.runes.length, 1); assert.equal(drop.items.length, 3);
+    assert.equal(drop.runes.length, 1); assert.equal(drop.items.length, 4);
     assert.ok(drop.items.every(item => !['unique-382', 'unique-401'].includes(item.catalogId ?? '')));
     assert.ok(drop.runes.every(rune => runePool(context.level, difficulty, context.act).includes(rune)));
     assert.equal(drop.items[0].rarity, 'magic');

@@ -32,7 +32,7 @@ const themes: [Slot[], string[]][] = [
 export const BOSS_DROP_PROFILES: BossDropProfile[] = themes.map(([slots, featured], levelIndex) => {
   const act = Math.floor(levelIndex / 5), actBoss = levelIndex % 5 === 4;
   return { levelIndex, slots, featured, uniqueChance: actBoss ? .20 + act * .025 : .09 + act * .012,
-    runeChance: actBoss ? .12 + act * .02 : levelIndex === 13 ? .25 : .08,
+    runeChance: actBoss ? .012 + act * .002 : levelIndex === 13 ? .025 : .008,
     runeTC: [[4, 7, 8, 8, 9][act], [9, 10, 11, 12, 14][act], [14, 15, 16, 16, 17][act]],
     maxTC: [[15, 24, 33, 36, 45][act], [45, 51, 57, 63, 69][act], [69, 72, 78, 84, 87][act]],
   };

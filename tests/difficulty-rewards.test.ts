@@ -25,7 +25,7 @@ test('difficulty rewards increase for every rank and PP without multiplying guar
       if (rank === 'actBoss') assert.equal(counts.equipment, samples);
       if (players === 1 && rank === 'monster') {
         assert.ok(Math.abs(counts.equipment / samples - [.16, .1888, .2301][difficulty]) < .01);
-        assert.ok(Math.abs(counts.rune / samples - [.035, .0419, .052][difficulty]) < .005);
+        assert.ok(Math.abs(counts.rune / samples - [.0035, .0042, .00525][difficulty]) < .0015);
       }
       previous = counts;
     }

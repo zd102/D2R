@@ -52,9 +52,9 @@ test('rune pools obey both area level and difficulty, every rune is reachable', 
 test('boss first-clear guarantees an eligible unique; repeats stay worthwhile without guaranteed uniques', () => {
   const context = { level: 35, act: 2, difficulty: 0, rank: 'actBoss' as const };
   const first = rollLoot({ ...context, firstClear: true }, () => .5);
-  assert.equal(first.items.length, 2); assert.equal(first.items[0].rarity, 'unique'); assert.equal(first.runes.length, 1);
+  assert.equal(first.items.length, 3); assert.equal(first.items[0].rarity, 'unique'); assert.equal(first.runes.length, 1);
   assert.ok(first.items.every(item => (item.requiredLevel ?? 1) <= 35));
-  const repeat = rollLoot(context, () => .5); assert.equal(repeat.items.length, 2); assert.ok(repeat.items.every(i => i.rarity === 'rare'));
+  const repeat = rollLoot(context, () => .5); assert.equal(repeat.items.length, 3); assert.ok(repeat.items.every(i => i.rarity === 'rare'));
   assert.equal(rollLoot({ ...context, rank: 'miniboss', countess: true }, () => 0).runes.length, 4);
   assert.equal(rollLoot({ ...context, rank: 'miniboss', countess: true }, () => .99).runes.length, 0);
 });

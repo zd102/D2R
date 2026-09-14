@@ -18,11 +18,11 @@ export type Mods = Partial<Record<Modifier, number>>;
 export const RUNE_ORDER = ['el', 'eld', 'tir', 'nef', 'eth', 'ith', 'tal', 'ral', 'ort', 'thul', 'amn', 'sol', 'shael', 'dol', 'hel', 'io', 'lum', 'ko', 'fal', 'lem', 'pul', 'um', 'mal', 'ist', 'gul', 'vex', 'ohm', 'lo', 'sur', 'ber', 'jah', 'cham', 'zod'] as const;
 export type RuneId = typeof RUNE_ORDER[number];
 export const DROP_RATES = {
-  monster: { equipment: .16, rune: .035, charm: .006 },
-  champion: { equipment: .42, rune: .09, charm: .018 },
-  elite: { equipment: .72, rune: .20, charm: .03 },
-  miniboss: { equipment: .95, rune: .34, charm: .04 },
-  actBoss: { equipment: 1, rune: .70, charm: .04 },
+  monster: { equipment: .16, rune: .0035, charm: .006 },
+  champion: { equipment: .42, rune: .009, charm: .018 },
+  elite: { equipment: .72, rune: .02, charm: .03 },
+  miniboss: { equipment: .95, rune: .034, charm: .04 },
+  actBoss: { equipment: 1, rune: .07, charm: .04 },
 } as const;
 export type DropRank = keyof typeof DROP_RATES;
 // Reward harder encounters by reducing no-drop, without multiplying guaranteed loot.

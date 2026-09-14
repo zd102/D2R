@@ -17,7 +17,7 @@ test('mysterious corpse leg persists its difficulty marker', () => {
   assert.equal(leg.name, '维特之腿 · 噩梦');
 });
 
-test('cow drops force socket bases and elevated rune rolls, while only uber Diablo creates Annihilus', () => {
+test('cow drops can add socket bases and runes, while only uber Diablo creates Annihilus', () => {
   const cow = rollLoot({ rank: 'monster', act: 4, difficulty: 2, level: 96, cow: true }, () => 0);
   assert.ok(cow.items.some(item => item.rarity === 'common' && (item.sockets ?? 0) > 0)); assert.ok(cow.runes.length >= 2);
   const normal = rollLoot({ rank: 'actBoss', act: 3, difficulty: 2, level: 91, levelIndex: 19 }, () => 0);

@@ -31,9 +31,9 @@ test('selling a backpack charm updates resources and never sells worn or alterna
   const before = structuredClone(hero); assert.equal(sellItem(hero, hero.equipment.weapon!.id), false); assert.deepEqual(hero, before);
 });
 test('expansion drops reduce ordinary gear clutter and favor repeatable boss rewards', () => {
-  assert.deepEqual(DROP_RATES.monster, { equipment: .16, rune: .035, charm: .006 });
-  assert.deepEqual(DROP_RATES.miniboss, { equipment: .95, rune: .34, charm: .04 });
-  assert.deepEqual(DROP_RATES.actBoss, { equipment: 1, rune: .70, charm: .04 });
+  assert.deepEqual(DROP_RATES.monster, { equipment: .16, rune: .0035, charm: .006 });
+  assert.deepEqual(DROP_RATES.miniboss, { equipment: .95, rune: .034, charm: .04 });
+  assert.deepEqual(DROP_RATES.actBoss, { equipment: 1, rune: .07, charm: .04 });
   for (const rank of ['monster', 'miniboss', 'actBoss'] as const) {
     const counts = { equipment: 0, rune: 0, charm: 0 };
     for (let i = 0; i < 10000; i++) { const drops = rollDropKinds(rank, () => i / 10000); for (const key of ['equipment', 'rune', 'charm'] as const) counts[key] += Number(drops[key]); }
