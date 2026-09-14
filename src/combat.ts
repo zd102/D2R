@@ -65,7 +65,7 @@ export class PaladinCombat {
     // the interval of the next attack in that combo.
     if (releaseCadence && id && this.actionCooldowns[id]) {
       const s = stats(this.game.hero);
-      this.actionCooldowns[id] = Math.min(this.actionCooldowns[id], id === 'zeal' ? s.zealFrames / 25 : s.attackFrames / 25);
+      this.actionCooldowns[id] = Math.min(this.actionCooldowns[id], id === 'zeal' ? s.zealFrames / 25 : this.classes.sequenceInterval(id as ExtraSkillId, s));
     }
   }
   startAction(id: ActionId, duration: number) {

@@ -35,6 +35,9 @@ export class ClassCombat {
   readonly combat: PaladinCombat;
   constructor(combat: PaladinCombat) { this.combat=combat; }
   get game() { return this.combat.game; }
+  sequenceInterval(id: ExtraSkillId, s = stats(this.game.hero)) {
+    return id === 'strafe' ? Math.max(.08, s.rangedFrames / 100) : s.zealFrames / 25;
+  }
   value(id:ExtraSkillId) { const h=this.game.hero; return skillValues(id,castingSkillLevel(h,id),h.skills); }
   reach(id:string) { const mode=classSkillMode(id); return mode==='spear'?2.6:mode?14:undefined; }
   nearby(point:THREE.Vector3,radius:number) { return this.game.enemies.filter(enemy=>this.combat.hostile(enemy)&&enemy.actor.group.position.distanceTo(point)<=radius&&clearShot(this.game.world.grid,point,enemy.actor.group.position)).sort((a,b)=>a.actor.group.position.distanceToSquared(point)-b.actor.group.position.distanceToSquared(point)); }
@@ -65,7 +68,8 @@ export class ClassCombat {
     if(h.mana<v.cost) {g.ui.toast('法力不足');return false;}
     let duration=(mode==='bow'||mode==='javelin'?s.rangedFrames:mode==='spear'?s.attackFrames:['lightning','chainLightning'].includes(id)?s.lightningFrames:s.castFrames)/25;
     const hits=id==='strafe'?Math.max(v.secondary,Math.min(v.hits,this.nearby(g.position,14).length)):id==='fend'?Math.max(1,Math.min(v.hits,this.nearby(g.position,2.6).length)):v.hits;
-    if(['jab','fend','strafe'].includes(id))duration=Math.max(duration,hits*(id==='strafe'?Math.max(.08,s.rangedFrames/100):.22));
+    // The first hit is immediate; only the gaps before subsequent hits count.
+    if(['jab','fend','strafe'].includes(id))duration=Math.max(0,hits-1)*this.sequenceInterval(id,s);
     if(id==='inferno')duration=.6;
     if(id==='impale')duration*=1.8;
     h.mana-=v.cost;g.monsterCombat?.castCost?.(v.cost);if(g.dead)return false;c.startAction(id,duration);
@@ -204,7 +208,7 @@ export class ClassCombat {
     for(const id of Object.keys(this.delays) as ExtraSkillId[])this.delays[id]=Math.max(0,this.delays[id]!-dt);
     for(const [id,buff] of Object.entries(h.buffs??{})) {buff.remaining=Math.max(0,buff.remaining-dt);if(!buff.remaining)delete h.buffs[id as SkillId];}
     for(const enemy of g.enemies){const debuff=this.debuffs.get(enemy);if(debuff){debuff.sight=Math.max(0,debuff.sight-dt);debuff.missiles=Math.max(0,debuff.missiles-dt);}}
-    if(this.sequence){const seq=this.sequence;seq.timer-=dt;if(seq.timer<=0){withCastingSkill(h,{id:seq.id,rank:seq.rank},()=>{const {direction,target}=this.aim(seq.aimed);if(seq.id==='strafe'){const s=stats(h);if(!s.weapon||!s.ranged||s.ranged.stack){this.sequence=undefined;}else this.missile(seq.id,g.position,direction,this.value(seq.id),c.snapshot(),target);}else this.spear(seq.id,direction,seq.id==='fend'?false:seq.aimed,seq.id==='fend'?seq.seen:undefined);seq.first=false;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.attackTime=1;playHeroAction(g.actor,seq.id==='strafe'?'shoot':'thrust',g.time,seq.id==='strafe'?.25:.3);if(--seq.remaining<=0)this.sequence=undefined;else seq.timer=seq.id==='strafe'?Math.max(.08,stats(h).rangedFrames/100):.22;});}}
+    if(this.sequence){const seq=this.sequence;seq.timer-=dt;if(seq.timer<=0){withCastingSkill(h,{id:seq.id,rank:seq.rank},()=>{const {direction,target}=this.aim(seq.aimed);if(seq.id==='strafe'){const s=stats(h);if(!s.weapon||!s.ranged||s.ranged.stack){this.sequence=undefined;}else this.missile(seq.id,g.position,direction,this.value(seq.id),c.snapshot(),target);}else this.spear(seq.id,direction,seq.id==='fend'?false:seq.aimed,seq.id==='fend'?seq.seen:undefined);seq.first=false;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.attackTime=1;playHeroAction(g.actor,seq.id==='strafe'?'shoot':'thrust',g.time,this.sequenceInterval(seq.id));if(--seq.remaining<=0){this.sequence=undefined;delete c.actionCooldowns[seq.id];}else seq.timer+=this.sequenceInterval(seq.id);});}}
     for(let i=this.missiles.length-1;i>=0;i--)if(!this.updateMissile(this.missiles[i],dt)){g.disposeObject(this.missiles[i].mesh);this.missiles.splice(i,1);}
     for(let i=this.fields.length-1;i>=0;i--){const f=this.fields[i];updateVisual(f.mesh,g.time,Math.min(1,f.life*3));const particles=f.mesh.getObjectByName(f.values.type+'-field-particles');if(particles)particles.visible=f.delay<=0;if(f.delay>0){f.delay-=dt;continue;}f.life-=dt;f.tick-=dt;
       if(f.life<=0){g.disposeObject(f.mesh);this.fields.splice(i,1);continue;}
