@@ -65,7 +65,7 @@ export class ClassCombat {
     if(['jab','fend','strafe'].includes(id))duration=Math.max(duration,hits*(id==='strafe'?Math.max(.08,s.rangedFrames/100):.22));
     if(id==='inferno')duration=.6;
     if(id==='impale')duration*=1.8;
-    h.mana-=v.cost;c.startAction(id,duration);
+    h.mana-=v.cost;g.monsterCombat?.castCost?.(v.cost);if(g.dead)return false;c.startAction(id,duration);
     this.delays[id]=delays[id]??0;g.attackTime=1;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.audio.play(castSound(id,v.type,mode), { nativeKey: `cast:${id}` });
     if(target&&['bow','javelin','spear'].includes(mode??''))c.triggerItems('att-skill',target);
     if(utility){g.beam(g.position.clone().setY(1),utility.point.clone().setY(.5));if(utility.chest)g.openChest(utility.chest.id,true);else if(utility.loot)g.collectLoot(utility.loot);return true;}

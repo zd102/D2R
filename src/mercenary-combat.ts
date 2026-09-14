@@ -1,3 +1,5 @@
+import type { AttackSpec } from './monster-combat.ts';
+import { hasMonsterAffix } from './monster-affixes.ts';
 import * as THREE from 'three';
 import type { Game, Enemy } from './game.ts';
 import type { AttackSnapshot } from './combat.ts';
@@ -110,7 +112,7 @@ export class MercenaryCombat {
     let moving = false;
     if (target ? !this.canStrike(target) : distance > 1.8) {
       this.strikes = 0;
-      const direct = g.world.canWalk(point, destination), speed = (target || point.distanceTo(g.position) < 8 ? MERCENARY_PURSUIT.speed : MERCENARY_PURSUIT.catchUpSpeed) * s.runSpeed;
+      const direct = g.world.canWalk(point, destination), speed = (target || point.distanceTo(g.position) < 8 ? MERCENARY_PURSUIT.speed : MERCENARY_PURSUIT.catchUpSpeed) * s.runSpeed * (g.monsterCombat?.auraAt?.(point, 'holyFreeze') ? .6 : 1) * (g.monsterCombat?.imprisoned?.(point) ? 0 : 1);
       if (direct) {
         this.path = [destination.clone()];
       } else if (this.rethink <= 0 || !this.path.length) {
@@ -167,20 +169,26 @@ export class MercenaryCombat {
     if (mods.knockback && !enemy.boss) { const direction = enemy.actor.group.position.clone().sub(this.position!).normalize(), end = enemy.actor.group.position.clone().addScaledVector(direction, .8); if (g.world.canWalk(enemy.actor.group.position, end)) enemy.body.position.set(end.x, .5, end.z); }
     if (!enemy.dead) c.triggerItems('hit-skill', enemy, snapshot.items);
   }
-  hurt(amount: number, type: DamageType = 'physical', source?: Enemy, missile = false) {
+  hurt(amount: number, type: DamageType = 'physical', source?: Enemy, missile = false, spec?: AttackSpec) {
     const g = this.game, merc = g.hero.mercenary;
     if (!merc || merc.status !== 'alive' || !this.position || g.inCamp || g.dead || source?.converted) return;
     const s = mercenaryStats(g.hero);
-    if (source && type === 'physical' && Math.random() * 100 >= hitChance(source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, g.hero.level)) return;
+    if (source && type === 'physical' && Math.random() * 100 >= hitChance(g.monsterCombat?.accuracy?.(source) ?? source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, g.hero.level)) return;
     const curse = source && g.combat.itemCurses.get(source)?.kind;
     if (type === 'physical') amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : 1;
-    const resisted = type === 'physical' ? Math.max(0, amount - (s.mods.damageReductionFlat ?? 0)) * (1 - Math.min(50, s.mods.damageReduction ?? 0) / 100) : resistedDamage(Math.max(0, amount - (s.mods.magicReduction ?? 0)), type === 'magic' ? 0 : s.resistances[type]);
-    const absorbed = absorbDamage(resisted, type, s.mods); merc.hp = Math.max(0, Math.min(s.maxHp, merc.hp + absorbed.healing) - absorbed.damage);
-    if (type === 'cold' && !s.mods.cannotBeFrozen) merc.cold = s.mods.halfFreeze ? 2 : 4;
-    if (type === 'poison' && source) merc.poison = Math.max(merc.poison, 6);
+    const parts = source ? g.monsterCombat?.damageParts?.(source, amount, type, spec) ?? [{ amount, type }] : [{ amount, type }];
+    let damage = 0;
+    for (const part of parts) {
+      const conviction = ['fire', 'cold', 'lightning'].includes(part.type) && g.monsterCombat?.auraAt?.(this.position, 'conviction') ? 35 : 0;
+      const resisted = part.type === 'physical' ? Math.max(0, part.amount - (s.mods.damageReductionFlat ?? 0)) * (1 - Math.min(50, s.mods.damageReduction ?? 0) / 100) * ((g.monsterCombat?.mercenaryCurseUntil ?? 0) > g.time ? 2 : 1) : resistedDamage(Math.max(0, part.amount - (s.mods.magicReduction ?? 0)), part.type === 'magic' ? 0 : s.resistances[part.type] - conviction);
+      const absorbed = absorbDamage(resisted, part.type, s.mods); merc.hp = Math.max(0, Math.min(s.maxHp, merc.hp + absorbed.healing) - absorbed.damage); damage += absorbed.damage;
+      if (part.type === 'cold' && part.amount > 0 && !s.mods.cannotBeFrozen) merc.cold = s.mods.halfFreeze ? 2 : 4;
+      if (part.type === 'poison' && part.amount > 0) merc.poison = Math.max(merc.poison, 6);
+    }
+    if (source && !spec?.triggered && hasMonsterAffix(source, 'cursed') && Math.random() < .75 && g.monsterCombat) g.monsterCombat.mercenaryCurseUntil = g.time + 5;
     if (source && merc.hp > 0) {
       g.combat.triggerItems('gethit-skill', source, activeMercenaryEquipment(g.hero));
-      if (!missile && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); const reflected = absorbed.damage * (thorns?.percent ?? 0) / 100 + (thorns?.secondary ?? 0) + (s.mods.reflectDamage ?? 0); if (reflected > 0) g.combat.damage(source, reflected, 'physical', false, false, this.snapshot()); }
+      if (!missile && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); const reflected = damage * (thorns?.percent ?? 0) / 100 + (thorns?.secondary ?? 0) + (s.mods.reflectDamage ?? 0); if (reflected > 0) g.combat.damage(source, reflected, 'physical', false, false, this.snapshot()); }
     }
     if (merc.hp <= 0) {
       merc.status = 'dead'; merc.cold = merc.poison = merc.potionHealing = 0;

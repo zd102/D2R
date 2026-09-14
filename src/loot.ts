@@ -45,7 +45,8 @@ export function rollSocketBase(level: number, random = Math.random): Item {
 export function rollLoot(context: LootContext, random = Math.random) {
   const { rank } = context, difficulty = Math.max(0, Math.min(2, Math.floor(context.difficulty))), act = Math.max(0, Math.min(4, Math.floor(context.act)));
   const level = Math.max(1, Math.min(99, Math.floor(context.level))), flags = rollDropKinds(rank, random, context.players), items: Item[] = [], runes: RuneId[] = [];
-  const boss = rank === 'miniboss' || rank === 'actBoss', elite = rank === 'elite';
+  const boss = rank === 'miniboss' || rank === 'actBoss', elite = rank === 'elite', champion = rank === 'champion';
+  const extraEquipment = random() < (rank === 'miniboss' ? .55 : elite ? .30 : champion ? .12 : 0);
   const profile = boss ? bossDropProfile(context.levelIndex) : undefined, countess = boss && (context.countess || context.levelIndex === 3);
   // Resolve rune and currency rolls before quality-dependent draws: MF cannot change them.
   if (flags.rune || rank === 'actBoss' && context.firstClear) runes.push(rollRune(level, difficulty, act, boss, random));
@@ -62,13 +63,14 @@ export function rollLoot(context: LootContext, random = Math.random) {
     const start = [0, 11, 14][difficulty];
     runes.push(RUNE_ORDER[start + Math.floor(Math.min(1 - Number.EPSILON, Math.max(0, random())) * 11)]);
   }
-  const gold = Math.round((10 + level * 2 + random() * 14) * (boss ? 4 : elite ? 2 : 1) * (1 + (context.goldFind ?? 0) / 100));
-  const potion = random() < playerDropChance(boss ? .8 : elite ? .6 : .30, rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? random() > .4 ? 0 : 1 : undefined;
+  const gold = Math.round((10 + level * 2 + random() * 14) * (boss ? 4 : elite ? 2.4 : champion ? 1.6 : 1) * (1 + (context.goldFind ?? 0) / 100));
+  const potion = random() < playerDropChance(boss ? .8 : elite ? .65 : champion ? .5 : .30, rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? random() > .4 ? 0 : 1 : undefined;
   const treasureClass = profile?.maxTC[difficulty] ?? Math.min(87, Math.ceil((level + 3) / 3) * 3);
   if (flags.equipment) {
-    const roll = random(), quality = rank === 'actBoss' ? .72 + roll * .28 : rank === 'miniboss' || elite ? .33 + roll * .67 : roll;
+    const roll = random(), quality = rank === 'actBoss' ? .72 + roll * .28 : rank === 'miniboss' ? .45 + roll * .55 : elite ? .38 + roll * .62 : champion ? .33 + roll * .67 : roll;
     items.push(rollItem(level, quality, rank === 'actBoss' && !!context.firstClear, context.magicFind ?? 0, random, treasureClass));
   }
+  if (extraEquipment) items.push(rollItem(level, (boss ? .45 : .33) + random() * (boss ? .55 : .67), false, context.magicFind ?? 0, random, treasureClass));
   if (rank === 'actBoss') items.push(rollItem(level, .72 + random() * .28, false, context.magicFind ?? 0, random, treasureClass));
   if (flags.charm) items.push(rollCharm(level, random));
   if (profile) { const special = rollBossSpecial(profile, level, difficulty, context.magicFind ?? 0, random); if (special) items.push(special); }

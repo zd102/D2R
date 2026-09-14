@@ -4,12 +4,13 @@ import { mkdir } from 'node:fs/promises';
 import { newHero, stats } from '../src/model.ts';
 import { LEVELS, eliteCount, levelLayout } from '../src/campaign.ts';
 import { encounterPlan } from '../src/encounter-plan.ts';
+import { SUPER_UNIQUE_AFFIXES } from '../src/monster-affixes.ts';
 import { MONSTERS } from '../src/bestiary.ts';
 import { monsterStats } from '../src/balance.ts';
 import { PROFILE_PREFIX } from '../src/saves.ts';
 import { enterGame, openCampaign, savedProfile } from './browser-helpers.mjs';
 
-const output = '.verification/elites-check';
+const output = process.env.OUTPUT_DIR || '.verification/elites-check';
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173', errors = [];
@@ -80,13 +81,23 @@ try {
         assert.ok(elite.route.length); const end = elite.route.at(-1);
         assert.ok(Math.hypot(end.x - elite.x, end.z - elite.z) < 1.5, `${area.id}/${difficulty}: elite reachable`);
       }
+      const champions = s.enemies.filter(enemy => enemy.champion);
+      assert.ok(champions.length >= elites.length * 2, 'Each elite has a champion pack');
+      for (const champion of champions) {
+        assert.ok(['champion', 'berserker', 'fanatic', 'ghostly', 'possessed'].includes(champion.champion));
+        assert.equal(champion.elite, false); assert.equal(champion.boss, false);
+        assert.ok(elites.some(e => e.pack === champion.pack && Math.hypot(e.x - champion.x, e.z - champion.z) < 6));
+      }
+      for (const enemy of s.enemies) assert.ok(Object.values(enemy.resistances).every(r => r <= 85));
       const boss = s.enemies.find(enemy => enemy.boss);
-      assert.equal(boss.affixes.length, area.actBoss ? 0 : difficulty + 1);
+      assert.equal(boss.superUnique, !area.actBoss);
+      assert.equal(boss.affixes.length, area.actBoss ? 0 : SUPER_UNIQUE_AFFIXES[boss.species].length + difficulty);
     }
     console.log(`All 25 maps: difficulty ${difficulty}, elite counts, attributes, normal packs, boss and routes passed`);
   }
   await choose(page, 0, 0); const id = await approachElite(page);
   await expect(page.locator('.elite-label').first()).toBeVisible();
+  await expect(page.locator('.champion-label').first()).toBeVisible();
   await pixels(page); await page.screenshot({ path: `${output}/elite-desktop.png` });
   const canvasBefore = await page.locator('#game-canvas').evaluate(canvas => canvas.toDataURL());
   await page.waitForTimeout(300);

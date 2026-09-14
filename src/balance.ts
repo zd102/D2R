@@ -19,7 +19,7 @@ export function monsterExperience(playerLevel: number, monsterLevel: number, ran
   if (context.summoned) return 0;
   const factor = experienceFactor(playerLevel, monsterLevel); if (!factor) return 0;
   const rate = context.difficulty === 0 && context.act === 0 ? .065 : .03;
-  const weight = rank === 'actBoss' ? 10 : rank === 'miniboss' ? 4 : rank === 'elite' ? 2 : Math.max(.7, Math.min(1.4, Math.sqrt((context.baseLife ?? 24) / 24)));
+  const weight = rank === 'actBoss' ? 10 : rank === 'miniboss' ? 4 : rank === 'elite' ? 2 : rank === 'champion' ? 1.6 : Math.max(.7, Math.min(1.4, Math.sqrt((context.baseLife ?? 24) / 24)));
   const firstClear = (rank === 'actBoss' || rank === 'miniboss') && context.firstClear ? 1.35 : 1;
   // Level-99 monsters still reward XP; level 99 has no "next level" threshold.
   const base = xpForLevel(Math.min(98, Math.max(1, Math.floor(monsterLevel))));

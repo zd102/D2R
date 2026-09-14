@@ -19,14 +19,15 @@ export const RUNE_ORDER = ['el', 'eld', 'tir', 'nef', 'eth', 'ith', 'tal', 'ral'
 export type RuneId = typeof RUNE_ORDER[number];
 export const DROP_RATES = {
   monster: { equipment: .16, rune: .035, charm: .006 },
-  elite: { equipment: .55, rune: .15, charm: .02 },
-  miniboss: { equipment: .80, rune: .28, charm: .025 },
+  champion: { equipment: .42, rune: .09, charm: .018 },
+  elite: { equipment: .72, rune: .20, charm: .03 },
+  miniboss: { equipment: .95, rune: .34, charm: .04 },
   actBoss: { equipment: 1, rune: .70, charm: .04 },
 } as const;
 export type DropRank = keyof typeof DROP_RATES;
 export function rollDropKinds(rank: DropRank, random = Math.random, players = 1) {
   const rates = DROP_RATES[rank];
-  const count = rank === 'elite' || rank === 'miniboss' ? 1 : players;
+  const count = rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : players;
   return { equipment: random() < playerDropChance(rates.equipment, count), rune: random() < playerDropChance(rates.rune, count), charm: random() < playerDropChance(rates.charm, count) };
 }
 const runeData = {

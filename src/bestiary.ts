@@ -1,7 +1,7 @@
 import type { DamageType } from './paladin.ts';
 
 export type BodyPlan = 'fallen' | 'shaman' | 'zombie' | 'skeleton' | 'archer' | 'mage' | 'goat' | 'ghost' | 'mummy' | 'beetle' | 'maggot' | 'viper' | 'spider' | 'flayer' | 'council' | 'knight' | 'mauler' | 'venom' | 'imp' | 'succubus' | 'frozen' | 'lord' | 'cow' | 'andariel' | 'duriel' | 'mephisto' | 'diablo' | 'baal';
-export type AttackId = 'strike' | 'frenzy' | 'arrow' | 'fireArrow' | 'fireball' | 'poisonSpit' | 'lightning' | 'revive' | 'charge' | 'stomp' | 'inferno' | 'curse' | 'hydra' | 'poisonFan' | 'poisonPool' | 'coldNova' | 'jab' | 'skull' | 'blizzard' | 'firestorm' | 'redLightning' | 'fireNova' | 'coldWave' | 'manaRift' | 'tentacles' | 'clone' | 'whirlwind' | 'manaTouch' | 'fireWall' | 'brood';
+export type AttackId = 'mephistoLightning' | 'poisonStrike' | 'smite' | 'chargedBolt' | 'mephistoOrb' | 'poisonNova' | 'coldTouch' | 'bonePrison' | 'bossTeleport' | 'baalCurse' | 'decrepify' | 'strike' | 'frenzy' | 'arrow' | 'fireArrow' | 'fireball' | 'poisonSpit' | 'lightning' | 'revive' | 'charge' | 'stomp' | 'inferno' | 'curse' | 'hydra' | 'poisonFan' | 'poisonPool' | 'coldNova' | 'jab' | 'skull' | 'blizzard' | 'firestorm' | 'redLightning' | 'fireNova' | 'coldWave' | 'manaRift' | 'tentacles' | 'clone' | 'whirlwind' | 'manaTouch' | 'fireWall' | 'brood';
 export type MonsterDef = { id: string; name: string; model: BodyPlan; race: 'undead' | 'demon' | 'beast'; color: number; hp: number; hpByDifficulty?: readonly [number, number, number]; damage: number; speed: number; scale: number; attacks: AttackId[]; resist?: Partial<Record<DamageType, number>>; revive?: string; retaliation?: boolean };
 function monster(id: string, name: string, model: BodyPlan, race: MonsterDef['race'], color: number, attacks: AttackId[], hp = 20, speed = 2.1, extra: Partial<MonsterDef> = {}): MonsterDef {
   return { id, name, model, race, color, hp, damage: 3, speed, scale: 1, attacks, ...extra };
@@ -62,27 +62,27 @@ export const BOSSES: MonsterDef[] = [
   boss('bloodRaven', 'archer', 0xba5763, ['fireArrow', 'revive'], { revive: 'zombie' }),
   boss('griswold', 'mauler', 0xa49475, ['stomp', 'curse'], { race: 'undead' }),
   boss('countess', 'council', 0xac4b64, ['fireball', 'fireWall']),
-  boss('andariel', 'andariel', 0xb67f83, ['poisonFan', 'strike', 'poisonPool'], { hp: 260, hpByDifficulty: [800, 14000, 42000], damage: 10, scale: 1.8, resist: { fire: -30, poison: 65 } }),
+  boss('andariel', 'andariel', 0xb67f83, ['poisonStrike', 'poisonSpit', 'poisonFan'], { hp: 260, hpByDifficulty: [800, 14000, 42000], damage: 10, scale: 1.8, resist: { fire: -30, poison: 65 } }),
   boss('radament', 'mummy', 0xb6a07a, ['poisonSpit', 'revive', 'skull'], { race: 'undead', revive: 'skeleton' }),
   boss('bloodwitch', 'archer', 0xb66b71, ['charge', 'strike']),
   boss('coldworm', 'maggot', 0x84b6b1, ['poisonPool', 'coldNova', 'brood'], { scale: 2, speed: 0 }),
   boss('summoner', 'mage', 0x826bba, ['fireball', 'blizzard', 'lightning']),
-  boss('duriel', 'duriel', 0xa49c7a, ['jab', 'charge', 'coldNova', 'stomp'], { hp: 290, hpByDifficulty: [2500, 24000, 62000], damage: 10, scale: 1.7, speed: 2.6, resist: { cold: 65 } }),
+  boss('duriel', 'duriel', 0xa49c7a, ['jab', 'smite', 'strike'], { hp: 290, hpByDifficulty: [2500, 24000, 62000], damage: 10, scale: 1.7, speed: 2.6, resist: { cold: 65 } }),
   boss('szzark', 'spider', 0xb76851, ['poisonPool', 'inferno'], { scale: 1.6 }),
   boss('endugu', 'shaman', 0xb9885f, ['inferno', 'revive', 'fireball'], { revive: 'flayer' }),
   boss('sarina', 'archer', 0xb979a0, ['frenzy', 'charge']),
   boss('ismail', 'council', 0xc09a65, ['hydra', 'lightning', 'curse']),
-  boss('mephisto', 'mephisto', 0x9fb8a6, ['skull', 'lightning', 'blizzard', 'coldNova'], { hp: 260, hpByDifficulty: [5000, 38000, 85000], damage: 10, scale: 1.9, resist: { lightning: 50, cold: 45 } }),
+  boss('mephisto', 'mephisto', 0x9fb8a6, ['mephistoOrb', 'mephistoLightning', 'chargedBolt', 'poisonNova', 'coldNova', 'blizzard', 'strike'], { hp: 260, hpByDifficulty: [5000, 38000, 85000], damage: 10, scale: 1.9, resist: { lightning: 50, cold: 45 } }),
   boss('abyssVanguard', 'venom', 0xad6c55, ['inferno', 'stomp']),
   boss('izual', 'knight', 0x7bb8d0, ['coldNova', 'strike', 'blizzard'], { hp: 140 }),
   boss('hephasto', 'mauler', 0xbe785e, ['stomp', 'firestorm']),
   boss('deSeis', 'knight', 0xbaa786, ['curse', 'skull', 'strike'], { race: 'undead' }),
-  boss('diablo', 'diablo', 0xc46b61, ['firestorm', 'redLightning', 'fireNova', 'charge'], { hp: 280, hpByDifficulty: [9000, 60000, 115000], damage: 11, scale: 1.9, resist: { fire: 55, lightning: 45 } }),
+  boss('diablo', 'diablo', 0xc46b61, ['firestorm', 'redLightning', 'fireNova', 'coldTouch', 'fireWall', 'bonePrison', 'charge'], { hp: 280, hpByDifficulty: [9000, 60000, 115000], damage: 11, scale: 1.9, resist: { fire: 55, lightning: 45 } }),
   boss('shenk', 'mauler', 0xb68d7b, ['stomp', 'fireball']),
   boss('eldritch', 'lord', 0x9db69d, ['frenzy', 'lightning']),
   boss('frozenstein', 'frozen', 0x8fcae1, ['coldNova', 'stomp']),
   boss('talic', 'knight', 0xd0b789, ['whirlwind', 'strike', 'charge']),
-  boss('baal', 'baal', 0xbfa98b, ['coldWave', 'manaRift', 'tentacles', 'clone'], { hp: 300, hpByDifficulty: [15000, 85000, 185000], damage: 10, scale: 1.85, resist: { cold: 50, magic: 30 } }),
+  boss('baal', 'baal', 0xbfa98b, ['coldWave', 'manaRift', 'tentacles', 'clone', 'bossTeleport', 'baalCurse', 'decrepify', 'fireNova', 'strike'], { hp: 300, hpByDifficulty: [15000, 85000, 185000], damage: 10, scale: 1.85, resist: { cold: 50, magic: 30 } }),
 ];
 
 export type MonsterTactic = 'melee' | 'coward' | 'ranged' | 'skirmisher' | 'support' | 'caster' | 'brood';

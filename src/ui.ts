@@ -173,7 +173,7 @@ export class UI {
     tooltip.style.top = `${Math.max(8, Math.min(innerHeight - height - 8, rect.top >= height + 16 ? rect.top - height - 8 : rect.bottom + 8))}px`;
   }
   updateStatuses(current: ReturnType<typeof stats>) {
-    const effects = heroStatuses(this.game.hero, current), root = document.getElementById('combat-status')!;
+    const effects = [...heroStatuses(this.game.hero, current), ...this.game.monsterCombat.heroStatuses()], root = document.getElementById('combat-status')!;
     root.hidden = this.game.paused || this.game.dead || !effects.length;
     const signature = effects.map(effect => `${effect.id}:${effect.description}`).join('|');
     if (signature !== this.statusSignature) {
@@ -494,7 +494,7 @@ export class UI {
     poly(0, 0, mapWidth, mapHeight, '#24302b');
     this.game.world.floorCells.forEach(p => { if (explored(p.x, p.z)) poly(p.x, p.z, 1.05, 1.05, '#697667'); });
     const dot = (x: number, z: number, color: string, radius: number, diamond = false) => { const p = point(x, z); ctx.fillStyle = color; ctx.beginPath(); if (diamond) { ctx.moveTo(p.x, p.y - radius); ctx.lineTo(p.x + radius, p.y); ctx.lineTo(p.x, p.y + radius); ctx.lineTo(p.x - radius, p.y); } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill(); };
-    this.game.enemies.forEach(e => { if (!e.dead && explored(e.actor.group.position.x, e.actor.group.position.z) && (e.boss ? !!this.game.specialArea || questComplete(this.game.hero.campaign) : e.actor.group.position.distanceTo(this.game.position) < 12)) dot(e.actor.group.position.x, e.actor.group.position.z, e.boss ? '#ef846b' : e.elite ? '#eac66c' : '#c56456', e.boss ? 4 : e.elite ? 3 : 2); });
+    this.game.enemies.forEach(e => { if (!e.dead && explored(e.actor.group.position.x, e.actor.group.position.z) && (e.boss ? !!this.game.specialArea || questComplete(this.game.hero.campaign) : e.actor.group.position.distanceTo(this.game.position) < 12)) dot(e.actor.group.position.x, e.actor.group.position.z, e.boss ? '#ef846b' : e.elite ? '#eac66c' : e.champion ? '#579dff' : '#c56456', e.boss ? 4 : e.elite ? 3 : 2); });
     if (this.game.inCamp) {
       dot(CAMP.portal.x, CAMP.portal.z, '#63c8c8', large ? 6 : 4, true);
       dot(CAMP.mysteryPortal.x, CAMP.mysteryPortal.z, '#c48bea', large ? 6 : 4, true);
@@ -581,7 +581,7 @@ export class UI {
     const action = game.contextAction(), context = document.getElementById('context-action')!;
     context.hidden = !action || game.paused || game.dead; if (action) setText(context.querySelector('span')!, action.name);
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
-    bar.hidden = !boss; if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); setText(bar.querySelector('small')!, questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '守关首领') : '完成当前任务后现身'); }
+    bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); setText(bar.querySelector('small')!, questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
     const aliveKeys = new Set<string>();
     const controlRects = ['joystick', 'mobile-attack'].map(id => document.getElementById(id)!)
       .filter(element => element.getClientRects().length).map(element => element.getBoundingClientRect());
@@ -662,8 +662,9 @@ export class UI {
       const key = `e${enemy.id}`; aliveKeys.add(key);
       let el = this.labelNodes.get(key);
       if (!el) { el = document.createElement('div'); el.className = 'enemy-label'; setMarkup(el, `<span>${enemy.name}</span><div><i></i></div>`); this.labels.append(el); this.labelNodes.set(key, el); }
-      el.classList.toggle('elite-label', !!enemy.elite);
-      el.style.transform = `translate(${enemy.elite ? Math.max(60, Math.min(innerWidth - 60, point.x)) : point.x}px,${point.y}px)`; el.classList.toggle('active', !!enemy.elite || enemy.active || this.hoveredEnemy === enemy); el.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, enemy.hp / enemy.maxHp) * 100}%`;
+      el.title = enemy.champion?.description ?? enemy.affixes?.map(a => `${a.name}：${a.description}`).join('\n') ?? '';
+      el.classList.toggle('elite-label', !!enemy.elite); el.classList.toggle('champion-label', !!enemy.champion);
+      el.style.transform = `translate(${(enemy.elite || enemy.champion) ? Math.max(60, Math.min(innerWidth - 60, point.x)) : point.x}px,${point.y}px)`; el.classList.toggle('active', !!enemy.elite || !!enemy.champion || enemy.active || this.hoveredEnemy === enemy); el.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, enemy.hp / enemy.maxHp) * 100}%`;
     }
     const lootRects: { x: number; y: number; width: number; height: number }[] = controlRects.map(rect => ({ x: rect.x, y: rect.y, width: rect.width, height: rect.height }));
     for (const loot of game.loot) {

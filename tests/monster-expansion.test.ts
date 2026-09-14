@@ -1,3 +1,4 @@
+import { monsterAffix, CHAMPION_VARIANTS } from '../src/monster-affixes.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
@@ -217,4 +218,99 @@ test('two resurrection casts cannot consume the same corpse twice', () => {
   corpse.dead=true;combat.startCast(first,'revive');combat.startCast(second,'revive');
   combat.resolve(first,combat.state(first).cast!);combat.resolve(second,combat.state(second).cast!);
   assert.equal(game.enemies.filter((e:Enemy)=>e.summoned).length,1);assert.equal(corpse.redeemed,true);
+});
+
+
+test('multi-shot triples compatible projectiles without multiplying nova volleys', () => {
+  const { spawn, combat } = setup(), enemy = spawn(MONSTERS.rogue);
+  enemy.affixes = [monsterAffix('multishot')];
+  combat.startCast(enemy, 'arrow'); combat.resolve(enemy, combat.state(enemy).cast!);
+  assert.equal(combat.missiles.length, 3);
+  assert.equal(new Set(combat.missiles.map(m => m.volley)).size, 1);
+  combat.missiles.length = 0;
+  combat.startCast(enemy, 'coldNova'); combat.resolve(enemy, combat.state(enemy).cast!);
+  assert.equal(combat.missiles.length, ATTACKS.coldNova.count);
+});
+
+test('elemental death effects warn, survive corpse cancellation and respect walls', () => {
+  const { spawn, combat, step, hits, game } = setup(), enemy = spawn(MONSTERS.zombie, 0, 1);
+  enemy.affixes = [monsterAffix('fireEnchanted'), monsterAffix('coldEnchanted')]; enemy.dead = true;
+  combat.onDeath(enemy); assert.equal(combat.triggeredCasts.length, 2); assert.equal(hits.length, 0);
+  enemy.actor.group.position.x = 10;
+  step(.5); assert.equal(hits.length, 0);
+  step(.25); assert.ok(hits.includes('fire')); assert.ok(combat.missiles.some(m => m.spec.afterDeath));
+  assert.ok(combat.hazards.every(h => h.origin.x === 0), 'death origin is a snapshot');
+  const blocked = spawn(MONSTERS.zombie, 0, 1); blocked.dead = true; blocked.affixes = [monsterAffix('fireEnchanted')];
+  combat.onDeath(blocked); combat.missiles.length = 0; hits.length = 0;
+  game.world.grid.isWalkableAt = () => false; step(.8); assert.equal(hits.length, 0);
+});
+
+test('lightning enchant retaliates with a warning and cooldown, not on every hit', () => {
+  const { spawn, combat, step } = setup(), enemy = spawn(MONSTERS.zombie);
+  enemy.affixes = [monsterAffix('lightningEnchanted')];
+  combat.onHit(enemy); assert.equal(combat.telegraph(enemy)?.name, '受击充能弹');
+  combat.onHit(enemy); step(.7); assert.equal(combat.missiles.length, 8);
+  combat.onHit(enemy); assert.equal(combat.telegraph(enemy), null);
+});
+
+test('teleport uses valid nearby ground, heals at most twice and respects prevent-heal and poison', () => {
+  const { spawn, combat, game } = setup(), enemy = spawn(MONSTERS.zombie);
+  enemy.hp = 20;
+  assert.ok(combat.teleport(enemy, true)); assert.equal(enemy.hp, 28);
+  enemy.preventHeal = true; combat.teleport(enemy, true); assert.equal(enemy.hp, 28);
+  enemy.preventHeal = false; enemy.poison = { dps: 1, remaining: 2 }; combat.teleport(enemy, true); assert.equal(enemy.hp, 28);
+  enemy.poison = undefined; combat.teleport(enemy, true); assert.equal(enemy.hp, 36); combat.teleport(enemy, true); assert.equal(enemy.hp, 36);
+  const position = enemy.actor.group.position.clone(); game.world.grid.isWalkableAt = () => false;
+  assert.equal(combat.teleport(enemy, true), false); assert.ok(enemy.actor.group.position.equals(position));
+});
+
+test('auras affect nearby allies and hero only while active, alive, hostile and visible', () => {
+  const { spawn, combat, game } = setup(), enemy = spawn(MONSTERS.zombie, 0, 3), ally = spawn(MONSTERS.zombie, 1, 3);
+  enemy.affixes = [monsterAffix('auraEnchanted', Math.random, 'might')];
+  assert.equal(combat.damageParts(ally, 10, 'physical')[0].amount, 13);
+  enemy.affixes = [monsterAffix('auraEnchanted', Math.random, 'fanaticism')]; assert.equal(combat.attackRate(ally), 1.2);
+  enemy.affixes = [monsterAffix('auraEnchanted', Math.random, 'blessedAim')]; assert.equal(combat.accuracy(ally), 150);
+  enemy.definition = BOSSES[9]; assert.equal(combat.heroSpeed(), .6);
+  enemy.converted = 1; assert.equal(combat.heroSpeed(), 1); enemy.converted = 0;
+  game.world.grid.isWalkableAt = () => false; assert.equal(combat.heroSpeed(), 1);
+  game.world.grid.isWalkableAt = () => true; enemy.dead = true; assert.equal(combat.heroSpeed(), 1);
+});
+
+test('Duriel uses three sequential jabs; bone prison releases after any pillar breaks', () => {
+  const { spawn, combat, game, hits, step } = setup(), duriel = spawn(BOSSES[9], 0, 1);
+  duriel.cooldown = 100; combat.state(duriel).auraTick = 100; combat.startCast(duriel, 'jab'); step(1.3);
+  assert.equal(hits.filter(t => t === 'cold').length, 3);
+  assert.ok(!BOSSES[9].attacks.includes('charge'));
+  const diablo = spawn(BOSSES[19]); combat.startCast(diablo, 'bonePrison'); combat.resolve(diablo, combat.state(diablo).cast!);
+  assert.equal(combat.prisons.length, 1); assert.equal(combat.prisons[0].guards.length, 4);
+  assert.equal(combat.imprisoned(game.position), true);
+  assert.ok(combat.prisons[0].guards.every(e => e.summoned && !e.speed));
+  combat.prisons[0].guards[0].dead = true; assert.equal(combat.imprisoned(game.position), false);
+});
+
+test('champion corpses cannot be revived and champion cowards do not panic', () => {
+  const { spawn, combat } = setup(), shaman = spawn(MONSTERS.shaman), corpse = spawn(MONSTERS.fallen);
+  corpse.dead = true; corpse.champion = CHAMPION_VARIANTS[0]; assert.equal(combat.revivalTarget(shaman), undefined);
+  const other = spawn(MONSTERS.fallen); other.champion = CHAMPION_VARIANTS[1]; combat.onDeath(corpse); assert.ok(!other.flee);
+});
+
+
+test('lightning enchant also retaliates during another cast without replacing it', () => {
+  const { combat, spawn, step } = setup(), enemy = spawn(MONSTERS.shaman);
+  enemy.affixes = [monsterAffix('lightningEnchanted')]; combat.startCast(enemy, 'fireball');
+  combat.onHit(enemy); assert.equal(combat.telegraph(enemy)?.name, '火球'); assert.equal(combat.triggeredCasts.length, 1);
+  step(.7); assert.ok(combat.missiles.some(m => m.spec.triggered && m.spec.type === 'lightning'));
+});
+
+
+test('Baal curse status chips expose timers and camp cleansing removes all transient curses', () => {
+  const { combat } = setup(); combat.debuffs = { bloodMana: 6, defense: 4, decrepify: 5 }; combat.mercenaryCurseUntil = 100;
+  assert.deepEqual(combat.heroStatuses().map(s => [s.id, s.remaining]), [['monster-bloodMana', 6], ['monster-defense', 4], ['monster-decrepify', 5]]);
+  combat.clearHeroDebuffs(); assert.deepEqual(combat.heroStatuses(), []); assert.equal(combat.mercenaryCurseUntil, 0);
+});
+
+test('same-element enchantments merge before flat reduction and absorption', () => {
+  const { combat, spawn } = setup(), enemy = spawn(MONSTERS.shaman);
+  enemy.affixes = [monsterAffix('fireEnchanted')];
+  assert.deepEqual(combat.damageParts(enemy, 100, 'fire'), [{ type: 'fire', amount: 130 }]);
 });

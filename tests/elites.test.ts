@@ -33,15 +33,15 @@ test('elite equipment and rune odds are elevated but remain below guardian odds'
   }
   const random = rng(221), counts = { equipment: 0, rune: 0 };
   for (let i = 0; i < 20000; i++) { const drop = rollDropKinds('elite', random); counts.equipment += Number(drop.equipment); counts.rune += Number(drop.rune); }
-  assert.ok(Math.abs(counts.equipment / 20000 - .55) < .015);
-  assert.ok(Math.abs(counts.rune / 20000 - .15) < .012);
+  assert.ok(Math.abs(counts.equipment / 20000 - .72) < .015);
+  assert.ok(Math.abs(counts.rune / 20000 - .20) < .012);
 });
 
 test('elites use their own loot and cannot gain Countess, Hellforge, event charm or first-clear rewards', () => {
   for (const index of [3, 17, 19, 24]) for (const difficulty of [0, 1, 2]) {
     const context = { level: 85, act: LEVELS[index].act, difficulty, levelIndex: index, rank: 'elite' as const, countess: true, firstClear: true };
     const drop = rollLoot(context, () => 0);
-    assert.equal(drop.runes.length, 1); assert.equal(drop.items.length, 2);
+    assert.equal(drop.runes.length, 1); assert.equal(drop.items.length, 3);
     assert.ok(drop.items.every(item => !['unique-382', 'unique-401'].includes(item.catalogId ?? '')));
     assert.ok(drop.runes.every(rune => runePool(context.level, difficulty, context.act).includes(rune)));
     assert.equal(drop.items[0].rarity, 'magic');
@@ -54,4 +54,28 @@ test('elites use their own loot and cannot gain Countess, Hellforge, event charm
   assert.ok(xp > monsterExperience(50, 50, 'monster', context));
   assert.equal(monsterExperience(50, 50, 'elite', { ...context, firstClear: true }), xp);
   assert.equal(monsterExperience(50, 50, 'elite', { ...context, summoned: true }), 0);
+});
+
+
+test('champion, elite and super-unique rewards increase in quantity without granting champion boss bonuses', () => {
+  const ranks = ['monster', 'champion', 'elite', 'miniboss'] as const;
+  const averages = ranks.map(rank => {
+    let count = 0;
+    for (let seed = 1; seed <= 600; seed++) {
+      const context = { level: 40, act: 2, difficulty: 1, rank };
+      const drop = rollLoot(context, rng(seed * 7919)); count += drop.items.length;
+      if (rank === 'champion') {
+        const mf = rollLoot({ ...context, magicFind: 400 }, rng(seed * 7919));
+        assert.deepEqual(mf.runes, drop.runes); assert.equal(mf.gold, drop.gold); assert.equal(mf.potion, drop.potion);
+        assert.equal(mf.items.length, drop.items.length);
+      }
+    }
+    return count / 600;
+  });
+  for (let i = 1; i < averages.length; i++) assert.ok(averages[i] > averages[i - 1] * 1.2, String(averages));
+  const champion = { level: 85, act: 0, difficulty: 2, rank: 'champion' as const, levelIndex: 3, countess: true, firstClear: true };
+  const reward = rollLoot(champion, () => 0);
+  assert.equal(reward.runes.length, 1); assert.equal(reward.items.length, 3);
+  assert.ok(reward.items.every(item => !['unique-382', 'unique-401'].includes(item.catalogId ?? '')));
+  assert.deepEqual(rollDropKinds('champion', rng(7), 1), rollDropKinds('champion', rng(7), 8));
 });

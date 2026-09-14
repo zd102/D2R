@@ -10,3 +10,9 @@
 .elite-label span { display: block; color: #f4d989; font-size: 10px; line-height: 1.4; white-space: normal; }
 .elite-label>div { border-color: #d9ba68; height: 4px; }
 .elite-label i { background: #d6aa45; }
+
+.enemy-label.champion-label { width:112px; margin-left:-56px; }
+.champion-label span { display:block; color:#80b7ff; font-size:10px; line-height:1.4; white-space:normal; }
+.champion-label>div { border-color:#579dff; height:4px; }
+.champion-label i { background:#488dff; }
+#boss-bar.super-unique-bar>span { color:#eac66c; font-size:12px; overflow-wrap:anywhere; }

@@ -32,7 +32,7 @@ test('selling a backpack charm updates resources and never sells worn or alterna
 });
 test('expansion drops reduce ordinary gear clutter and favor repeatable boss rewards', () => {
   assert.deepEqual(DROP_RATES.monster, { equipment: .16, rune: .035, charm: .006 });
-  assert.deepEqual(DROP_RATES.miniboss, { equipment: .80, rune: .28, charm: .025 });
+  assert.deepEqual(DROP_RATES.miniboss, { equipment: .95, rune: .34, charm: .04 });
   assert.deepEqual(DROP_RATES.actBoss, { equipment: 1, rune: .70, charm: .04 });
   for (const rank of ['monster', 'miniboss', 'actBoss'] as const) {
     const counts = { equipment: 0, rune: 0, charm: 0 };

@@ -1,8 +1,10 @@
+import { MonsterCombat, ATTACKS } from '../src/monster-combat.ts';
+import { monsterAffix, CHAMPION_VARIANTS } from '../src/monster-affixes.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { PaladinCombat } from '../src/combat.ts';
+import { PaladinCombat, type Projectile } from '../src/combat.ts';
 import { newHero, gainXp, learnSkill, stats, setAura } from '../src/model.ts';
 import { SKILLS, EXPERIENCE } from '../src/paladin.ts';
 import { makeItem, BASES, specialItem } from '../src/items.ts';
@@ -263,4 +265,67 @@ test('holy shield snapshots the cast level when skill equipment is swapped out',
   const { hero, combat } = setup(); hero.equipment.weapon!.mods = { allSkills: 2 }; combat.castAction('holyShield');
   assert.equal(hero.holyShieldLevel, 3); const min = stats(hero).smiteMin; hero.equipment.weapon = null;
   assert.equal(stats(hero).smiteMin, min); assert.equal(hero.holyShield, 110);
+});
+
+
+test('enchanted monster damage is resisted per component and mana/curse effects require an accepted hit', t => {
+  t.mock.method(Math, 'random', () => .5);
+  const { game, hero, combat, enemy } = setup(); game.monsterCombat = new MonsterCombat(game);
+  const source = enemy(); source.active = true; source.affixes = [monsterAffix('fireEnchanted'), monsterAffix('manaBurn'), monsterAffix('cursed')];
+  hero.equipment.shield = undefined; hero.equipment.weapon!.mods.fireRes = 75;
+  const resources = stats(hero), before = hero.hp, mana = hero.mana;
+  combat.hurt(10, 'magic', source, false, true);
+  const expected = 10 + 3 * (1 - resources.resistances.fire / 100);
+  assert.ok(Math.abs((before - hero.hp) - expected) < .0001);
+  assert.ok(hero.mana < mana); assert.equal(hero.curse, 5);
+  game.invincible = 0; hero.curse = 0; const remaining = hero.mana;
+  source.attackRating = 0; t.mock.method(Math, 'random', () => .99);
+  assert.equal(combat.hurt(10, 'physical', source), false);
+  assert.equal(hero.curse, 0); assert.equal(hero.mana, remaining);
+});
+
+test('red lightning has physical and lightning components, and death explosions do not apply offensive affixes', t => {
+  t.mock.method(Math, 'random', () => .5);
+  const { game, hero, combat, enemy } = setup(); game.monsterCombat = new MonsterCombat(game);
+  const source = enemy(); source.damage = 20;
+  const parts = game.monsterCombat.damageParts(source, 11, 'lightning', ATTACKS.redLightning);
+  assert.deepEqual(parts, [{ type: 'lightning', amount: 11 }, { type: 'physical', amount: 11 }]);
+  source.affixes = [monsterAffix('cursed'), monsterAffix('manaBurn'), monsterAffix('fireEnchanted')];
+  const mana = hero.mana;
+  combat.hurt(10, 'fire', source, false, true, { ...ATTACKS.fireNova, triggered: true });
+  assert.equal(hero.mana, mana); assert.equal(hero.curse, 0);
+});
+
+test('Baal selects blood mana only for high-mana heroes; curse expires and teleport cannot heal him', t => {
+  t.mock.method(Math, 'random', () => .5);
+  const { game, hero, combat, enemy } = setup(); const monsters = game.monsterCombat = new MonsterCombat(game), baal = enemy(); baal.definition = BOSSES[24];
+  monsters.hit(baal, ATTACKS.baalCurse); assert.equal(monsters.debuffs.defense, 6);
+  game.invincible = 0; hero.equipment.weapon!.mods.mana = 10000;
+  monsters.hit(baal, ATTACKS.baalCurse); assert.equal(monsters.debuffs.bloodMana, 6);
+  const hp = hero.hp; monsters.castCost(20); assert.equal(hero.hp, hp - 10);
+  monsters.debuffs.bloodMana = 0; monsters.castCost(20); assert.equal(hero.hp, hp - 10);
+  baal.hp = 200; monsters.startCast(baal, 'bossTeleport'); monsters.resolve(baal, monsters.state(baal).cast!); assert.equal(baal.hp, 200);
+});
+
+test('possessed champions reject item curses while nearby ordinary enemies receive them', t => {
+  t.mock.method(Math, 'random', () => 0);
+  const { game, combat, enemy, hero } = setup(), possessed = enemy(), ordinary = enemy();
+  possessed.champion = CHAMPION_VARIANTS.find(v => v.id === 'possessed');
+  hero.equipment.weapon = specialItem('unique-154');
+  combat.triggerItems('hit-skill', possessed, [hero.equipment.weapon!]);
+  assert.equal(combat.itemCurses.has(possessed), false); assert.equal(combat.itemCurses.get(ordinary)?.kind, 'amplify');
+  // Explicit stale curse data must not lower possessed physical resistance either.
+  combat.itemCurses.set(possessed, { kind: 'amplify', remaining: 5 });
+  assert.equal(combat.physicalResistance(possessed), possessed.resistances.physical);
+});
+
+
+test('possessed is curse-resistant, never immune to physical, elemental or exploding-arrow damage', () => {
+  const { combat, enemy } = setup(), target = enemy(); target.champion = CHAMPION_VARIANTS.find(v => v.id === 'possessed');
+  for (const type of ['physical', 'magic', 'fire', 'cold', 'lightning', 'poison'] as const) {
+    target.resistances[type] = 85; assert.equal(combat.damage(target, 100, type), 15);
+  }
+  const before = target.hp;
+  combat.explode({ snapshot: combat.snapshot(), explosion: 10 } as Projectile, target.actor.group.position);
+  assert.ok(target.hp < before);
 });

@@ -12,6 +12,6 @@
 
 箭矢、火球、毒液、扇形弹幕仍使用实际飞行与扫掠碰撞；一次齐射对同一目标只结算一次。冲锋、喷火和闪电的预警终点会截断到墙体前，移动攻击撞墙立即结束。所有移动使用地图实际碰撞检查，暂停冻结战斗，切关清理效果和 AI 状态。
 
-设计依据包括暴雪的 [沉沦魔](https://classic.battle.net/diablo2exp/monsters/act1-fallen.shtml)、[沉沦巫师](https://classic.battle.net/diablo2exp/monsters/act1-fallenshaman.shtml) 和 [高等木乃伊](https://classic.battle.net/diablo2exp/monsters/act2-greatermummy.shtml) 说明。具体距离、退避时长、可见预警、有限复活和召唤寿命属于本项目的单人适配，并非原版逐帧 AI 的复刻。目前仍未实现幽灵穿墙、小妖传送、冥河娃娃死亡爆炸、完整首领光环或巴尔五波事件。
+设计依据包括暴雪的 [沉沦魔](https://classic.battle.net/diablo2exp/monsters/act1-fallen.shtml)、[沉沦巫师](https://classic.battle.net/diablo2exp/monsters/act1-fallenshaman.shtml) 和 [高等木乃伊](https://classic.battle.net/diablo2exp/monsters/act2-greatermummy.shtml) 说明。具体距离、退避时长、可见预警、有限复活和召唤寿命属于本项目的单人适配，并非原版逐帧 AI 的复刻。金名词缀、蓝色冠军、超级暗金与章节首领技能见 [怪物词缀与首领](monster-affixes.md)。目前仍未实现幽灵穿墙、小妖物种专属传送、冥河娃娃物种专属死亡爆炸或巴尔五波事件。
 
 `npm test` 覆盖视线警戒、同组呼应、失去目标、惊逃、尸体竞争、远程退避、距离选招、独立冷却、喷火中断、召唤上限、挥空狂乱及三难度参考角色的真实战斗。`npm run test:maps`、`npm run test:scenery` 检查 25 关的实际碰撞导航、交互与画面。

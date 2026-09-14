@@ -1,3 +1,5 @@
+import { hasMonsterAffix } from './monster-affixes.ts';
+import type { AttackSpec } from './monster-combat.ts';
 import { playerLifeFactor } from './player-count.ts';
 import * as THREE from 'three';
 import { castSound, impactSound, weaponSound } from './audio-bank.ts';
@@ -67,6 +69,7 @@ export class PaladinCombat {
     playHeroAction(this.game.actor,heroAction(id,s.ranged?.kind,s.weapon?weaponType(s.weapon):undefined),this.game.time,duration);
     // Switching actions cancels the unfinished combo, but keeps its own cadence.
     this.cancelCombo();
+    duration /= this.game.monsterCombat?.heroSpeed?.() ?? 1;
     this.lock = duration; this.actionCooldowns[id] = duration;
     this.movementRecovery = Math.min(.12, duration * .35);
   }
@@ -93,12 +96,12 @@ export class PaladinCombat {
     for (const trigger of triggers.values()) if (Math.random() * 100 < trigger.chance) {
       const duration = trigger.kind === 'amplify' ? 5 + trigger.level * 3 : trigger.kind === 'decrepify' ? 3.4 + trigger.level * .6 : (trigger.kind === 'lifeTap' ? 13.6 : 11.6) + trigger.level * 2.4;
       const radius = trigger.kind === 'decrepify' ? 4 : (trigger.kind === 'weaken' ? 6 : trigger.kind === 'lifeTap' ? 8 / 3 : 2) + (trigger.level - 1) * 2 / 3;
-      for (const enemy of g.enemies) if (this.hostile(enemy) && enemy.actor.group.position.distanceTo(target.actor.group.position) <= radius) this.itemCurses.set(enemy, { kind: trigger.kind, remaining: duration });
+      for (const enemy of g.enemies) if (enemy.champion?.id !== 'possessed' && this.hostile(enemy) && enemy.actor.group.position.distanceTo(target.actor.group.position) <= radius) this.itemCurses.set(enemy, { kind: trigger.kind, remaining: duration });
       g.ui.floatText(CURSE_NAMES[trigger.kind], target.actor.group.position.clone().setY(2.2), 'magic-damage');
     }
   }
   physicalResistance(enemy: Enemy) {
-    const curse = this.itemCurses.get(enemy)?.kind, reduction = curse === 'amplify' ? 100 : curse === 'decrepify' ? 50 : 0;
+    const curse = enemy.champion?.id === 'possessed' ? undefined : this.itemCurses.get(enemy)?.kind, reduction = curse === 'amplify' ? 100 : curse === 'decrepify' ? 50 : 0;
     return enemy.resistances.physical - reduction / (enemy.resistances.physical >= 100 ? 5 : 1);
   }
   pointedEnemy() {
@@ -134,7 +137,7 @@ export class PaladinCombat {
     // Zeal's first strike is immediate; IAS controls only the gaps between its
     // remaining strikes, so it is ready again when the final strike lands.
     this.startAction(id, id === 'zeal' ? s.zealFrames * (v.hits - 1) / 25 : (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25);
-    h.mana -= v.cost; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
+    h.mana -= v.cost; g.monsterCombat?.castCost?.(v.cost); if (g.dead) return false; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
     if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); g.save(false); return true; }
     if (ranged) { this.shootWeapon(origin, direction, target); return true; }
     if (id === 'holyBolt' || id === 'blessedHammer') {
@@ -304,27 +307,39 @@ export class PaladinCombat {
     const g = this.game; if (!this.hostile(enemy)) return 0;
     const s = snapshot?.stats ?? stats(g.hero), conviction = ['fire', 'cold', 'lightning'].includes(type) ? this.auraAt(enemy, 'conviction', s, snapshot?.origin)?.percent ?? 0 : 0;
     const sanctuary = type === 'physical' && isUndead(enemy) && this.auraAt(enemy, 'sanctuary', s);
-    const dealt = Math.max(0, Math.floor(itemDamage(amount, type, s.mods, ignoreResist || sanctuary ? 0 : type === 'physical' ? this.physicalResistance(enemy) : enemy.resistances[type], conviction)));
+    const dealt = Math.max(0, Math.floor(itemDamage(amount * (type === 'physical' && !snapshot?.mercenary && g.monsterCombat?.debuffs?.decrepify ? .5 : 1), type, s.mods, ignoreResist || sanctuary ? 0 : type === 'physical' ? this.physicalResistance(enemy) : enemy.resistances[type], conviction)));
     enemy.hp -= dealt; enemy.active = true;
-    g.ui.floatText(dealt ? String(dealt) : '免疫', enemy.actor.group.position.clone().setY(1.8), critical ? 'critical' : type === 'physical' ? 'damage' : 'magic-damage');
+    g.ui.floatText(String(dealt), enemy.actor.group.position.clone().setY(1.8), critical ? 'critical' : type === 'physical' ? 'damage' : 'magic-damage');
     if (dealt) g.audio.play(impactSound(type, enemy.definition?.model), { position: enemy.actor.group.position, gain: critical ? 1 : .85 });
     if (dealt) g.burst(enemy.actor.group.position.clone().setY(.8), type === 'fire' ? 0xf09669 : type === 'cold' ? 0x80cfea : 0xe8d79c, 3);
     if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods, snapshot?.mercenary); else if (dealt) g.monsterCombat?.onHit(enemy); return dealt;
   }
-  hurt(amount: number, type: DamageType = 'physical', source?: Enemy, self = false, missile = false) {
-    const g = this.game, h = g.hero, s = stats(h); if (g.inCamp || g.dead || !self && g.invincible > 0) return;
+  hurt(amount: number, type: DamageType = 'physical', source?: Enemy, self = false, missile = false, spec?: AttackSpec) {
+    const g = this.game, h = g.hero, s = stats(h); if (g.inCamp || g.dead || !self && g.invincible > 0) return false;
     const evasion=this.moving?s.evade:missile?s.avoid:s.dodge;
-    if(!self&&source&&evasion>0&&Math.random()*100<evasion){g.ui.floatText('回避',g.position.clone().setY(1.8),'miss');return;}
+    if(!self&&source&&evasion>0&&Math.random()*100<evasion){g.ui.floatText('回避',g.position.clone().setY(1.8),'miss');return false;}
     if (!self && source && type === 'physical') { const curse = this.itemCurses.get(source)?.kind; amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : 1; }
     if (!self && source && type === 'physical') {
-      if (!this.running && Math.random() * 100 >= hitChance(source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return; }
-      if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.recover(s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); g.audio.play('block'); return; }
+      if (!this.running && Math.random() * 100 >= hitChance(g.monsterCombat?.accuracy?.(source) ?? source.attackRating, (s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0)) * (g.monsterCombat?.debuffs?.defense ? [.4, .25, .05][difficulty(h)] : 1) * (g.monsterCombat?.auraAt?.(g.position, 'conviction') ? .7 : 1), source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return false; }
+      if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.recover(s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); g.audio.play('block'); return false; }
     }
-    const shield=h.buffs?.energyShield;
-    if(!self&&type!=='poison'&&shield?.remaining){const v=skillValues('energyShield',shield.rank,h.skills),absorbed=Math.min(amount*v.percent/100,h.mana/v.secondary);h.mana-=absorbed*v.secondary;amount-=absorbed;if(h.mana<=0)delete h.buffs.energyShield;}
-    let damage = self ? amount : type === 'physical' ? Math.max(0, amount - (s.mods.damageReductionFlat ?? 0)) * (1 - Math.min(50, s.mods.damageReduction ?? 0) / 100) * (h.curse > 0 ? 2 : 1) : resistedDamage(Math.max(0, amount - (s.mods.magicReduction ?? 0)), type === 'magic' ? 0 : s.resistances[type]);
-    if (!self) { const absorbed = absorbDamage(damage, type, s.mods); h.hp = Math.min(s.maxHp, h.hp + absorbed.healing); damage = absorbed.damage; }
-    if (!self && type === 'cold' && !s.mods.cannotBeFrozen) h.cold = s.mods.halfFreeze ? 2 : 4;
+    const parts = !self && source ? g.monsterCombat?.damageParts?.(source, amount, type, spec) ?? [{ amount, type }] : [{ amount, type }];
+    let damage = 0;
+    for (const part of parts) {
+      let value = part.amount;
+      const shield = h.buffs?.energyShield;
+      if (!self && part.type !== 'poison' && shield?.remaining) { const v = skillValues('energyShield', shield.rank, h.skills), absorbed = Math.min(value * v.percent / 100, h.mana / v.secondary); h.mana -= absorbed * v.secondary; value -= absorbed; if (h.mana <= 0) delete h.buffs.energyShield; }
+      const conviction = ['fire', 'cold', 'lightning'].includes(part.type) && g.monsterCombat?.auraAt?.(g.position, 'conviction') ? 35 : 0;
+      let dealt = self ? value : part.type === 'physical' ? Math.max(0, value - (s.mods.damageReductionFlat ?? 0)) * (1 - Math.min(50, s.mods.damageReduction ?? 0) / 100) * (h.curse > 0 ? 2 : 1) : resistedDamage(Math.max(0, value - (s.mods.magicReduction ?? 0)), part.type === 'magic' ? 0 : s.resistances[part.type] - conviction);
+      if (!self) { const absorbed = absorbDamage(dealt, part.type, s.mods); h.hp = Math.min(s.maxHp, h.hp + absorbed.healing); dealt = absorbed.damage; }
+      damage += dealt;
+      if (!self && part.type === 'cold' && part.amount > 0 && !s.mods.cannotBeFrozen) h.cold = s.mods.halfFreeze ? 2 : 4;
+      if (!self && part.type === 'poison' && part.amount > 0) h.poison = Math.max(h.poison, 6);
+    }
+    if (!self && source && !spec?.triggered) {
+      if (hasMonsterAffix(source, 'cursed') && Math.random() < .75) h.curse = Math.max(h.curse, 5);
+      if (hasMonsterAffix(source, 'manaBurn')) h.mana = Math.max(0, h.mana - Math.min(s.maxMana * .2, Math.max(5, amount * .75)));
+    }
     damage = Math.max(0, damage); h.hp = Math.max(0, h.hp - damage);
     if (!self) {
       g.invincible = PALADIN_BALANCE.hitGraceSeconds;
@@ -349,6 +364,7 @@ export class PaladinCombat {
     if (!self && !missile && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
     if (!self && !missile && source && type === 'physical' && s.mods.lightningReflect) this.damage(source, s.mods.lightningReflect, 'lightning');
     if (h.hp <= 0) { g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; this.classes.clear(); g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
+    return true;
   }
   update(dt: number) {
     const g = this.game, h = g.hero, s = stats(h);
