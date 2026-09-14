@@ -187,7 +187,7 @@ export class MercenaryCombat {
     const g = this.game, merc = g.hero.mercenary;
     if (!merc || merc.status !== 'alive' || !this.position || g.inCamp || g.dead || source?.converted) return;
     const s = mercenaryStats(g.hero);
-    if (source && type === 'physical' && Math.random() * 100 >= hitChance(g.monsterCombat?.accuracy?.(source) ?? source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, g.hero.level)) return;
+    if (source && type === 'physical' && !spec?.ignoreDefense && Math.random() * 100 >= hitChance(g.monsterCombat?.accuracy?.(source) ?? source.attackRating, s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0), source.level, g.hero.level)) return;
     const curse = source && g.combat.itemCurses.get(source)?.kind;
     if (type === 'physical') amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : 1;
     // Act bosses pressure an unsupported guard; ordinary packs keep his tank role.

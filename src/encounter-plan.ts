@@ -1,5 +1,5 @@
 import { eliteCount, levelTuning, type Level, type MapPoint } from './campaign.ts';
-import { ENCOUNTERS, MONSTERS } from './bestiary.ts';
+import { ENCOUNTERS, encounterPool, MONSTERS, monsterTactic } from './bestiary.ts';
 import type { LevelLayout } from './level-layouts.ts';
 import { mapRandom, shuffled } from './map-random.ts';
 import { areaMapProfile } from './area-map-profiles.ts';
@@ -11,13 +11,19 @@ const lifeWeight = (id: string) => Math.max(.7, Math.min(1.4, Math.sqrt(MONSTERS
 
 /** Populate space, then divide the area's reward budget across its actual population. */
 export function encounterPlan(level: Level, layout: LevelLayout, difficulty: number) {
-  const random = mapRandom(layout.seed ^ 0x51ed270b), pool = ENCOUNTERS[level.index];
+  const random = mapRandom(layout.seed ^ 0x51ed270b ^ Math.imul(difficulty, 0x45d9f3b)), pool = encounterPool(level.index, difficulty);
   const packs: EncounterPack[] = [];
   const add = (point: MapPoint, role: EncounterPack['role']) => {
     if (distance(point, layout.spawn) < 15 || distance(point, layout.supply) < 12 || distance(point, layout.boss) < 10 || packs.some(pack => distance(pack, point) < 10)) return;
     const count = level.index === 7 || level.index === 8 ? 2 : 2 + Number(random() > .65);
     const start = Math.floor(random() * pool.length);
-    packs.push({ x: point.x, z: point.z, role, species: Array.from({ length: count }, (_, i) => pool[(start + i) % pool.length]) });
+    const species = Array.from({ length: count }, (_, i) => pool[(start + i) % pool.length]);
+    const frontline = pool.filter(id => ['melee', 'coward'].includes(monsterTactic(MONSTERS[id])));
+    if (frontline.length && random() < .55) species[0] = frontline[Math.floor(random() * frontline.length)];
+    // Resurrection packs need a matching body, rather than an arbitrary caster trio.
+    const support = species.find(id => MONSTERS[id].revive && pool.includes(MONSTERS[id].revive!));
+    if (support && !species.includes(MONSTERS[support].revive!)) species[species[0] === support ? 1 : 0] = MONSTERS[support].revive!;
+    packs.push({ x: point.x, z: point.z, role, species });
   };
   layout.objects.forEach(p => add(p, 'guard'));
   layout.route.slice(1, -1).forEach(p => add(p, 'route'));
@@ -42,7 +48,7 @@ export function encounterPlan(level: Level, layout: LevelLayout, difficulty: num
     packs.push(remaining[0]);
   }
   const oldCount = levelTuning(level, difficulty).packs * 3;
-  const referenceWeight = Array.from({ length: oldCount }, (_, i) => lifeWeight(pool[i % pool.length])).reduce((sum,n) => sum+n, 0);
+  const referenceWeight = Array.from({ length: oldCount }, (_, i) => lifeWeight(ENCOUNTERS[level.index][i % ENCOUNTERS[level.index].length])).reduce((sum,n) => sum+n, 0);
   const actualWeight = packs.flatMap(pack => pack.species).reduce((sum,id) => sum+lifeWeight(id), 0);
   const normalCount = packs.reduce((sum,pack) => sum+pack.species.length, 0);
   // A full exploration earns 20% more ordinary XP. Boss and elite rewards retain their value.

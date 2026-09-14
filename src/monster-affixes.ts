@@ -35,7 +35,7 @@ const index = (length: number, random: () => number) => Math.min(length - 1, Mat
 export const rollChampionVariant = (random = Math.random) => CHAMPION_VARIANTS[index(CHAMPION_VARIANTS.length, random)];
 export const monsterAffixCount = (difficulty: number) => 1 + Math.max(0, Math.min(2, Math.floor(difficulty)));
 const PROJECTILE_ATTACKS = new Set(['arrow', 'fireArrow', 'fireball', 'poisonSpit', 'lightning', 'poisonFan', 'skull', 'firestorm', 'coldWave', 'chargedBolt', 'mephistoOrb']);
-export const canMultishot = (definition?: MonsterDef) => !definition || definition.attacks.some(id => PROJECTILE_ATTACKS.has(id));
+export const canMultishot = (definition?: MonsterDef) => !definition || definition.attacks.some(id => PROJECTILE_ATTACKS.has(id) && !(definition.id === 'soul' && id === 'lightning'));
 export function monsterAffix(id: MonsterAffixId, random = Math.random, aura?: MonsterAura): MonsterAffix {
   const value = { ...MONSTER_AFFIXES.find(a => a.id === id)! };
   if (id === 'auraEnchanted') { const keys = Object.keys(MONSTER_AURAS) as MonsterAura[]; value.aura = aura ?? keys[index(keys.length, random)]; value.name += '（' + MONSTER_AURAS[value.aura] + '）'; }

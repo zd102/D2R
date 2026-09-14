@@ -1,3 +1,5 @@
+import { monsterTraits } from '../src/monster-traits.ts';
+import { PaladinCombat } from '../src/combat.ts';
 import { monsterAffix, CHAMPION_VARIANTS } from '../src/monster-affixes.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,6 +27,145 @@ function setup() {
   const step = (seconds: number) => { for (let t = 0; t < seconds; t += .05) { game.time += .05; combat.update(.05); } };
   return { game, combat, hits, spawn, step };
 }
+
+test('doll deaths warn before a spatial physical explosion; walls and distance protect heroes', () => {
+  for (const escape of ['none', 'distance', 'wall', 'converted', 'summoned']) {
+    const { combat, spawn, step, hits, game } = setup(), doll = spawn(MONSTERS.doll, 0, 1);
+    doll.dead = true; if (escape === 'converted') doll.converted = 5; if (escape === 'summoned') doll.summoned = true;
+    combat.onDeath(doll); step(.4); assert.equal(hits.length, 0);
+    if (escape === 'distance') game.position.x = 5;
+    if (escape === 'wall') game.world.grid.isWalkableAt = () => false;
+    step(.25); assert.equal(hits.includes('physical'), escape === 'none', escape);
+    const previous = hits.length; step(1); assert.equal(hits.length, previous, 'explosion hits only once');
+  }
+});
+
+test('corpse blast ignores attack rating but ordinary melee still checks defense', t => {
+  const { combat, spawn, game } = setup(), doll = spawn(MONSTERS.doll, 0, 1);
+  game.hero.equipment.shield = undefined; game.ui = { floatText() {}, flashDamage() {} }; game.burst = () => {};
+  game.combat = new PaladinCombat(game); doll.dead = true; doll.attackRating = 1; combat.onDeath(doll);
+  const blast = combat.triggeredCasts[0].cast.spec, hp = game.hero.hp;
+  t.mock.method(Math, 'random', () => .99);
+  assert.equal(game.combat.hurt(3, 'physical', doll, false, false, ATTACKS.strike), false);
+  assert.equal(game.hero.hp, hp);
+  game.combat.hurt(3, 'physical', doll, false, true, blast);
+  assert.equal(game.hero.hp, hp - 3);
+});
+
+test('mummy corpse poison persists after death and can be escaped', () => {
+  const { combat, spawn, step, hits, game } = setup(), mummy = spawn(MONSTERS.mummy, 0, 1);
+  mummy.dead = true; combat.onDeath(mummy); step(.6); assert.ok(hits.includes('poison'));
+  const first = hits.length; step(.8); assert.ok(hits.length > first);
+  game.position.x = 5; const escaped = hits.length; step(4);
+  assert.equal(hits.length, escaped); assert.equal(combat.hazards.length, 0);
+});
+
+test('soul lightning is a locked piercing line with a sidestep window and wall occlusion', () => {
+  for (const dodge of [false, true]) {
+    const { combat, spawn, step, hits, game } = setup(), soul = spawn(MONSTERS.soul, 0, 8);
+    soul.cooldown = 100; combat.startCast(soul, 'lightning');
+    assert.equal(combat.telegraph(soul)?.name, '灵魂闪电');
+    assert.equal(combat.state(soul).cast?.spec.shape, 'line');
+    if (dodge) game.position.x = 2;
+    step(.85); assert.equal(hits.includes('lightning'), !dodge);
+    assert.ok(combat.hazards[0]?.mesh.getObjectByName('forked-lightning'), 'beam is visible above the floor');
+  }
+  const { combat, spawn, game, step, hits } = setup(), soul = spawn(MONSTERS.soul, 0, 8);
+  game.world.grid.isWalkableAt = (_x: number, z: number) => z !== 31;
+  combat.state(soul).memory = 5; combat.startCast(soul, 'lightning'); step(.85);
+  assert.equal(hits.length, 0);
+});
+
+test('imp blink requires proximity, has its own cooldown, never heals and is interruptible', () => {
+  const { combat, spawn, step } = setup(), imp = spawn(MONSTERS.imp, 0, 2);
+  assert.equal(combat.selectAttack(imp, 2, true), 'bossTeleport');
+  assert.notEqual(combat.selectAttack(imp, 6, true), 'bossTeleport');
+  imp.hp = 20; imp.affixes = [monsterAffix('teleportation')]; const before = imp.actor.group.position.clone();
+  combat.startCast(imp, 'bossTeleport'); step(.6);
+  assert.ok(!imp.actor.group.position.equals(before)); assert.equal(imp.hp, 20);
+  assert.ok(combat.state(imp).abilities.bossTeleport! > 0);
+  assert.notEqual(combat.selectAttack(imp, 2, true), 'bossTeleport');
+  const interrupted = spawn(MONSTERS.imp, 3, 2), position = interrupted.actor.group.position.clone();
+  combat.startCast(interrupted, 'bossTeleport'); interrupted.stunned = 1; step(.7);
+  assert.ok(interrupted.actor.group.position.equals(position));
+});
+
+test('overseer support heals eligible allies, cannot chain heal itself and ends when the commander dies', () => {
+  const { combat, spawn, game, step } = setup(), leader = spawn(MONSTERS.overseer, 0, 6), ally = spawn(MONSTERS.bloodLord, 1, 6);
+  const undead = spawn(MONSTERS.skeleton, 2, 6), otherLeader = spawn(MONSTERS.overseer, 3, 6);
+  ally.hp = undead.hp = otherLeader.hp = leader.hp = 50;
+  leader.cooldown = 100; ally.cooldown = 100; undead.cooldown = 100; otherLeader.cooldown = 100;
+  assert.equal(combat.selectAttack(leader, 6, true), 'rally');
+  combat.startCast(leader, 'rally'); step(1);
+  assert.equal(ally.hp, 58); assert.equal(leader.hp, 50); assert.equal(undead.hp, 50); assert.equal(otherLeader.hp, 50);
+  assert.equal(combat.attackRate(ally), 1.2);
+  leader.dead = true; assert.equal(combat.attackRate(ally), 1);
+  leader.dead = false; leader.converted = 1; assert.equal(combat.attackRate(ally), 1);
+  leader.converted = 0; game.time += 6; assert.equal(combat.attackRate(ally), 1);
+});
+
+test('overseer healing respects poison, prevent-heal, walls and conversion', () => {
+  const { combat, spawn, game } = setup(), leader = spawn(MONSTERS.overseer, 0, 6);
+  const poisoned = spawn(MONSTERS.goat, 1, 6), blocked = spawn(MONSTERS.goat, 2, 6), converted = spawn(MONSTERS.goat, 3, 6);
+  for (const ally of [poisoned, blocked, converted]) ally.hp = 20;
+  poisoned.poison = { dps: 1, remaining: 5 }; blocked.preventHeal = true; converted.converted = 1;
+  combat.startCast(leader, 'rally'); combat.resolve(leader, combat.state(leader).cast!);
+  assert.ok([poisoned, blocked, converted].every(e => e.hp === 20));
+  assert.equal(combat.rallyBoost(converted), false);
+  game.world.grid.isWalkableAt = () => false; assert.equal(combat.supportTargets(leader).length, 0);
+});
+
+test('beetle retaliation intensifies with difficulty without cancelling its melee cast', () => {
+  let previous = Infinity;
+  for (const difficulty of [0, 1, 2] as const) {
+    const { combat, spawn, game } = setup(), beetle = spawn(MONSTERS.beetle);
+    game.hero.difficultyLevel = difficulty; combat.startCast(beetle, 'strike'); combat.onHit(beetle);
+    assert.equal(combat.state(beetle).cast?.id, 'strike'); assert.equal(combat.triggeredCasts.length, 1);
+    assert.ok(combat.state(beetle).retaliation < previous); previous = combat.state(beetle).retaliation;
+    combat.onHit(beetle); assert.equal(combat.triggeredCasts.length, 1);
+  }
+});
+
+test('cold and poison breath, succubus curses and late melee elements differ by species', () => {
+  const { combat, spawn, game } = setup(); game.hero.difficultyLevel = 2;
+  assert.equal(combat.attackSpec(spawn(MONSTERS.frozen), 'inferno').type, 'cold');
+  assert.equal(combat.attackSpec(spawn(MONSTERS.unraveler), 'inferno').type, 'poison');
+  assert.equal(combat.attackSpec(spawn(MONSTERS.iceCrawler), 'poisonSpit').type, 'cold');
+  assert.ok(MONSTERS.succubus.attacks.includes('baalCurse'));
+  const lord = spawn(MONSTERS.bloodLord);
+  assert.deepEqual(combat.attackSpec(lord, 'frenzy').secondary, ['magic', .2]);
+  game.hero.difficultyLevel = 0; assert.equal(combat.attackSpec(lord, 'frenzy').secondary, undefined);
+  assert.ok(combat.attackSpec(spawn(MONSTERS.zombie), 'strike').windup > combat.attackSpec(spawn(MONSTERS.fallen), 'strike').windup);
+});
+
+test('ghosts cross short obstructions to a valid exit, while control restores collision at the entrance', () => {
+  for (const interrupt of [false, true]) {
+    const { combat, spawn, game, step } = setup(), ghost = spawn(MONSTERS.ghost, 0, 0);
+    game.world.grid.isWalkableAt = (_x: number, z: number) => z !== 30;
+    combat.state(ghost).memory = 10; ghost.cooldown = 100;
+    assert.equal(combat.startPhase(ghost, new THREE.Vector3(0, 0, 5)), true);
+    assert.equal(ghost.body.collisionResponse, false);
+    step(.3); assert.ok(ghost.actor.group.position.z > 0);
+    if (interrupt) ghost.stunned = 1;
+    step(2);
+    assert.equal(ghost.body.collisionResponse, true); assert.ok(combat.walkable(ghost.actor.group.position));
+    assert.equal(!!combat.state(ghost).phase, false);
+    if (interrupt) assert.equal(ghost.actor.group.position.z, 0);
+    else assert.ok(ghost.actor.group.position.z > 2.5);
+  }
+});
+
+test('ghost phasing cannot escape map bounds, enter solid dead ends or affect ordinary monsters', () => {
+  const { combat, spawn, game } = setup(), ghost = spawn(MONSTERS.ghost, 0, 0), zombie = spawn(MONSTERS.zombie, 0, 0);
+  game.world.grid.isWalkableAt = (_x: number, z: number) => z !== 30;
+  assert.equal(combat.startPhase(zombie, new THREE.Vector3(0, 0, 5)), false);
+  game.world.grid.isWalkableAt = (_x: number, z: number) => z < 30;
+  assert.equal(combat.startPhase(ghost, new THREE.Vector3(0, 0, 20)), false);
+  ghost.actor.group.position.set(0, 0, 26);
+  game.world.grid.isWalkableAt = (_x: number, z: number) => z !== 55;
+  assert.equal(combat.startPhase(ghost, new THREE.Vector3(0, 0, 40)), false);
+  assert.equal(ghost.body.collisionResponse, true);
+});
 test('25 encounter pools reference 37 species and all 25 bosses have valid attacks', () => {
   assert.equal(ENCOUNTERS.length, 25); assert.equal(BOSSES.length, 25); assert.ok(Object.keys(MONSTERS).length >= 35);
   const used = new Set<string>();
@@ -135,12 +276,12 @@ test('each difficulty extends aggression and pursuit while shortening actual att
   for (const difficulty of [0, 1, 2] as const) {
     const fixture = setup(), { combat, game, spawn, step } = fixture, ai = DIFFICULTY_AI[difficulty];
     game.hero.difficultyLevel = difficulty;
-    const scout = spawn(MONSTERS.fallen, 0, ai.engageRange - .5);
+    const scout = spawn(MONSTERS.fallen, 0, ai.engageRange * monsterTraits(MONSTERS.fallen).awareness - .5);
     scout.active = false; step(.05);
     assert.equal(scout.active, true); assert.equal(combat.state(scout).memory, ai.memory);
     if (difficulty) {
       const lower = setup(); lower.game.hero.difficultyLevel = difficulty - 1;
-      const unaware = lower.spawn(MONSTERS.fallen, 0, ai.engageRange - .5);
+      const unaware = lower.spawn(MONSTERS.fallen, 0, ai.engageRange * monsterTraits(MONSTERS.fallen).awareness - .5);
       unaware.active = false; lower.step(.05); assert.equal(unaware.active, false);
     }
     combat.startCast(scout, 'strike'); game.time += ATTACKS.strike.windup;

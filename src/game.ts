@@ -26,7 +26,7 @@ import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat, type AttackSnapshot } from './combat';
 import { MercenaryCombat } from './mercenary-combat';
 import { mercenaryUnlocked, hireMercenary, mercenaryStats, feedMercenaryPotion, mercenaryPotionReason } from './mercenary';
-import { BOSSES, ENCOUNTERS, MONSTERS, monsterTactic, type MonsterDef } from './bestiary';
+import { BOSSES, ENCOUNTERS, MONSTERS, encounterPool, monsterTactic, type MonsterDef } from './bestiary';
 import { createMonsterActor } from './monster-models';
 import { MonsterCombat } from './monster-combat';
 import { monsterExperience, monsterStats } from './balance';
@@ -506,7 +506,7 @@ export class Game {
     for (const [i, desired] of plan.eliteSites.entries()) {
       const point = this.world.path(layout.spawn, desired).at(-1);
       if (!point) throw new Error(`Unreachable elite in ${this.level.id}, seed ${layout.seed}`);
-      const pool = ENCOUNTERS[this.level.index];
+      const pool = encounterPool(this.level.index, difficulty(this.hero));
       const leader = this.spawnEnemy(point.x, point.z, 'demon', MONSTERS[pool[(this.level.index + i) % pool.length]], true);
       // Move the nearest existing pack to the elite, preserving population and quest counts.
       const pack = plan.elitePacks[i];

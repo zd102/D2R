@@ -3,7 +3,7 @@ import { EXPERIENCE, skillById, skillValues, type SkillId, type DamageType } fro
 import { BASES, specialItem, makeItem, RUNEWORDS, socketItem, itemRequirements, type Item, type Mods } from '../src/items.ts';
 import { LEVELS, SPECIAL_LEVELS, levelLayout } from '../src/campaign.ts';
 import { encounterPlan, cowEncounterPlan } from '../src/encounter-plan.ts';
-import { BOSSES, MONSTERS, ENCOUNTERS, type MonsterDef } from '../src/bestiary.ts';
+import { BOSSES, MONSTERS, encounterPool, type MonsterDef } from '../src/bestiary.ts';
 import type { PlayerCount } from '../src/player-count.ts';
 import { monsterExperience, monsterStats } from '../src/balance.ts';
 import { ATTACKS } from '../src/monster-combat.ts';
@@ -27,7 +27,7 @@ export function simulateProgression(clearFraction = 1, seed = 20260910, options:
   for (const difficulty of [0, 1, 2] as const) for (const area of LEVELS) {
     if (area.index % 5 === 0) entryLevel = hero.level;
     selectCampaignLevel(hero, area.index, difficulty);
-    const pool = ENCOUNTERS[area.index], plan = encounterPlan(area, levelLayout(area, seed + area.index + difficulty * 25), difficulty);
+    const pool = encounterPool(area.index, difficulty), plan = encounterPlan(area, levelLayout(area, seed + area.index + difficulty * 25), difficulty);
     const champions = new Set(plan.elitePacks);
     const species = plan.packs.flatMap((pack, id) => pack.species.map(species => ({ species, champion: champions.has(id) })));
     const count = Math.max(area.quest.kind === 'kill' ? area.quest.count : 0, Math.round(species.length * clearFraction));

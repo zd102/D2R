@@ -1,22 +1,25 @@
 import { curseDuration } from './item-special-effects.ts';
+import { monsterTraits } from './monster-traits.ts';
 import * as THREE from 'three';
 import { castSound } from './audio-bank.ts';
 import type { CombatAlly } from './class-combat.ts';
 import type { Enemy, Game } from './game.ts';
-import { MONSTERS, monsterTactic, type AttackId } from './bestiary.ts';
+import { MONSTERS, monsterTactic, type AttackId, type MonsterDef } from './bestiary.ts';
 import type { DamageType } from './paladin.ts';
 import { questComplete } from './campaign.ts';
 import { animateActor, gridWalkable } from './world.ts';
-import { createProjectileVisual, decorateGround, updateVisual } from './visual-effects.ts';
+import { createProjectileVisual, createLightning, decorateGround, updateVisual } from './visual-effects.ts';
 import { hasMonsterAffix, monsterDamageParts, type MonsterAura, type DamagePart } from './monster-affixes.ts';
 import { stats } from './model.ts';
 import { makeRing } from './world.ts';
 import type { HeroStatus } from './status-effects.ts';
 
-type Shape = 'melee' | 'bolt' | 'fan' | 'nova' | 'pool' | 'line' | 'wall' | 'summon' | 'revive' | 'teleport' | 'prison';
-export type AttackSpec = { name: string; shape: Shape; type: DamageType; range: number; windup: number; cooldown: number; damage: number; radius: number; count?: number; speed?: number; duration?: number; status?: 'curse' | 'mana' | 'stun' | 'bloodMana' | 'defense' | 'decrepify'; move?: boolean; color?: number; secondary?: [DamageType, number]; knockback?: number; triggered?: boolean; afterDeath?: boolean };
+type Shape = 'melee' | 'bolt' | 'fan' | 'nova' | 'pool' | 'line' | 'wall' | 'summon' | 'revive' | 'teleport' | 'prison' | 'support';
+export type AttackSpec = { name: string; shape: Shape; type: DamageType; range: number; windup: number; cooldown: number; damage: number; radius: number; count?: number; speed?: number; duration?: number; status?: 'curse' | 'mana' | 'stun' | 'bloodMana' | 'defense' | 'decrepify'; move?: boolean; color?: number; secondary?: [DamageType, number]; knockback?: number; triggered?: boolean; afterDeath?: boolean; ignoreDefense?: boolean; manaDrain?: number };
 const attack = (name: string, shape: Shape, type: DamageType, range: number, windup: number, cooldown: number, damage: number, radius: number, extra: Partial<AttackSpec> = {}): AttackSpec => ({ name, shape, type, range, windup, cooldown, damage, radius, ...extra });
 export const ATTACKS: Record<AttackId, AttackSpec> = {
+  rally: attack('督战与治疗', 'support', 'magic', 8, .9, 9, 0, 7),
+  meteor: attack('陨火', 'pool', 'fire', 11, 1.5, 7, .7, 1.8, { duration: 1.5 }),
   strike: attack('重击', 'melee', 'physical', 1.8, .38, 1.4, 1, 2.1),
   manaTouch: attack('汲取法力', 'melee', 'physical', 1.8, .5, 1.8, .85, 2.1, { status: 'mana' }),
   fireWall: attack('火墙', 'wall', 'fire', 9, 1, 5, .35, .7, { duration: 3 }),
@@ -43,7 +46,7 @@ export const ATTACKS: Record<AttackId, AttackSpec> = {
   redLightning: attack('赤红闪电', 'line', 'lightning', 12, 1.2, 4.5, .55, .8, { duration: 1.4, color: 0xff4a59, secondary: ['physical', .55] }),
   fireNova: attack('火焰新星', 'nova', 'fire', 10, 1, 3.7, .9, .38, { count: 18, speed: 6 }),
   coldWave: attack('寒冰波', 'fan', 'cold', 11, 1, 3.5, .95, .6, { count: 5, speed: 6, knockback: 1.6 }),
-  manaRift: attack('法力裂隙', 'line', 'magic', 11, 1.15, 4, 1, 1, { duration: .35, status: 'mana' }),
+  manaRift: attack('法力裂隙', 'line', 'magic', 11, 1.15, 4, .85, 1, { duration: .35, status: 'mana', manaDrain: .5 }),
   tentacles: attack('腐化触须', 'summon', 'physical', 9, 1.1, 8, .6, 1.4),
   clone: attack('邪恶幻象', 'summon', 'magic', 10, 1.3, 9, .5, 1.6),
   whirlwind: attack('旋风斩', 'line', 'physical', 8, .9, 3.4, .8, 1.3, { duration: 1, move: true }),
@@ -68,7 +71,7 @@ export const DIFFICULTY_AI = [
 ] as const;
 export const NORMAL_DIFFICULTY_AI = DIFFICULTY_AI[0];
 type Cast = { id: AttackId; spec: AttackSpec; left: number; origin: THREE.Vector3; target: THREE.Vector3; summon?: CombatAlly; corpse?: Enemy; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> };
-type State = { cast?: Cast; sequence: number; retaliation: number; summons: number; cloned: boolean; frenzy: number; lifetime?: number; abilities: Partial<Record<AttackId, number>>; lastAttack?: AttackId; lastSeen?: THREE.Vector3; memory: number; alerted: boolean; retreat: number; retreatCooldown: number; teleportCooldown?: number; heals?: number; auraTick?: number };
+type State = { cast?: Cast; sequence: number; retaliation: number; summons: number; cloned: boolean; frenzy: number; lifetime?: number; abilities: Partial<Record<AttackId, number>>; lastAttack?: AttackId; lastSeen?: THREE.Vector3; memory: number; alerted: boolean; retreat: number; retreatCooldown: number; teleportCooldown?: number; heals?: number; auraTick?: number; phase?: { from: THREE.Vector3; to: THREE.Vector3; progress: number } };
 type Missile = { source: Enemy; mesh: THREE.Mesh; velocity: THREE.Vector3; spec: AttackSpec; life: number; volley: { hit: boolean; summons?: Set<CombatAlly> } };
 type Hazard = { source: Enemy; mesh: THREE.Mesh; spec: AttackSpec; origin: THREE.Vector3; target: THREE.Vector3; life: number; tick: number; hit: boolean; moving: boolean };
 export function segmentDistance(point: { x: number; z: number }, from: { x: number; z: number }, to: { x: number; z: number }) {
@@ -76,6 +79,25 @@ export function segmentDistance(point: { x: number; z: number }, from: { x: numb
   const t = length ? Math.max(0, Math.min(1, ((point.x - from.x) * dx + (point.z - from.z) * dz) / length)) : 0;
   return Math.hypot(point.x - from.x - dx * t, point.z - from.z - dz * t);
 }
+export function monsterAttackSpec(definition: MonsterDef | undefined, id: AttackId, difficulty = 0): AttackSpec {
+  const spec = { ...ATTACKS[id] }, species = definition?.id, traits = monsterTraits(definition);
+  if (id === 'strike' && traits.meleeWindup) spec.windup = traits.meleeWindup;
+  if (id === 'lightning' && species === 'soul') Object.assign(spec, { name: '灵魂闪电', shape: 'line', range: 13, radius: .35, windup: .75, duration: .35, damage: 1.2, cooldown: 3.6 });
+  if (id === 'inferno' && ['unraveler', 'frozen'].includes(species ?? '')) Object.assign(spec, {
+    name: species === 'frozen' ? '寒冰吐息' : '腐败毒息', type: species === 'frozen' ? 'cold' : 'poison', range: 5, cooldown: 4,
+  });
+  if (id === 'poisonSpit' && species === 'iceCrawler') Object.assign(spec, { name: '寒冰喷吐', type: 'cold' });
+  if (id === 'bossTeleport' && species === 'imp') Object.assign(spec, { name: '闪烁逃脱', windup: .55, cooldown: 7 });
+  if (id === 'charge' && ['viper', 'reanimated', 'iceCrawler'].includes(species ?? '')) spec.knockback = 1;
+  if (id === 'strike' && ['spider', 'mummy'].includes(species ?? '')) spec.secondary = ['poison', .25];
+  if (difficulty > 0 && (id === 'strike' || id === 'frenzy')) {
+    if (species === 'fallen') spec.secondary = ['fire', .15];
+    if (species === 'doomKnight') spec.secondary = ['cold', .2];
+    if (species === 'bloodLord') spec.secondary = ['magic', .2];
+  }
+  return spec;
+}
+
 export class MonsterCombat {
   states = new Map<number, State>();
   missiles: Missile[] = [];
@@ -94,7 +116,19 @@ export class MonsterCombat {
   }
   heroSpeed() { return (this.auraAt(this.game.position, 'holyFreeze') ? .6 : 1) * (this.debuffs.decrepify > 0 ? .65 : 1); }
   imprisoned(point: THREE.Vector3) { return this.prisons.some(p => !p.source.dead && p.guards.every(e => !e.dead) && point.distanceTo(p.center) < 2.2); }
-  attackRate(enemy: Enemy) { return enemy.converted <= 0 && this.auraAt(enemy.actor.group.position, 'fanaticism') ? 1.2 : 1; }
+  rallied = new Map<number, { source: Enemy; until: number }>();
+  rallyBoost(enemy: Enemy) {
+    const buff = this.rallied.get(enemy.id), source = buff?.source;
+    return !!buff && buff.until > this.game.time && !!source && !source.dead && source.active && source.converted <= 0 && enemy.converted <= 0
+      && source.actor.group.position.distanceTo(enemy.actor.group.position) < 9 && this.lineOfSight(source.actor.group.position, enemy.actor.group.position);
+  }
+  attackRate(enemy: Enemy) { return (enemy.converted <= 0 && this.auraAt(enemy.actor.group.position, 'fanaticism') ? 1.2 : 1) * (this.rallyBoost(enemy) ? 1.2 : 1); }
+  supportTargets(enemy: Enemy) {
+    return this.game.enemies.filter(ally => ally !== enemy && !ally.dead && !ally.boss && !ally.summoned && ally.active && ally.converted <= 0
+      && ally.definition?.race === 'demon' && !ally.definition.attacks.includes('rally')
+      && ally.actor.group.position.distanceTo(enemy.actor.group.position) < 7 && this.lineOfSight(enemy.actor.group.position, ally.actor.group.position));
+  }
+  attackSpec(enemy: Enemy, id: AttackId) { return monsterAttackSpec(enemy.definition, id, this.game.hero.difficultyLevel); }
   accuracy(enemy: Enemy) { return enemy.attackRating * (1 - (this.game.combat.specialItems?.taunts.get(enemy) ?? 0) / 100) * (enemy.converted <= 0 && this.auraAt(enemy.actor.group.position, 'blessedAim') ? 1.5 : 1); }
   damageParts(enemy: Enemy, amount: number, type: DamageType, spec?: AttackSpec): DamagePart[] {
     const parts = spec?.triggered ? [{ type, amount }] : monsterDamageParts(enemy, amount, type);
@@ -151,10 +185,20 @@ export class MonsterCombat {
     return true;
   }
   cancel(enemy: Enemy) {
+    this.endPhase(enemy, true);
     const state = this.states.get(enemy.id); if (state?.cast) { this.game.disposeObject(state.cast.mesh); state.cast = undefined; enemy.cooldown = Math.max(enemy.cooldown, .6); }
     for (const hazard of this.hazards) if (hazard.source === enemy && hazard.spec.shape === 'line') hazard.life = 0;
   }
   onDeath(enemy: Enemy) {
+    const death = monsterTraits(enemy.definition).death;
+    if (death && enemy.converted <= 0 && !enemy.summoned) {
+      const origin = enemy.actor.group.position.clone();
+      const spec: AttackSpec = { ...ATTACKS.poisonPool, name: death === 'burst' ? '娃娃死亡爆炸' : '腐尸毒云',
+        type: death === 'burst' ? 'physical' : 'poison', radius: death === 'burst' ? 2.4 : 2,
+        damage: death === 'burst' ? [1.5, 1.8, 2.1][this.game.hero.difficultyLevel] : .25,
+        ignoreDefense: death === 'burst', windup: death === 'burst' ? .55 : .4, duration: death === 'burst' ? .3 : 3, triggered: true, afterDeath: true };
+      this.triggeredCasts.push({ source: enemy, cast: { id: 'poisonPool', spec, origin, target: origin.clone(), left: spec.windup, mesh: this.warning(spec, origin, origin) } });
+    }
     if (enemy.converted <= 0 && !enemy.summoned) for (const [affix, id] of [['fireEnchanted', 'fireNova'], ['coldEnchanted', 'coldNova']] as const) {
       if (!hasMonsterAffix(enemy, affix)) continue;
       const origin = enemy.actor.group.position.clone();
@@ -185,9 +229,11 @@ export class MonsterCombat {
   selectAttack(enemy: Enemy, distance: number, visible: boolean): AttackId | undefined {
     const state = this.state(enemy), attacks = enemy.definition?.attacks ?? ['strike'];
     const available = attacks.filter(id => {
-      const spec = ATTACKS[id];
+      const spec = this.attackSpec(enemy, id);
       if ((state.abilities[id] ?? 0) > 0) return false;
       if (spec.shape === 'revive') return this.canSummon(enemy, id);
+      if (spec.shape === 'support') return visible && this.supportTargets(enemy).some(ally => !this.rallyBoost(ally) || ally.hp < ally.maxHp * .65 && !ally.poison && !ally.preventHeal);
+      if (enemy.definition?.id === 'imp' && id === 'bossTeleport' && (distance > 3.8 || enemy.summoned)) return false;
       if (!visible || distance > spec.range) return false;
       if (spec.move && distance < 3.5) return false;
       if (spec.shape === 'nova' && distance > spec.range * .7) return false;
@@ -196,6 +242,13 @@ export class MonsterCombat {
     // Support and phase abilities must not wait for an unrelated melee attack.
     if (available.includes('revive')) return 'revive';
     if (available.includes('clone')) return 'clone';
+    if (available.includes('rally')) return 'rally';
+    if (enemy.definition?.id === 'imp' && available.includes('bossTeleport')) return 'bossTeleport';
+    if (enemy.definition?.id === 'duriel' && distance < 2.6) {
+      // Weighted, reproducible rotation: three jabs, two smites and one strike.
+      const preferred: AttackId = ['jab', 'smite', 'jab', 'strike', 'jab', 'smite'][state.sequence % 6] as AttackId;
+      if (available.includes(preferred)) return preferred;
+    }
     const melee = available.find(id => ATTACKS[id].shape === 'melee');
     if (melee && (state.lastAttack !== melee || available.length === 1)) return melee;
     if (distance > 4 && available.includes('charge')) return 'charge';
@@ -205,6 +258,31 @@ export class MonsterCombat {
   }
   canMove(from: THREE.Vector3, to: THREE.Vector3) {
     return this.game.world.canWalk ? this.game.world.canWalk(from, to) : this.lineOfSight(from, to);
+  }
+  startPhase(enemy: Enemy, destination: THREE.Vector3) {
+    if (enemy.definition?.id !== 'ghost' || enemy.summoned || enemy.converted > 0 || enemy.stunned > 0) return false;
+    const from = enemy.actor.group.position.clone(), direction = destination.clone().sub(from).setY(0), distance = direction.length();
+    if (!this.walkable(from) || distance < 1) return false;
+    direction.normalize(); let crossed = false;
+    // Only cross a short obstruction with a verified free exit. Never chase
+    // through the map boundary or finish inside collision geometry.
+    for (let d = .25; d <= Math.min(6, distance); d += .25) {
+      const point = from.clone().addScaledVector(direction, d);
+      const grid = this.game.world.grid, x = Math.round(point.x) + Math.floor(grid.width / 2), z = Math.round(point.z) + Math.floor(grid.height / 2);
+      if (x < 1 || z < 1 || x >= grid.width - 1 || z >= grid.height - 1) return false;
+      if (!this.walkable(point)) { crossed = true; continue; }
+      if (crossed && [[.5, 0], [-.5, 0], [0, .5], [0, -.5]].every(([dx, dz]) => this.walkable({ x: point.x + dx, z: point.z + dz }))) {
+        this.state(enemy).phase = { from, to: point, progress: 0 }; enemy.body.collisionResponse = false;
+        enemy.path = []; enemy.body.velocity.set(0, 0, 0); return true;
+      }
+    }
+    return false;
+  }
+  endPhase(enemy: Enemy, abort = false) {
+    const state = this.states.get(enemy.id), phase = state?.phase; if (!phase) return;
+    const point = abort ? phase.from : phase.to;
+    enemy.actor.group.position.copy(point); enemy.body.position.set(point.x, enemy.body.position.y, point.z);
+    enemy.body.velocity.set(0, 0, 0); enemy.body.collisionResponse = true; enemy.rethink = 0; state!.phase = undefined;
   }
   moveAway(enemy: Enemy, target: THREE.Vector3, dt: number, sideways = false) {
     const p = enemy.actor.group.position, away = p.clone().sub(target).setY(0);
@@ -224,12 +302,12 @@ export class MonsterCombat {
     enemy.actor.group.userData.hitFlash=1;
     const state = this.state(enemy);
     if ((!enemy.definition?.retaliation && !hasMonsterAffix(enemy, 'lightningEnchanted')) || enemy.dead || enemy.converted > 0 || state.retaliation > 0) return;
-    state.retaliation = 2.2;
+    state.retaliation = enemy.definition?.retaliation ? [1.8, 1.3, .9][this.game.hero.difficultyLevel] : 2.2;
     // Enchanted retaliation can wind up alongside a normal cast without cancelling it.
     const enchanted = hasMonsterAffix(enemy, 'lightningEnchanted');
     const spec: AttackSpec = { ...ATTACKS.lightning, name: enchanted ? '受击充能弹' : '闪电', shape: 'nova', count: enchanted ? 8 : 6, damage: .45, windup: .65, speed: 5, triggered: true };
     if (!state.cast) this.startCast(enemy, 'lightning', spec);
-    else if (enchanted) { const origin = enemy.actor.group.position.clone(); this.triggeredCasts.push({ source: enemy, cast: { id: 'lightning', spec, origin, target: origin.clone(), left: spec.windup, mesh: this.warning(spec, origin, origin) } }); }
+    else { const origin = enemy.actor.group.position.clone(); this.triggeredCasts.push({ source: enemy, cast: { id: 'lightning', spec, origin, target: origin.clone(), left: spec.windup, mesh: this.warning(spec, origin, origin) } }); }
   }
   warning(spec: AttackSpec, origin: THREE.Vector3, target: THREE.Vector3) {
     const line = spec.shape === 'line' || spec.shape === 'wall' || spec.shape === 'bolt' || spec.shape === 'fan';
@@ -242,10 +320,10 @@ export class MonsterCombat {
   }
   startCast(enemy: Enemy, id: AttackId, override?: AttackSpec) {
     const summon=this.game.combat.specialItems?.taunts.has(enemy) ? undefined : this.game.combat.classes?.target(enemy);
-    const spec = override ?? ATTACKS[id], origin = enemy.actor.group.position.clone(), target = (summon?.actor.group.position??this.game.position).clone();
+    const spec = override ?? this.attackSpec(enemy, id), origin = enemy.actor.group.position.clone(), target = (summon?.actor.group.position??this.game.position).clone();
     const corpse = id === 'revive' ? this.revivalTarget(enemy) : undefined;
     if (id === 'revive') { if (!corpse) return; target.copy(corpse.actor.group.position); }
-    if (id === 'brood') target.copy(origin);
+    if (id === 'brood' || id === 'rally') target.copy(origin);
     if (spec.shape === 'wall') {
       const direction = target.clone().sub(origin).normalize(), across = new THREE.Vector3(direction.z,0,-direction.x);
       if (!across.lengthSq()) across.set(1,0,0);
@@ -269,7 +347,7 @@ export class MonsterCombat {
     const accepted = g.combat.hurt(source.damage * spec.damage, spec.type, source, false, spec.shape !== 'melee', spec);
     if (g.dead || accepted === false) return;
     if (spec.status === 'curse') g.hero.curse = Math.max(g.hero.curse, curseDuration(g.hero, 5));
-    if (spec.status === 'mana') g.hero.mana = Math.max(0, g.hero.mana * .75);
+    if (spec.status === 'mana') g.hero.mana = Math.max(0, g.hero.mana * (1 - (spec.manaDrain ?? .25)));
     if (spec.status === 'stun') g.combat.recover(.45);
     if (spec.status === 'bloodMana') { const s = stats(g.hero); this.debuffs[s.maxMana >= s.maxHp ? 'bloodMana' : 'defense'] = curseDuration(g.hero, 6); }
     if (spec.status === 'decrepify') this.debuffs.decrepify = curseDuration(g.hero, 5);
@@ -311,8 +389,19 @@ export class MonsterCombat {
       if (line) mesh.rotation.z = Math.atan2(target.x - origin.x, target.z - origin.z);
       g.world.scene.add(mesh);
       decorateGround(mesh,spec.type,spec.radius,line?'line':'pool',origin.distanceTo(target));
+      if (enemy.definition?.id === 'soul' && spec.type === 'lightning' && spec.shape === 'line') {
+        const half = origin.distanceTo(target) / 2;
+        mesh.add(createLightning(new THREE.Vector3(0, -half, .65), new THREE.Vector3(0, half, .65)));
+      }
       this.hazards.push({ source: enemy, spec, mesh, origin, target, life: spec.duration ?? 1, tick: 0, hit: false, moving: !!spec.move });
-    } else if (spec.shape === 'teleport') this.teleport(enemy, hasMonsterAffix(enemy, 'teleportation') && enemy.definition?.id !== 'baal');
+    } else if (spec.shape === 'support') {
+      if (!enemy.active || enemy.dead || enemy.converted > 0) return;
+      for (const ally of this.supportTargets(enemy)) {
+        if (!ally.poison && !ally.preventHeal) ally.hp = Math.min(ally.maxHp, ally.hp + ally.maxHp * .08);
+        this.rallied.set(ally.id, { source: enemy, until: g.time + 5 });
+        g.burst?.(ally.actor.group.position, 0xf2b956, 8);
+      }
+    } else if (spec.shape === 'teleport') this.teleport(enemy, hasMonsterAffix(enemy, 'teleportation') && !['baal', 'imp'].includes(enemy.definition?.id ?? ''));
     else if (spec.shape === 'prison') {
       if (g.enemies.filter(e => !e.dead && e.summoned).length > 4) return;
       const points = Array.from({ length: 4 }, (_, i) => target.clone().add(new THREE.Vector3(Math.sin(i * Math.PI / 2) * 1.8, 0, Math.cos(i * Math.PI / 2) * 1.8)));
@@ -359,9 +448,23 @@ export class MonsterCombat {
     state.retreat = Math.max(0,state.retreat-dt); state.retreatCooldown = Math.max(0,state.retreatCooldown-dt);
     for (const id of Object.keys(state.abilities) as AttackId[]) state.abilities[id] = Math.max(0,state.abilities[id]!-dt);
     enemy.blind = Math.max(0, (enemy.blind ?? 0) - dt); enemy.flee = Math.max(0, (enemy.flee ?? 0) - dt);
-    if (enemy.active && !enemy.preventHeal && !enemy.poison && enemy.definition?.model === 'council') enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * .01 * dt);
+    if (state.phase) {
+      state.memory = Math.max(0, state.memory - dt);
+      if (enemy.stunned > 0 || enemy.converted > 0 || !enemy.active || !state.memory) this.endPhase(enemy, true);
+      else {
+        const phase = state.phase; phase.progress = Math.min(1, phase.progress + dt * enemy.speed * ai.pursuit * g.combat.slow(enemy) / phase.from.distanceTo(phase.to));
+        const point = phase.from.clone().lerp(phase.to, phase.progress);
+        enemy.actor.group.position.copy(point); enemy.body.position.set(point.x, enemy.body.position.y, point.z); enemy.body.velocity.set(0,0,0);
+        if (phase.progress >= 1) this.endPhase(enemy);
+        animateActor(enemy.actor,g.time+enemy.id,true,0);
+      }
+      return;
+    }
+    const traits = monsterTraits(enemy.definition);
+    const regen = traits.regen || (enemy.definition?.model === 'council' ? .01 : 0);
+    if (enemy.active && enemy.converted <= 0 && !enemy.summoned && !enemy.preventHeal && !enemy.poison && regen) enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * regen * dt);
     if (state.lifetime !== undefined) { state.lifetime -= dt; if (state.lifetime <= 0 || g.enemies.find(e => e.id === enemy.owner)?.dead) { g.killEnemy(enemy); return; } }
-    const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < ai.sightRange && this.lineOfSight(p,targetPoint), engageRange = ai.engageRange;
+    const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < ai.sightRange && this.lineOfSight(p,targetPoint), engageRange = ai.engageRange * traits.awareness;
     if (g.started && unlocked && visible && (distance < engageRange || enemy.active)) {
       enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = ai.memory;
       if (!state.alerted) {
@@ -434,9 +537,9 @@ export class MonsterCombat {
       if (state.cast.left <= 0) {
         const cast = state.cast; state.cast = undefined; g.disposeObject(cast.mesh); this.resolve(enemy, cast);
         state.lastAttack = cast.id;
-        state.abilities[cast.id] = cast.spec.cooldown * ai.cooldownMultiplier / g.combat.slow(enemy) / (state.frenzy > 0 ? 1.25 : 1) / this.attackRate(enemy);
+        state.abilities[cast.id] = cast.spec.cooldown * traits.cooldown * ai.cooldownMultiplier / g.combat.slow(enemy) / (state.frenzy > 0 ? 1.25 : 1) / this.attackRate(enemy);
         // Strong attacks have their own cooldown; a short recovery allows other tactics between them.
-        enemy.cooldown = Math.min(state.abilities[cast.id]!, (enemy.boss ? 2 : 1.5) * ai.recoveryMultiplier);
+        enemy.cooldown = Math.min(state.abilities[cast.id]!, (enemy.boss ? 2 : 1.5) * traits.cooldown * ai.recoveryMultiplier);
       }
       animateActor(enemy.actor, g.time + enemy.id, false, enemy.attackTime); return;
     }
@@ -449,7 +552,7 @@ export class MonsterCombat {
     const tactic = monsterTactic(enemy.definition), ranged = ['ranged','support','caster','skirmisher','brood'].includes(tactic);
     const selected = this.selectAttack(enemy,distance,visible);
     // Bounded retreats leave attack windows; corners cause a stand-and-fight response.
-    if (ranged && enemy.speed > 0 && visible && distance < (tactic==='skirmisher'?3:3.8) && !state.retreatCooldown && selected !== 'revive') {
+    if ((ranged || enemy.definition?.id === 'spider' && enemy.hp < enemy.maxHp * .35) && enemy.speed > 0 && visible && distance < (tactic==='skirmisher'?3:3.8) && !state.retreatCooldown && selected !== 'revive' && selected !== 'bossTeleport') {
       state.retreat = enemy.boss ? .55 : .75; state.retreatCooldown = enemy.boss ? 4 : 3.2;
     }
     if (state.retreat > 0 && visible && this.moveAway(enemy,targetPoint,dt,tactic==='skirmisher')) {
@@ -457,15 +560,16 @@ export class MonsterCombat {
     }
     if (!enemy.cooldown && selected) { state.sequence++; this.startCast(enemy, selected); return; }
     let moving = false;
-    const attackRange = Math.max(...attacks.filter(id=>ATTACKS[id].shape!=='revive').map(id=>ATTACKS[id].range),1.8);
-    const preferred = ranged ? Math.min(7,attackRange*.75) : 1.5;
+    const attackRange = Math.max(...attacks.filter(id=>!['revive','support','teleport'].includes(this.attackSpec(enemy,id).shape)).map(id=>this.attackSpec(enemy,id).range),1.8);
+    const preferred = ranged ? Math.min(traits.preferredRange ?? 7,attackRange*.85) : 1.5;
     const destination = visible ? targetPoint : state.lastSeen;
     if (enemy.speed > 0 && destination && (!visible || distance > preferred)) {
+      if (!visible && state.memory > 0 && this.startPhase(enemy, destination)) return;
       enemy.rethink -= dt;
       if (enemy.rethink <= 0) { enemy.path = g.world.path(p, destination); enemy.rethink = (.65 + enemy.id%3*.1) / ai.pursuit; }
       const point = enemy.path[0];
       if (point) { const direction = point.clone().sub(p), d = direction.length(); if (d < .3) enemy.path.shift(); else {
-        direction.normalize(); const speed = enemy.speed * ai.pursuit * g.combat.slow(enemy) * (state.frenzy > 0 ? 1.25 : 1);
+        direction.normalize(); const speed = enemy.speed * ai.pursuit * g.combat.slow(enemy) * (state.frenzy > 0 ? 1.25 : 1) * (this.rallyBoost(enemy) ? 1.15 : 1);
         if (this.canMove(p,p.clone().addScaledVector(direction,Math.min(d,speed*dt)))) { enemy.body.velocity.set(direction.x * speed, 0, direction.z * speed); moving = speed > 0; }
         else { enemy.path = []; enemy.rethink = 0; }
       } }
@@ -487,6 +591,7 @@ export class MonsterCombat {
       const cancelled = !entry.cast.spec.afterDeath && (entry.source.dead || entry.source.converted > 0);
       if (cancelled || entry.cast.left <= 0) { g.disposeObject(entry.cast.mesh); if (!cancelled) this.resolve(entry.source, entry.cast); this.triggeredCasts.splice(i, 1); }
     }
+    for (const [id, buff] of this.rallied) if (buff.until <= g.time || buff.source.dead || buff.source.converted > 0) this.rallied.delete(id);
     for (const enemy of g.enemies) if (!enemy.dead) this.updateEnemy(enemy, dt); else this.cancel(enemy);
     for (let i = this.missiles.length - 1; i >= 0; i--) {
       const m = this.missiles[i], previous = m.mesh.position.clone(), speed=g.combat.classes?.missileSpeed(m.source)??1; m.life -= dt*speed; m.mesh.position.addScaledVector(m.velocity, dt*speed);

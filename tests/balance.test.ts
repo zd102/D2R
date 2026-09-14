@@ -59,7 +59,7 @@ test('all encounters use finite increasing chapter values, species retain their 
     if (area.index) assert.ok(levelTuning(area, diff).hp > levelTuning(LEVELS[area.index - 1], diff).hp);
   }
   assert.ok(monsterStats(MONSTERS.zombie, LEVELS[0], 0).maxHp > monsterStats(MONSTERS.fallen, LEVELS[0], 0).maxHp);
-  assert.equal(monsterStats(BOSSES[4], LEVELS[4], 0, true).resistances.fire, -30);
+  assert.equal(monsterStats(BOSSES[4], LEVELS[4], 0, true).resistances.fire, -50);
 });
 
 test('nightmare begins at the normal cow per-monster combat budget and escalates through every campaign level', () => {

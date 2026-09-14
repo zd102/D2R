@@ -1,7 +1,7 @@
 import type { DamageType } from './paladin.ts';
 
 export type BodyPlan = 'fallen' | 'shaman' | 'zombie' | 'skeleton' | 'archer' | 'mage' | 'goat' | 'ghost' | 'mummy' | 'beetle' | 'maggot' | 'viper' | 'spider' | 'flayer' | 'council' | 'knight' | 'mauler' | 'venom' | 'imp' | 'succubus' | 'frozen' | 'lord' | 'cow' | 'andariel' | 'duriel' | 'mephisto' | 'diablo' | 'baal';
-export type AttackId = 'mephistoLightning' | 'poisonStrike' | 'smite' | 'chargedBolt' | 'mephistoOrb' | 'poisonNova' | 'coldTouch' | 'bonePrison' | 'bossTeleport' | 'baalCurse' | 'decrepify' | 'strike' | 'frenzy' | 'arrow' | 'fireArrow' | 'fireball' | 'poisonSpit' | 'lightning' | 'revive' | 'charge' | 'stomp' | 'inferno' | 'curse' | 'hydra' | 'poisonFan' | 'poisonPool' | 'coldNova' | 'jab' | 'skull' | 'blizzard' | 'firestorm' | 'redLightning' | 'fireNova' | 'coldWave' | 'manaRift' | 'tentacles' | 'clone' | 'whirlwind' | 'manaTouch' | 'fireWall' | 'brood';
+export type AttackId = 'rally' | 'meteor' | 'mephistoLightning' | 'poisonStrike' | 'smite' | 'chargedBolt' | 'mephistoOrb' | 'poisonNova' | 'coldTouch' | 'bonePrison' | 'bossTeleport' | 'baalCurse' | 'decrepify' | 'strike' | 'frenzy' | 'arrow' | 'fireArrow' | 'fireball' | 'poisonSpit' | 'lightning' | 'revive' | 'charge' | 'stomp' | 'inferno' | 'curse' | 'hydra' | 'poisonFan' | 'poisonPool' | 'coldNova' | 'jab' | 'skull' | 'blizzard' | 'firestorm' | 'redLightning' | 'fireNova' | 'coldWave' | 'manaRift' | 'tentacles' | 'clone' | 'whirlwind' | 'manaTouch' | 'fireWall' | 'brood';
 export type MonsterDef = { id: string; name: string; model: BodyPlan; race: 'undead' | 'demon' | 'beast'; color: number; hp: number; hpByDifficulty?: readonly [number, number, number]; damage: number; speed: number; scale: number; attacks: AttackId[]; resist?: Partial<Record<DamageType, number>>; revive?: string; retaliation?: boolean };
 function monster(id: string, name: string, model: BodyPlan, race: MonsterDef['race'], color: number, attacks: AttackId[], hp = 20, speed = 2.1, extra: Partial<MonsterDef> = {}): MonsterDef {
   return { id, name, model, race, color, hp, damage: 3, speed, scale: 1, attacks, ...extra };
@@ -17,8 +17,8 @@ export const MONSTERS: Record<string, MonsterDef> = Object.fromEntries([
   monster('ghost', '幽灵', 'ghost', 'undead', 0x8cccc4, ['manaTouch'], 17, 2, { resist: { physical: 35, poison: 80 } }),
   monster('tainted', '污染怪', 'venom', 'demon', 0x697752, ['lightning', 'strike'], 27, 1.8, { scale: .8 }),
   monster('burningDead', '燃烧死者', 'skeleton', 'undead', 0xc89967, ['fireArrow'], 20, 1.9, { resist: { fire: 45 } }),
-  monster('mummy', '腐尸', 'mummy', 'undead', 0xb6a675, ['poisonSpit', 'strike'], 30, 1.3),
-  monster('unraveler', '解开者', 'mummy', 'undead', 0x959972, ['skull', 'revive'], 30, 1.4, { scale: 1.25, revive: 'skeleton' }),
+  monster('mummy', '腐尸', 'mummy', 'undead', 0xb6a675, ['strike'], 30, 1.3),
+  monster('unraveler', '解开者', 'mummy', 'undead', 0x959972, ['skull', 'revive', 'inferno'], 30, 1.4, { scale: 1.25, revive: 'skeleton' }),
   monster('huntress', '女猎人', 'archer', 'beast', 0xcaa36d, ['arrow', 'strike'], 20, 2.7),
   monster('beetle', '死亡甲虫', 'beetle', 'beast', 0x577e89, ['strike'], 25, 2, { retaliation: true, resist: { lightning: 50 } }),
   monster('maggot', '沙虫', 'maggot', 'beast', 0xbda16b, ['poisonSpit', 'brood'], 30, 1.2),
@@ -29,22 +29,22 @@ export const MONSTERS: Record<string, MonsterDef> = Object.fromEntries([
   monster('zealot', '狂信者', 'knight', 'beast', 0x947954, ['frenzy'], 25, 2.5),
   monster('council', '议会成员', 'council', 'demon', 0x9f493f, ['hydra', 'fireball'], 31, 1.8, { resist: { fire: 45 } }),
   monster('doll', '冥河娃娃', 'flayer', 'undead', 0xc8b891, ['frenzy'], 14, 3.1, { scale: .7 }),
-  monster('vampire', '鲜血之王', 'mage', 'undead', 0x64576c, ['fireball', 'fireWall'], 25, 1.8),
+  monster('vampire', '鲜血之王', 'mage', 'undead', 0x64576c, ['fireball', 'fireWall', 'meteor'], 25, 1.8),
   monster('doomKnight', '厄运骑士', 'knight', 'undead', 0x76818b, ['strike'], 32, 2.2),
-  monster('oblivion', '遗忘骑士', 'mage', 'undead', 0x886c90, ['curse', 'skull'], 24, 1.7),
+  monster('oblivion', '遗忘骑士', 'mage', 'undead', 0x886c90, ['curse', 'decrepify', 'skull'], 24, 1.7),
   monster('soul', '燃烧灵魂', 'ghost', 'undead', 0x87cfe5, ['lightning'], 19, 2.4, { resist: { lightning: 60 } }),
-  monster('mauler', '乌达尔', 'mauler', 'beast', 0x928277, ['stomp', 'strike'], 42, 1.6, { scale: 1.3, damage: 4 }),
+  monster('mauler', '乌达尔', 'mauler', 'beast', 0x928277, ['smite', 'strike'], 42, 1.6, { scale: 1.3, damage: 4 }),
   monster('venomLord', '邪魔之王', 'venom', 'demon', 0xae6953, ['inferno', 'strike'], 36, 2, { scale: 1.25, resist: { fire: 55 } }),
   monster('spawner', '血肉复生者', 'maggot', 'demon', 0xac6576, ['poisonSpit', 'brood'], 38, 1.2),
-  monster('imp', '恶魔小妖', 'imp', 'demon', 0xb88855, ['fireball'], 17, 2.6, { scale: .72 }),
-  monster('overseer', '奴役者', 'mauler', 'demon', 0xa38475, ['stomp', 'strike'], 38, 1.7),
+  monster('imp', '恶魔小妖', 'imp', 'demon', 0xb88855, ['fireball', 'bossTeleport'], 17, 2.6, { scale: .72 }),
+  monster('overseer', '奴役者', 'mauler', 'demon', 0xa38475, ['rally', 'smite', 'strike'], 38, 1.7),
   monster('reanimated', '复生战士', 'skeleton', 'undead', 0xabc0b8, ['charge', 'strike'], 27, 2.2),
-  monster('frozen', '冰川恶兽', 'frozen', 'beast', 0xa3c6cf, ['coldNova', 'strike'], 40, 1.7, { scale: 1.25, resist: { cold: 60 } }),
+  monster('frozen', '冰川恶兽', 'frozen', 'beast', 0xa3c6cf, ['inferno', 'coldNova', 'strike'], 40, 1.7, { scale: 1.25, resist: { cold: 60 } }),
   monster('iceCrawler', '冰封爬行者', 'viper', 'beast', 0x76b9ca, ['poisonSpit', 'charge'], 27, 2),
-  monster('succubus', '女妖', 'succubus', 'demon', 0xa87c98, ['curse', 'skull'], 23, 2.4),
+  monster('succubus', '女妖', 'succubus', 'demon', 0xa87c98, ['baalCurse', 'skull'], 23, 2.4),
   monster('bloodLord', '死亡之王', 'lord', 'demon', 0x965b63, ['frenzy'], 36, 2.8, { scale: 1.15 }),
-  monster('minion', '毁灭仆从', 'venom', 'demon', 0xa1849c, ['stomp', 'strike'], 42, 2.2, { scale: 1.25 }),
-  monster('hellCow', '地狱奶牛', 'cow', 'beast', 0x9c6f56, ['frenzy'], 44, 2.05, { scale: 1.36, damage: 7, resist: { poison: 30 } }),
+  monster('minion', '毁灭仆从', 'venom', 'demon', 0xa1849c, ['smite', 'strike'], 42, 2.2, { scale: 1.25 }),
+  monster('hellCow', '地狱奶牛', 'cow', 'beast', 0x9c6f56, ['strike'], 44, 2.05, { scale: 1.36, damage: 7, resist: { poison: 30 } }),
 ].map(def => [def.id, def]));
 
 // Each encounter includes a frontline and a smaller ranged/support contingent.
@@ -55,6 +55,15 @@ export const ENCOUNTERS: string[][] = [
   ['doomKnight', 'spawner', 'venomLord'], ['mauler', 'doomKnight', 'soul'], ['mauler', 'venomLord', 'doomKnight'], ['doomKnight', 'venomLord', 'oblivion'], ['doomKnight', 'venomLord', 'oblivion'],
   ['overseer', 'imp', 'bloodLord'], ['reanimated', 'overseer', 'imp'], ['frozen', 'iceCrawler', 'succubus'], ['bloodLord', 'frozen', 'succubus'], ['minion', 'bloodLord', 'soul', 'succubus'],
 ];
+// Act V guests change the mixed packs in higher difficulties without adding actors.
+export const ACT_FIVE_GUESTS = [
+  ['rogue', 'goat'], ['burningDead', 'beetle'], ['ghost', 'mummy'], ['viper', 'vampire'], ['oblivion', 'tainted'],
+] as const;
+export function encounterPool(index: number, difficulty = 0): string[] {
+  const base = ENCOUNTERS[index] ?? [];
+  if (difficulty <= 0 || index < 20 || index > 24) return base;
+  return [...new Set([...base, ...ACT_FIVE_GUESTS[index - 20].slice(0, difficulty >= 2 ? 2 : 1)])];
+}
 const boss = (id: string, model: BodyPlan, color: number, attacks: AttackId[], extra: Partial<MonsterDef> = {}): MonsterDef =>
   monster(id, id, model, 'demon', color, attacks, 95, 1.9, { scale: 1.45, damage: 6, ...extra });
 export const BOSSES: MonsterDef[] = [
@@ -88,6 +97,8 @@ export const BOSSES: MonsterDef[] = [
 export type MonsterTactic = 'melee' | 'coward' | 'ranged' | 'skirmisher' | 'support' | 'caster' | 'brood';
 export function monsterTactic(definition?: MonsterDef): MonsterTactic {
   if (!definition) return 'melee';
+  if (definition.attacks.includes('rally')) return 'support';
+  if (definition.id === 'burningDead') return 'ranged';
   if (definition.revive) return definition.model === 'archer' ? 'ranged' : 'support';
   if (definition.model === 'fallen') return 'coward';
   if (definition.model === 'maggot') return 'brood';
@@ -101,7 +112,7 @@ export const TACTIC_DESCRIPTIONS: Record<MonsterTactic, string> = {
   coward: '目睹同伴死亡会短暂溃逃，随后重新集结；墙壁阻隔惊逃传播。',
   ranged: '保持射程，受逼近时短暂后撤，重新站定后射击。',
   skirmisher: '利用速度侧移和短退，交替突袭与远程射击。',
-  support: '留在同伴后方，优先复活视线内可用尸体，间隙施法攻击。',
+  support: '留在同伴后方，优先支援视线内同伴，间隙施法或近战。',
   caster: '根据距离选择法术，近身时短暂退避；强招各自冷却。',
   brood: '在巢穴附近喷吐或繁殖幼体；幼体数量受限且不提供额外奖励。',
 };

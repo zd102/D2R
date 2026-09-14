@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ENCYCLOPEDIA_ITEMS, ENCYCLOPEDIA_MONSTERS, filterEncyclopediaItems, filterEncyclopediaMonsters, encyclopediaItemPreview, itemDropSources } from '../src/encyclopedia.ts';
 import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS, RUNE_ORDER, itemMods, isAvailableItem } from '../src/items.ts';
-import { MONSTERS, BOSSES, ENCOUNTERS } from '../src/bestiary.ts';
+import { MONSTERS, BOSSES, encounterPool } from '../src/bestiary.ts';
 import { newHero, serializeSave } from '../src/model.ts';
 import { SPECIAL_LEVELS } from '../src/campaign.ts';
 
@@ -15,7 +15,7 @@ test('encyclopedia covers every current item, rune, recipe, supply and all campa
     assert.ok(entry.areas.length, entry.name);
     if (entry.rank === 'monster') for (const area of entry.areas) {
       if (entry.id === 'hellCow') assert.equal(area, SPECIAL_LEVELS.cow.index);
-      else assert.ok(ENCOUNTERS[area].includes(entry.id));
+      else assert.ok(encounterPool(area, 2).includes(entry.id));
     }
   }
   assert.equal(filterEncyclopediaMonsters('隐藏奶牛关')[0]?.id, 'hellCow');

@@ -2,7 +2,7 @@ import { POTIONS } from './potions.ts';
 import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS, RUNE_ORDER, RUNES, makeItem, specialItem, runewordFits, socketItem, isAvailableItem, type Item, type ItemBase, type SpecialItem, type RuneWord, type RuneId, type Slot } from './items.ts';
 import { CATALOG_SPECIALS, CATALOG_RUNEWORDS } from './item-catalog-current.ts';
 import { AFFIX_BASES } from './affix-data.ts';
-import { MONSTERS, BOSSES, ENCOUNTERS, type MonsterDef } from './bestiary.ts';
+import { MONSTERS, BOSSES, ENCOUNTERS, encounterPool, type MonsterDef } from './bestiary.ts';
 import { LEVELS, SPECIAL_LEVELS } from './campaign.ts';
 import { monsterStats } from './balance.ts';
 import { BOSS_DROP_PROFILES, bossSpecialPool } from './boss-loot.ts';
@@ -29,7 +29,7 @@ export const ENCYCLOPEDIA_ITEMS: EncyclopediaItem[] = [
 export const ENCYCLOPEDIA_AREAS = [...LEVELS, ...Object.values(SPECIAL_LEVELS)];
 export const ENCYCLOPEDIA_MONSTERS: EncyclopediaMonster[] = [
   ...BOSSES.map((definition, index) => ({ id: definition.id, name: LEVELS[index].boss, definition, rank: LEVELS[index].actBoss ? 'actBoss' as const : 'miniboss' as const, areas: [index] })),
-  ...Object.values(MONSTERS).map(definition => ({ id: definition.id, name: definition.name, definition, rank: 'monster' as const, areas: definition.id === 'hellCow' ? [SPECIAL_LEVELS.cow.index] : ENCOUNTERS.flatMap((pack, index) => pack.includes(definition.id) ? [index] : []) })),
+  ...Object.values(MONSTERS).map(definition => ({ id: definition.id, name: definition.name, definition, rank: 'monster' as const, areas: definition.id === 'hellCow' ? [SPECIAL_LEVELS.cow.index] : ENCOUNTERS.flatMap((_pack, index) => encounterPool(index, 2).includes(definition.id) ? [index] : []) })),
 ];
 const itemsById = new Map(ENCYCLOPEDIA_ITEMS.map(entry => [entry.id, entry]));
 const monstersById = new Map(ENCYCLOPEDIA_MONSTERS.map(entry => [entry.id, entry]));

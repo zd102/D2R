@@ -1,3 +1,5 @@
+import { encounterPool } from './bestiary.ts';
+import { monsterTraits } from './monster-traits.ts';
 import { POTIONS } from './potions.ts';
 import type { UI } from './ui.ts';
 import { ENCYCLOPEDIA_ITEMS, ENCYCLOPEDIA_MONSTERS, ITEM_KINDS, MONSTER_RANKS, RACE_NAMES, encyclopediaItem, encyclopediaMonster, filterEncyclopediaItems, filterEncyclopediaMonsters, encyclopediaItemPreview, itemDropSources, recipeBases, type EncyclopediaItem, type EncyclopediaMonster } from './encyclopedia.ts';
@@ -11,7 +13,7 @@ import { ACTS } from './campaign.ts';
 import { ENCYCLOPEDIA_AREAS as LEVELS } from './encyclopedia.ts';
 import { difficultyNames, damageTypeNames } from './model.ts';
 import { monsterStats } from './balance.ts';
-import { ATTACKS } from './monster-combat.ts';
+import { monsterAttackSpec, DIFFICULTY_AI } from './monster-combat.ts';
 import { monsterTactic, TACTIC_DESCRIPTIONS } from './bestiary.ts';
 import { BOSS_DROP_PROFILES, bossDropLabel, bossSpecialPool } from './boss-loot.ts';
 import { runeUpgradeCost } from './loot.ts';
@@ -209,10 +211,11 @@ export class EncyclopediaScreen {
     const animationLabel = this.preview?.paused ? '播放预览动画' : '暂停预览动画';
     let body = `<div class="encyclopedia-monster-heading"><span>${MONSTER_RANKS[entry.rank]} · ${RACE_NAMES[entry.definition.race]}</span><h3 tabindex="-1">${escape(entry.name)}</h3><small>${entry.id}</small></div><div class="encyclopedia-model-stage"></div><div class="encyclopedia-model-tools"><button data-encyclopedia-action="animate" aria-label="${animationLabel}" data-tip="${animationLabel}">${icon(this.preview?.paused ? 'play' : 'pause')}</button><button data-encyclopedia-action="rotate" aria-label="重置视角" data-tip="重置视角">${icon('rotate-ccw')}</button></div>
       <div class="encyclopedia-section-heading"><h4>战斗数据</h4>${this.difficultyControl()}</div><label class="encyclopedia-base-select"><span>出现地点</span><select id="encyclopedia-area" aria-label="怪物出现地点">${available.map(index => `<option value="${index}" ${index === this.area ? 'selected' : ''}>第 ${LEVELS[index].act + 1} 章 · ${LEVELS[index].name}</option>`).join('')}</select></label>`;
+    if (!boss && this.area < 25 && !encounterPool(this.area, this.difficulty).includes(entry.id)) body += '<p class="encyclopedia-muted">该物种在此区域仅作为更高难度的客串怪物出现。</p>';
     body += statsList([['等级', values.level], ['生命', values.maxHp], ['基础伤害', Number(values.damage.toFixed(1))], ['防御', values.defense], ['准确率', values.attackRating], ['移动速度', entry.definition.speed]]);
     body += `<h4>抗性</h4><div class="encyclopedia-resistances">${Object.entries(values.resistances).map(([type, value]) => `<div class="resist-${type}"><span>${damageTypeNames[type as keyof typeof damageTypeNames]}</span><b>${value}%</b></div>`).join('')}</div>`;
-    body += `<h4>战斗招式</h4><dl class="encyclopedia-attacks">${entry.definition.attacks.map(id => { const attack = ATTACKS[id]; return `<div><dt>${escape(attack.name)}<small>${damageTypeNames[attack.type]}</small></dt><dd>预警 ${attack.windup} 秒 · 间隔 ${attack.cooldown} 秒${attack.damage ? ` · ${number(values.damage * attack.damage)} 伤害` : ''}</dd></div>`; }).join('')}</dl>`;
-    body += `<h4>行为模式</h4><p class="encyclopedia-muted">${TACTIC_DESCRIPTIONS[monsterTactic(entry.definition)]}</p>`;
+    body += `<h4>战斗招式</h4><dl class="encyclopedia-attacks">${entry.definition.attacks.map(id => { const attack = monsterAttackSpec(entry.definition, id, this.difficulty); return `<div><dt>${escape(attack.name)}<small>${damageTypeNames[attack.type]}</small></dt><dd>预警 ${attack.windup} 秒 · 技能冷却 ${number(attack.cooldown * monsterTraits(entry.definition).cooldown * DIFFICULTY_AI[this.difficulty].cooldownMultiplier)} 秒${attack.damage ? ` · ${number(values.damage * attack.damage)} 伤害` : ''}</dd></div>`; }).join('')}</dl>`;
+    body += `<h4>行为模式</h4><p class="encyclopedia-muted">${monsterTraits(entry.definition).description}</p><p class="encyclopedia-muted">${TACTIC_DESCRIPTIONS[monsterTactic(entry.definition)]}</p>`;
     if (entry.definition.revive) body += this.link(entry.definition.revive, `复活：${encyclopediaMonster(entry.definition.revive)?.name ?? entry.definition.revive}`, 'monsters');
     if (entry.definition.retaliation) body += `<p class="encyclopedia-muted">受击反击：闪电</p>`;
     body += `<h4>基础战利品</h4>${statsList([['装备判定', entry.rank === 'actBoss' ? '2 件基础装备' : percent(rates.equipment)], ['符文判定', percent(rates.rune)], ['魔法护符', percent(rates.charm)]])}`;

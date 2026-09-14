@@ -1,3 +1,4 @@
+import { monsterTraits } from './monster-traits.ts';
 import { castItemSkill } from './item-skill-combat.ts';
 import { itemSkillKind, type ItemSkillId } from './item-skill-definitions.ts';
 import { withCastingSkill, castingSkillRanks, castingSkillLevel, castingSkillCost, castChargedSkill, reconcileSkillBindings } from './model.ts';
@@ -351,7 +352,7 @@ export class PaladinCombat {
     if(!self&&source&&evasion>0&&Math.random()*100<evasion){g.ui.floatText('回避',g.position.clone().setY(1.8),'miss');return false;}
     if (!self && source && type === 'physical') { const curse = this.itemCurses.get(source)?.kind; amount *= curse === 'decrepify' ? .5 : curse === 'weaken' ? .67 : curse === 'battleCry' ? Math.max(.05, 1 - skillValues('battleCry',this.itemCurses.get(source)?.rank??1).percent/100) : 1; }
     if (!self && source && type === 'physical') {
-      if (!this.running && Math.random() * 100 >= hitChance(g.monsterCombat?.accuracy?.(source) ?? source.attackRating, (s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0)) * (g.monsterCombat?.debuffs?.defense ? [.4, .25, .05][difficulty(h)] : 1) * (g.monsterCombat?.auraAt?.(g.position, 'conviction') ? .7 : 1), source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return false; }
+      if (!this.running && !spec?.ignoreDefense && Math.random() * 100 >= hitChance(g.monsterCombat?.accuracy?.(source) ?? source.attackRating, (s.defense + (s.mods[missile ? 'defenseMissile' : 'defenseMelee'] ?? 0)) * (g.monsterCombat?.debuffs?.defense ? [.4, .25, .05][difficulty(h)] : 1) * (g.monsterCombat?.auraAt?.(g.position, 'conviction') ? .7 : 1), source.level, h.level)) { g.ui.floatText('闪避', g.position.clone().setY(1.8), 'miss'); return false; }
       if (Math.random() * 100 < s.block / (this.running ? 3 : 1)) { this.recover(s.blockFrames / 25); g.ui.floatText('格挡', g.position.clone().setY(1.8), 'gold'); g.audio.play('block'); return false; }
     }
     const parts = !self && source ? g.monsterCombat?.damageParts?.(source, amount, type, spec) ?? [{ amount, type }] : [{ amount, type }];
@@ -515,7 +516,7 @@ export class PaladinCombat {
     // Movement needs only aura ranks/range, not a full character stat rebuild for
     // every monster. Read equipment live so breakage and weapon swaps apply now.
     const aura = equippedAuras(this.game.hero).find(aura => aura.id === 'holyFreeze' && enemy.actor.group.position.distanceTo(this.game.position) <= aura.radius), merc = this.game.mercenary?.auraAt(enemy, 'holyFreeze');
-    return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, (merc?.percent ?? 0) / 100 * (enemy.boss ? .5 : 1), enemy.coldTime > 0 ? .5 : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0));
+    return Math.max(.2, 1 - Math.max((aura?.percent ?? 0) / 100, (merc?.percent ?? 0) / 100 * (enemy.boss ? .5 : 1), enemy.coldTime > 0 ? monsterTraits(enemy.definition).chill[this.game.hero.difficultyLevel] : 0) - (enemy.slow?.percent ?? 0) / 100 - (this.itemCurses.get(enemy)?.kind === 'decrepify' ? .5 : 0));
   }
   allyUpdate(enemy: Enemy, dt: number) {
     if (enemy.converted <= 0) return false;

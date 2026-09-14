@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { ENCYCLOPEDIA_ITEMS, ENCYCLOPEDIA_MONSTERS } from '../src/encyclopedia.ts';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
-const output = '.verification/encyclopedia-check';
+const output = process.env.OUTPUT_DIR || '.verification/encyclopedia-check';
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const errors = [];
@@ -47,7 +47,7 @@ try {
     await page.screenshot({ path: `${output}/item-${viewport.width}.png` });
     await page.locator('[data-encyclopedia-link="andariel"]').click();
     await expect(page.locator('.encyclopedia-detail h3')).toHaveText('安达利尔');
-    await expect(page.locator('.encyclopedia-stats').first()).toContainText('14,000');
+    await expect(page.locator('.encyclopedia-stats').first()).toContainText('18,200');
     await page.waitForTimeout(200);
     const model = await modelPixels(page); assert.ok(model.colored > 80 && model.colors > 12 && model.edge === 0, JSON.stringify({ ...model, image: undefined }));
     await page.waitForTimeout(500); assert.ok((await modelPixels(page)).image !== model.image, 'idle animation changes the model pixels');
@@ -83,7 +83,7 @@ try {
     await page.getByRole('combobox', { name: '出现章节' }).selectOption('4');
     await expect(page.locator('.encyclopedia-entry')).toHaveCount(1); await page.locator('.encyclopedia-entry').click();
     await page.locator('[data-encyclopedia-difficulty="2"]').click();
-    await expect(page.locator('.encyclopedia-detail')).toContainText('185,000');
+    await expect(page.locator('.encyclopedia-detail')).toContainText('370,000');
     await expect(page.locator('[data-encyclopedia-link="unique-401"]')).toBeVisible();
     await fits(page);
     await page.keyboard.press('Escape'); await page.getByRole('dialog', { name: '选择角色', exact: true }).waitFor();
