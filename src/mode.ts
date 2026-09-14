@@ -38,8 +38,14 @@ export async function initializeMode() {
     };
     const form = (registering = false, notice = '') => {
       const current = generation, active = client!;
-      shell(registering ? '注册在线账号' : '登录在线模式', `<p id="auth-notice"></p><form id="online-auth"><label for="online-username">账号</label><input id="online-username" name="username" autocomplete="username" minlength="4" maxlength="32" pattern="[a-zA-Z0-9_]{4,32}" required/><small>4–32 位字母、数字或下划线</small><label for="online-password">密码</label><input id="online-password" name="password" type="password" autocomplete="${registering ? 'new-password' : 'current-password'}" minlength="15" maxlength="128" required/><small>15–128 个字符</small>${registering ? '<label for="online-confirm">确认密码</label><input id="online-confirm" name="confirm" type="password" autocomplete="new-password" required/>' : ''}<button class="primary-button" type="submit">${registering ? '注册账号' : '登录'}</button></form><button id="auth-toggle" class="secondary-button">${registering ? '已有账号，去登录' : '没有账号，去注册'}</button><button id="auth-back" class="text-button">返回模式选择</button>`);
+      shell(registering ? '注册在线账号' : '登录在线模式', `<p id="auth-notice"></p><form id="online-auth"><label for="online-username">账号</label><input id="online-username" name="username" autocomplete="username" minlength="4" maxlength="32" pattern="[a-zA-Z0-9_]{4,32}" required/><small>4–32 位字母、数字或下划线</small><label for="online-password">密码</label><input id="online-password" name="password" type="password" autocomplete="${registering ? 'new-password' : 'current-password'}" minlength="15" maxlength="128" required/><small>15–128 个字符</small>${registering ? '<label for="online-confirm">确认密码</label><input id="online-confirm" name="confirm" type="password" autocomplete="new-password" required/>' : '<label class="remember-login"><input id="online-remember" name="remember" type="checkbox"/>记住账号并自动登录（30 天）</label><small>仅在自己的设备上勾选。主动退出账号会取消自动登录。</small>'}<button class="primary-button" type="submit">${registering ? '注册账号' : '登录'}</button></form><button id="auth-toggle" class="secondary-button">${registering ? '已有账号，去登录' : '没有账号，去注册'}</button><button id="auth-back" class="text-button">返回模式选择</button>`);
       document.getElementById('auth-notice')!.textContent = notice || '同一账号只允许一次登录；异常关闭后最多等待 90 秒。';
+      if (!registering) {
+        try {
+          const saved = localStorage.getItem('eclipse-remember-username');
+          if (saved) { (document.getElementById('online-username') as HTMLInputElement).value = saved; (document.getElementById('online-remember') as HTMLInputElement).checked = true; }
+        } catch { /* Remembered authentication uses cookies even when preferences are unavailable. */ }
+      }
       document.getElementById('auth-toggle')!.onclick = () => form(!registering);
       document.getElementById('auth-back')!.onclick = choose;
       document.getElementById('online-auth')!.onsubmit = async event => {
@@ -51,7 +57,12 @@ export async function initializeMode() {
         document.getElementById('auth-toggle')!.setAttribute('disabled', '');
         try {
           if (registering) { await active.register(username, password); if (current === generation) form(false, '注册成功，请登录并创建或上传角色。'); }
-          else { await active.login(username, password); if (current === generation) await enter(active, current); }
+          else {
+            const remember = values.get('remember') === 'on';
+            await active.login(username, password, remember);
+            try { if (remember) localStorage.setItem('eclipse-remember-username', username); else localStorage.removeItem('eclipse-remember-username'); } catch { /* Preferences are optional. */ }
+            if (current === generation) await enter(active, current);
+          }
         } catch (failure) {
           if (current !== generation) return;
           // If the login response was lost but its Cookie arrived, resume that same login.
@@ -71,7 +82,12 @@ export async function initializeMode() {
       document.getElementById('auth-back')!.onclick = choose;
       try {
         await active.initialize();
-        try { await active.restore(); } catch (failure) { if (!(failure instanceof OnlineError && failure.status === 401)) throw failure; }
+        try { await active.restore(); } catch (failure) {
+          if (!(failure instanceof OnlineError && failure.status === 401)) throw failure;
+          try { await active.restoreRemembered(); } catch (rememberFailure) {
+            if (!(rememberFailure instanceof OnlineError && rememberFailure.status === 401)) throw rememberFailure;
+          }
+        }
         if (current !== generation) return;
         if (active.session) await enter(active, current); else form();
       } catch (failure) {

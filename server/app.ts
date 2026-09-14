@@ -16,6 +16,7 @@ type Options = { filename: string; now?: () => number; secureCookies?: boolean; 
 const digest = (text: string) => createHash('sha256').update(text).digest('hex');
 const equal = (a: string, b: string) => { const left = Buffer.from(a), right = Buffer.from(b); return left.length === right.length && timingSafeEqual(left, right); };
 export const SESSION_TIMEOUT = 90_000;
+export const REMEMBER_TIMEOUT = 30 * 24 * 60 * 60 * 1000;
 const ABSOLUTE_TIMEOUT = 24 * 60 * 60 * 1000;
 const emptyStash = (): SharedStash => ({ version: 1, revision: 0, items: [], checkpoints: {} });
 
@@ -24,6 +25,7 @@ export async function createApp(options: Options) {
   const app = Fastify({ bodyLimit: 2 * 1024 * 1024 + 65536, requestTimeout: 15000, logger: false });
   await app.register(cookie);
   const sessionCookie = options.secureCookies ? '__Host-eclipse-session' : 'eclipse-session';
+  const rememberCookie = options.secureCookies ? '__Host-eclipse-remember' : 'eclipse-remember';
   const csrfCookie = options.secureCookies ? '__Host-eclipse-csrf' : 'eclipse-csrf';
   const cookieOptions = { path: '/', httpOnly: true, secure: !!options.secureCookies, sameSite: 'lax' as const };
   const body = (req: FastifyRequest) => record(req.body);
@@ -91,17 +93,40 @@ export async function createApp(options: Options) {
     });
     reply.status(201); return result;
   });
+  function createSession(user: User, token: string) {
+    const current = db.get<Session>('SELECT * FROM sessions WHERE user_id=?', user.id);
+    check(!current || current.expires_at <= now() || current.absolute_expires_at <= now(), 'ACCOUNT_ALREADY_ONLINE', '该账号已登录，请先退出；异常关闭后最多等待 90 秒。', 409);
+    db.run('DELETE FROM sessions WHERE user_id=?', user.id);
+    const id = randomUUID(), expiresAt = now() + SESSION_TIMEOUT;
+    db.run('INSERT INTO sessions (id,user_id,token_hash,expires_at,absolute_expires_at) VALUES (?,?,?,?,?)', id, user.id, digest(token), expiresAt, now() + ABSOLUTE_TIMEOUT);
+    return { id, user: { id: user.id, username: user.username }, expiresAt, heartbeatMs: 15000 };
+  }
   app.post('/api/v1/auth/login', async (req, reply) => {
     const c = credentials(req), user = db.get<User>('SELECT * FROM users WHERE normalized=?', c.normalized);
     check(await verifyPassword(c.password, user?.password_hash) && user, 'INVALID_CREDENTIALS', '账号或密码错误。', 401);
+    const rememberToken = body(req).remember === true ? randomBytes(32).toString('hex') : undefined;
     const token = randomBytes(32).toString('hex');
     const result = db.transaction(() => {
-      const current = db.get<Session>('SELECT * FROM sessions WHERE user_id=?', user.id);
-      check(!current || current.expires_at <= now() || current.absolute_expires_at <= now(), 'ACCOUNT_ALREADY_ONLINE', '该账号已登录，请先退出；异常关闭后最多等待 90 秒。', 409);
-      db.run('DELETE FROM sessions WHERE user_id=?', user.id);
-      const id = randomUUID(), expiresAt = now() + SESSION_TIMEOUT;
-      db.run('INSERT INTO sessions (id,user_id,token_hash,expires_at,absolute_expires_at) VALUES (?,?,?,?,?)', id, user.id, digest(token), expiresAt, now() + ABSOLUTE_TIMEOUT);
-      return { id, user: { id: user.id, username: user.username }, expiresAt, heartbeatMs: 15000 };
+      const result = createSession(user, token);
+      const previous = req.cookies[rememberCookie];
+      if (previous) db.run('DELETE FROM remembered_logins WHERE token_hash=?', digest(previous));
+      if (rememberToken) db.run('INSERT INTO remembered_logins VALUES (?,?,?)', digest(rememberToken), user.id, now() + REMEMBER_TIMEOUT);
+      return result;
+    });
+    if (rememberToken) reply.setCookie(rememberCookie, rememberToken, { ...cookieOptions, maxAge: REMEMBER_TIMEOUT / 1000 });
+    else reply.clearCookie(rememberCookie, cookieOptions);
+    reply.setCookie(sessionCookie, token, { ...cookieOptions, maxAge: 86400 }); return result;
+  });
+  app.post('/api/v1/auth/remember', async (req, reply) => {
+    rate(`remember:${req.ip}`, options.rateLimit ?? 40);
+    const token = randomBytes(32).toString('hex');
+    const result = db.transaction(() => {
+      const remembered = req.cookies[rememberCookie];
+      const row = remembered ? db.get<{ user_id: string; expires_at: number }>('SELECT * FROM remembered_logins WHERE token_hash=?', digest(remembered)) : undefined;
+      check(row && row.expires_at > now(), 'REMEMBER_EXPIRED', '记住的登录已失效，请输入账号密码。', 401);
+      const user = db.get<User>('SELECT * FROM users WHERE id=?', row.user_id)!;
+      // Use the same exclusive-session transaction as password login; never displace another login.
+      return createSession(user, token);
     });
     reply.setCookie(sessionCookie, token, { ...cookieOptions, maxAge: 86400 }); return result;
   });
@@ -130,8 +155,10 @@ export async function createApp(options: Options) {
       const active = session(req, true);
       // Require the exact session to protect a subsequent login from delayed logout.
       check(header(req, 'x-session-id') === active.id, 'SESSION_EXPIRED', '会话已变更。', 401);
+      db.run('DELETE FROM remembered_logins WHERE user_id=?', active.user_id);
       db.run('UPDATE sessions SET expires_at=0,writer_id=NULL,writer_epoch=writer_epoch+1 WHERE id=?', active.id);
     });
+    reply.clearCookie(rememberCookie, cookieOptions);
     reply.clearCookie(sessionCookie, cookieOptions); return { loggedOut: true };
   });
   function readCharacter(userId: string, id: string): SavedProfile {
@@ -228,6 +255,7 @@ export async function createApp(options: Options) {
     db.run('UPDATE sessions SET writer_id=NULL WHERE expires_at<=? OR absolute_expires_at<=?', now(), now());
     db.run('DELETE FROM receipts WHERE created_at<?', now() - ABSOLUTE_TIMEOUT);
     db.run('DELETE FROM rate_limits WHERE expires_at<=?', now());
+    db.run('DELETE FROM remembered_logins WHERE expires_at<=?', now());
     db.run('DELETE FROM characters WHERE deleted_at IS NOT NULL AND deleted_at<?', now() - 7 * ABSOLUTE_TIMEOUT);
   }), 5000);
   cleanup.unref();

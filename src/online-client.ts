@@ -36,7 +36,8 @@ export class OnlineClient {
   }
   async initialize() { this.csrf = (await this.request<{ token: string }>('/auth/csrf')).token; }
   async restore() { this.session = await this.request<OnlineSession>('/auth/session'); return this.session; }
-  async login(username: string, password: string) { this.session = await this.request<OnlineSession>('/auth/login', 'POST', { username, password }); return this.session; }
+  async restoreRemembered() { this.session = await this.request<OnlineSession>('/auth/remember', 'POST', {}); return this.session; }
+  async login(username: string, password: string, remember = false) { this.session = await this.request<OnlineSession>('/auth/login', 'POST', { username, password, remember }); return this.session; }
   async register(username: string, password: string) { return this.request('/auth/register', 'POST', { username, password }); }
   async acquire() {
     const key = `eclipse-online-page:${this.session!.id}`;

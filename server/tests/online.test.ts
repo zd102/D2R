@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createApp, SESSION_TIMEOUT } from '../app.ts';
+import { createApp, SESSION_TIMEOUT, REMEMBER_TIMEOUT } from '../app.ts';
 import { backupDatabase } from '../backup.ts';
 import { newHero } from '../../src/model.ts';
 import { CHARACTER_FILE_FORMAT } from '../../src/save-format.ts';
@@ -45,6 +45,51 @@ async function fixture(t: test.TestContext) {
   };
   return { app, a, b, create, advance: (ms: number) => { time += ms; } };
 }
+
+test('remembered login restores saves after expiry, remains exclusive and is revoked by logout', async t => {
+  const { app, a, create, advance } = await fixture(t), profile = await create();
+  await a.request('/auth/logout', 'POST', {});
+  const login = await a.request('/auth/login', 'POST', { username: 'account_a', password, remember: true });
+  a.state.id = login.json().id;
+  const remembered = a.cookies.get('eclipse-remember')!;
+  assert.match(remembered, /^[a-f0-9]{64}$/);
+  const cookie = login.cookies.find(c => c.name === 'eclipse-remember')!;
+  assert.equal(cookie.httpOnly, true); assert.equal(cookie.sameSite, 'Lax');
+  assert.equal(Number(cookie.maxAge), REMEMBER_TIMEOUT / 1000);
+  const other = await client(app); other.cookies.set('eclipse-remember', remembered);
+  assert.equal((await other.request('/auth/remember', 'POST', {})).statusCode, 409);
+  advance(SESSION_TIMEOUT);
+  const results = await Promise.all(Array.from({ length: 8 }, () => other.request('/auth/remember', 'POST', {})));
+  assert.equal(results.filter(r => r.statusCode === 200).length, 1);
+  assert.equal(results.filter(r => r.statusCode === 409).length, 7);
+  other.state.id = results.find(r => r.statusCode === 200)!.json().id;
+  assert.notEqual(other.state.id, a.state.id);
+  assert.equal((await other.request('/characters')).json()[0].id, profile.id);
+  assert.equal((await a.request('/auth/logout', 'POST', {})).statusCode, 401);
+  assert.equal((await other.request('/auth/logout', 'POST', {})).statusCode, 200);
+  a.cookies.set('eclipse-remember', remembered);
+  assert.equal((await a.request('/auth/remember', 'POST', {})).statusCode, 401);
+});
+
+test('remembering is opt-in, unchecked login revokes old token and expiry is fixed at 30 days', async t => {
+  const { a, advance } = await fixture(t);
+  assert.equal(a.cookies.has('eclipse-remember'), false);
+  assert.equal((await a.request('/auth/remember', 'POST', {})).statusCode, 401);
+  advance(SESSION_TIMEOUT);
+  await a.request('/auth/login', 'POST', { username: 'account_a', password, remember: true });
+  const old = a.cookies.get('eclipse-remember')!;
+  advance(SESSION_TIMEOUT);
+  assert.equal((await a.login('account_a')).statusCode, 200);
+  assert.equal(a.cookies.has('eclipse-remember'), false);
+  a.cookies.set('eclipse-remember', old);
+  advance(SESSION_TIMEOUT);
+  assert.equal((await a.request('/auth/remember', 'POST', {})).statusCode, 401);
+  await a.request('/auth/login', 'POST', { username: 'account_a', password, remember: true });
+  advance(REMEMBER_TIMEOUT - 1);
+  assert.equal((await a.request('/auth/remember', 'POST', {})).statusCode, 200);
+  advance(1);
+  assert.equal((await a.request('/auth/remember', 'POST', {})).statusCode, 401);
+});
 
 test('registration and concurrent login enforce one account session', async t => {
   const app = await createApp({ filename: ':memory:', rateLimit: 10000 }); t.after(() => app.close());

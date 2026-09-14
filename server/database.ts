@@ -30,7 +30,12 @@ export class Database {
         result TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(session_id,operation_id)
       );
       CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL);
-      INSERT OR IGNORE INTO migrations VALUES (1);`);
+      CREATE TABLE IF NOT EXISTS remembered_logins (
+        token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS remembered_login_expiry ON remembered_logins(expires_at);
+      INSERT OR IGNORE INTO migrations VALUES (1);
+      INSERT OR IGNORE INTO migrations VALUES (2);`);
   }
   get<T>(sql: string, ...values: SQLInputValue[]): T | undefined { return this.connection.prepare(sql).get(...values) as T | undefined; }
   all<T>(sql: string, ...values: SQLInputValue[]): T[] { return this.connection.prepare(sql).all(...values) as T[]; }
