@@ -1,3 +1,4 @@
+import { vendorPrice } from './model.ts';
 import { POTIONS, useUtilityPotion } from './potions.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count';
 import { onlineStore, returnToMode } from './mode';
@@ -832,7 +833,7 @@ export class Game {
     const ring = makeRing(.55, 0x579dff, .8); ring.position.y = .09; enemy.actor.group.add(ring);
   }
   hurtEnemy(enemy: Enemy, damage: number) { this.combat.damage(enemy, damage, 'physical'); }
-  killEnemy(enemy: Enemy, rewardMods?: Mods, mercenaryKill = false) {
+  killEnemy(enemy: Enemy, rewardMods?: Mods, mercenaryKill = false, rewardItems?: Item[]) {
     if (enemy.dead) return;
     enemy.dead = true; this.monsterCombat.cancel(enemy); this.monsterCombat.onDeath(enemy); this.world.physics.removeBody(enemy.body);
     if (enemy.summoned) { enemy.redeemed = true; enemy.actor.group.visible = false; if (this.target === enemy) { this.target = undefined; this.path = []; } return; }
@@ -841,14 +842,21 @@ export class Game {
     const playerStats = stats(this.hero); if (rewardMods) playerStats.mods = rewardMods;
     const restoredLife = (playerStats.mods.lifeOnKill ?? 0) + (enemy.definition?.race === 'demon' ? playerStats.mods.lifeOnDemonKill ?? 0 : 0);
     if (mercenaryKill) { const merc = this.hero.mercenary; if (merc?.status === 'alive') merc.hp = Math.min(mercenaryStats(this.hero).maxHp, merc.hp + restoredLife); }
-    else { this.hero.mana = Math.min(playerStats.maxMana, this.hero.mana + (playerStats.mods.manaOnKill ?? 0)); this.hero.hp = Math.min(playerStats.maxHp, this.hero.hp + restoredLife); }
+    else if (!this.dead && this.hero.hp > 0) { this.hero.mana = Math.min(playerStats.maxMana, this.hero.mana + (playerStats.mods.manaOnKill ?? 0)); this.hero.hp = Math.min(playerStats.maxHp, this.hero.hp + restoredLife); }
     if (playerStats.mods.restInPeace) enemy.redeemed = true;
     enemy.actor.group.rotation.z = -Math.PI / 2; enemy.actor.group.position.y = .2;
     if (this.target === enemy) { this.target = undefined; this.path = []; }
     const rank: DropRank = enemy.boss ? this.level.actBoss ? 'actBoss' : 'miniboss' : enemy.elite ? 'elite' : enemy.champion ? 'champion' : 'monster';
     const xp = monsterExperience(this.hero.level, enemy.level, rank, { difficulty: difficulty(this.hero), act: this.level.act, baseLife: enemy.definition?.hp, players: enemy.playerCount, firstClear: !this.specialArea && this.hero.campaign.cleared[difficulty(this.hero)] === this.level.index });
     const experienceBonus = mercenaryKill ? stats(this.hero).mods.experienceBonus : playerStats.mods.experienceBonus;
+    const previousLevel = this.hero.level;
     if (gainXp(this.hero, xp * (enemy.xpScale ?? 1) * (1 + (experienceBonus ?? 0) / 100))) { this.ui.toast('等级提升', `等级 ${this.hero.level} · 5 属性点 · 1 技能点`); this.audio.play('level'); this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf4d68b, 35); }
+    const reachedLevel = this.hero.level;
+    if (!this.dead) {
+      if (!mercenaryKill) this.combat?.triggerItems('kill-skill', enemy, rewardItems);
+      for (let level = previousLevel; level < reachedLevel; level++) this.combat?.triggerItems('levelup-skill');
+    }
+    if (this.dead) this.hero.hp = 0;
     const wasReady = !this.specialArea && questComplete(this.hero.campaign);
     if (!enemy.boss && !this.specialArea) recordQuestKill(this.hero);
     if (!this.specialArea && !wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.audio.play('quest'); this.save(false); }
@@ -1013,9 +1021,10 @@ export class Game {
   buy(index: number) {
     const potion = POTIONS[index];
     if (!potion || this.dead || this.saveConflict) return;
-    if (this.hero.gold < potion.price) { this.ui.toast('金币不足'); return; }
+    const price = vendorPrice(this.hero, potion.price);
+    if (this.hero.gold < price) { this.ui.toast('金币不足'); return; }
     if (this.hero.potions[index] >= 99) return;
-    this.hero.gold -= potion.price; this.hero.potions[index] = (this.hero.potions[index] ?? 0) + 1; this.audio.play('itemBottle'); this.ui.renderPanel(); this.save(false);
+    this.hero.gold -= price; this.hero.potions[index] = (this.hero.potions[index] ?? 0) + 1; this.audio.play('itemBottle'); this.ui.renderPanel(); this.save(false);
   }
   buyBase(id: string) {
     if (!this.profile || this.dead || this.saveConflict || this.ui.panel !== 'base-shop' || !this.inCamp || Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) >= 3.5) return;
@@ -1138,7 +1147,8 @@ export class Game {
   update(dt: number) {
     this.time += dt; this.world.update(this.time, dt);
     if (!this.profile) animateActor(this.actor, this.time, false, 0);
-    if (this.paused || this.dead) return;
+    if (this.dead) { this.combat.updateDeathEffects(dt); return; }
+    if (this.paused) return;
     this.attackTime = Math.max(0, this.attackTime - dt * 3.5); this.invincible = Math.max(0, this.invincible - dt);
     if (this.pointerAimActive) this.updatePointerAim();
     this.mercenary.update(dt);

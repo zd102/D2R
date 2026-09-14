@@ -1,3 +1,5 @@
+import { vendorPrice, repairCost, repairEquipment } from '../src/model.ts';
+import { refreshBaseStock, buyProgressionBase } from '../src/progression-equipment.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { catalogMods, catalogPropertyStatus, unappliedItemEffects } from '../src/item-catalog.ts';
@@ -103,10 +105,12 @@ test('old fixed equipment and socketed facets migrate once without losing identi
 test('unsupported original effects are visible and never claimed to be functional', () => {
   const facet = specialItem(CATALOG_SPECIALS.find(entry => entry.code === 'jew')!.id);
   assert.ok(itemModifierLines(facet).some(line => line.text.includes('降低敌人')));
-  assert.ok(unappliedItemEffects(facet).some(line => line.includes('触发')));
+  assert.ok(itemModifierLines(facet).some(line => line.text.includes('触发')));
+  assert.equal(unappliedItemEffects(facet).length, 0);
   assert.equal(catalogPropertyStatus(['aura', 'Conviction', 12, 12]), 'active');
   assert.equal(catalogPropertyStatus(['hit-skill', 'Life Tap', 5, 10]), 'active');
-  assert.equal(catalogPropertyStatus(['hit-skill', 'Frozen Orb', 5, 10]), 'inactive');
+  assert.equal(catalogPropertyStatus(['hit-skill', 'Frozen Orb', 5, 10]), 'active');
+  assert.equal(catalogPropertyStatus(['gethit-skill', 'Delerium Change', 1, 50]), 'inactive');
   assert.equal(catalogPropertyStatus(['skilltab', '8', 2, 2]), 'other-class');
   assert.equal(catalogPropertyStatus(['*hp', '', -10, -10]), 'unused');
 });
@@ -115,4 +119,36 @@ test('open wounds uses the five original level bands and halves boss damage', ()
   for (const [level, expected] of [[10, 121], [30, 436], [45, 841], [60, 1381], [90, 2731]]) {
     assert.equal(openWoundsDps(level), expected * 25 / 256); assert.equal(openWoundsDps(level, true), openWoundsDps(level) / 2);
   }
+});
+
+test('vendor reduction stacks active equipment and charms and changes actual purchase and repair costs', () => {
+  const hero = heroAt(99); hero.gold = 100000;
+  hero.equipment.weapon!.mods = { vendorDiscount: 15 };
+  const charm = wearable(named("Gheed's Fortune")); charm.mods!.vendorDiscount=15; hero.inventory=[charm];
+  assert.equal(vendorPrice(hero,100),70);
+  charm.identified=false; assert.equal(vendorPrice(hero,100),85);
+  charm.identified=true; hero.stash=[charm]; hero.inventory=[]; assert.equal(vendorPrice(hero,100),85);
+  hero.inventory=[charm]; hero.stash=[];
+  refreshBaseStock(hero,()=>.5); const offer=hero.baseStock.offers[0], gold=hero.gold;
+  assert.ok(buyProgressionBase(hero,offer.id)); assert.equal(hero.gold,gold-Math.floor(offer.price*.7));
+  hero.equipment.weapon!.durability=0;
+  const full=repairCost(hero); // Broken discount equipment is inactive.
+  hero.equipment.weapon!.mods={}; assert.equal(repairCost(hero),full);
+  hero.equipment.amulet=wearable(makeItem(BASES.find(base=>base.slot==='amulet')!));
+  hero.equipment.amulet.mods={vendorDiscount:15};
+  assert.ok(repairCost(hero)<full);
+  const expected=repairCost(hero), before=hero.gold;
+  assert.ok(repairEquipment(hero)); assert.equal(hero.gold,before-expected); assert.equal(repairCost(hero),0);
+});
+
+test('existing catalog saves recover vendor discounts from saved rolls without rerolling other modifiers', () => {
+  const hero=heroAt(99), charm=wearable(named("Gheed's Fortune"));
+  charm.catalogVersion=2;
+  const expected=charm.mods!.vendorDiscount!;
+  delete charm.mods!.vendorDiscount; charm.mods!.magicFind=17;
+  hero.inventory=[charm];
+  const restored=parseSave(serializeSave(hero))!;
+  assert.equal(restored.inventory[0].mods!.vendorDiscount,expected);
+  assert.equal(restored.inventory[0].mods!.magicFind,17);
+  assert.deepEqual(parseSave(serializeSave(restored)),restored);
 });

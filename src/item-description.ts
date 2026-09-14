@@ -3,7 +3,6 @@ import { skillName } from './paladin.ts';
 import { MOD_NAMES, itemMods, rangedBase, type Item, type Modifier, type Mods } from './items.ts';
 import { affixRanges, poisonDamage } from './affixes.ts';
 import { unappliedItemEffects, itemTriggers, catalogModifierRanges, otherClassItemEffects } from './item-catalog.ts';
-import { CURSE_NAMES } from './item-effects.ts';
 import { catalogSkill } from './item-effects.ts';
 import { BASE_STAFF_SKILLS } from './base-property-data.ts';
 
@@ -37,7 +36,8 @@ export function itemModifierLines(item: Item) {
     lines.push({ text: binary ? MOD_NAMES[key] : `${value > 0 ? '+' : ''}${numeric(value)} ${MOD_NAMES[key]}`, range: range(key) || undefined });
   }
   for (const charge of itemCharges(item)) lines.push({ text: `等级 ${charge.rank} ${skillName(charge.id)}（聚气 ${charge.remaining}/${charge.maximum}）` });
-  for (const trigger of itemTriggers(item)) lines.push({ text: `${trigger.chance}% ${trigger.event === 'hit-skill' ? '击中' : trigger.event === 'gethit-skill' ? '受击' : '攻击'}触发等级 ${trigger.level} ${CURSE_NAMES[trigger.kind]}` });
+  const events: Record<string, string> = { 'hit-skill': '击中', 'gethit-skill': '受击', 'att-skill': '攻击', 'kill-skill': '击杀', 'death-skill': '死亡', 'levelup-skill': '升级' };
+  for (const trigger of itemTriggers(item)) lines.push({ text: `${trigger.chance}% ${events[trigger.event]}触发等级 ${trigger.level} ${skillName(trigger.skill)}` });
   for (const effect of otherClassItemEffects(item)) lines.push({ text: effect });
   for (const effect of unappliedItemEffects(item)) lines.push({ text: `未生效：${effect}` });
   return lines;

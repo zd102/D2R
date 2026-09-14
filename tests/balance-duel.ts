@@ -46,6 +46,10 @@ export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number
   };
   game.spawnEnemy = spawn; scene.add(game.actor.group);
   const combat = new PaladinCombat(game as Game), monsterCombat = new MonsterCombat(game as Game); game.combat = combat; game.monsterCombat = monsterCombat;
+  // New equipment procs must not reshuffle the seeded hit/block/durability rolls.
+  // They still roll their real chances, on a reproducible independent stream.
+  let procSeed = 967;
+  combat.itemRandom = () => { procSeed = (Math.imul(procSeed, 1664525) + 1013904223) >>> 0; return procSeed / 4294967296; };
   const boss = spawn(0, 2, 'boss', BOSSES[index], true); game.target = boss;
   const dt = .04;
   try {

@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { createIcons, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, UserRound, Users, UserPlus, Pencil, ArrowLeft, Map as MapIcon, ScrollText, Settings, Pause, Volume2, VolumeX, Maximize, Save, X, ChevronRight, Plus, Coins, Shield, Gem, Heart, Skull, Check, RotateCcw, Play, Trash2, ArrowUp, Droplets, Sparkles, Compass, Crosshair } from 'lucide';
 import type { Game, Enemy, Skill } from './game';
 import { SKILL_SLOTS, skillKeys, MOVEMENT_HINTS } from './controls';
-import { stats, rarityNames, slotNames, type Item } from './model';
+import { vendorPrice, stats, rarityNames, slotNames, type Item } from './model';
 import { ACTS, levelTuning, questProgress, questComplete } from './campaign';
 import { CampaignScreen } from './campaign-ui';
 import { ProfileScreen, type ProfilePanel } from './profiles-ui';
@@ -44,7 +44,7 @@ function progressionBaseShop(hero: HeroState) {
   const stock = hero.baseStock;
   return `<p class="quest-story">每次通关关卡后刷新 5 件随机有孔底材，每件限购一次。${stock.offers.length ? ['普通', '噩梦', '地狱'][stock.difficulty] + '难度货单' : '首次通关后开始供应'}。</p><div class="shop-items">${stock.offers.map(offer => {
     const base = BASES.find(base => base.baseCode === offer.code)!;
-    return `<div><div class="shop-item-icon gold-text"><i data-lucide="hammer"></i></div><div><h3>${base.name} · ${offer.sockets} 孔</h3><small>等级 ${base.requiredLevel ?? (base.level > 30 ? base.level - 10 : 1)} · 力量 ${base.strength ?? 0} · 敏捷 ${base.dexterity ?? 0}${base.requiredClass ? ' · ' + Object.values(CLASSES).find(character => character.code === base.requiredClass)?.name + '专属' : ''}</small></div><button class="secondary-button" data-buy-base="${offer.id}" ${offer.sold || hero.gold < offer.price ? 'disabled' : ''}>${offer.sold ? '已售罄' : `<i data-lucide="coins"></i>${offer.price}`}</button></div>`;
+    return `<div><div class="shop-item-icon gold-text"><i data-lucide="hammer"></i></div><div><h3>${base.name} · ${offer.sockets} 孔</h3><small>等级 ${base.requiredLevel ?? (base.level > 30 ? base.level - 10 : 1)} · 力量 ${base.strength ?? 0} · 敏捷 ${base.dexterity ?? 0}${base.requiredClass ? ' · ' + Object.values(CLASSES).find(character => character.code === base.requiredClass)?.name + '专属' : ''}</small></div><button class="secondary-button" data-buy-base="${offer.id}" ${offer.sold || hero.gold < vendorPrice(hero, offer.price) ? 'disabled' : ''}>${offer.sold ? '已售罄' : `<i data-lucide="coins"></i>${vendorPrice(hero, offer.price)}`}</button></div>`;
   }).join('')}</div><div class="inventory-gold">${hero.gold.toLocaleString()}<small>金币</small></div>`;
 }
 
@@ -457,7 +457,7 @@ export class UI {
     } else if (this.panel === 'pause') {
       content = settingsPanel(this.game);
     } else if (this.panel === 'shop') {
-      content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${POTIONS.map((potion, index) => `<div><div class="shop-item-icon">${icon(potion.icon)}</div><div><h3>${potion.name}</h3><small>持有 ${h.potions[index] ?? 0} · ${potion.description}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < potion.price || h.potions[index] >= 99 ? 'disabled' : ''}>${icon('coins')}${potion.price}</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
+      content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${POTIONS.map((potion, index) => `<div><div class="shop-item-icon">${icon(potion.icon)}</div><div><h3>${potion.name}</h3><small>持有 ${h.potions[index] ?? 0} · ${potion.description}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < vendorPrice(h, potion.price) || h.potions[index] >= 99 ? 'disabled' : ''}>${icon('coins')}${vendorPrice(h, potion.price)}</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
     } else if (this.panel === 'base-shop') {
       content = progressionBaseShop(h);
     } else if (this.panel === 'death') {

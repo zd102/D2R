@@ -8,7 +8,7 @@ import { PaladinCombat, type Projectile } from '../src/combat.ts';
 import { newHero, gainXp, learnSkill, stats, setAura } from '../src/model.ts';
 import { SKILLS, EXPERIENCE } from '../src/paladin.ts';
 import { makeItem, BASES, specialItem } from '../src/items.ts';
-import { CATALOG_SPECIALS } from '../src/item-catalog-current.ts';
+import { CATALOG_SPECIALS, CATALOG_RUNEWORDS } from '../src/item-catalog-current.ts';
 import type { Game, Enemy } from '../src/game.ts';
 import { MONSTERS, BOSSES } from '../src/bestiary.ts';
 import { elementalDamage } from '../src/affixes.ts';
@@ -328,4 +328,79 @@ test('possessed is curse-resistant, never immune to physical, elemental or explo
   const before = target.hp;
   combat.explode({ snapshot: combat.snapshot(), explosion: 10 } as Projectile, target.actor.group.position);
   assert.ok(target.hp < before);
+});
+
+function procItem(event: string, skill: string) {
+  const row = [...CATALOG_SPECIALS, ...CATALOG_RUNEWORDS].find(row => row.properties.some(p => p[0] === event && p[1] === skill))!;
+  assert.ok(row, `${event}: ${skill}`);
+  const item = CATALOG_SPECIALS.some(entry => entry.id === row.id) ? specialItem(row.id) : makeItem(BASES.find(base => base.slot === 'weapon')!);
+  item.catalogId = row.id; item.identified = true; return item;
+}
+
+test('equipment spell procs retain printed rank, cost no mana and preserve attack cadence and aim', t => {
+  t.mock.method(Math, 'random', () => 0);
+  const { hero, game, combat, enemy } = setup(), target = enemy();
+  hero.mana = 0; hero.equipment.weapon!.mods.allSkills = 20;
+  combat.zeal = { rank: 4, hits: 3, timer: .2, direction: new THREE.Vector3(0,0,1), aimed: true };
+  combat.actionCooldowns.frozenOrb = 5; combat.lock = .8;
+  const combo = combat.zeal, aim = game.aim.clone();
+  const item = procItem('hit-skill', '64');
+  const row = CATALOG_SPECIALS.find(row => row.id === item.catalogId)!.properties.find(p => p[0] === 'hit-skill' && p[1] === '64')!;
+  combat.triggerItems('hit-skill', target, [item]);
+  const orb = combat.classes.missiles.find(m => m.skill === 'frozenOrb')!;
+  assert.ok(orb); assert.equal(orb.snapshot.skillRanks!.frozenOrb, row[3]);
+  assert.equal(hero.mana, 0); assert.equal(combat.zeal, combo); assert.equal(combat.lock, .8);
+  assert.equal(combat.actionCooldowns.frozenOrb, 5); assert.deepEqual(game.aim, aim);
+  const hp = target.hp;
+  for (let i = 0; i < 25; i++) combat.classes.update(.05);
+  assert.ok(target.hp < hp);
+});
+
+test('proc events are distinct, identical skill/rank chances combine, and procs do not recurse', t => {
+  const { combat, enemy } = setup(), target = enemy();
+  const item = procItem('gethit-skill', '48');
+  const chance = CATALOG_SPECIALS.find(row => row.id === item.catalogId)!.properties.find(p => p[0] === 'gethit-skill' && p[1] === '48')![2];
+  t.mock.method(Math, 'random', () => chance * 1.5 / 100);
+  let hp = target.hp;
+  combat.triggerItems('hit-skill', target, [item,item]); assert.equal(target.hp,hp);
+  combat.triggerItems('gethit-skill', target, [item]); assert.equal(target.hp,hp);
+  combat.triggerItems('gethit-skill', target, [item,item]); assert.ok(target.hp<hp);
+  const cast = t.mock.method(combat, 'castAction', () => { combat.triggerItems('gethit-skill',target,[item,item]); return true; });
+  combat.triggerItems('gethit-skill',target,[item,item]); assert.equal(cast.mock.calls.filter(call => call.arguments[0] === 'nova').length,1);
+});
+
+test('unidentified, broken, stashed and alternate equipment cannot trigger spells', t => {
+  t.mock.method(Math, 'random', () => 0);
+  const { hero, combat, enemy } = setup(), target = enemy(), item = procItem('hit-skill', '64');
+  hero.strength = hero.dexterity = 500; hero.level = 99;
+  hero.equipment.weapon = item;
+  item.identified = false; combat.triggerItems('hit-skill',target); assert.equal(combat.classes.missiles.length,0);
+  item.identified = true; item.durability = 0; combat.triggerItems('hit-skill',target); assert.equal(combat.classes.missiles.length,0);
+  item.durability = item.maxDurability; hero.equipment.weapon = null; hero.alternate.weapon = item;
+  combat.triggerItems('hit-skill',target); assert.equal(combat.classes.missiles.length,0);
+  hero.alternate.weapon = null; hero.stash = [item]; combat.triggerItems('hit-skill',target); assert.equal(combat.classes.missiles.length,0);
+  hero.stash = []; hero.equipment.weapon = item; combat.triggerItems('hit-skill',target); assert.ok(combat.classes.missiles.length>0);
+});
+
+test('lethal hits trigger socketed death facets once and their delayed meteor finishes after death', t => {
+  t.mock.method(Math, 'random', () => 0);
+  const { hero, game, combat, enemy } = setup(), target = enemy('demon',1);
+  const facet = procItem('death-skill','Meteor');
+  hero.equipment.weapon!.socketedJewels = [{ mods: facet.mods, catalogId: facet.catalogId, name: facet.name } as any];
+  hero.hp = 1; hero.mana = 0;
+  combat.hurt(100000, 'magic', target);
+  assert.equal(game.dead,true); assert.equal(hero.hp,0); assert.equal(combat.classes.fields.length,1);
+  const hp = target.hp;
+  for (let i=0;i<30;i++) combat.updateDeathEffects(.1);
+  assert.ok(target.hp<hp); assert.equal(hero.hp,0);
+});
+
+test('kill and level-up procs work without learned skills or a selected target', t => {
+  t.mock.method(Math,'random',()=>0);
+  const { hero, combat, enemy } = setup(), target = enemy(); hero.mana=0;
+  const poison = procItem('kill-skill','Poison Nova');
+  combat.triggerItems('kill-skill',target,[poison]); assert.ok(target.poison);
+  const blizzard = procItem('levelup-skill','Blizzard');
+  combat.triggerItems('levelup-skill',undefined,[blizzard]); assert.ok(combat.classes.fields.some(f=>f.id==='blizzard'));
+  assert.equal(hero.mana,0);
 });

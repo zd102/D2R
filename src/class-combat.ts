@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { castSound } from './audio-bank.ts';
 import type { MercenaryAlly } from './mercenary-combat.ts';
 import type { Enemy } from './game.ts';
-import type { PaladinCombat, Projectile, AttackSnapshot } from './combat.ts';
+import type { PaladinCombat, Projectile, AttackSnapshot, ItemCastTarget } from './combat.ts';
 import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
 import { skillValues, skillName, type SkillValues, type SkillId, type DamageType } from './paladin.ts';
 import { skillLevel, stats, difficulty } from './model.ts';
@@ -54,15 +54,15 @@ export class ClassCombat {
     for(let d=distance;d>=.3;d-=.25) { const p=g.position.clone().addScaledVector(direction,d); if(safe(p)&&(teleport||clearShot(g.world.grid,g.position,p))) return p; }
     return undefined;
   }
-  cast(id: ExtraSkillId, aimed:boolean): boolean {
+  cast(id: ExtraSkillId, aimed:boolean, triggered?: ItemCastTarget): boolean {
     const c=this.combat,g=this.game,h=g.hero,s=stats(h),rank=castingSkillLevel(h,id,s.mods),v=skillValues(id,rank,h.skills),mode=classSkillMode(id);
-    if(!rank||mode==='passive'||c.readyIn(id)>0||g.paused||g.dead) return false;
-    const {point,direction,target}=this.aim(aimed);
+    if(!rank||mode==='passive'||!triggered&&(c.readyIn(id)>0||g.paused||g.dead)) return false;
+    const {point,direction,target}=triggered ? { ...triggered, direction: triggered.point.clone().sub(g.position).setY(0).normalize() } : this.aim(aimed);
     const utility=id==='telekinesis'&&aimed?this.telekinesisTarget(point):undefined;
     if(mode==='bow'&&(!s.weapon||!s.ranged||s.ranged.stack)) { g.ui.toast('需要可用的弓或弩');return false; }
     if(mode==='javelin'&&s.ranged?.kind!=='javelin'||mode==='spear'&&(!s.weapon||!['spear','javelin'].includes(weaponType(s.weapon)??''))) { g.ui.toast('需要可用的长矛或标枪');return false; }
     let destination:THREE.Vector3|undefined;
-    if(['teleport','meteor','fireWall','blizzard','valkyrie','dopplezon','hydra'].includes(id)) { destination=this.destination(point,id==='teleport');if(!destination) {g.ui.toast('该位置不可到达');return false;} }
+    if(['teleport','meteor','fireWall','blizzard','valkyrie','dopplezon','hydra'].includes(id)) { destination=triggered && id !== 'teleport' && gridWalkable(g.world.grid,point) ? point.clone() : this.destination(point,id==='teleport');if(!destination) {g.ui.toast('该位置不可到达');return false;} }
     if(['chainLightning','telekinesis'].includes(id)&&!target&&!utility) {g.ui.toast('没有可作用的目标');return false;}
     v.cost=castingSkillCost(h,id,v.cost);
     if(h.mana<v.cost) {g.ui.toast('法力不足');return false;}
@@ -72,8 +72,11 @@ export class ClassCombat {
     if(['jab','fend','strafe'].includes(id))duration=Math.max(0,hits-1)*this.sequenceInterval(id,s);
     if(id==='inferno')duration=.6;
     if(id==='impale')duration*=1.8;
-    h.mana-=v.cost;g.monsterCombat?.castCost?.(v.cost);if(g.dead)return false;c.startAction(id,duration);
-    this.delays[id]=delays[id]??0;g.attackTime=1;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);g.audio.play(castSound(id,v.type,mode), { nativeKey: `cast:${id}` });
+    if(!triggered) {
+      h.mana-=v.cost;g.monsterCombat?.castCost?.(v.cost);if(g.dead)return false;c.startAction(id,duration);
+      this.delays[id]=delays[id]??0;g.attackTime=1;g.actor.group.rotation.y=Math.atan2(direction.x,direction.z);
+    }
+    g.audio.play(castSound(id,v.type,mode), { nativeKey: `cast:${id}` });
     if(target&&['bow','javelin','spear'].includes(mode??''))c.triggerItems('att-skill',target);
     if(utility){g.beam(g.position.clone().setY(1),utility.point.clone().setY(.5));if(utility.chest)g.openChest(utility.chest.id,true);else if(utility.loot)g.collectLoot(utility.loot);return true;}
     if(id==='teleport') {g.burst(g.position.clone().setY(1),0x95cfff,16);g.body.position.set(destination!.x,.5,destination!.z);g.body.velocity.set(0,0,0);g.position.copy(destination!);g.path=[];g.target=undefined;g.marker.visible=false;g.burst(destination!.clone().setY(1),0x95cfff,16);return true;}

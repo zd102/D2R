@@ -29,6 +29,7 @@ import { isPassive } from './paladin.ts';
 import { strongerAura } from './mercenary-auras.ts';
 
 export type AttackSnapshot = { skillRanks?: Partial<Record<SkillId,number>>; stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3; mercenary?: boolean };
+export type ItemCastTarget = { point: THREE.Vector3; target?: Enemy };
 export type Projectile = { mesh: THREE.Mesh; origin: THREE.Vector3; direction: THREE.Vector3; phase: number; age: number; life: number; damage: number; healing: number; kind: 'hammer' | 'bolt' | 'arrow' | 'throw'; hit: Set<number>; snapshot: AttackSnapshot; speed: number; pierce: number; magicArrow: number; explosion: number };
 export class PaladinCombat {
   game: Game;
@@ -41,6 +42,8 @@ export class PaladinCombat {
   regen: [number, number] = [0, 0];
   repairTime = new WeakMap<Item, number>();
   itemCurses = new WeakMap<Enemy, { kind: ItemCurse; remaining: number; rank?: number }>();
+  private triggeringItem = false;
+  itemRandom = () => Math.random();
   zeal: { rank: number; hits: number; timer: number; direction: THREE.Vector3; aimed: boolean } | null = null;
   projectiles: Projectile[] = [];
   auraRing = makeRing(1.3, 0xd8c674, .65);
@@ -91,17 +94,25 @@ export class PaladinCombat {
   snapshot(): AttackSnapshot { const h = this.game.hero; return { skillRanks: castingSkillRanks(h), stats: stats(h), level: h.level, difficulty: difficulty(h), skills: { ...h.skills }, items: structuredClone([...activeEquipment(h), ...activeCharms(h)]), origin: this.game.position.clone() }; }
   reach(id: ActionId) { return this.classes.reach(id) ?? (id === 'attack' && stats(this.game.hero).ranged ? 14 : ['holyBolt', 'fistOfHeavens', 'charge'].includes(id) ? 12 : id === 'blessedHammer' ? 5 : 2.5); }
   canReach(enemy: Enemy, id: ActionId) { return enemy.actor.group.position.distanceTo(this.game.position) < this.reach(id) && clearShot(this.game.world.grid, this.game.position, enemy.actor.group.position); }
-  triggerItems(event: string, target: Enemy, equipment?: Item[]) {
+  triggerItems(event: string, target?: Enemy, equipment?: Item[]) {
+    if (this.triggeringItem || this.game.dead) return;
     const g = this.game, triggers = new Map<string, ReturnType<typeof itemTriggers>[number]>();
     for (const item of equipment ?? [...activeEquipment(g.hero), ...activeCharms(g.hero)]) for (const trigger of itemTriggers(item)) if (trigger.event === event) {
-      const key = `${trigger.kind}:${trigger.level}`, previous = triggers.get(key);
+      const key = `${trigger.skill}:${trigger.level}`, previous = triggers.get(key);
       triggers.set(key, { ...trigger, chance: trigger.chance + (previous?.chance ?? 0) });
     }
-    for (const trigger of triggers.values()) if (Math.random() * 100 < trigger.chance) {
+    for (const trigger of triggers.values()) if (this.itemRandom() * 100 < trigger.chance) {
+      const point = target?.actor.group.position.clone() ?? g.position.clone();
+      if (!trigger.kind) {
+        this.triggeringItem = true;
+        try { withCastingSkill(g.hero, { id: trigger.skill, rank: trigger.level }, () => this.castAction(trigger.skill, false, { point, target })); }
+        finally { this.triggeringItem = false; }
+        continue;
+      }
       const duration = trigger.kind === 'amplify' ? 5 + trigger.level * 3 : trigger.kind === 'decrepify' ? 3.4 + trigger.level * .6 : (trigger.kind === 'lifeTap' ? 13.6 : 11.6) + trigger.level * 2.4;
       const radius = trigger.kind === 'decrepify' ? 4 : (trigger.kind === 'weaken' ? 6 : trigger.kind === 'lifeTap' ? 8 / 3 : 2) + (trigger.level - 1) * 2 / 3;
-      for (const enemy of g.enemies) if (enemy.champion?.id !== 'possessed' && this.hostile(enemy) && enemy.actor.group.position.distanceTo(target.actor.group.position) <= radius) this.itemCurses.set(enemy, { kind: trigger.kind, remaining: duration });
-      g.ui.floatText(CURSE_NAMES[trigger.kind], target.actor.group.position.clone().setY(2.2), 'magic-damage');
+      for (const enemy of g.enemies) if (enemy.champion?.id !== 'possessed' && this.hostile(enemy) && enemy.actor.group.position.distanceTo(point) <= radius) this.itemCurses.set(enemy, { kind: trigger.kind, remaining: duration, rank: trigger.level });
+      g.ui.floatText(CURSE_NAMES[trigger.kind], point.setY(2.2), 'magic-damage');
     }
   }
   physicalResistance(enemy: Enemy) {
@@ -124,19 +135,19 @@ export class PaladinCombat {
     if (!charge) return this.castAction(id, aimed);
     const cast = castChargedSkill(h, charge, () => this.castAction(id, aimed)); if(cast)g.save(false); return cast;
   }
-  castAction(id: ActionId, aimed = false): boolean {
+  castAction(id: ActionId, aimed = false, triggered?: ItemCastTarget): boolean {
     if (isAura(id) || isPassive(id)) return false;
-    if (this.readyIn(id) > 0 || this.game.paused || this.game.dead) return false;
-    if (itemSkillKind(id)) return castItemSkill(this, id as ItemSkillId, aimed);
-    if (classSkillMode(id)) return this.classes.cast(id as ExtraSkillId,aimed);
+    if (!triggered && (this.readyIn(id) > 0 || this.game.paused || this.game.dead)) return false;
+    if (itemSkillKind(id)) return castItemSkill(this, id as ItemSkillId, aimed, triggered);
+    if (classSkillMode(id)) return this.classes.cast(id as ExtraSkillId,aimed, triggered);
     const g = this.game, h = g.hero, s = stats(h), rank = castingSkillLevel(h, id, s.mods), v = skillValues(id, rank, h.skills);
-    if (id !== 'attack' && !rank || id === 'fistOfHeavens' && this.fohDelay > 0) return false;
+    if (id !== 'attack' && !rank || !triggered && id === 'fistOfHeavens' && this.fohDelay > 0) return false;
     if ((id === 'smite' || id === 'holyShield') && !s.hasShield) { g.ui.toast('需要可用的盾牌'); return false; }
     if (s.ranged && !s.ranged.stack && ['sacrifice', 'zeal', 'vengeance', 'conversion', 'charge'].includes(id)) { if (!this.ammoWarning) g.ui.toast('该技能需要近战武器'); this.ammoWarning = 1; return false; }
     v.cost = castingSkillCost(h, id, v.cost);
     if (h.mana < v.cost) { g.ui.toast('法力不足'); return false; }
     const origin = g.position.clone();
-    const target = aimed ? this.pointedEnemy() : g.target && this.hostile(g.target) && g.target.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, g.target.actor.group.position) ? g.target : g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, enemy.actor.group.position)).sort((a, b) => a.actor.group.position.distanceToSquared(origin) - b.actor.group.position.distanceToSquared(origin))[0];
+    const target = triggered ? triggered.target : aimed ? this.pointedEnemy() : g.target && this.hostile(g.target) && g.target.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, g.target.actor.group.position) ? g.target : g.enemies.filter(enemy => this.hostile(enemy) && enemy.actor.group.position.distanceTo(origin) <= 14 && clearShot(g.world.grid, origin, enemy.actor.group.position)).sort((a, b) => a.actor.group.position.distanceToSquared(origin) - b.actor.group.position.distanceToSquared(origin))[0];
     if (id === 'fistOfHeavens' && (!target || !this.canReach(target, id))) { g.ui.toast('没有可攻击的目标'); return false; }
     const direction = aimed ? g.aim.clone().sub(origin) : target ? target.actor.group.position.clone().sub(origin) : new THREE.Vector3(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
     direction.y = 0; direction.normalize(); if (!direction.lengthSq()) direction.set(Math.sin(g.actor.group.rotation.y), 0, Math.cos(g.actor.group.rotation.y));
@@ -144,8 +155,10 @@ export class PaladinCombat {
     const ranged = id === 'attack' && s.ranged && s.weapon;
     // Zeal's first strike is immediate; IAS controls only the gaps between its
     // remaining strikes, so it is ready again when the final strike lands.
-    this.startAction(id, id === 'zeal' ? s.zealFrames * (v.hits - 1) / 25 : (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25);
-    h.mana -= v.cost; g.monsterCombat?.castCost?.(v.cost); if (g.dead) return false; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
+    if (!triggered) {
+      this.startAction(id, id === 'zeal' ? s.zealFrames * (v.hits - 1) / 25 : (casting ? s.castFrames : ranged ? s.rangedFrames : s.attackFrames) / 25);
+      h.mana -= v.cost; g.monsterCombat?.castCost?.(v.cost); if (g.dead) return false; g.attackTime = 1; g.actor.group.rotation.y = Math.atan2(direction.x, direction.z);
+    }
     if (id === 'holyShield') { h.holyShield = v.duration; h.holyShieldLevel = rank; g.burst(origin.clone().setY(1), 0xffebaa, 24); g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); g.save(false); return true; }
     if (ranged) { this.shootWeapon(origin, direction, target); return true; }
     if (id === 'holyBolt' || id === 'blessedHammer') {
@@ -160,7 +173,7 @@ export class PaladinCombat {
       g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); return true;
     }
     if (id === 'fistOfHeavens' && target) {
-      this.fohDelay = .4; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
+      if (!triggered) this.fohDelay = .4; const point = target.actor.group.position.clone(); g.beam(point.clone().setY(10), point.clone().setY(.5));
       this.damage(target, v.min + Math.random() * (v.max - v.min), 'lightning');
       const holyHits = new Set<number>([target.id]);
       for (const enemy of g.enemies) if (this.hostile(enemy) && (isUndead(enemy) || (enemy.definition?.race ?? enemy.kind) === 'demon') && enemy.actor.group.position.distanceTo(point) < 8) {
@@ -245,7 +258,7 @@ export class PaladinCombat {
     }
     if (Math.random() * 100 < (s.mods.openWounds ?? 0)) { enemy.bleed = 8; enemy.bleedSnapshot = snapshot; }
     if (s.mods.preventHeal) enemy.preventHeal = true;
-    if (!enemy.dead) this.triggerItems('hit-skill', enemy, snapshot?.items);
+    this.triggerItems('hit-skill', enemy, snapshot?.items);
     if (s.mods.slowTarget) enemy.slow = { percent: Math.max(enemy.slow?.percent ?? 0, Math.min(enemy.boss ? 50 : 90, s.mods.slowTarget)), remaining: 30 };
     if (!smite && s.mods.targetDefenseFlat) enemy.defense = Math.max(0, enemy.defense - Math.abs(s.mods.targetDefenseFlat));
     if (!enemy.boss && !enemy.dead) {
@@ -322,7 +335,7 @@ export class PaladinCombat {
     g.ui.floatText(String(dealt), enemy.actor.group.position.clone().setY(1.8), critical ? 'critical' : type === 'physical' ? 'damage' : 'magic-damage');
     if (dealt) g.audio.play(impactSound(type, enemy.definition?.model), { position: enemy.actor.group.position, gain: critical ? 1 : .85 });
     if (dealt) g.burst(enemy.actor.group.position.clone().setY(.8), type === 'fire' ? 0xf09669 : type === 'cold' ? 0x80cfea : 0xe8d79c, 3);
-    if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods, snapshot?.mercenary); else if (dealt) g.monsterCombat?.onHit(enemy); return dealt;
+    if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods, snapshot?.mercenary, snapshot?.items); else if (dealt) g.monsterCombat?.onHit(enemy); return dealt;
   }
   hurt(amount: number, type: DamageType = 'physical', source?: Enemy, self = false, missile = false, spec?: AttackSpec) {
     const g = this.game, h = g.hero, s = stats(h); if (g.inCamp || g.dead || !self && g.invincible > 0) return false;
@@ -376,7 +389,7 @@ export class PaladinCombat {
     if (!self && !missile && source && type === 'physical') { const curse=this.itemCurses.get(source); const reflected=(curse?.kind==='ironMaiden'?skillValues('ironMaiden',curse.rank??1).percent:0) + (h.buffs.spiritOfBarbs?skillValues('spiritOfBarbs',h.buffs.spiritOfBarbs.rank).percent:0); if(reflected) this.damage(source,damage*reflected/100,'physical'); }
     if (!self && !missile && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
     if (!self && !missile && source && type === 'physical' && s.mods.lightningReflect) this.damage(source, s.mods.lightningReflect, 'lightning');
-    if (h.hp <= 0) { g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; this.classes.clear(); g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
+    if (h.hp <= 0 && !g.dead) { this.classes.clear(); this.triggerItems('death-skill'); h.hp = 0; g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
     return true;
   }
   update(dt: number) {
@@ -444,16 +457,27 @@ export class PaladinCombat {
       enemy.stunned = Math.max(0, enemy.stunned - dt); enemy.coldTime = Math.max(0, enemy.coldTime - dt); enemy.converted = Math.max(0, enemy.converted - dt);
       if (enemy.slow) { enemy.slow.remaining -= dt; if (enemy.slow.remaining <= 0) delete enemy.slow; }
       const curse = this.itemCurses.get(enemy); if (curse) { curse.remaining -= dt; if (curse.remaining <= 0) this.itemCurses.delete(enemy); }
-      if (enemy.bleed > 0 && !enemy.dead) { enemy.hp -= Math.min(dt, enemy.bleed) * openWoundsDps(enemy.bleedSnapshot?.level ?? h.level, enemy.boss); enemy.bleed = Math.max(0, enemy.bleed - dt); if (enemy.hp <= 0) g.killEnemy(enemy, enemy.bleedSnapshot?.stats.mods, enemy.bleedSnapshot?.mercenary); }
-      if (enemy.poison && !enemy.dead) {
-        const snapshot = enemy.poison.snapshot;
-        enemy.hp -= enemy.poison.dps * Math.min(dt, enemy.poison.remaining);
-        enemy.poison.remaining -= dt;
-        if (enemy.poison.remaining <= 0) delete enemy.poison;
-        if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods, snapshot?.mercenary);
-      }
+      if (enemy.bleed > 0 && !enemy.dead) { enemy.hp -= Math.min(dt, enemy.bleed) * openWoundsDps(enemy.bleedSnapshot?.level ?? h.level, enemy.boss); enemy.bleed = Math.max(0, enemy.bleed - dt); if (enemy.hp <= 0) g.killEnemy(enemy, enemy.bleedSnapshot?.stats.mods, enemy.bleedSnapshot?.mercenary, enemy.bleedSnapshot?.items); }
+      this.tickPoison(enemy, dt);
     }
     clampResources(h);
+  }
+  private tickPoison(enemy: Enemy, dt: number) {
+    const g = this.game;
+    if (enemy.poison && !enemy.dead) {
+      const snapshot = enemy.poison.snapshot;
+      enemy.hp -= enemy.poison.dps * Math.min(dt, enemy.poison.remaining);
+      enemy.poison.remaining -= dt;
+      if (enemy.poison.remaining <= 0) delete enemy.poison;
+      if (enemy.hp <= 0) g.killEnemy(enemy, snapshot?.stats.mods, snapshot?.mercenary, snapshot?.items);
+    }
+  }
+  updateDeathEffects(dt: number) {
+    this.classes.update(dt);
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      if (!this.updateProjectile(this.projectiles[i], dt)) { this.game.disposeObject(this.projectiles[i].mesh); this.projectiles.splice(i, 1); }
+    }
+    for (const enemy of this.game.enemies) this.tickPoison(enemy, dt);
   }
   pulse() {
     const g = this.game, h = g.hero, s = stats(h);

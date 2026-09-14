@@ -1,4 +1,4 @@
-import type { PaladinCombat } from './combat.ts';
+import type { PaladinCombat, ItemCastTarget } from './combat.ts';
 import type { ItemCurse } from './item-effects.ts';
 import { itemDamage } from './item-effects.ts';
 import { itemSkillKind, type ItemSkillId } from './item-skill-definitions.ts';
@@ -6,14 +6,14 @@ import { castingSkillLevel, castingSkillCost, stats, skillLevel } from './model.
 import { skillValues } from './paladin.ts';
 import { clearShot } from './ranged.ts';
 
-export function castItemSkill(combat: PaladinCombat, id: ItemSkillId, aimed: boolean) {
+export function castItemSkill(combat: PaladinCombat, id: ItemSkillId, aimed: boolean, triggered?: ItemCastTarget) {
   const g = combat.game, h = g.hero, rank = castingSkillLevel(h, id), v = skillValues(id, rank, h.skills), kind = itemSkillKind(id);
   if (!rank) return false;
-  const point = kind==='buff' || kind==='melee' || id==='battleCry' || id==='poisonNova' || id==='cloakOfShadows' ? g.position : aimed ? g.aim : g.target?.actor.group.position ?? g.aim;
+  const point = kind==='buff' || kind==='melee' || id==='battleCry' || id==='poisonNova' || id==='cloakOfShadows' ? g.position : triggered?.point ?? (aimed ? g.aim : g.target?.actor.group.position ?? g.aim);
   if (point.distanceTo(g.position) > 14 || !clearShot(g.world.grid, g.position, point)) return false;
   const targets = g.enemies.filter(enemy => combat.hostile(enemy) && enemy.actor.group.position.distanceTo(point) <= v.radius && clearShot(g.world.grid, g.position, enemy.actor.group.position));
   const corpse = g.enemies.find(enemy => enemy.dead && !enemy.redeemed && enemy.actor.group.position.distanceTo(point) < 4 && g.position.distanceTo(enemy.actor.group.position) <= 14 && clearShot(g.world.grid, g.position, enemy.actor.group.position));
-  if (kind === 'corpse' && !corpse) { g.ui.toast('需要可用的尸体'); return false; }
+  if (kind === 'corpse' && !corpse) { if (!triggered) g.ui.toast('需要可用的尸体'); return false; }
   if (kind === 'melee' && (!stats(h).weapon || stats(h).ranged || id === 'feralRage' && !h.buffs.wearwolf)) { g.ui.toast('需要近战武器及对应变形状态'); return false; }
   const destination = kind === 'summon' ? combat.classes.destination(point, false) : undefined;
   if (kind === 'summon' && !destination) return false;
@@ -23,8 +23,10 @@ export function castItemSkill(combat: PaladinCombat, id: ItemSkillId, aimed: boo
   v.cost = castingSkillCost(h, id, v.cost);
   if (h.mana < v.cost) { g.ui.toast('法力不足'); return false; }
   if (kind === 'melee' && !g.enemies.some(enemy => combat.hostile(enemy) && enemy.actor.group.position.distanceTo(g.position) < (id === 'whirlwind' ? 3 : 2.6))) return false;
-  h.mana -= v.cost; g.monsterCombat?.castCost?.(v.cost); if(g.dead)return false;
-  combat.startAction(id, stats(h).castFrames / 25); g.attackTime = 1;
+  if (!triggered) {
+    h.mana -= v.cost; g.monsterCombat?.castCost?.(v.cost); if(g.dead)return false;
+    combat.startAction(id, stats(h).castFrames / 25); g.attackTime = 1;
+  }
   g.audio.play('spell', { nativeKey: `cast:${id}` }); g.burst(point.clone().setY(1), 0xb9c6eb, 16);
   if (kind === 'buff') {
     if (id === 'wearwolf' || id === 'wearbear') { delete h.buffs.wearwolf; delete h.buffs.wearbear; v.duration += skillValues('shapeShifting', skillLevel(h, 'shapeShifting')).duration; }

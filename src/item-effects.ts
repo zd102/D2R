@@ -2,12 +2,15 @@ import { ITEM_SKILL_ROWS } from './item-skill-definitions.ts';
 import { ALL_SKILLS as SKILLS, isAura, type SkillId, type DamageType } from './paladin.ts';
 import { ORIGINAL_CLASS_SKILLS } from './class-skill-data.ts';
 import { CLASSES } from './classes.ts';
+import { classSkillMode } from './class-skills.ts';
+import { itemSkillKind } from './item-skill-definitions.ts';
 import type { Mods, Modifier } from './items.ts';
 import type { CatalogProperty } from './item-catalog-data.ts';
 
 const skillNames = Object.fromEntries(SKILLS.map(skill => [`skill_${skill.id}`, `${skill.name}（${skill.itemOnly ? '其他职业' : CLASSES[skill.classId ?? 'paladin'].name}）`])) as Record<`skill_${SkillId}`, string>;
 const auraNames = Object.fromEntries(SKILLS.filter(skill=>isAura(skill.id)).map(skill => [`aura_${skill.id}`, `${skill.name}灵气等级（装备赋予）`])) as Record<`aura_${SkillId}`, string>;
 export const EFFECT_MOD_NAMES = {
+  vendorDiscount: '商店价格降低 %',
   maxDurabilityPercent: '耐久上限 %',
   ...skillNames, ...auraNames,
   necromancerSkills: '死灵法师技能', barbarianSkills: '野蛮人技能', druidSkills: '德鲁伊技能', assassinSkills: '刺客技能',
@@ -28,7 +31,7 @@ export const EFFECT_MOD_NAMES = {
 };
 
 export const EFFECT_PROPERTIES: Record<string, Modifier> = {
-  pierce: 'pierceChance', magicarrow: 'magicArrowLevel', explosivearrow: 'explosiveArrowLevel', stack: 'extraQuantity',
+  cheap: 'vendorDiscount', pierce: 'pierceChance', magicarrow: 'magicArrowLevel', explosivearrow: 'explosiveArrowLevel', stack: 'extraQuantity',
   'extra-fire': 'fireSkillDamage', 'extra-cold': 'coldSkillDamage', 'extra-ltng': 'lightningSkillDamage', 'extra-pois': 'poisonSkillDamage',
   'pierce-fire': 'firePierce', 'pierce-cold': 'coldPierce', 'pierce-ltng': 'lightningPierce', 'pierce-pois': 'poisonPierce',
   'abs-fire%': 'fireAbsorb', 'abs-ltng%': 'lightningAbsorb', 'abs-fire': 'fireAbsorbFlat', 'abs-cold': 'coldAbsorbFlat', 'abs-ltng': 'lightningAbsorbFlat', 'abs-mag': 'magicAbsorbFlat',
@@ -81,8 +84,9 @@ export function openWoundsDps(level: number, boss = false) {
 export type ItemCurse = 'amplify' | 'decrepify' | 'lifeTap' | 'weaken' | 'ironMaiden' | 'battleCry' | 'lowerResist';
 export const CURSE_NAMES: Record<ItemCurse, string> = { lowerResist: '降低抵抗', ironMaiden: '攻击反噬', battleCry: '战斗狂嗥', amplify: '伤害加深', decrepify: '衰老', lifeTap: '偷取生命', weaken: '削弱' };
 export function itemTrigger([event, param, chance, level]: CatalogProperty) {
-  if (!['hit-skill', 'gethit-skill', 'att-skill'].includes(event)) return undefined;
+  if (!['hit-skill', 'gethit-skill', 'att-skill', 'kill-skill', 'death-skill', 'levelup-skill'].includes(event)) return undefined;
   const name = param.toLowerCase().replaceAll(' ', '');
   const kind = ({ '66': 'amplify', amplifydamage: 'amplify', '87': 'decrepify', decrepify: 'decrepify', '82': 'lifeTap', lifetap: 'lifeTap', '72': 'weaken', weaken: 'weaken' } as Record<string, ItemCurse>)[name];
-  return kind ? { event, kind, chance, level } : undefined;
+  const skill = catalogSkill(param), mode = skill && (itemSkillKind(skill) ?? classSkillMode(skill));
+  return skill && (kind || ['spell', 'curse', 'buff', 'summon', 'corpse'].includes(mode ?? '') || ['holyBolt', 'fistOfHeavens'].includes(skill)) ? { event, kind, skill, chance, level } : undefined;
 }

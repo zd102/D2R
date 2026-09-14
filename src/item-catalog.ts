@@ -94,6 +94,7 @@ export function catalogPropertyStatus(property: CatalogProperty): 'active' | 'ot
   if (['nec', 'bar', 'dru', 'ass'].includes(code) || code === 'skilltab' && !['0','1','2','3','4','5','9','10','11'].includes(param) || code === 'skill' && (!catalogSkill(param) || skillById[catalogSkill(param)!].itemOnly)) return 'other-class';
   if (code === 'oskill' || code === 'charged') return catalogSkill(param) ? 'active' : 'inactive';
   if (code === 'aura') return catalogSkill(param) && isAura(catalogSkill(param)!) ? 'active' : 'inactive';
+  if (code === 'ethereal') return 'active';
   if (code === 'rep-quant' || code === 'oskill' && ['Critical Strike', 'Evade'].includes(param)) return 'active';
   if (itemTrigger(property)) return 'active';
   return extraProperties[code] || LEVEL_PROPERTIES[code] || supportsAffixProperty(code) || ['skill-rand', 'skill', 'all-stats', 'dmg-norm', 'reduce-ac', 'randclassskill', 'rep-dur', 'howl', 'dmg-mag', 'dmg-elem', 'res-all-max'].includes(code) ? 'active' : 'inactive';

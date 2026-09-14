@@ -370,7 +370,11 @@ export function sellItem(hero: HeroState, id: string) {
   const index = container.findIndex(item => item.id === id);
   hero.gold += container[index].value; container.splice(index, 1); clampResources(hero); return true;
 }
-export function repairCost(hero: HeroState) { return [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item && !item.ethereal ? itemCharges(item).reduce((cost, charge) => cost + (charge.maximum - charge.remaining) * Math.max(1, charge.rank * 5), 0) : 0) + (item?.maxDurability && !item.ethereal ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0), 0); }
+export function vendorPrice(hero: HeroState, price: number) {
+  const discount = Math.max(0, Math.min(99, equipmentMods(hero).vendorDiscount ?? 0));
+  return price <= 0 ? 0 : Math.max(1, Math.floor(price * (100 - discount) / 100));
+}
+export function repairCost(hero: HeroState) { return vendorPrice(hero, [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory].reduce((sum, item) => sum + (item && !item.ethereal ? itemCharges(item).reduce((cost, charge) => cost + (charge.maximum - charge.remaining) * Math.max(1, charge.rank * 5), 0) : 0) + (item?.maxDurability && !item.ethereal ? Math.max(0, Math.ceil((item.maxDurability - (item.durability ?? item.maxDurability)) * Math.max(1, item.level / 3))) : 0), 0)); }
 export function repairEquipment(hero: HeroState) { const cost = repairCost(hero); if (hero.gold < cost) return false; hero.gold -= cost; for (const item of [...Object.values(hero.equipment), ...Object.values(hero.alternate), ...hero.inventory]) if (item && !item.ethereal) { if (item.maxDurability) item.durability = item.maxDurability; item.chargesUsed = {}; } return true; }
 export function respec(hero: HeroState) {
   const diff = difficulty(hero); if (!hero.questRewards.includes(`${diff}:shrine0`)) return false;
