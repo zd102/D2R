@@ -99,6 +99,6 @@ test('existing levels, XP and items round-trip unchanged after the balance updat
   for (const level of [41, 67, 89, 98, 99]) {
     const hero = referenceHero(level, 2, 'hammer'); if (level < 99) hero.xp = Math.floor(xpForLevel(level) * .43);
     const before = totalExperience(hero), saved = parseSave(serializeSave(hero))!;
-    assert.deepEqual(saved, { ...hero, cubeUnlocked: true }); assert.equal(totalExperience(saved), before);
+    assert.deepEqual(saved, { ...hero, potions: [...hero.potions, 0, 0, 0], cubeUnlocked: true }); assert.equal(totalExperience(saved), before);
   }
 });

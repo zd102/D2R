@@ -1,3 +1,4 @@
+import { rollPotion } from './potions.ts';
 import { playerDropChance } from './player-count.ts';
 import { BASES, RUNE_ORDER, isAvailableItem, makeItem, rollDropKinds, rollItem, specialItem, itemId, weightedChoice, type DropRank, type Item, type RuneId } from './items.ts';
 import { applyAffixes, CHARM_BASES, type CharmSize } from './affixes.ts';
@@ -74,7 +75,7 @@ export function rollLoot(context: LootContext, random = Math.random) {
   }
   if (context.cow && random() < COW_BONUS.rune) runes.push(rollRune(level, difficulty, act, false, random));
   const gold = Math.round((10 + level * 2 + random() * 14) * (boss ? 4 : elite ? 2.4 : champion ? 1.6 : 1) * (1 + (context.goldFind ?? 0) / 100));
-  const potion = random() < playerDropChance(boss ? .8 : elite ? .65 : champion ? .5 : .30, rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? random() > .4 ? 0 : 1 : undefined;
+  const potion = random() < playerDropChance(boss ? .8 : elite ? .65 : champion ? .5 : .30, rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? rollPotion(random) : undefined;
   const treasureClass = profile?.maxTC[difficulty] ?? Math.min(87, Math.ceil((level + 3) / 3) * 3);
   if (flags.equipment) {
     const roll = random(), quality = rank === 'actBoss' ? .72 + roll * .28 : rank === 'miniboss' ? .45 + roll * .55 : elite ? .38 + roll * .62 : champion ? .33 + roll * .67 : roll;

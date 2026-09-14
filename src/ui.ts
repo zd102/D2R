@@ -1,3 +1,4 @@
+import { POTIONS } from './potions.ts';
 import { mercenaryPanel, type MercenaryPanelState } from './mercenary-ui';
 import { mercenaryUnlocked, mercenaryStats, equipMercenary, unequipMercenary, selectMercenaryAura } from './mercenary';
 import type { HeroState } from './model';
@@ -266,7 +267,7 @@ export class UI {
       this.game.audio.unlock();
       if (element.dataset.panel) this.togglePanel(element.dataset.panel as Panel);
       if (element.dataset.skill) this.game.useSkill(element.dataset.skill as Skill);
-      if (element.dataset.potion) this.game.drink(Number(element.dataset.potion) as 0 | 1);
+      if (element.dataset.potion) this.game.drink(Number(element.dataset.potion), this.panel === 'inventory');
       if (element.dataset.item) { this.game.audio.play('uiClick'); this.selectedItem = element.dataset.item; if (innerWidth <= 700 || innerHeight <= 580) this.characterScreen.inventoryPane = 'details'; this.renderPanel(); }
       if (element.dataset.equip) this.game.equip(element.dataset.equip);
       if (element.dataset.salvage) this.game.salvage(element.dataset.salvage);
@@ -277,7 +278,7 @@ export class UI {
       if (element.dataset.mercenaryEquip) this.changeMercenary(() => equipMercenary(this.game.hero, element.dataset.mercenaryEquip!));
       if (element.dataset.mercenaryUnequip) this.changeMercenary(() => unequipMercenary(this.game.hero, element.dataset.mercenaryUnequip!));
       if (element.dataset.mercenaryAura) this.changeMercenary(() => selectMercenaryAura(this.game.hero, element.dataset.mercenaryAura));
-      if (element.dataset.buy) this.game.buy(Number(element.dataset.buy) as 0 | 1);
+      if (element.dataset.buy) this.game.buy(Number(element.dataset.buy));
       if (element.dataset.loot) this.game.pickup(Number(element.dataset.loot));
       if (element.dataset.chest !== undefined) this.game.openChest(Number(element.dataset.chest));
       if (element.dataset.cowEntry) this.game.enterCowLevel(element.dataset.cowEntry);
@@ -455,7 +456,7 @@ export class UI {
     } else if (this.panel === 'pause') {
       content = settingsPanel(this.game);
     } else if (this.panel === 'shop') {
-      content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${([0, 1] as const).map(index => `<div><div class="shop-item-icon ${index === 0 ? 'red-text' : 'blue-text'}">${icon(index === 0 ? 'flame' : 'droplets')}</div><div><h3>${index === 0 ? '生命' : '法力'}药剂</h3><small>持有 ${h.potions[index]}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < 25 ? 'disabled' : ''}>${icon('coins')}25</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
+      content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${POTIONS.map((potion, index) => `<div><div class="shop-item-icon">${icon(potion.icon)}</div><div><h3>${potion.name}</h3><small>持有 ${h.potions[index] ?? 0} · ${potion.description}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < potion.price || h.potions[index] >= 99 ? 'disabled' : ''}>${icon('coins')}${potion.price}</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
     } else if (this.panel === 'base-shop') {
       content = progressionBaseShop(h);
     } else if (this.panel === 'death') {

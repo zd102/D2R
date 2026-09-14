@@ -31,3 +31,5 @@
 .item-affixes{width:100%;overflow-wrap:anywhere}.item-affixes .affix-range{display:block;margin-top:3px;color:#a4adba;font-size:10px;line-height:1.5}
 @media(max-width:700px){.binding-grid label:last-child{grid-column:auto}}
 .paladin-status #ammo-label{min-width:52px;font-variant-numeric:tabular-nums;color:#e1ce9c}.paladin-status #ammo-label.empty-ammo{color:#ef9688}
+
+.utility-potions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.utility-potions button{font-size:11px;padding:7px}.utility-potions kbd{margin-left:4px}

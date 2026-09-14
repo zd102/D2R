@@ -24,7 +24,7 @@ export type HeroState = {
   skillPoints: number; skills: Record<SkillId, number>; activeAura: SkillId | null;
   bindings: Record<SkillSlot, ActionId>;
   buffs: Partial<Record<SkillId, { remaining: number; rank: number }>>;
-  hp: number; mana: number; stamina: number; running: boolean; potions: [number, number];
+  hp: number; mana: number; stamina: number; running: boolean; potions: number[]; potionTimers: number[];
   ammo: { arrows: number; bolts: number };
   equipment: Record<Slot, Item | null>; alternate: { weapon: Item | null; shield: Item | null }; weaponSet: 0 | 1;
   inventory: Item[]; stash: Item[]; cube: Item[]; cubeUnlocked: boolean; runes: RuneId[]; identifyScrolls: number;
@@ -49,7 +49,7 @@ export const newHero = (classId: ClassId = 'paladin'): HeroState => ({
   skillPoints: 0, skills: emptySkills(), activeAura: null,
   bindings: { attack: 'attack', cleave: 'attack', ward: 'attack', nova: 'attack', dash: 'attack', bolt: classId === 'sorceress' ? 'fireBolt' : 'attack' },
   buffs: {},
-  hp: CLASSES[classId].life, mana: CLASSES[classId].mana, stamina: CLASSES[classId].stamina, running: true, potions: [6, 4], stage: 1, difficultyLevel: 0, unlockedDifficulty: 0, shrines: [], bossDefeated: false,
+  hp: CLASSES[classId].life, mana: CLASSES[classId].mana, stamina: CLASSES[classId].stamina, running: true, potions: [6, 4, 0, 0, 0], potionTimers: [0, 0, 0], stage: 1, difficultyLevel: 0, unlockedDifficulty: 0, shrines: [], bossDefeated: false,
   ammo: { arrows: 0, bolts: 0 },
   equipment: { ...emptyEquipment(), weapon: classId === 'paladin' ? makeItem(BASES[0], 'starter-sword') : classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='jav')!, 'starter-javelin') : { ...makeItem(BASES.find(base=>base.baseCode==='sst')!, 'starter-staff'), mods: { skill_fireBolt: 1 } }, shield: classId === 'sorceress' ? null : makeItem(BASES.find(base => base.name === '圆盾')!, 'starter-shield') },
   alternate: { weapon: classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='sbw')!,'starter-bow') : null, shield: null }, weaponSet: 0, inventory: [], stash: [], cube: [], cubeUnlocked: false, runes: [], identifyScrolls: 0,
@@ -155,8 +155,9 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
     const resistSkill = ({ fire: 'resistFire', cold: 'resistCold', lightning: 'resistLightning', poison: null } as const)[element];
     const enabled = !!resistSkill && auras.some(aura => aura.id === resistSkill);
     const maxMod = ({ fire: 'maxFireRes', cold: 'maxColdRes', lightning: 'maxLightningRes', poison: 'maxPoisonRes' } as const)[element];
-    maxResistances[element] = Math.min(95, (mods[maxMod] ?? 0) + (resistSkill ? 75 + (enabled ? hero.skills[resistSkill] : Math.floor(hero.skills[resistSkill] / 2)) : 75));
-    resistances[element] = Math.max(-100, Math.min(maxResistances[element], (mods.allRes ?? 0) + (mods[`${element}Res`] ?? 0) + hero.bonusResist - penalty + (resistSkill ? auraStat(resistSkill, 'percent') : 0) + (element !== 'poison' ? auraStat('salvation', 'percent') : 0)));
+    const potionBonus = element === 'cold' ? hero.potionTimers[2] > 0 : element === 'poison' ? hero.potionTimers[1] > 0 : false;
+    maxResistances[element] = Math.min(95, (potionBonus ? 10 : 0) + (mods[maxMod] ?? 0) + (resistSkill ? 75 + (enabled ? hero.skills[resistSkill] : Math.floor(hero.skills[resistSkill] / 2)) : 75));
+    resistances[element] = Math.max(-100, Math.min(maxResistances[element], (potionBonus ? 50 : 0) + (mods.allRes ?? 0) + (mods[`${element}Res`] ?? 0) + hero.bonusResist - penalty + (resistSkill ? auraStat(resistSkill, 'percent') : 0) + (element !== 'poison' ? auraStat('salvation', 'percent') : 0)));
   }
   const frozen = hero.cold > 0 && !mods.cannotBeFrozen;
   const effectiveIAS = Math.max(-50, Math.min(75, Math.floor(120 * (mods.ias ?? 0) / (120 + (mods.ias ?? 0))) + auraStat('fanaticism', 'percent') - (weapon?.speed ?? 0) - (frozen ? 50 : 0)));
@@ -427,7 +428,7 @@ export function createCorpse(hero: HeroState, x: number, z: number) {
   if (!hero.corpse) hero.corpse = { equipment: hero.equipment, extras: [], x, z, xpLost: loss, gold };
   else { hero.corpse.xpLost += loss; hero.corpse.gold += gold; for (const slot of SLOTS) { const item = hero.equipment[slot]; if (item) { if (hero.corpse.equipment[slot]) hero.corpse.extras.push(item); else hero.corpse.equipment[slot] = item; } } }
   hero.equipment = emptyEquipment();
-  hero.holyShield = 0; hero.holyShieldLevel = 0; hero.poison = 0; hero.curse = 0; hero.cold = 0;
+  hero.potionTimers = [0, 0, 0]; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.poison = 0; hero.curse = 0; hero.cold = 0;
 }
 export function recoverCorpse(hero: HeroState, inField = true) {
   const corpse = hero.corpse; if (!corpse) return false;
@@ -503,7 +504,8 @@ export function parseSave(raw: string | null): HeroState | null {
     }
     if (hero.bossDefeated && (hero.campaign.current >= hero.campaign.cleared[hero.difficultyLevel] || !questComplete(hero.campaign))) hero.bossDefeated = false;
     hero.stage = hero.campaign.current + 1;
-    if (Array.isArray(h.potions)) hero.potions = [integer(h.potions[0], 6, 0, 99), integer(h.potions[1], 4, 0, 99)];
+    if (Array.isArray(h.potions)) hero.potions = [6, 4, 0, 0, 0].map((fallback, index) => integer(h.potions[index], fallback, 0, 99));
+    hero.potionTimers = [0, 1, 2].map(index => decimal(h.potionTimers?.[index], 0, 0, Number.MAX_SAFE_INTEGER));
     if (h.ammo && typeof h.ammo === 'object') hero.ammo = { arrows: integer(h.ammo.arrows, 0, 0, 600), bolts: integer(h.ammo.bolts, 0, 0, 600) };
     const seen = new Set<string>(); const uniqueItem = (value: unknown) => { const item = parseItem(value); if (!item || seen.has(item.id)) return null; seen.add(item.id); return item; };
     if (h.equipment && typeof h.equipment === 'object') for (const slot of SLOTS) {

@@ -1,3 +1,4 @@
+import { POTIONS } from './potions.ts';
 import { BASES, SPECIAL_ITEMS, AVAILABLE_RUNEWORDS, RUNE_ORDER, RUNES, makeItem, specialItem, runewordFits, socketItem, isAvailableItem, type Item, type ItemBase, type SpecialItem, type RuneWord, type RuneId, type Slot } from './items.ts';
 import { CATALOG_SPECIALS, CATALOG_RUNEWORDS } from './item-catalog-current.ts';
 import { AFFIX_BASES } from './affix-data.ts';
@@ -10,7 +11,7 @@ import { runeNumber, runeLabel } from './items.ts';
 
 export const ITEM_KINDS = { all: '全部物品', unique: '暗金装备', set: '套装装备', base: '装备底材', runeword: '符文之语', rune: '符文', supply: '补给' };
 export type ItemKind = Exclude<keyof typeof ITEM_KINDS, 'all'>;
-export type EncyclopediaItem = { id: string; name: string; english: string; kind: ItemKind; level: number; slot?: Slot; icon: string; base?: ItemBase; special?: SpecialItem; word?: RuneWord; rune?: RuneId; supply?: 0 | 1 };
+export type EncyclopediaItem = { id: string; name: string; english: string; kind: ItemKind; level: number; slot?: Slot; icon: string; base?: ItemBase; special?: SpecialItem; word?: RuneWord; rune?: RuneId; supply?: number };
 export const RACE_NAMES = { undead: '不死系', demon: '恶魔', beast: '野兽' };
 export const MONSTER_RANKS = { all: '全部怪物', monster: '普通怪物', miniboss: '守关首领', actBoss: '章节首领' };
 export type EncyclopediaMonster = { id: string; name: string; definition: MonsterDef; rank: Exclude<keyof typeof MONSTER_RANKS, 'all'>; areas: number[] };
@@ -21,6 +22,7 @@ export const ENCYCLOPEDIA_ITEMS: EncyclopediaItem[] = [
   ...BASES.map((base, index) => ({ id: `base-${index}`, name: base.name, english: AFFIX_BASES[base.baseCode!]?.name ?? '', kind: 'base' as const, level: base.requiredLevel ?? 1, slot: base.slot, icon: equipmentIcon(base), base })).filter(entry => isAvailableItem(entry.base)),
   ...AVAILABLE_RUNEWORDS.map(word => ({ id: `word-${word.catalogId}`, name: word.name, english: CATALOG_RUNEWORDS.find(row => row.id === word.catalogId)!.key, kind: 'runeword' as const, level: Math.max(...word.runes.map(id => RUNES[id].level)), icon: 'scroll-text', word })),
   ...RUNE_ORDER.map(rune => ({ id: `rune-${rune}`, name: `${RUNES[rune].name}符文`, english: rune.toUpperCase(), kind: 'rune' as const, level: RUNES[rune].level, icon: 'gem', rune })),
+  ...POTIONS.slice(2).map((potion, index) => ({ id: `supply-${potion.code}`, name: potion.name, english: potion.english, kind: 'supply' as const, level: 1, icon: potion.icon, supply: index + 2 })),
   { id: 'supply-life', name: '生命药剂', english: 'Healing Potion', kind: 'supply', level: 1, icon: 'heart-pulse', supply: 0 },
   { id: 'supply-mana', name: '法力药剂', english: 'Mana Potion', kind: 'supply', level: 1, icon: 'droplets', supply: 1 },
 ];

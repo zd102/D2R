@@ -1,3 +1,4 @@
+import { POTIONS, useUtilityPotion } from './potions.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count';
 import { onlineStore, returnToMode } from './mode';
 import { OnlineSaveStore, OnlineSaveCoordinator } from './online-saves';
@@ -727,6 +728,7 @@ export class Game {
       }
       if (key === '1') this.drink(0);
       if (key === '2') this.drink(1);
+      if (['3', '4', '5'].includes(key)) this.drink(Number(key) - 1);
       if (key === 'f') this.interact();
     });
     window.addEventListener('keyup', event => { const key = event.key.toLowerCase(); this.keys.delete(key); if (this.heldSkill?.key === key) this.heldSkill = undefined; });
@@ -872,7 +874,7 @@ export class Game {
     if (drop.potion !== undefined) this.addLoot({ id: this.nextId++, x: position.x, z: position.z + .9, potion: drop.potion, mesh: new THREE.Group() });
   }
   addLoot(loot: Loot) {
-    const color = loot.item ? COLORS[loot.item.rarity] : loot.gold || loot.rune ? 0xe5bd60 : loot.potion === 0 ? 0xe45555 : 0x56a7eb;
+    const color = loot.item ? COLORS[loot.item.rarity] : loot.gold || loot.rune ? 0xe5bd60 : POTIONS[loot.potion ?? 1]?.color ?? 0x56a7eb;
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(loot.gold ? .12 : .19), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .6, metalness: .7, roughness: .3 })); gem.position.y = .25; loot.mesh.add(gem);
     if (loot.item) {
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(.028, .12, loot.item.rarity === 'legendary' ? 3.5 : 1.8, 8, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .24, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true })); beam.position.y = loot.item.rarity === 'legendary' ? 1.7 : .9; loot.mesh.add(beam);
@@ -903,7 +905,11 @@ export class Game {
       this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.identified === false ? `未鉴定 · ${groundItemName(loot.item)}` : loot.item.name, '已收入背包');
     } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`);
     } else if (loot.gold) { this.hero.gold += loot.gold; this.ui.floatText(`+${loot.gold}`, this.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 'gold'); }
-    else if (loot.potion !== undefined) this.hero.potions[loot.potion] = Math.min(99, this.hero.potions[loot.potion] + 1);
+    else if (loot.potion !== undefined) {
+      if (!POTIONS[loot.potion] || this.hero.potions[loot.potion] >= 99) return;
+      this.hero.potions[loot.potion] = (this.hero.potions[loot.potion] ?? 0) + 1;
+      if (loot.potion >= 2) this.ui.floatText(`+1 ${POTIONS[loot.potion].name}`, this.position.clone().setY(1.5), 'gold');
+    }
     this.disposeObject(loot.mesh); this.loot.splice(this.loot.indexOf(loot), 1); this.audio.play(lootSound(loot)); this.save(false);
   }
   updateLootPickup() {
@@ -917,8 +923,14 @@ export class Game {
     }
     for (const loot of [...this.loot]) if (!loot.item && Math.hypot(loot.x - this.position.x, loot.z - this.position.z) < (loot.gold || loot.potion !== undefined ? 1.6 : 1)) this.collectLoot(loot);
   }
-  drink(index: 0 | 1) {
-    if (this.paused || this.dead) return;
+  drink(index: number, fromInventory = false) {
+    if ((this.paused && !(fromInventory && this.ui.panel === 'inventory')) || this.dead) return;
+    if (!POTIONS[index] || this.saveConflict) return;
+    if (index >= 2) {
+      if (!useUtilityPotion(this.hero, index, stats(this.hero).maxStamina)) { this.ui.toast('药剂已用尽'); return; }
+      this.burst(this.position.clone().setY(1), POTIONS[index].color, 15); this.audio.play('potion');
+      this.ui.toast(POTIONS[index].name, POTIONS[index].description); if (fromInventory) this.ui.renderPanel(); this.save(false); return;
+    }
     const s = stats(this.hero), key = index === 0 ? 'hp' : 'mana', max = index === 0 ? s.maxHp : s.maxMana;
     if (this.hero[key] >= max) { this.ui.toast(index === 0 ? '生命值已满' : '法力值已满'); return; }
     if (!this.hero.potions[index]) { this.ui.toast('药剂已用尽'); return; }
@@ -998,10 +1010,12 @@ export class Game {
     this.addLoot({ id: this.nextId++, x: corpse.x + .7, z: corpse.z + .35, item: leg, mesh: new THREE.Group() });
     this.audio.play('loot'); this.ui.toast(leg.name, '掉落于神秘尸体'); this.save(false);
   }
-  buy(index: 0 | 1) {
-    if (this.hero.gold < 25) { this.ui.toast('金币不足'); return; }
+  buy(index: number) {
+    const potion = POTIONS[index];
+    if (!potion || this.dead || this.saveConflict) return;
+    if (this.hero.gold < potion.price) { this.ui.toast('金币不足'); return; }
     if (this.hero.potions[index] >= 99) return;
-    this.hero.gold -= 25; this.hero.potions[index]++; this.audio.play('itemBottle'); this.ui.renderPanel(); this.save(false);
+    this.hero.gold -= potion.price; this.hero.potions[index] = (this.hero.potions[index] ?? 0) + 1; this.audio.play('itemBottle'); this.ui.renderPanel(); this.save(false);
   }
   buyBase(id: string) {
     if (!this.profile || this.dead || this.saveConflict || this.ui.panel !== 'base-shop' || !this.inCamp || Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) >= 3.5) return;

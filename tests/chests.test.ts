@@ -17,9 +17,9 @@ test('bonus chest rolls retain the original empty check and four NoDrop picks', 
   assert.deepEqual(rollChestCodes(context, () => draws.shift() ?? 0), ['gld']);
   const random = rng(94); let empty = 0, count = 0;
   for (let i = 0; i < 25000; i++) { const codes = rollChestCodes(context, random); empty += Number(!codes.length); count += codes.length; assert.ok(codes.length <= 4); }
-  // Junk retains only 8/16 Potion 1 picks, of which 25/30 are usable;
+  // Junk retains only 8/16 Potion 1 picks, of which 29/30 are usable;
   // Good retains 5/10 Jewelry picks. Removed leaves do not get rerolled.
-  const usefulWeight = 15 + 15 * (8 / 16) * (25 / 30) + 10 + 2 * (5 / 10);
+  const usefulWeight = 15 + 15 * (8 / 16) * (29 / 30) + 10 + 2 * (5 / 10);
   assert.ok(Math.abs(empty / 25000 - (.25 + .75 * (1 - usefulWeight / 142) ** 4)) < .015);
   assert.ok(Math.abs(count / 25000 - .75 * 4 * usefulWeight / 142) < .03);
 });

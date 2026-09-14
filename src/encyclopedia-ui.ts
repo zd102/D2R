@@ -1,3 +1,4 @@
+import { POTIONS } from './potions.ts';
 import type { UI } from './ui.ts';
 import { ENCYCLOPEDIA_ITEMS, ENCYCLOPEDIA_MONSTERS, ITEM_KINDS, MONSTER_RANKS, RACE_NAMES, encyclopediaItem, encyclopediaMonster, filterEncyclopediaItems, filterEncyclopediaMonsters, encyclopediaItemPreview, itemDropSources, recipeBases, type EncyclopediaItem, type EncyclopediaMonster } from './encyclopedia.ts';
 import { EncyclopediaPreview } from './encyclopedia-preview.ts';
@@ -171,7 +172,7 @@ export class EncyclopediaScreen {
       if (upgrade) body += `<h4>符文合成</h4>${this.link(`rune-${upgrade.next}`, `${upgrade.count} ${runeLabel(entry.rune)} → ${runeLabel(upgrade.next)}`, 'items')}`;
       body += `<details class="encyclopedia-related-group"><summary>相关符文之语 · ${RUNEWORDS.filter(word => word.runes.includes(entry.rune!)).length}</summary>${RUNEWORDS.filter(word => word.runes.includes(entry.rune!)).map(word => this.link(`word-${word.catalogId}`, word.name, 'items', word.runes.map(runeLabel).join(' · '))).join('')}</details>`;
     } else if (entry.supply !== undefined) {
-      body += statsList([['售价', '25 金币'], ['获得方式', '旅者补给 / 怪物掉落'], ['持续恢复', entry.supply === 0 ? '160 生命' : '80 法力'], ['持有上限', 99]]);
+      body += statsList([['售价', `${POTIONS[entry.supply].price} 金币`], ['获得方式', '旅者补给 / 怪物与宝箱掉落'], ['效果', POTIONS[entry.supply].description], ['持有上限', 99]]);
     } else if (item) {
       if (entry.word) {
         body += `<div class="encyclopedia-recipe">${entry.word.runes.map((rune, index) => `<button data-encyclopedia-link="rune-${rune}" data-encyclopedia-target="items" aria-label="第 ${index + 1} 孔 · ${runeLabel(rune)}"><small class="rune-order">${index + 1}</small>${runeArtwork(rune)}<span>${RUNES[rune].name}<b>${runeNumber(rune)}</b></span></button>`).join('')}</div><label class="encyclopedia-base-select"><span>符文之语底材 · ${entry.word.runes.length} 孔</span><select id="encyclopedia-base" aria-label="符文之语底材">${recipeBases(entry.word).map(base => `<option value="${escape(base.name)}" ${base.name === item.base ? 'selected' : ''}>${escape(base.name)}</option>`).join('')}</select></label><p class="encyclopedia-muted">${escape(runewordBaseLabel(entry.word))}</p>`;

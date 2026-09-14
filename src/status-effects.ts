@@ -1,9 +1,14 @@
+import { POTIONS } from './potions.ts';
 import { stats, type HeroState } from './model.ts';
 import { skillName, skillIcon, type SkillId } from './paladin.ts';
 
 export type HeroStatus = { id: string; name: string; icon: string; kind: 'buff' | 'debuff'; remaining: number | null; description: string };
 export function heroStatuses(hero: HeroState, current = stats(hero)): HeroStatus[] {
   const effects: HeroStatus[] = [];
+  hero.potionTimers.forEach((remaining, index) => {
+    const potion = POTIONS[index + 2];
+    if (remaining > 0) effects.push({ id: `potion-${potion.code}`, name: potion.name, icon: potion.icon, kind: 'buff', remaining, description: potion.description });
+  });
   const debuff = (id: string, name: string, icon: string, remaining: number, description: string) => {
     if (remaining > 0) effects.push({ id, name, icon, remaining, description, kind: 'debuff' });
   };

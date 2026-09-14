@@ -11,7 +11,7 @@ import { ENCYCLOPEDIA_ITEMS, encyclopediaItem, itemDropSources, recipeBases } fr
 import { newHero, insertRune, parseSave, serializeSave } from '../src/model.ts';
 
 const unsupportedClasses = new Set(['nec', 'bar', 'dru', 'ass']);
-const removedMisc = CHEST_MISC.filter(item => !/^[hm]p[1-5]$/.test(item.code));
+const removedMisc = CHEST_MISC.filter(item => !/^[hm]p[1-5]$/.test(item.code) && !['vps', 'yps', 'wms'].includes(item.code));
 const rng = (seed = 921) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 
 // Select a particular original treasure leaf, with NoDrop for the other three picks.
@@ -33,7 +33,7 @@ function drawsForCode(context: ChestContext, target: string): number[] | undefin
 }
 
 test('every removed miscellaneous item is unreachable even when its original chest branch is selected', () => {
-  assert.equal(removedMisc.length, 43);
+  assert.equal(removedMisc.length, 40);
   const contexts = LEVELS.flatMap(level => [0, 1, 2].map(diff => chestContext(level, diff)));
   for (const misc of removedMisc) {
     const context = contexts.find(context => drawsForCode(context, misc.code));
@@ -47,6 +47,11 @@ test('every removed miscellaneous item is unreachable even when its original che
   for (const code of ['hp1', 'mp1', 'rin', 'amu', 'jew', 'cm1', 'gld']) {
     const draws = drawsForCode(contexts[0], code)!; let index = 0;
     assert.deepEqual(rollChestCodes(contexts[0], () => draws[index++] ?? 0), [code], code);
+  }
+  for (const [potion, code] of [[2, 'vps'], [3, 'yps'], [4, 'wms']] as const) {
+    const context = contexts.find(context => drawsForCode(context, code))!;
+    const draws = drawsForCode(context, code)!; let index = 0;
+    assert.deepEqual(rollChestLoot(context, () => draws[index++] ?? 0), [{ potion }, { gold: 5 + context.level }]);
   }
 });
 

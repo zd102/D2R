@@ -1,3 +1,4 @@
+import { potionIndex } from './potions.ts';
 import { playerNoDrop } from './player-count.ts';
 import { CHEST_TREASURES, CHEST_MISC, CHEST_RATIOS, type ChestTreasure } from './chest-data.ts';
 import { CATALOG_BASES } from './item-catalog-data.ts';
@@ -6,14 +7,14 @@ import { applyAffixes } from './affixes.ts';
 import { AREA_LEVELS, type Level } from './campaign.ts';
 
 const tables = new Map(CHEST_TREASURES.map(table => [table.id, table]));
-// Only life/mana potions have a use in the imported miscellaneous item table.
+// Keep supported drinkable potions in the original treasure tables.
 const unavailableCodes = new Set([
-  ...CHEST_MISC.filter(item => !/^[hm]p[1-5]$/.test(item.code)).map(item => item.code),
+  ...CHEST_MISC.filter(item => potionIndex(item.code) === undefined).map(item => item.code),
   ...BASES.filter(base => !isAvailableItem(base)).map(base => base.baseCode!),
 ]);
 const availableBaseCodes = new Set(BASES.filter(isAvailableItem).map(base => base.baseCode));
 export type ChestContext = { players?: number; level: number; act: number; difficulty: number; magicFind?: number; goldFind?: number };
-export type ChestDrop = { item?: Item; rune?: RuneId; gold?: number; potion?: 0 | 1 };
+export type ChestDrop = { item?: Item; rune?: RuneId; gold?: number; potion?: number };
 const integerRoll = (max: number, random: () => number) => Math.floor(Math.max(0, Math.min(1 - Number.EPSILON, random())) * max);
 
 export function chestTreasure(context: ChestContext): ChestTreasure {
@@ -76,7 +77,8 @@ export function rollChestLoot(context: ChestContext, random = Math.random): Ches
   const selected = codes.map(code => {
     if (code === 'gld') return { gold: Math.max(1, Math.floor((context.level + integerRoll(context.level * 5, random)) * (1 + Math.max(0, context.goldFind ?? 0) / 100))) };
     if (/^r\d{2}$/.test(code)) return { rune: RUNE_ORDER[Number(code.slice(1)) - 1] };
-    if (/^[hm]p[1-5]$/.test(code)) return { potion: (code[0] === 'h' ? 0 : 1) as 0 | 1 };
+    const potion = potionIndex(code);
+    if (potion !== undefined) return { potion };
     const equipment = /^(weap|armo)(\d+)$/.exec(code);
     if (equipment) {
       const pool = CATALOG_BASES.filter(base => availableBaseCodes.has(base.code) && base.weapon === (equipment[1] === 'weap') && !['rin', 'amu', 'jew', 'cm1', 'cm2', 'cm3'].includes(base.code) && Math.ceil(base.level / 3) * 3 === Number(equipment[2]));
