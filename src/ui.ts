@@ -106,6 +106,7 @@ export class UI {
           </div><span class="belt-divider"></span><div class="potion-group">
             <button class="skill health-potion" data-potion="0" ${tip('生命药剂 · 1')}><kbd>1</kbd>${icon('flame')}<b id="health-potions">6</b></button>
             <button class="skill mana-potion" data-potion="1" ${tip('法力药剂 · 2')}><kbd>2</kbd>${icon('droplets')}<b id="mana-potions">4</b></button>
+            ${POTIONS.slice(2).map((potion, i) => `<button class="skill utility-potion" data-potion="${i + 2}" ${tip(`${potion.name} · ${i + 3} · ${potion.description}`)}><kbd>${i + 3}</kbd>${icon(potion.icon)}<b id="utility-potions-${i + 2}">0</b></button>`).join('')}
           </div></div>
           <div class="paladin-status"><span id="active-aura-label">无灵气</span><span id="holy-shield-label"></span><span id="ammo-label" hidden></span><button data-action="run-mode" ${tip('切换跑步与行走')}><i data-lucide="footprints"></i></button><div class="stamina-track" ${tip('耐力')}><i id="stamina-fill"></i></div></div>
           <nav class="bottom-nav"><button data-panel="character" ${tip('角色 · C')}>${icon('user-round')}<span>角色</span><kbd class="nav-key" aria-hidden="true">C</kbd><b id="points-badge" hidden></b></button><button data-panel="skills" ${tip('技能 · T')}>${icon('book-open')}<span>技能</span><kbd class="nav-key" aria-hidden="true">T</kbd><b id="skill-points-badge" hidden></b></button><button data-panel="inventory" ${tip('背包 · I')}>${icon('backpack')}<span>背包</span><kbd class="nav-key" aria-hidden="true">I</kbd></button><button data-panel="quest" ${tip('任务 · J')}>${icon('scroll-text')}<span>任务</span><kbd class="nav-key" aria-hidden="true">J</kbd></button><button data-panel="map" ${tip('地图 · Tab')}>${icon('map')}<span>地图</span><kbd class="nav-key" aria-hidden="true">Tab</kbd></button><span class="gold-count">${icon('coins')}<b id="gold-value">0</b></span><button data-panel="pause" ${tip('暂停 · Esc')}>${icon('pause')}</button></nav>
@@ -540,6 +541,13 @@ export class UI {
     setText(document.getElementById('xp-value')!, h.level === 99 ? 'MAX' : `${Math.floor(h.xp / s.xpNeeded * 100)}%`);
     document.getElementById('xp-fill')!.style.width = `${h.level === 99 ? 100 : Math.min(100, h.xp / s.xpNeeded * 100)}%`;
     setText(document.getElementById('health-potions')!, String(h.potions[0])); setText(document.getElementById('mana-potions')!, String(h.potions[1]));
+    POTIONS.slice(2).forEach((potion, i) => {
+      const count = h.potions[i + 2] ?? 0, label = document.getElementById(`utility-potions-${i + 2}`)!;
+      setText(label, String(count));
+      const button = label.parentElement as HTMLButtonElement;
+      button.disabled = count === 0;
+      button.setAttribute('aria-label', `${potion.name} · 剩余 ${count} · 快捷键 ${i + 3}`);
+    });
     setText(document.getElementById('gold-value')!, h.gold.toLocaleString()); setText(document.getElementById('difficulty')!, game.inCamp ? '安全区域' : `${difficultyNames[difficulty(h)]} · Lv. ${levelTuning(game.level, difficulty(h)).level}`);
     const special = game.specialArea;
     setText(document.querySelector('.location .chapter')!, special ? '隐藏领域' : game.inCamp ? '旅者驻地' : `第 ${game.level.act + 1} 章 · 第 ${game.level.step + 1} 关`);

@@ -5,7 +5,7 @@ import { newHero, serializeSave } from '../src/model.ts';
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const errors = [];
 try {
-  for (const width of [1440, 390]) {
+  for (const width of [1440, 390, 360]) {
     const page = await browser.newPage({ viewport: { width, height: 900 }, isMobile: width < 700, hasTouch: width < 700 });
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/src/main.ts*', async route => {
@@ -21,10 +21,23 @@ try {
     await page.evaluate(() => { const g = window.potionGame; cancelAnimationFrame(g.frameId); g.ui.togglePanel('shop'); });
     for (const index of [2, 3, 4]) await page.locator(`[data-buy="${index}"]`).click();
     assert.deepEqual(await page.evaluate(() => ({ gold: window.potionGame.hero.gold, potions: window.potionGame.hero.potions })), { gold: 910, potions: [6, 4, 1, 1, 1] });
+    await page.evaluate(() => { window.potionGame.ui.closePanel(); window.potionGame.ui.update(); });
+    for (const index of [2, 3, 4]) {
+      await expect(page.locator(`#utility-potions-${index}`)).toHaveText('1');
+      await expect(page.locator(`.potion-group [data-potion="${index}"]`)).toBeEnabled();
+    }
+    assert.equal(await page.locator('.action-row button').evaluateAll(buttons => buttons.every(button => {
+      const r = button.getBoundingClientRect();
+      return r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight && button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+    })), true, 'all belt buttons fit and remain clickable');
     await page.evaluate(() => { const g = window.potionGame; g.hero.poison = g.hero.cold = 6; g.hero.stamina = 0; g.ui.togglePanel('inventory'); });
     for (const index of [2, 3, 4]) {
       const button = page.locator(`.utility-potions [data-potion="${index}"]`);
       await expect(button).toBeVisible(); await button.click(); await expect(button).toBeDisabled();
+      assert.ok((await button.boundingBox()).height <= 32, 'inventory potion stays compact');
+      await page.evaluate(() => window.potionGame.ui.update());
+      await expect(page.locator(`#utility-potions-${index}`)).toHaveText('0');
+      await expect(page.locator(`.potion-group [data-potion="${index}"]`)).toBeDisabled();
     }
     const used = await page.evaluate(async () => {
       const g = window.potionGame, { stats } = await import('/src/model.ts');
@@ -42,6 +55,13 @@ try {
     });
     for (const key of ['3', '4', '5']) await page.keyboard.press(key);
     assert.deepEqual(await page.evaluate(() => window.potionGame.hero.potionTimers), [60, 60, 60]);
+    await page.evaluate(() => { const g = window.potionGame; g.hero.potions.splice(2, 3, 2, 2, 2); g.ui.update(); });
+    for (const index of [2, 3, 4]) {
+      await page.locator(`.potion-group [data-potion="${index}"]`).click();
+      await page.evaluate(() => window.potionGame.ui.update());
+      await expect(page.locator(`#utility-potions-${index}`)).toHaveText('1');
+    }
+    assert.deepEqual(await page.evaluate(() => window.potionGame.hero.potionTimers), [90, 90, 90]);
     const running = await page.evaluate(async () => {
       const g = window.potionGame, { stats } = await import('/src/model.ts');
       g.combat.moving = true; g.hero.running = true; g.combat.update(1); g.ui.update();
