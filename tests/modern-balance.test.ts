@@ -24,13 +24,17 @@ test('bow, FoH, Nova and Hydra can complete 1pp at the recalibrated earned level
   }
 });
 
-test('8pp takes longer than 1pp against the same pack and retains bounded supplies',t=>{
+test('successful 8pp clears take longer than 1pp and all attempts retain bounded supplies',t=>{
   let seed=513;t.mock.method(Math,'random',()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/2**32;});
   const rows=[];
   for(const build of ['bow','foh','nova','hydra'] as const) {
     seed=513;const low=modernEncounter(89,2,24,build,1,true);
     seed=513;const high=modernEncounter(89,2,24,build,8,true);rows.push(high);
-    assert.ok(high.seconds>low.seconds,JSON.stringify({low,high}));
+    assert.ok(low.won,JSON.stringify(low));
+    // Moderate gear must clear 1pp; high-PP Hell can kill it before that clear
+    // time. Only completed fights have comparable clear times.
+    if(high.won)assert.ok(high.seconds>low.seconds,JSON.stringify({low,high}));
+    else {assert.equal(high.minLife,0,JSON.stringify(high));assert.ok(high.remaining>0,JSON.stringify(high));}
   }
   console.table(rows);
   for(const row of rows){assert.ok(Number.isFinite(row.seconds)&&row.seconds>0);assert.ok(row.hpPotions<=8&&row.manaPotions<=8);}

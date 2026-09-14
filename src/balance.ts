@@ -1,7 +1,7 @@
 import { monsterTraits } from './monster-traits.ts';
 import { playerLifeFactor, playerDamageFactor, playerExperienceFactor } from './player-count.ts';
 import { xpForLevel, type DamageType } from './paladin.ts';
-import { levelTuning, type Level } from './campaign.ts';
+import { AREA_LEVELS, levelTuning, type Level } from './campaign.ts';
 import type { MonsterDef } from './bestiary.ts';
 import type { DropRank } from './items.ts';
 
@@ -11,6 +11,24 @@ export const DIFFICULTY_POWER = [
   { life: 1.3, damage: 1.15, defense: 1.1, attack: 1.12 },
   { life: 2, damage: 1.3, defense: 1.25, attack: 1.3 },
 ] as const;
+
+// Field packs must outpace equipped melee leech. Ramp through Nightmare rather
+// than spiking at its entrance. Hell inherits that pressure, then tapers the
+// extra multiplier as its underlying area damage grows. Boss budgets are separate.
+function fieldOffense(areaLevel: number, difficulty: number) {
+  if (!difficulty) return { damage: 1, attack: 1 };
+  const levels = AREA_LEVELS[difficulty];
+  const progress = Math.max(0, Math.min(1, (areaLevel - levels[0]) / (levels[24] - levels[0])));
+  return difficulty === 1
+    ? { damage: Math.pow(3, progress), attack: Math.pow(1.5, progress) }
+    : { damage: 3 * Math.pow(2 / 3, progress), attack: 1.5 };
+}
+
+// Unrounded accuracy budget, also used by boss summons whose damage already
+// inherits the boss budget rather than the stronger field-pack curve.
+export function baseMonsterAttackRating(definition: MonsterDef, level: number, difficulty: number, players = 1) {
+  return monsterTraits(definition).accuracy * DIFFICULTY_POWER[difficulty].attack * playerDamageFactor(players, difficulty) * (25 + level * 7);
+}
 
 // LoD's level-70+ XP factors, softened by square root for this shorter campaign.
 const CLASSIC_HIGH_LEVEL_XP = [.9531,.9063,.8594,.8125,.7656,.7188,.6719,.625,.5781,.5313,.4844,.4375,.3906,.3438,.2969,.25,.1875,.1406,.1055,.0791,.0596,.0449,.0342,.0254,.0195,.0146,.0107,.0078,.0059];
@@ -38,6 +56,7 @@ export function monsterStats(definition: MonsterDef, area: Level, difficulty: nu
   const power = DIFFICULTY_POWER[difficulty], traits = monsterTraits(definition);
   elite = elite && !boss;
   const tuning = levelTuning(area, difficulty), level = Math.min(99, tuning.level + (boss || elite ? 2 : 0));
+  const offense = boss ? { damage: 1, attack: 1 } : fieldOffense(tuning.level, difficulty);
   const uberDiablo = area.special === 'uberDiablo' && boss && definition.id === 'diablo';
   const maxHp = uberDiablo ? 900000 : boss && definition.hpByDifficulty ? definition.hpByDifficulty[difficulty] : Math.round(definition.hp * tuning.hp * (boss ? 1.25 : elite ? 2.5 + difficulty * .5 : 1));
   const resistances: Record<DamageType, number> = { physical: difficulty === 2 ? 15 : 0, magic: boss ? difficulty * 10 : 0, fire: difficulty * 10, cold: difficulty * 10, lightning: difficulty * 10, poison: definition.race === 'undead' ? 65 : difficulty * 10 };
@@ -45,5 +64,5 @@ export function monsterStats(definition: MonsterDef, area: Level, difficulty: nu
   for (const type of Object.keys(traits.resistance ?? {}) as DamageType[]) resistances[type] = Math.min(85, traits.resistance![type]![difficulty]);
   if (uberDiablo) for (const type of ['fire', 'cold', 'lightning', 'poison'] as DamageType[]) resistances[type] = Math.max(resistances[type], 75);
   const damageFactor = playerDamageFactor(players, difficulty);
-  return { level, maxHp: Math.floor(Math.floor(maxHp * power.life) * playerLifeFactor(players)), damage: traits.damage * power.damage * damageFactor * definition.damage * tuning.damage * (uberDiablo ? 1.7 : elite ? 1.25 + difficulty * .1 : 1), defense: Math.round(traits.defense * power.defense * tuning.defense * (uberDiablo ? 1.35 : boss ? 1.1 : elite ? 1.25 : 1)), attackRating: Math.round(traits.accuracy * power.attack * damageFactor * (25 + level * 7) * (uberDiablo ? 1.5 : boss ? 1.1 : elite ? 1.2 : 1)), resistances };
+  return { level, maxHp: Math.floor(Math.floor(maxHp * power.life) * playerLifeFactor(players)), damage: traits.damage * power.damage * damageFactor * definition.damage * tuning.damage * offense.damage * (uberDiablo ? 1.7 : elite ? 1.25 + difficulty * .1 : 1), defense: Math.round(traits.defense * power.defense * tuning.defense * (uberDiablo ? 1.35 : boss ? 1.1 : elite ? 1.25 : 1)), attackRating: Math.round(baseMonsterAttackRating(definition, level, difficulty, players) * offense.attack * (uberDiablo ? 1.5 : boss ? 1.1 : elite ? 1.2 : 1)), resistances };
 }

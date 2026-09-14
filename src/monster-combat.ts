@@ -1,5 +1,6 @@
 import { curseDuration } from './item-special-effects.ts';
 import { monsterTraits } from './monster-traits.ts';
+import { baseMonsterAttackRating } from './balance.ts';
 import * as THREE from 'three';
 import { castSound } from './audio-bank.ts';
 import type { CombatAlly } from './class-combat.ts';
@@ -435,6 +436,7 @@ export class MonsterCombat {
     if (id === 'clone') state.cloned = true;
     const add = g.spawnEnemy(point.x, point.z, 'demon', definition); add.name = name; add.summoned = true; add.owner = enemy.id; add.active = true;
     add.maxHp = add.hp = enemy.maxHp * (id === 'clone' ? .18 : .12); add.damage = enemy.damage * .4;
+    if (enemy.boss) add.attackRating = Math.round(baseMonsterAttackRating(definition, add.level, g.hero.difficultyLevel, add.playerCount ?? g.hero.playerCount));
     if (id === 'hydra' || id === 'tentacles') add.speed = 0;
     this.state(add).lifetime = id === 'clone' ? 16 : 12; state.summons++;
   }
