@@ -23,6 +23,7 @@ export function createHeroActor(classId: ClassId): Actor {
   const paladin=classId==='paladin', amazon=classId==='amazon', sorceress=classId==='sorceress';
   const group=new THREE.Group(), rig=new THREE.Group(), chest=new THREE.Group(), head=new THREE.Group();
   group.name=`hero-${classId}`; group.userData.classId=classId; group.userData.bodyPlan='articulated-hero';
+  rig.name = 'hero-rig';
   // Keep the readable body size when the game resets the outer placement scale.
   rig.scale.setScalar(1.35);
   group.add(rig); rig.add(chest); chest.position.y=1.13; chest.add(head); head.position.y=.43;
@@ -180,6 +181,15 @@ export function createHeroActor(classId: ClassId): Actor {
   // Merge only unnamed rigid meshes sharing a joint/material. Gear groups remain addressable.
   mergeActorParts(rig);
   const actor:Actor={group,leftLeg,rightLeg,leftArm,rightArm,cape,kind:'hero',animate(time,moving,attacking){
+    const form = group.userData.itemForm as Actor | undefined;
+    if (form) {
+      form.animate?.(time * 1.33, moving, attacking);
+      const action = group.userData.action;
+      const progress = action ? (time - action.time) / action.duration : 1;
+      form.group.rotation.x = progress >= 0 && progress < 1 ? Math.sin(progress * Math.PI) * .6 : 0;
+      group.userData.pose = progress < 1 ? 'headbutt' : moving ? 'run' : 'idle';
+      return;
+    }
     const running=!!group.userData.running,cycle=time*(running?11:7.5),walk=moving?Math.sin(cycle):0,stride=moving?(running?.63:.40):0;
     rig.position.y=moving?Math.abs(Math.sin(cycle))* (running?.035:.018):Math.sin(time*1.8)*.006;
     rig.rotation.x=moving?(running?.065:.025):0;chest.rotation.set(0,moving?walk*.055:Math.sin(time*1.3)*.012,0);

@@ -327,7 +327,7 @@
   .rune-layout .rune-pouch { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .rune-layout > section { overflow: auto; }
   .panel-pause .pause-sigil { display: none; }
-  #party-status { --status-top: 95px; --status-bottom: 140px; left: 12px; width: 300px; }
+  #party-status { --status-top: 95px; --status-bottom: 200px; left: 12px; width: 300px; }
   #combat-status { gap: 4px; }
   #toasts { bottom: 145px; left: 50%; width: 220px; transform: translateX(-50%); }
   #toasts .toast:not(:last-child) { display: none; }

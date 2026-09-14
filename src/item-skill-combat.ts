@@ -5,11 +5,13 @@ import { itemSkillKind, type ItemSkillId } from './item-skill-definitions.ts';
 import { castingSkillLevel, castingSkillCost, stats, skillLevel } from './model.ts';
 import { skillValues } from './paladin.ts';
 import { clearShot } from './ranged.ts';
+import { controllableMonster } from './item-special-effects.ts';
+import { updateItemForm } from './item-form.ts';
 
 export function castItemSkill(combat: PaladinCombat, id: ItemSkillId, aimed: boolean, triggered?: ItemCastTarget) {
   const g = combat.game, h = g.hero, rank = castingSkillLevel(h, id), v = skillValues(id, rank, h.skills), kind = itemSkillKind(id);
   if (!rank) return false;
-  const point = kind==='buff' || kind==='melee' || id==='battleCry' || id==='poisonNova' || id==='cloakOfShadows' ? g.position : triggered?.point ?? (aimed ? g.aim : g.target?.actor.group.position ?? g.aim);
+  const point = kind==='buff' || kind==='melee' || id==='howl' || id==='battleCry' || id==='poisonNova' || id==='cloakOfShadows' ? g.position : triggered?.point ?? (aimed ? g.aim : g.target?.actor.group.position ?? g.aim);
   if (point.distanceTo(g.position) > 14 || !clearShot(g.world.grid, g.position, point)) return false;
   const targets = g.enemies.filter(enemy => combat.hostile(enemy) && enemy.actor.group.position.distanceTo(point) <= v.radius && clearShot(g.world.grid, g.position, enemy.actor.group.position));
   const corpse = g.enemies.find(enemy => enemy.dead && !enemy.redeemed && enemy.actor.group.position.distanceTo(point) < 4 && g.position.distanceTo(enemy.actor.group.position) <= 14 && clearShot(g.world.grid, g.position, enemy.actor.group.position));
@@ -29,8 +31,37 @@ export function castItemSkill(combat: PaladinCombat, id: ItemSkillId, aimed: boo
   }
   g.audio.play('spell', { nativeKey: `cast:${id}` }); g.burst(point.clone().setY(1), 0xb9c6eb, 16);
   if (kind === 'buff') {
+    if (id === 'delirium') { delete h.buffs.wearwolf; delete h.buffs.wearbear; combat.cancelCombo(); }
+    if (id === 'wearwolf' || id === 'wearbear') delete h.buffs.delirium;
     if (id === 'wearwolf' || id === 'wearbear') { delete h.buffs.wearwolf; delete h.buffs.wearbear; v.duration += skillValues('shapeShifting', skillLevel(h, 'shapeShifting')).duration; }
-    h.buffs[id] = { rank, remaining: v.duration }; return true;
+    h.buffs[id] = { rank, remaining: v.duration, ...(['boneArmor', 'cycloneArmor'].includes(id) ? { absorb: v.percent } : {}) };
+    updateItemForm(g.actor, h.buffs, g.time); return true;
+  }
+  if (id === 'fissure' || id === 'diabloFirestorm') { combat.specialItems.cast(id, rank, point); return true; }
+  if (id === 'mindBlast') {
+    for (const enemy of targets) {
+      if (controllableMonster(enemy) && combat.itemRandom() * 100 < v.percent) {
+        combat.specialItems.convert(enemy, 6 + combat.itemRandom() * 4); enemy.stunned = 0; enemy.flee = 0;
+        combat.specialItems.taunts.delete(enemy); combat.itemCurses.delete(enemy);
+        g.monsterCombat?.cancel(enemy); enemy.path = []; if (g.target === enemy) g.target = undefined;
+      } else {
+        combat.damage(enemy, v.min + combat.itemRandom() * (v.max - v.min), 'physical');
+        if (!enemy.dead && !enemy.boss && (!enemy.elite && !enemy.champion || combat.itemRandom() < .1)) {
+          enemy.stunned = Math.max(enemy.stunned, v.duration); combat.knockback(enemy, .7); g.monsterCombat?.cancel(enemy);
+        }
+      }
+    }
+    return true;
+  }
+  if (id === 'taunt' || id === 'howl') {
+    const chosen = id === 'taunt' ? targets.sort((a,b) => a.actor.group.position.distanceToSquared(point)-b.actor.group.position.distanceToSquared(point)).slice(0,1) : targets;
+    for (const enemy of chosen) if (controllableMonster(enemy)) {
+      if (id === 'howl' && h.level + rank + 1 <= enemy.level) continue;
+      g.monsterCombat?.cancel(enemy); enemy.path = []; enemy.rethink = 0; enemy.active = true;
+      if (id === 'taunt') { enemy.flee = 0; combat.specialItems.taunts.set(enemy, v.percent); }
+      else { combat.specialItems.taunts.delete(enemy); enemy.flee = v.duration; }
+    }
+    return true;
   }
   if (kind === 'summon' || id === 'revive') {
     if (corpse && id === 'revive') { corpse.redeemed = true; corpse.actor.group.visible = false; }
@@ -54,6 +85,7 @@ export function castItemSkill(combat: PaladinCombat, id: ItemSkillId, aimed: boo
   if (kind === 'curse') {
     for (const enemy of targets) {
       if (enemy.champion?.id === 'possessed') continue;
+      combat.specialItems.taunts.delete(enemy);
       if (id === 'cloakOfShadows' || id === 'dimVision') { if (!enemy.boss) enemy.blind = Math.max(enemy.blind ?? 0, v.duration); }
       else if (id === 'terror') { if (!enemy.boss) enemy.flee = Math.max(enemy.flee ?? 0, v.duration); }
       else if (id === 'attract' || id === 'confuse') { if (!enemy.boss) enemy.converted = Math.max(enemy.converted, v.duration); }

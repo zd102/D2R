@@ -27,6 +27,8 @@ import { ClassCombat } from './class-combat.ts';
 import { classSkillMode, type ExtraSkillId } from './class-skills.ts';
 import { isPassive } from './paladin.ts';
 import { strongerAura } from './mercenary-auras.ts';
+import { ItemSpecialEffects, curseDuration } from './item-special-effects.ts';
+import { updateItemForm } from './item-form.ts';
 
 export type AttackSnapshot = { skillRanks?: Partial<Record<SkillId,number>>; stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3; mercenary?: boolean };
 export type ItemCastTarget = { point: THREE.Vector3; target?: Enemy };
@@ -53,6 +55,7 @@ export class PaladinCombat {
   running = false;
   ammoWarning = 0;
   classes = new ClassCombat(this);
+  specialItems = new ItemSpecialEffects(this);
   constructor(game: Game) { this.game = game; decorateAura(this.auraRing); game.world.scene.add(this.auraRing, this.shieldRing, this.corpseRing); this.auraRing.visible = this.shieldRing.visible = this.corpseRing.visible = false; }
   cooldown(id: ActionId) {
     if (isAura(id) || isPassive(id)) return 0;
@@ -94,7 +97,7 @@ export class PaladinCombat {
   snapshot(): AttackSnapshot { const h = this.game.hero; return { skillRanks: castingSkillRanks(h), stats: stats(h), level: h.level, difficulty: difficulty(h), skills: { ...h.skills }, items: structuredClone([...activeEquipment(h), ...activeCharms(h)]), origin: this.game.position.clone() }; }
   reach(id: ActionId) { return this.classes.reach(id) ?? (id === 'attack' && stats(this.game.hero).ranged ? 14 : ['holyBolt', 'fistOfHeavens', 'charge'].includes(id) ? 12 : id === 'blessedHammer' ? 5 : 2.5); }
   canReach(enemy: Enemy, id: ActionId) { return enemy.actor.group.position.distanceTo(this.game.position) < this.reach(id) && clearShot(this.game.world.grid, this.game.position, enemy.actor.group.position); }
-  triggerItems(event: string, target?: Enemy, equipment?: Item[]) {
+  triggerItems(event: string, target?: Enemy, equipment?: Item[], mercenary = false) {
     if (this.triggeringItem || this.game.dead) return;
     const g = this.game, triggers = new Map<string, ReturnType<typeof itemTriggers>[number]>();
     for (const item of equipment ?? [...activeEquipment(g.hero), ...activeCharms(g.hero)]) for (const trigger of itemTriggers(item)) if (trigger.event === event) {
@@ -102,6 +105,9 @@ export class PaladinCombat {
       triggers.set(key, { ...trigger, chance: trigger.chance + (previous?.chance ?? 0) });
     }
     for (const trigger of triggers.values()) if (this.itemRandom() * 100 < trigger.chance) {
+      if (mercenary && ['fade','boneArmor','delirium'].includes(trigger.skill)) {
+        g.mercenary?.triggerItemBuff(trigger.skill as 'fade'|'boneArmor'|'delirium', trigger.level); continue;
+      }
       const point = target?.actor.group.position.clone() ?? g.position.clone();
       if (!trigger.kind) {
         this.triggeringItem = true;
@@ -136,6 +142,7 @@ export class PaladinCombat {
     const cast = castChargedSkill(h, charge, () => this.castAction(id, aimed)); if(cast)g.save(false); return cast;
   }
   castAction(id: ActionId, aimed = false, triggered?: ItemCastTarget): boolean {
+    if (!triggered && this.game.hero.buffs.delirium && !['attack', 'wearwolf', 'wearbear'].includes(id)) return false;
     if (isAura(id) || isPassive(id)) return false;
     if (!triggered && (this.readyIn(id) > 0 || this.game.paused || this.game.dead)) return false;
     if (itemSkillKind(id)) return castItemSkill(this, id as ItemSkillId, aimed, triggered);
@@ -228,6 +235,7 @@ export class PaladinCombat {
     if (!smite) physical += weaponDamage * (isUndead(enemy) ? s.mods.damageUndead ?? 0 : enemy.definition?.race === 'demon' ? s.mods.damageDemons ?? 0 : 0) / 100;
     if(id==='multipleShot') physical *= .75;
     const critical = !smite && id !== 'sacrifice' && (s.criticalStrike>0&&Math.random()*100<s.criticalStrike || Math.random() * 100 < (s.mods.deadlyStrike ?? 0)); if (critical) physical *= 2;
+    if (s.mods.reanimateReturned) this.specialItems.armReanimation(enemy, snapshot);
     if (Math.random() * 100 < (s.mods.crushingBlow ?? 0)) this.damage(enemy, resistedDamage(enemy.hp / playerLifeFactor(enemy.playerCount) * (enemy.boss ? .125 : .25) * (projectile ? .5 : 1), Math.max(0, this.physicalResistance(enemy))), 'physical', true, false, snapshot);
     const classConversion = ['magicArrow','fireArrow','coldArrow','lightningBolt'].includes(id);
     const conversion = id==='berserk' ? 1 : Math.min(100, classConversion ? v.percent : magicArrow) / 100;
@@ -350,6 +358,8 @@ export class PaladinCombat {
     let damage = 0;
     for (const part of parts) {
       let value = part.amount;
+      const bone = h.buffs.boneArmor;
+      if (!self && bone && part.type === 'physical') { const capacity = bone.absorb ?? skillValues('boneArmor', bone.rank, h.skills).percent; const absorbed = Math.min(value, capacity); value -= absorbed; bone.absorb = capacity - absorbed; if (bone.absorb <= 0) delete h.buffs.boneArmor; }
       const cyclone=h.buffs.cycloneArmor;
       if(!self && cyclone && ['fire','cold','lightning'].includes(part.type)) { const capacity=cyclone.absorb??skillValues('cycloneArmor',cyclone.rank).percent, absorbed=Math.min(value,capacity); value-=absorbed; cyclone.absorb=capacity-absorbed; if(cyclone.absorb<=0) delete h.buffs.cycloneArmor; }
       const shield = h.buffs?.energyShield;
@@ -362,7 +372,7 @@ export class PaladinCombat {
       if (!self && part.type === 'poison' && part.amount > 0) h.poison = Math.max(h.poison, 6);
     }
     if (!self && source && !spec?.triggered) {
-      if (hasMonsterAffix(source, 'cursed') && Math.random() < .75) h.curse = Math.max(h.curse, 5);
+      if (hasMonsterAffix(source, 'cursed') && Math.random() < .75) h.curse = Math.max(h.curse, curseDuration(h, 5));
       if (hasMonsterAffix(source, 'manaBurn')) h.mana = Math.max(0, h.mana - Math.min(s.maxMana * .2, Math.max(5, amount * .75)));
     }
     damage = Math.max(0, damage); h.hp = Math.max(0, h.hp - damage);
@@ -389,7 +399,7 @@ export class PaladinCombat {
     if (!self && !missile && source && type === 'physical') { const curse=this.itemCurses.get(source); const reflected=(curse?.kind==='ironMaiden'?skillValues('ironMaiden',curse.rank??1).percent:0) + (h.buffs.spiritOfBarbs?skillValues('spiritOfBarbs',h.buffs.spiritOfBarbs.rank).percent:0); if(reflected) this.damage(source,damage*reflected/100,'physical'); }
     if (!self && !missile && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
     if (!self && !missile && source && type === 'physical' && s.mods.lightningReflect) this.damage(source, s.mods.lightningReflect, 'lightning');
-    if (h.hp <= 0 && !g.dead) { this.classes.clear(); this.triggerItems('death-skill'); h.hp = 0; g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; g.dead = true; g.releaseInput(); this.zeal = null; g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
+    if (h.hp <= 0 && !g.dead) { this.classes.clear(); this.triggerItems('death-skill'); h.hp = 0; g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; updateItemForm(g.actor, h.buffs, g.time); g.dead = true; g.releaseInput(); this.zeal = null; g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
     return true;
   }
   update(dt: number) {
@@ -408,6 +418,8 @@ export class PaladinCombat {
       if (remaining <= 1e-6) delete this.actionCooldowns[id]; else this.actionCooldowns[id] = remaining;
     }
     this.classes.update(dt);
+    this.specialItems.update(dt);
+    updateItemForm(g.actor, h.buffs, g.time);
     updateHeroWards(g.actor.group,h.buffs??{},g.time);
     if (!h.holyShield) h.holyShieldLevel = 0;
     const weaponModel = g.actor.group.getObjectByName('hero-weapon'), shieldModel = g.actor.group.getObjectByName('hero-shield');
@@ -473,6 +485,7 @@ export class PaladinCombat {
     }
   }
   updateDeathEffects(dt: number) {
+    this.specialItems.update(dt);
     this.classes.update(dt);
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       if (!this.updateProjectile(this.projectiles[i], dt)) { this.game.disposeObject(this.projectiles[i].mesh); this.projectiles.splice(i, 1); }

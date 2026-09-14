@@ -284,7 +284,7 @@ export function migrateCatalogItem(item: Item) {
   // Newly supported class properties are recovered from the item's existing rolls.
   // Preserve every previously rolled modifier, including catalog-v1 items.
   const classEntry=CATALOG_SPECIALS.find(entry=>entry.id===item.catalogId)??CATALOG_RUNEWORDS.find(entry=>entry.id===item.catalogId);
-  if(classEntry){item.mods??={};let draw=0;const restored=catalogMods(classEntry.properties,()=>item.catalogRolls?.[draw++]??.5),newKeys=['vendorDiscount','grantedCriticalStrike','grantedEvade','amazonSkills','sorceressSkills','bowSkills','passiveSkills','javelinSkills','fireSkillsTab','lightningSkills','coldSkills'];
+  if(classEntry){item.mods??={};let draw=0;const restored=catalogMods(classEntry.properties,()=>item.catalogRolls?.[draw++]??.5),newKeys=['reanimateReturned','vendorDiscount','grantedCriticalStrike','grantedEvade','amazonSkills','sorceressSkills','bowSkills','passiveSkills','javelinSkills','fireSkillsTab','lightningSkills','coldSkills'];
     for(const [key,value] of Object.entries(restored))if((newKeys.includes(key)||['skill_', 'oskill_', 'aura_'].some(prefix=>key.startsWith(prefix))&&!Object.hasOwn(item.mods,key))&&item.mods[key as Modifier]===undefined)item.mods[key as Modifier]=value;
   }
   for (const jewel of item.socketedJewels ?? []) {

@@ -51,7 +51,10 @@ try {
     assert.equal(saved.gold, h.gold - mercenaryCost(h)); assert.equal(saved.mercenary.status, 'alive');
     await page.locator('[data-mercenary-item="merc-armor"]').click();
     await expect(page.locator('.mercenary-comparison')).toContainText('+80');
-    for (const item of h.inventory) await page.locator(`[data-mercenary-equip="${item.id}"]`).click();
+    for (const item of h.inventory) {
+      await page.locator(`[data-mercenary-equip="${item.id}"]`).click();
+      await page.waitForFunction(() => !window.eclipseState.saveBusy);
+    }
     await page.locator('[data-mercenary-tab="equipment"]').focus(); await page.keyboard.press('ArrowRight');
     await expect(page.locator('[data-mercenary-tab="auras"]')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('[data-mercenary-tab="auras"]')).toBeFocused();
@@ -106,9 +109,12 @@ try {
     assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.mercenary.hp), 100, 'Plain 1 still heals only the player');
     await page.evaluate(() => { const g = window.mercenaryVerification; g.combat.regen[0] = 0; g.hero.mercenary.aura = 'holyFreeze'; });
 
+    await page.waitForFunction(() => !window.eclipseState.saveBusy);
+    assert.equal(await page.evaluate(() => window.mercenaryVerification.enterLevel(0, 0)), true);
+    await page.waitForFunction(() => !window.eclipseState.inCamp && !window.eclipseState.saveBusy && window.mercenaryVerification.enemies.some(enemy => !enemy.boss));
     const combat = await page.evaluate(async () => {
       const g = window.mercenaryVerification, { stats } = await import('/src/model.ts'), { ATTACKS } = await import('/src/monster-combat.ts');
-      g.enterLevel(0, 0); g.paused = true; g.invincible = 0;
+      g.paused = true; g.invincible = 0;
       const merc = g.hero.mercenary, target = g.enemies.find(enemy => !enemy.boss), point = g.mercenary.position;
       for (const enemy of g.enemies) if (enemy !== target) { enemy.dead = true; g.world.physics.removeBody(enemy.body); }
       target.actor.group.position.copy(point).add({ x: 1.6, y: 0, z: 0 }); target.body.position.set(target.actor.group.position.x, .5, target.actor.group.position.z);
@@ -138,9 +144,9 @@ try {
         // Actual kill dispatch grants player XP/quest progress and mercenary kill healing.
         merc.hp = 50; g.hero.hp = 20; target.hp = 1; const kills = g.hero.kills; g.mercenary.strike(target); const killCredit = g.hero.kills === kills + 1 && g.hero.hp === 20 && merc.hp > 50;
         // Teleport catch-up uses a valid player position.
-        point.x += 40; g.mercenary.update(1 / 60); const followed = point.distanceTo(g.position) < 3;
+        point.copy(g.position).add({ x: 40, y: 0, z: 0 }); g.mercenary.update(1 / 60); const followed = point.distanceTo(g.position) < 3;
         g.mercenary.hurt(1e9, 'magic'); const dead = merc.status === 'dead' && merc.hp === 0 && !g.mercenary.ally;
-        g.returnToCamp(); g.paused = true; const campDead = g.hero.mercenary.status === 'dead' && !g.mercenary.ally;
+        await g.flushSave(); g.returnToCamp(); await g.flushSave(); g.paused = true; const campDead = g.hero.mercenary.status === 'dead' && !g.mercenary.ally;
         const gold = g.hero.gold; g.ui.openPanel('mercenary'); const fieldHireRejected = !g.hireMercenary() && g.hero.gold === gold;
         return { dealt, healed, playerHp, attacks, slow, chosen, receivedMelee, receivedMissile, receivedHazard, prayerHealed, itemAura: modRegen > baseRegen, reflected, killCredit, followed, dead, campDead, fieldHireRejected, durability, finalDurability: merc.equipment.weapon.durability };
       } finally { Math.random = oldRandom; }

@@ -1,3 +1,5 @@
+import { updateItemForm } from './item-form.ts';
+import { curseDuration } from './item-special-effects.ts';
 import type { AttackSpec } from './monster-combat.ts';
 import { hasMonsterAffix } from './monster-affixes.ts';
 import * as THREE from 'three';
@@ -93,10 +95,21 @@ export class MercenaryCombat {
       this.target = enemy; this.path = path; this.rethink = MERCENARY_PURSUIT.repathInterval; return;
     }
   }
+  triggerItemBuff(id: 'fade'|'boneArmor'|'delirium', rank: number) {
+    const merc = this.game.hero.mercenary; if (!merc || merc.status !== 'alive') return;
+    const value = skillValues(id, rank);
+    (merc.buffs ??= {})[id] = { rank, remaining: value.duration, ...(id === 'boneArmor' ? { absorb: value.percent } : {}) };
+    if (this.ally) updateItemForm(this.ally.actor, merc.buffs, this.game.time);
+  }
   update(dt: number) {
     this.sync();
     const g = this.game, merc = g.hero.mercenary, ally = this.ally;
     if (!merc || !ally || g.dead) return;
+    for (const [id,buff] of Object.entries(merc.buffs ?? {})) {
+      if (id !== 'boneArmor') buff.remaining -= dt;
+      if (buff.remaining <= 0) delete merc.buffs![id as SkillId];
+    }
+    updateItemForm(ally.actor, merc.buffs ?? {}, g.time);
     const s = mercenaryStats(g.hero), point = ally.actor.group.position;
     if (this.lastLevel !== g.hero.level) { merc.hp = s.maxHp; this.lastLevel = g.hero.level; }
     merc.hp = Math.min(s.maxHp, merc.hp + s.lifeRegen * dt);
@@ -136,12 +149,13 @@ export class MercenaryCombat {
   }
   strike(enemy: Enemy) {
     const g = this.game, c = g.combat, merc = g.hero.mercenary!, snapshot = this.snapshot(), s = snapshot.stats, mods = s.mods;
-    c.triggerItems('att-skill', enemy, snapshot.items);
+    c.triggerItems('att-skill', enemy, snapshot.items, true);
     const jab = skillValues('jab', 1 + Math.floor(g.hero.level / 5) + (mods.allSkills ?? 0), emptySkills());
     const defense = mods.ignoreDefense && !enemy.boss ? 0 : Math.max(0, enemy.defense - c.classes.defenseReduction(enemy)) * Math.max(0, 1 - (mods.targetDefense ?? 0) / 100 / (enemy.boss ? 2 : 1) - (c.auraAt(enemy, 'conviction', s)?.secondary ?? 0) / 100);
     const raceAttack = isUndead(enemy) ? mods.attackUndead ?? 0 : enemy.definition?.race === 'demon' ? mods.attackDemons ?? 0 : 0;
     const attackRating = (s.baseAttackRating + raceAttack) * (1 + (s.attackRatingBonus + jab.attack) / 100);
     if (Math.random() * 100 >= hitChance(attackRating, defense, g.hero.level, enemy.level)) { g.ui.floatText('未命中', enemy.actor.group.position.clone().setY(1.8), 'miss'); return; }
+    if (mods.reanimateReturned) c.specialItems.armReanimation(enemy, snapshot);
     if (Math.random() * 100 < (mods.crushingBlow ?? 0)) c.damage(enemy, resistedDamage(enemy.hp / playerLifeFactor(enemy.playerCount) * (enemy.boss ? .125 : .25), Math.max(0, c.physicalResistance(enemy))), 'physical', true, false, snapshot);
     const critical = s.criticalStrike > 0 && Math.random() * 100 < s.criticalStrike || Math.random() * 100 < (mods.deadlyStrike ?? 0);
     const racial = isUndead(enemy) ? mods.damageUndead ?? 0 : enemy.definition?.race === 'demon' ? mods.damageDemons ?? 0 : 0;
@@ -167,7 +181,7 @@ export class MercenaryCombat {
       if (Math.random() * 100 < (mods.flee ?? 0)) enemy.flee = 2;
     }
     if (mods.knockback && !enemy.boss) { const direction = enemy.actor.group.position.clone().sub(this.position!).normalize(), end = enemy.actor.group.position.clone().addScaledVector(direction, .8); if (g.world.canWalk(enemy.actor.group.position, end)) enemy.body.position.set(end.x, .5, end.z); }
-    if (!enemy.dead) c.triggerItems('hit-skill', enemy, snapshot.items);
+    if (!enemy.dead) c.triggerItems('hit-skill', enemy, snapshot.items, true);
   }
   hurt(amount: number, type: DamageType = 'physical', source?: Enemy, missile = false, spec?: AttackSpec) {
     const g = this.game, merc = g.hero.mercenary;
@@ -179,19 +193,24 @@ export class MercenaryCombat {
     const parts = source ? g.monsterCombat?.damageParts?.(source, amount, type, spec) ?? [{ amount, type }] : [{ amount, type }];
     let damage = 0;
     for (const part of parts) {
+      const bone = merc.buffs?.boneArmor;
+      if (bone && part.type === 'physical') {
+        const capacity = bone.absorb ?? skillValues('boneArmor',bone.rank).percent, absorbed = Math.min(part.amount,capacity);
+        part.amount -= absorbed; bone.absorb = capacity - absorbed; if (bone.absorb <= 0) delete merc.buffs!.boneArmor;
+      }
       const conviction = ['fire', 'cold', 'lightning'].includes(part.type) && g.monsterCombat?.auraAt?.(this.position, 'conviction') ? 35 : 0;
       const resisted = part.type === 'physical' ? Math.max(0, part.amount - (s.mods.damageReductionFlat ?? 0)) * (1 - Math.min(50, s.mods.damageReduction ?? 0) / 100) * ((g.monsterCombat?.mercenaryCurseUntil ?? 0) > g.time ? 2 : 1) : resistedDamage(Math.max(0, part.amount - (s.mods.magicReduction ?? 0)), part.type === 'magic' ? 0 : s.resistances[part.type] - conviction);
       const absorbed = absorbDamage(resisted, part.type, s.mods); merc.hp = Math.max(0, Math.min(s.maxHp, merc.hp + absorbed.healing) - absorbed.damage); damage += absorbed.damage;
       if (part.type === 'cold' && part.amount > 0 && !s.mods.cannotBeFrozen) merc.cold = s.mods.halfFreeze ? 2 : 4;
       if (part.type === 'poison' && part.amount > 0) merc.poison = Math.max(merc.poison, 6);
     }
-    if (source && !spec?.triggered && hasMonsterAffix(source, 'cursed') && Math.random() < .75 && g.monsterCombat) g.monsterCombat.mercenaryCurseUntil = g.time + 5;
+    if (source && !spec?.triggered && hasMonsterAffix(source, 'cursed') && Math.random() < .75 && g.monsterCombat) g.monsterCombat.mercenaryCurseUntil = g.time + curseDuration({ buffs: merc.buffs ?? {} }, 5);
     if (source && merc.hp > 0) {
-      g.combat.triggerItems('gethit-skill', source, activeMercenaryEquipment(g.hero));
+      g.combat.triggerItems('gethit-skill', source, activeMercenaryEquipment(g.hero), true);
       if (!missile && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); const reflected = damage * (thorns?.percent ?? 0) / 100 + (thorns?.secondary ?? 0) + (s.mods.reflectDamage ?? 0); if (reflected > 0) g.combat.damage(source, reflected, 'physical', false, false, this.snapshot()); }
     }
     if (merc.hp <= 0) {
-      merc.status = 'dead'; merc.cold = merc.poison = merc.potionHealing = 0;
+      merc.status = 'dead'; delete merc.buffs; merc.cold = merc.poison = merc.potionHealing = 0;
       g.burst(this.position.clone().setY(1), 0xb78363, 12); this.clear();
       g.ui.toast('米山已阵亡', '装备已保留，请回营地找佣兵商人重新雇佣'); g.save(false);
     }

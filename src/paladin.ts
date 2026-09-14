@@ -62,7 +62,12 @@ export const tierValue = (rank: number, initial: number, increments: number[]) =
 };
 export type SkillValues = { cost: number; damage: number; min: number; max: number; attack: number; hits: number; duration: number; radius: number; type: DamageType; percent: number; secondary: number; healing: number };
 export function skillValues(id: ActionId, rank: number, hard: Partial<Record<SkillId, number>> = {}): SkillValues {
-  if (itemSkillKind(id)) return itemSkillValues(id as ItemSkillId, rank);
+  if (itemSkillKind(id)) {
+    const value = itemSkillValues(id as ItemSkillId, rank);
+    if (rank > 0 && id === 'boneArmor') value.percent += 15 * (hard.bonePrison ?? 0);
+    if (rank > 0 && id === 'fissure') { const synergy = 1 + .12 * ((hard.firestorm ?? 0) + (hard.volcano ?? 0)); value.min *= synergy; value.max *= synergy; }
+    return value;
+  }
   if (Object.hasOwn(ORIGINAL_CLASS_SKILLS, id)) return extraSkillValues(id as ExtraSkillId, rank, hard);
   const p = (key: SkillId) => hard[key] ?? 0;
   const v: SkillValues = { cost: 0, damage: 0, min: 0, max: 0, attack: 0, hits: 1, duration: 0, radius: 10.6 + (rank - 1) * 4 / 3, type: 'physical', percent: 0, secondary: 0, healing: 0 };

@@ -1,6 +1,6 @@
 import { POTIONS } from './potions.ts';
 import { stats, type HeroState } from './model.ts';
-import { skillName, skillIcon, type SkillId } from './paladin.ts';
+import { skillName, skillIcon, skillValues, type SkillId } from './paladin.ts';
 
 export type HeroStatus = { id: string; name: string; icon: string; kind: 'buff' | 'debuff'; remaining: number | null; description: string };
 export function heroStatuses(hero: HeroState, current = stats(hero)): HeroStatus[] {
@@ -17,7 +17,11 @@ export function heroStatuses(hero: HeroState, current = stats(hero)): HeroStatus
   debuff('cold', '冰冷减速', 'snowflake', hero.cold, '移动与攻击速度降低');
   if (hero.holyShield > 0 && current.hasShield) effects.push({ id: 'holyShield', name: '神圣之盾', icon: 'shield-check', remaining: hero.holyShield, description: '提高防御、格挡与盾击能力', kind: 'buff' });
   for (const [id, buff] of Object.entries(hero.buffs)) if (buff && buff.remaining > 0 && buff.rank > 0) {
-    effects.push({ id, name: skillName(id as SkillId), icon: skillIcon(id as SkillId), remaining: buff.remaining, description: `技能等级 ${buff.rank}`, kind: 'buff' });
+    const value = skillValues(id as SkillId, buff.rank, hero.skills);
+    const description = id === 'fade' ? `全抗 +${value.percent}% · 物理减伤 ${buff.rank}% · 新诅咒持续时间缩短 ${value.secondary}%`
+      : id === 'boneArmor' ? `剩余物理伤害吸收 ${Math.ceil(buff.absorb ?? value.percent)}`
+      : id === 'delirium' ? '骨矮人形态 · 普通近战攻击 · 移动和攻击速度提高 33%' : `技能等级 ${buff.rank}`;
+    effects.push({ id, name: skillName(id as SkillId), icon: skillIcon(id as SkillId), remaining: id === 'boneArmor' ? null : buff.remaining, description, kind: 'buff' });
   }
   for (const aura of current.auras) effects.push({ id: `aura-${aura.id}`, name: skillName(aura.id), icon: skillIcon(aura.id), remaining: null, description: `${hero.activeAura === aura.id ? '已开启的灵气' : '装备提供的灵气'} · 等级 ${aura.rank}`, kind: 'buff' });
   return effects;

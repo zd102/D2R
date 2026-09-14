@@ -1,3 +1,4 @@
+import { curseDuration } from './item-special-effects.ts';
 import * as THREE from 'three';
 import { castSound } from './audio-bank.ts';
 import type { CombatAlly } from './class-combat.ts';
@@ -94,7 +95,7 @@ export class MonsterCombat {
   heroSpeed() { return (this.auraAt(this.game.position, 'holyFreeze') ? .6 : 1) * (this.debuffs.decrepify > 0 ? .65 : 1); }
   imprisoned(point: THREE.Vector3) { return this.prisons.some(p => !p.source.dead && p.guards.every(e => !e.dead) && point.distanceTo(p.center) < 2.2); }
   attackRate(enemy: Enemy) { return enemy.converted <= 0 && this.auraAt(enemy.actor.group.position, 'fanaticism') ? 1.2 : 1; }
-  accuracy(enemy: Enemy) { return enemy.attackRating * (enemy.converted <= 0 && this.auraAt(enemy.actor.group.position, 'blessedAim') ? 1.5 : 1); }
+  accuracy(enemy: Enemy) { return enemy.attackRating * (1 - (this.game.combat.specialItems?.taunts.get(enemy) ?? 0) / 100) * (enemy.converted <= 0 && this.auraAt(enemy.actor.group.position, 'blessedAim') ? 1.5 : 1); }
   damageParts(enemy: Enemy, amount: number, type: DamageType, spec?: AttackSpec): DamagePart[] {
     const parts = spec?.triggered ? [{ type, amount }] : monsterDamageParts(enemy, amount, type);
     if (spec?.secondary) parts.push({ type: spec.secondary[0], amount: enemy.damage * spec.secondary[1] });
@@ -106,7 +107,7 @@ export class MonsterCombat {
     // enchantment adds the same element as the original attack.
     const totals = new Map<DamageType, number>();
     for (const part of parts) totals.set(part.type, (totals.get(part.type) ?? 0) + part.amount);
-    return [...totals].map(([type, amount]) => ({ type, amount }));
+    return [...totals].map(([type, amount]) => ({ type, amount: type === 'physical' && !spec?.triggered ? amount * (1 - (this.game.combat.specialItems?.taunts.get(enemy) ?? 0) / 100) : amount }));
   }
   clearHeroDebuffs() { this.debuffs = { bloodMana: 0, defense: 0, decrepify: 0 }; this.mercenaryCurseUntil = 0; }
   heroStatuses(): HeroStatus[] {
@@ -240,7 +241,7 @@ export class MonsterCombat {
     this.game.world.scene.add(mesh); return mesh;
   }
   startCast(enemy: Enemy, id: AttackId, override?: AttackSpec) {
-    const summon=this.game.combat.classes?.target(enemy);
+    const summon=this.game.combat.specialItems?.taunts.has(enemy) ? undefined : this.game.combat.classes?.target(enemy);
     const spec = override ?? ATTACKS[id], origin = enemy.actor.group.position.clone(), target = (summon?.actor.group.position??this.game.position).clone();
     const corpse = id === 'revive' ? this.revivalTarget(enemy) : undefined;
     if (id === 'revive') { if (!corpse) return; target.copy(corpse.actor.group.position); }
@@ -267,11 +268,11 @@ export class MonsterCombat {
     const g = this.game; if (g.invincible > 0 || g.dead || source.converted > 0) return;
     const accepted = g.combat.hurt(source.damage * spec.damage, spec.type, source, false, spec.shape !== 'melee', spec);
     if (g.dead || accepted === false) return;
-    if (spec.status === 'curse') g.hero.curse = Math.max(g.hero.curse, 5);
+    if (spec.status === 'curse') g.hero.curse = Math.max(g.hero.curse, curseDuration(g.hero, 5));
     if (spec.status === 'mana') g.hero.mana = Math.max(0, g.hero.mana * .75);
     if (spec.status === 'stun') g.combat.recover(.45);
-    if (spec.status === 'bloodMana') { const s = stats(g.hero); this.debuffs[s.maxMana >= s.maxHp ? 'bloodMana' : 'defense'] = 6; }
-    if (spec.status === 'decrepify') this.debuffs.decrepify = 5;
+    if (spec.status === 'bloodMana') { const s = stats(g.hero); this.debuffs[s.maxMana >= s.maxHp ? 'bloodMana' : 'defense'] = curseDuration(g.hero, 6); }
+    if (spec.status === 'decrepify') this.debuffs.decrepify = curseDuration(g.hero, 5);
     if (spec.knockback) {
       const point = g.position.clone().addScaledVector(g.position.clone().sub(source.actor.group.position).normalize(), spec.knockback);
       if (this.canMove(g.position, point)) { g.body.position.set(point.x, g.body.position.y, point.z); g.position.copy(point); }
@@ -349,7 +350,7 @@ export class MonsterCombat {
     this.state(add).lifetime = id === 'clone' ? 16 : 12; state.summons++;
   }
   updateEnemy(enemy: Enemy, dt: number) {
-    const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, targetPoint=g.combat.classes?.target(enemy)?.actor.group.position??g.position, distance = p.distanceTo(targetPoint), ai = DIFFICULTY_AI[g.hero.difficultyLevel];
+    const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, taunted = g.combat.specialItems?.taunts.has(enemy), targetPoint=taunted ? g.position : g.combat.classes?.target(enemy)?.actor.group.position??g.position, distance = p.distanceTo(targetPoint), ai = DIFFICULTY_AI[g.hero.difficultyLevel];
     const auraRing = enemy.actor.group.getObjectByName('monster-aura'); if (auraRing) auraRing.visible = enemy.active && enemy.converted <= 0;
     enemy.actor.group.userData.hitFlash=Math.max(0,(enemy.actor.group.userData.hitFlash??0)-dt*7);
     enemy.actor.group.userData.release=Math.max(0,(enemy.actor.group.userData.release??0)-dt*5);
@@ -385,6 +386,19 @@ export class MonsterCombat {
       this.cancel(enemy);
       if (enemy.stunned > 0) enemy.body.velocity.set(0, 0, 0);
       const moving = enemy.stunned <= 0 && g.combat.allyUpdate(enemy, dt); animateActor(enemy.actor, g.time + enemy.id, moving, enemy.attackTime); return;
+    }
+    if (taunted) {
+      if (state.cast && state.cast.id !== 'strike') this.cancel(enemy);
+      if (!state.cast) {
+        if (distance <= 1.8 && !enemy.cooldown) this.startCast(enemy, 'strike');
+        else if (distance > 1.8 && enemy.speed > 0) {
+          enemy.rethink -= dt;
+          if (enemy.rethink <= 0) { enemy.path = g.world.path(p, g.position); enemy.rethink = .5; }
+          const next = enemy.path[0];
+          if (next) { const direction = next.clone().sub(p).setY(0).normalize(); const speed = enemy.speed * g.combat.slow(enemy); if (this.canMove(p, p.clone().addScaledVector(direction, speed * dt))) enemy.body.velocity.set(direction.x * speed, 0, direction.z * speed); if (p.distanceTo(next) < .3) enemy.path.shift(); }
+        }
+        animateActor(enemy.actor, g.time + enemy.id, distance > 1.8, enemy.attackTime); return;
+      }
     }
     const aura = this.aura(enemy);
     if (aura) {

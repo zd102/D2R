@@ -110,7 +110,8 @@ test('unsupported original effects are visible and never claimed to be functiona
   assert.equal(catalogPropertyStatus(['aura', 'Conviction', 12, 12]), 'active');
   assert.equal(catalogPropertyStatus(['hit-skill', 'Life Tap', 5, 10]), 'active');
   assert.equal(catalogPropertyStatus(['hit-skill', 'Frozen Orb', 5, 10]), 'active');
-  assert.equal(catalogPropertyStatus(['gethit-skill', 'Delerium Change', 1, 50]), 'inactive');
+  assert.equal(catalogPropertyStatus(['gethit-skill', 'Delerium Change', 1, 50]), 'active');
+  assert.equal(catalogPropertyStatus(['gethit-skill', 'Unknown skill', 1, 50]), 'inactive');
   assert.equal(catalogPropertyStatus(['skilltab', '8', 2, 2]), 'other-class');
   assert.equal(catalogPropertyStatus(['*hp', '', -10, -10]), 'unused');
 });
@@ -151,4 +152,14 @@ test('existing catalog saves recover vendor discounts from saved rolls without r
   assert.equal(restored.inventory[0].mods!.vendorDiscount,expected);
   assert.equal(restored.inventory[0].mods!.magicFind,17);
   assert.deepEqual(parseSave(serializeSave(restored)),restored);
+});
+
+test('all remaining catalog effect records resolve and old Returned modifiers recover without rerolling', () => {
+  for (const entry of [...CATALOG_SPECIALS,...CATALOG_RUNEWORDS]) for (const property of entry.properties) assert.notEqual(catalogPropertyStatus(property),'inactive',`${entry.key}: ${property}`);
+  const hero=heroAt(99), item=wearable(named('Tomb Reaver'));
+  item.catalogVersion=2; delete item.mods!.reanimateReturned;
+  const previous=structuredClone(item.mods); hero.inventory=[item];
+  const loaded=parseSave(serializeSave(hero))!;
+  assert.deepEqual(loaded.inventory[0].mods,{...previous,reanimateReturned:10});
+  assert.deepEqual(parseSave(serializeSave(loaded)),loaded);
 });

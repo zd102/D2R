@@ -1,3 +1,5 @@
+import { parseSave, serializeSave } from '../src/model.ts';
+import { CATALOG_RUNEWORDS } from '../src/item-catalog-current.ts';
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { classFixture } from './class-fixture.ts';
@@ -83,4 +85,21 @@ test('equipment previews match actual equips, preserve the character and retain 
   const before = structuredClone(f.hero), preview = mercenaryEquipmentPreview(f.hero, armor)!; assert.deepEqual(f.hero, before);
   f.equip(armor); const equipped = mercenaryStats(f.hero);
   assert.equal(preview.attack, equipped.attack); assert.equal(preview.maxHp, equipped.maxHp); assert.equal(preview.defense, equipped.defense);
+});
+
+
+test('mercenary Fade, Bone Armor and Delirium affect their wearer rather than the player and preserve remaining armor on reload', t => {
+  const f=fixture(t), g=f.game, h=f.hero, merc=h.mercenary!;
+  const entry=CATALOG_RUNEWORDS.find(row=>row.key==='Treachery')!;
+  const item=makeItem(BASES.find(base=>base.slot==='armor')!); item.catalogId=entry.id;
+  g.combat.itemRandom=()=>0;
+  const before=stats(h).resistances.fire;
+  g.combat.triggerItems('gethit-skill',f.target,[item],true);
+  assert.equal(merc.buffs!.fade!.rank,15); assert.equal(h.buffs.fade,undefined); assert.equal(stats(h).resistances.fire,before);
+  assert.equal(mercenaryStats(h).mods.damageReduction,15);
+  g.mercenary.triggerItemBuff('boneArmor',10); const hp=merc.hp;
+  g.mercenary.hurt(100,'physical'); assert.equal(merc.hp,hp); assert.equal(merc.buffs!.boneArmor!.absorb,55);
+  const restored=parseSave(serializeSave(h))!; assert.equal(restored.mercenary!.buffs!.boneArmor!.absorb,55);
+  g.mercenary.triggerItemBuff('delirium',50); assert.equal(merc.buffs!.delirium!.remaining,60); assert.equal(h.buffs.delirium,undefined);
+  assert.equal(g.mercenary.ally!.actor.group.getObjectByName('item-delirium-form')!.visible,true);
 });

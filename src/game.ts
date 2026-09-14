@@ -866,6 +866,7 @@ export class Game {
     if (mercenaryKill) { const merc = this.hero.mercenary; if (merc?.status === 'alive') merc.hp = Math.min(mercenaryStats(this.hero).maxHp, merc.hp + restoredLife); }
     else if (!this.dead && this.hero.hp > 0) { this.hero.mana = Math.min(playerStats.maxMana, this.hero.mana + (playerStats.mods.manaOnKill ?? 0)); this.hero.hp = Math.min(playerStats.maxHp, this.hero.hp + restoredLife); }
     if (playerStats.mods.restInPeace) enemy.redeemed = true;
+    this.combat?.specialItems?.reanimate(enemy);
     enemy.actor.group.rotation.z = -Math.PI / 2; enemy.actor.group.position.y = .2;
     if (this.target === enemy) { this.target = undefined; this.path = []; }
     const rank: DropRank = enemy.boss ? this.level.actBoss ? 'actBoss' : 'miniboss' : enemy.elite ? 'elite' : enemy.champion ? 'champion' : 'monster';

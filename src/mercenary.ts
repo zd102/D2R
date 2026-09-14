@@ -16,7 +16,7 @@ export function mercenaryActScaling(hero: HeroState) {
   const act = Math.max(0, Math.min(4, Math.floor(hero.campaign.current / 5)));
   return hero.difficultyLevel === 0 ? MERCENARY_NORMAL_ACT_SCALING[act] : MERCENARY_NORMAL_ACT_SCALING[4];
 }
-export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number };
+export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number; buffs?: HeroState['buffs'] };
 export const MERCENARY_POTION = { healing: 160, perSecond: 30 } as const;
 export function mercenaryPotionReason(hero: HeroState) {
   const merc = hero.mercenary;
@@ -82,7 +82,7 @@ export function mercenaryStats(hero: HeroState) {
   proxy.bonusLife = base.life - (55 + (hero.level - 1) * 2); proxy.bonusResist = base.resistance;
   proxy.equipment = emptyEquipment();
   for (const item of activeMercenaryEquipment(hero)) proxy.equipment[item.slot] = item;
-  if (merc) { proxy.skills[merc.aura] = mercenaryAuraRank(hero.level); proxy.activeAura = merc.aura; proxy.cold = merc.cold; }
+  if (merc) { proxy.skills[merc.aura] = mercenaryAuraRank(hero.level); proxy.activeAura = merc.aura; proxy.cold = merc.cold; proxy.buffs = merc.buffs ?? {}; }
   const auras = mercenaryAuras(hero, true).map(aura => ({ ...aura, mercenary: false }));
   for (const aura of equippedAuras({ ...hero, mercenary: null }).filter(aura => isPartyAura(aura.id) && (distances.get(hero) ?? 0) <= aura.radius)) {
     const index = auras.findIndex(other => other.id === aura.id);
@@ -160,6 +160,12 @@ export function parseMercenary(hero: HeroState, value: unknown, parseItem: (valu
   const merc: MercenaryState = { status: data.status, hp: 0, aura: isMercenaryAura(data.aura) ? data.aura : 'prayer', equipment: { weapon: null, helm: null, armor: null }, cold: 0, poison: 0 };
   for (const slot of MERCENARY_SLOTS) { const item = parseItem(data.equipment?.[slot]); if (item && mercenaryItemAllowed(item, slot)) merc.equipment[slot] = item; }
   hero.mercenary = merc;
+  if (merc.status === 'alive' && data.buffs) for (const id of ['fade','boneArmor','delirium'] as const) {
+    const buff = data.buffs[id];
+    if (!buff || !Number.isFinite(buff.rank) || !Number.isFinite(buff.remaining) || buff.rank < 1 || buff.remaining <= 0) continue;
+    const rank = Math.min(100, Math.floor(buff.rank)), value = skillValues(id, rank);
+    (merc.buffs ??= {})[id] = { rank, remaining: Math.min(value.duration, buff.remaining), ...(id === 'boneArmor' ? { absorb: Math.max(0, Math.min(value.percent, Number.isFinite(buff.absorb) ? buff.absorb! : value.percent)) } : {}) };
+  }
   merc.hp = Math.max(0, Math.min(mercenaryStats(hero).maxHp, typeof data.hp === 'number' && Number.isFinite(data.hp) ? data.hp : 0));
   if (merc.status === 'dead' || !merc.hp) { merc.status = 'dead'; merc.hp = 0; }
   merc.potionHealing = merc.status === 'alive' && typeof data.potionHealing === 'number' && Number.isFinite(data.potionHealing) ? Math.max(0, Math.min(1000000, data.potionHealing)) : 0;

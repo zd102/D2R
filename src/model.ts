@@ -122,6 +122,8 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
   const mods = equipmentMods(hero);
   const buff = (id: SkillId) => skillValues(id, hero.buffs[id]?.remaining ? hero.buffs[id]!.rank : 0, hero.skills);
   mods.lifeSteal = (mods.lifeSteal ?? 0) + buff('feralRage').percent;
+  const fade = buff('fade'); mods.allRes = (mods.allRes ?? 0) + fade.percent;
+  mods.damageReduction = (mods.damageReduction ?? 0) + (hero.buffs.fade?.remaining ? hero.buffs.fade.rank : 0);
   const form = Math.max(buff('wearwolf').percent,buff('wearbear').percent);
   mods.maxLifePercent = (mods.maxLifePercent ?? 0) + (form ? form + skillValues('shapeShifting',skillLevel(hero,'shapeShifting',mods)).percent : 0) + buff('battleOrders').percent + buff('oakSage').percent;
   mods.maxManaPercent = (mods.maxManaPercent ?? 0) + buff('battleOrders').percent;
@@ -149,7 +151,7 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
   const weaponMods = weapon ? addMods(itemMods(weapon), catalogItemSetBonuses(weapon, active)) : {}, weaponED = weaponMods.damage ?? 0;
   const weaponMin = Math.floor((weapon?.minDamage ?? (weapon ? weapon.power * .65 : 1)) * (1 + weaponED / 100)) + (mods.damageFlat ?? 0) + (mods.minDamage ?? 0);
   const weaponMax = Math.max(weaponMin + 1, Math.floor((weapon?.maxDamage ?? weapon?.power ?? 2) * (1 + (weaponED + Math.floor((weaponMods.damagePercentPerLevel ?? 0) * hero.level)) / 100)) + (mods.damageFlat ?? 0) + (mods.maxDamage ?? 0) + Math.floor((mods.maxDamagePerLevel ?? 0) * hero.level));
-  const ranged = rangedBase(weapon);
+  const ranged = hero.buffs.delirium ? undefined : rangedBase(weapon);
   const rangedMin = ranged ? Math.floor(ranged.min * (1 + weaponED / 100)) + (mods.damageFlat ?? 0) + (mods.minDamage ?? 0) : weaponMin;
   const rangedMax = ranged ? Math.max(rangedMin, Math.floor(ranged.max * (1 + (weaponED + Math.floor((weaponMods.damagePercentPerLevel ?? 0) * hero.level)) / 100)) + (mods.damageFlat ?? 0) + (mods.maxDamage ?? 0) + Math.floor((mods.maxDamagePerLevel ?? 0) * hero.level)) : weaponMax;
   const attributeDamage = ranged ? (attributes.strength * ranged.strength + attributes.dexterity * ranged.dexterity) / 100 : attributes.strength;
@@ -173,7 +175,7 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
     resistances[element] = Math.max(-100, Math.min(maxResistances[element], (potionBonus ? 50 : 0) + (mods.allRes ?? 0) + (mods[`${element}Res`] ?? 0) + hero.bonusResist - penalty + (resistSkill ? auraStat(resistSkill, 'percent') : 0) + (element !== 'poison' ? auraStat('salvation', 'percent') : 0)));
   }
   const frozen = hero.cold > 0 && !mods.cannotBeFrozen;
-  const effectiveIAS = Math.max(-50, Math.min(75, Math.floor(120 * (mods.ias ?? 0) / (120 + (mods.ias ?? 0))) + auraStat('fanaticism', 'percent') - (weapon?.speed ?? 0) - (frozen ? 50 : 0)));
+  const effectiveIAS = Math.max(-50, Math.min(75, Math.floor(120 * (mods.ias ?? 0) / (120 + (mods.ias ?? 0))) + auraStat('fanaticism', 'percent') + (hero.buffs.delirium ? 33 : 0) - (weapon?.speed ?? 0) - (frozen ? 50 : 0)));
   return { ...attributes, weapon, ranged, rangedMin, rangedMax, maxHp, maxMana, maxStamina, weaponMin, weaponMax, damageBonus, smiteDamageBonus: damageBonus - attributeDamage + attributes.strength, attackMin, attackMax, attack: (attackMin + attackMax) / 2, baseAttackRating, attackRatingBonus: attackRatingBonus + classAttack, attackRating, defense, armor: defense,
     criticalStrike: passive('criticalStrike').percent, dodge: passive('dodge').percent, avoid: passive('avoid').percent, evade: passive('evade').percent,
     magic: skillValues('blessedHammer', skillLevel(hero, 'blessedHammer', mods), hero.skills).max, xpNeeded: xpForLevel(hero.level), block, resistances, maxResistances,
@@ -182,7 +184,7 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
     lightningFrames: breakpointFrames(mods.fcr ?? 0, [0,7,15,23,35,52,78,117,194],19),
     attackFrames: Math.max(7, Math.ceil(15 * 100 / (100 + effectiveIAS))), zealFrames: Math.max(4, Math.ceil(7 * 100 / (100 + effectiveIAS))),
     rangedFrames: Math.max(7, Math.ceil((ranged?.kind === 'crossbow' ? 19 : 16) * 100 / (100 + effectiveIAS))),
-    runSpeed: (1 + (mods.runWalk ?? 0) / 100 + auraStat('vigor', 'percent') / 100) * (frozen ? .5 : 1),
+    runSpeed: (1 + (mods.runWalk ?? 0) / 100 + auraStat('vigor', 'percent') / 100) * (frozen ? .5 : 1) * (hero.buffs.delirium ? 1.33 : 1),
     manaRegen: maxMana / PALADIN_BALANCE.manaRecoverySeconds * (1 + ((mods.manaRegen ?? 0) + passive('warmth').percent + auraStat('meditation', 'percent')) / 100), lifeRegen: (mods.replenishLife ?? 0) * 25 / 256, mods, aura, auras,
   };
 }
@@ -592,7 +594,7 @@ export function parseSave(raw: string | null): HeroState | null {
     for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) { const id = h.bindings?.[key]; if (isSkill(id) && !isPassive(id) && skillLevel(hero, id) && !(key === 'attack' && isAura(id))) hero.bindings[key] = id; }
     for (const key of Object.keys(hero.bindings) as SkillSlot[]) { const charge = h.chargeBindings?.[key]; if (charge) { hero.bindings[key]='attack'; if(isSkill(charge.id) && Number.isInteger(charge.rank)) bindChargedSkill(hero, key, charge.id, charge.rank); } }
     for(const skill of Object.values(skillById)) if(skill.mode === 'buff' && h.buffs?.[skill.id]) {
-      const buff=h.buffs[skill.id]; hero.buffs[skill.id]={remaining:decimal(buff.remaining,0,0,3600),rank:integer(buff.rank,0,0,100), ...(skill.id==='cycloneArmor'?{absorb:decimal(buff.absorb,skillValues('cycloneArmor',integer(buff.rank,0,0,100)).percent,0,100000)}:{})};
+      const buff=h.buffs[skill.id]; hero.buffs[skill.id]={remaining:decimal(buff.remaining,0,0,3600),rank:integer(buff.rank,0,0,100), ...(['cycloneArmor','boneArmor'].includes(skill.id)?{absorb:decimal(buff.absorb,skillValues(skill.id,integer(buff.rank,0,0,100),hero.skills).percent,0,100000)}:{})};
     }
     if (isSkill(h.activeAura) && isAura(h.activeAura) && skillLevel(hero, h.activeAura)) hero.activeAura = h.activeAura;
     const s = stats(hero); hero.hp = decimal(h.hp, s.maxHp, 1, s.maxHp); hero.mana = decimal(h.mana, s.maxMana, 0, s.maxMana); hero.stamina = decimal(h.stamina, s.maxStamina, 0, s.maxStamina); return hero;

@@ -1,3 +1,8 @@
+import { withCastingSkill, parseSave, serializeSave } from '../src/model.ts';
+import { skillValues } from '../src/paladin.ts';
+import { curseDuration } from '../src/item-special-effects.ts';
+import { createHeroActor } from '../src/hero-models.ts';
+import { updateItemForm } from '../src/item-form.ts';
 import { MonsterCombat, ATTACKS } from '../src/monster-combat.ts';
 import { monsterAffix, CHAMPION_VARIANTS } from '../src/monster-affixes.ts';
 import { test } from 'node:test';
@@ -403,4 +408,134 @@ test('kill and level-up procs work without learned skills or a selected target',
   const blizzard = procItem('levelup-skill','Blizzard');
   combat.triggerItems('levelup-skill',undefined,[blizzard]); assert.ok(combat.classes.fields.some(f=>f.id==='blizzard'));
   assert.equal(hero.mana,0);
+});
+
+function castSpecial(combat: PaladinCombat, id: 'fade'|'boneArmor'|'delirium'|'howl'|'taunt'|'mindBlast'|'fissure'|'diabloFirestorm', rank: number, target?: Enemy) {
+  return withCastingSkill(combat.game.hero, { id, rank }, () => combat.castAction(id, false, { point: target?.actor.group.position.clone() ?? combat.game.position.clone(), target }));
+}
+
+test('Fade uses printed diminishing returns, physical resistance, new-curse reduction and timed persistence', t => {
+  t.mock.method(Math,'random',()=>.9);
+  const { hero, combat, enemy, game }=setup(), target=enemy();
+  hero.equipment.weapon!.mods={}; hero.mana=0;
+  const before=stats(hero); castSpecial(combat,'fade',15);
+  assert.equal(hero.buffs.fade!.remaining,288);
+  assert.equal(stats(hero).mods.allRes!-(before.mods.allRes??0),60);
+  assert.equal(stats(hero).mods.damageReduction!-(before.mods.damageReduction??0),15);
+  assert.ok(Math.abs(curseDuration(hero,10)-2.1)<1e-9);
+  hero.curse=10; combat.classes.update(1); assert.equal(hero.curse,10,'casting Fade does not rewrite an existing curse');
+  const saved=parseSave(serializeSave(hero))!; assert.equal(saved.buffs.fade!.remaining,287);
+  hero.equipment.weapon=null; assert.equal(stats(hero).mods.damageReduction,15);
+  combat.classes.update(287); assert.equal(hero.buffs.fade,undefined); assert.equal(curseDuration(hero,10),10);
+  const monster=new MonsterCombat(game); game.monsterCombat=monster;
+  castSpecial(combat,'fade',15); hero.curse=0;
+  t.mock.method(combat,'hurt',()=>true); monster.hit(target,ATTACKS.curse);
+  assert.ok(Math.abs(hero.curse-1.05)<1e-9); assert.equal(hero.mana,0);
+});
+
+test('D2R Bone Armor absorbs physical damage before reduction, persists its remaining pool and recasts without stacking', t => {
+  t.mock.method(Math,'random',()=>.5);
+  const { hero, combat, enemy, game }=setup(), target=enemy();
+  hero.equipment.shield=null; hero.equipment.weapon!.mods={damageReduction:50}; hero.skills.bonePrison=0;
+  assert.equal(skillValues('boneArmor',10).percent,155);
+  assert.equal(skillValues('boneArmor',10,{bonePrison:2}).percent,185);
+  castSpecial(combat,'boneArmor',10); const hp=hero.hp;
+  combat.hurt(100,'physical',undefined); assert.equal(hero.hp,hp); assert.equal(hero.buffs.boneArmor!.absorb,55);
+  const restored=parseSave(serializeSave(hero))!; assert.equal(restored.buffs.boneArmor!.absorb,55);
+  combat.hurt(10,'fire',undefined); assert.equal(hero.buffs.boneArmor!.absorb,55);
+  game.invincible=0; const before=hero.hp; combat.hurt(100,'physical',undefined); assert.equal(hero.hp,before-22.5); assert.equal(hero.buffs.boneArmor,undefined);
+  castSpecial(combat,'boneArmor',10); combat.classes.update(3601); assert.equal(hero.buffs.boneArmor!.absorb,155);
+  castSpecial(combat,'boneArmor',1,target); assert.equal(hero.buffs.boneArmor!.absorb,20);
+});
+
+test('Mind Blast converts eligible monsters for six to ten seconds, otherwise damages and stuns with boss restrictions', t => {
+  const { hero, game, combat, enemy }=setup(), normal=enemy(), elite=enemy('demon',2.2), boss=enemy('demon',2.4);
+  elite.elite=true; boss.boss=true; game.specialArea='cow';
+  combat.itemRandom=()=>0;
+  const normalHp=normal.hp, bossHp=boss.hp;
+  castSpecial(combat,'mindBlast',14,normal);
+  assert.equal(normal.converted,6); assert.equal(normal.hp,normalHp); assert.equal(normal.stunned,0);
+  assert.equal(elite.converted,0); assert.ok(elite.hp<10000); assert.ok(elite.stunned>0);
+  assert.equal(boss.converted,0); assert.equal(boss.stunned,0); assert.ok(boss.hp<bossHp);
+  normal.converted=0; combat.itemRandom=()=>.99;
+  castSpecial(combat,'mindBlast',14,normal); assert.equal(normal.converted,0); assert.ok(normal.hp<normalHp); assert.ok(normal.stunned>0);
+  assert.equal(skillValues('mindBlast',14).percent,34); assert.equal(hero.skills.mindBlast,0);
+});
+
+test('Taunt forces a ranged monster into melee and reduces damage and accuracy; Howl replaces it with level-gated flee', t => {
+  t.mock.method(Math,'random',()=>.5);
+  const { hero, combat, enemy, game }=setup(), target=enemy('demon',6);
+  game.started=true; game.world.path=(_from:THREE.Vector3,to:THREE.Vector3)=>[to.clone()];
+  target.definition=MONSTERS.boneMage; target.active=true; target.actor.animate=()=>{};
+  const monster=new MonsterCombat(game); game.monsterCombat=monster;
+  castSpecial(combat,'taunt',1,target);
+  assert.equal(combat.specialItems.taunts.get(target),5);
+  assert.equal(monster.accuracy(target),target.attackRating*.95);
+  assert.deepEqual(monster.damageParts(target,100,'physical'),[{type:'physical',amount:95}]);
+  monster.updateEnemy(target,.1); assert.ok(target.body.velocity.z<0); assert.equal(monster.state(target).cast,undefined);
+  target.actor.group.position.z=1; target.body.position.z=1;
+  monster.updateEnemy(target,.1); assert.equal(monster.state(target).cast?.id,'strike');
+  castSpecial(combat,'howl',1); assert.equal(combat.specialItems.taunts.has(target),false); assert.equal(target.flee,3);
+  target.level=hero.level+2; target.flee=0; castSpecial(combat,'howl',1); assert.equal(target.flee,0);
+  target.level=1; target.elite=true; castSpecial(combat,'taunt',1,target); assert.equal(combat.specialItems.taunts.has(target),false);
+});
+
+test('Delirium morph has a sixty-second timer, melee-only skills, retained aura and restores the original hero rig', () => {
+  const { hero, combat, game, enemy }=setup(); game.actor=createHeroActor('paladin'); const target=enemy();
+  hero.equipment.weapon=makeItem(BASES.find(base=>base.baseCode==='sbw')!); hero.equipment.shield=null;
+  const before=stats(hero); assert.ok(before.ranged);
+  castSpecial(combat,'delirium',50);
+  assert.equal(hero.buffs.delirium!.remaining,60); assert.equal(stats(hero).ranged,undefined);
+  assert.ok(Math.abs(stats(hero).runSpeed/before.runSpeed-1.33)<1e-9);
+  assert.equal(combat.castAction('holyBolt'),false); assert.equal(combat.castAction('attack'),true);
+  assert.equal(game.actor.group.getObjectByName('hero-rig')!.visible,false);
+  assert.equal(game.actor.group.getObjectByName('item-delirium-form')!.visible,true);
+  const active=hero.activeAura; combat.classes.update(60); updateItemForm(game.actor,hero.buffs,60);
+  assert.equal(hero.activeAura,active); assert.equal(hero.buffs.delirium,undefined); assert.ok(stats(hero).ranged);
+  assert.equal(game.actor.group.getObjectByName('hero-rig')!.visible,true);
+  assert.equal(game.actor.group.getObjectByName('item-delirium-form')!.visible,false);
+  castSpecial(combat,'delirium',50,target); assert.equal(game.actor.group.children.filter((child:THREE.Object3D)=>child.name==='item-delirium-form').length,1);
+});
+
+test('Fissure and Diablo Firestorm leave bounded ground effects with separate physical/fire damage and wall collision', () => {
+  const { combat, enemy, game }=setup(), target=enemy('demon',0);
+  combat.itemRandom=()=>0; const hits:{amount:number;type:string}[]=[];
+  const original=combat.damage.bind(combat);
+  combat.damage=(enemy,amount,type,...args)=>{hits.push({amount,type});return original(enemy,amount,type,...args);};
+  castSpecial(combat,'fissure',14,target); assert.equal(hits.length,0);
+  combat.specialItems.update(.24); assert.ok(hits.some(hit=>hit.type==='fire')); assert.ok(hits.every(hit=>hit.type!=='physical'));
+  const first=hits[0].amount; assert.equal(first,skillValues('fissure',14,game.hero.skills).min);
+  combat.specialItems.clear(); hits.length=0;
+  castSpecial(combat,'diabloFirestorm',10,target); assert.equal(combat.specialItems.streams.length,10);
+  combat.specialItems.update(.24); assert.ok(hits.some(hit=>hit.type==='physical')); assert.ok(hits.some(hit=>hit.type==='fire'));
+  assert.ok(combat.specialItems.patches.length<=512);
+  combat.specialItems.update(7); assert.equal(combat.specialItems.streams.length,0); assert.equal(combat.specialItems.patches.length,0);
+  game.world.grid.isWalkableAt=()=>false; castSpecial(combat,'diabloFirestorm',10,target); combat.specialItems.update(.2); assert.equal(combat.specialItems.patches.length,0);
+});
+
+test('Reanimate arms on successful weapon hits, consumes an eligible corpse once and Returned expire without inheriting hero procs', t => {
+  t.mock.method(Math,'random',()=>0);
+  const { hero, game, combat, enemy }=setup(), target=enemy();
+  hero.equipment.weapon!.mods={reanimateReturned:100};
+  combat.weaponHit(target,'attack'); target.dead=true; combat.specialItems.reanimate(target);
+  assert.equal(target.redeemed,true); assert.equal(combat.classes.summons.length,1);
+  const returned=combat.classes.summons[0]; assert.equal(returned.life,60); assert.ok(returned.returned); assert.equal(returned.actor.group.name,'item-returned');
+  assert.deepEqual(returned.snapshot.items,[]); assert.deepEqual(returned.snapshot.stats.mods,{});
+  combat.specialItems.reanimate(target); assert.equal(combat.classes.summons.length,1);
+  const next=enemy('demon',2.5), hp=next.hp; combat.classes.update(1.3); assert.ok(next.hp<hp);
+  combat.classes.update(60); assert.equal(combat.classes.summons.length,0);
+  for(const mode of ['elite','redeemed','miss'] as const){const e=enemy();if(mode==='elite')e.elite=true;if(mode==='redeemed')e.redeemed=true;if(mode==='miss')t.mock.method(Math,'random',()=>.999);combat.weaponHit(e,'attack');e.dead=true;combat.specialItems.reanimate(e);assert.equal(combat.classes.summons.length,0,mode);}
+});
+
+
+test('Mind Blast allies can be attacked, and temporary level scaling restores without refilling life', () => {
+  const { hero, combat, enemy }=setup(), converted=enemy(), hostile=enemy('demon',2.1);
+  converted.level=hero.level+20; const oldLevel=converted.level, oldMax=converted.maxHp;
+  combat.specialItems.convert(converted,6);
+  assert.equal(converted.level,hero.level); assert.ok(converted.maxHp<oldMax);
+  const ally=combat.classes.target(hostile)!; assert.equal(ally.actor,converted.actor);
+  combat.classes.hurtSummon(ally,converted.maxHp/2);
+  converted.converted=0; combat.specialItems.restoreConversions();
+  assert.equal(converted.level,oldLevel); assert.equal(converted.maxHp,oldMax); assert.equal(converted.hp,oldMax/2);
+  const hp=converted.hp; combat.classes.hurtSummon(ally,100); assert.equal(converted.hp,hp);
 });

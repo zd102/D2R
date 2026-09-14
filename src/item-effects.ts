@@ -10,6 +10,7 @@ import type { CatalogProperty } from './item-catalog-data.ts';
 const skillNames = Object.fromEntries(SKILLS.map(skill => [`skill_${skill.id}`, `${skill.name}（${skill.itemOnly ? '其他职业' : CLASSES[skill.classId ?? 'paladin'].name}）`])) as Record<`skill_${SkillId}`, string>;
 const auraNames = Object.fromEntries(SKILLS.filter(skill=>isAura(skill.id)).map(skill => [`aura_${skill.id}`, `${skill.name}灵气等级（装备赋予）`])) as Record<`aura_${SkillId}`, string>;
 export const EFFECT_MOD_NAMES = {
+  reanimateReturned: '??????? %',
   vendorDiscount: '商店价格降低 %',
   maxDurabilityPercent: '耐久上限 %',
   ...skillNames, ...auraNames,
@@ -31,7 +32,7 @@ export const EFFECT_MOD_NAMES = {
 };
 
 export const EFFECT_PROPERTIES: Record<string, Modifier> = {
-  cheap: 'vendorDiscount', pierce: 'pierceChance', magicarrow: 'magicArrowLevel', explosivearrow: 'explosiveArrowLevel', stack: 'extraQuantity',
+  reanimate: 'reanimateReturned', cheap: 'vendorDiscount', pierce: 'pierceChance', magicarrow: 'magicArrowLevel', explosivearrow: 'explosiveArrowLevel', stack: 'extraQuantity',
   'extra-fire': 'fireSkillDamage', 'extra-cold': 'coldSkillDamage', 'extra-ltng': 'lightningSkillDamage', 'extra-pois': 'poisonSkillDamage',
   'pierce-fire': 'firePierce', 'pierce-cold': 'coldPierce', 'pierce-ltng': 'lightningPierce', 'pierce-pois': 'poisonPierce',
   'abs-fire%': 'fireAbsorb', 'abs-ltng%': 'lightningAbsorb', 'abs-fire': 'fireAbsorbFlat', 'abs-cold': 'coldAbsorbFlat', 'abs-ltng': 'lightningAbsorbFlat', 'abs-mag': 'magicAbsorbFlat',
@@ -58,7 +59,7 @@ export function levelMods(mods: Mods, level: number): Mods {
   return result;
 }
 const originalSkills: SkillId[] = ['sacrifice', 'smite', 'might', 'prayer', 'resistFire', 'holyBolt', 'holyFire', 'thorns', 'defiance', 'resistCold', 'zeal', 'charge', 'blessedAim', 'cleansing', 'resistLightning', 'vengeance', 'blessedHammer', 'concentration', 'holyFreeze', 'vigor', 'conversion', 'holyShield', 'holyShock', 'sanctuary', 'meditation', 'fistOfHeavens', 'fanaticism', 'conviction', 'redemption', 'salvation'];
-export function catalogSkill(param: string) { return ITEM_SKILL_ROWS.find(row => String(row[1]) === param || row[2].replaceAll(' ', '').toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.[0] ?? originalSkills[Number(param) - 96] ?? (Object.entries(ORIGINAL_CLASS_SKILLS).find(([,skill])=>skill.number===Number(param))?.[0] as SkillId | undefined) ?? SKILLS.find(skill => skill.id.toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.id; }
+export function catalogSkill(param: string) { if (param.toLowerCase() === 'eruption') return 'fissure'; return ITEM_SKILL_ROWS.find(row => String(row[1]) === param || row[2].replaceAll(' ', '').toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.[0] ?? originalSkills[Number(param) - 96] ?? (Object.entries(ORIGINAL_CLASS_SKILLS).find(([,skill])=>skill.number===Number(param))?.[0] as SkillId | undefined) ?? SKILLS.find(skill => skill.id.toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.id; }
 
 export function itemDamage(amount: number, type: DamageType, mods: Mods, resistance: number, conviction = 0) {
   const elemental = type !== 'physical' && type !== 'magic';

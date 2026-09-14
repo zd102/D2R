@@ -3,6 +3,10 @@ import type { SkillDefinition, SkillValues } from './paladin.ts';
 
 // Equipment can expose these skills even though their classes are not playable.
 const rows = [
+  ['fade',267,'Fade','消退','buff'], ['boneArmor',68,'Bone Armor','白骨装甲','buff'],
+  ['mindBlast',273,'Mind Blast','心灵爆震','spell'], ['delirium',350,'Delerium Change','迪勒瑞姆变身','buff'],
+  ['taunt',137,'Taunt','嘲弄','curse'], ['howl',130,'Howl','狂嗥','curse'],
+  ['diabloFirestorm',197,'DiabWall','暗黑破坏神火风暴','spell'],
   ['amplifyDamage',66,'Amplify Damage','伤害加深','curse'], ['weaken',72,'Weaken','削弱','curse'],
   ['corpseExplosion',74,'Corpse Explosion','尸体爆炸','corpse'], ['poisonExplosion',83,'Poison Explosion','毒爆','corpse'],
   ['decrepify',87,'Decrepify','衰老','curse'], ['poisonNova',92,'Poison Nova','剧毒新星','spell'],
@@ -40,6 +44,19 @@ export function itemSkillValues(id: ItemSkillId, rank: number): SkillValues {
   if (rank <= 0) return v;
   v.cost = 10; v.radius = 4 + n / 3; v.duration = 8 + n * 2;
   switch (id) {
+    case 'fade': {
+      const diminishing = Math.floor(110 * rank / (rank + 6));
+      v.percent = 10 + Math.floor(65 * diminishing / 100);
+      v.secondary = 40 + Math.floor(50 * diminishing / 100);
+      v.duration = 120 + 12 * n; break;
+    }
+    case 'boneArmor': v.percent = 20 + 15 * n; v.duration = 3600; break; // D2R 2.4
+    case 'delirium': v.duration = 60; v.percent = 33; break;
+    case 'mindBlast': v.radius = 8 / 3; v.duration = Math.min(10, 2 + .2 * n); v.percent = 15 + Math.floor(25 * Math.floor(110 * rank / (rank + 6)) / 100); break;
+    case 'taunt': v.percent = Math.min(95, 5 + 2 * n); v.radius = 14; break;
+    case 'howl': v.duration = 3 + n; v.radius = 16 / 3 + n * 2 / 3; break;
+    case 'fissure': v.duration = 3.2; v.radius = 14 / 3; break;
+    case 'diabloFirestorm': v.duration = 3.2; v.radius = 1; v.hits = rank; break;
     case 'battleOrders': v.cost = 7; v.duration = 30 + n * 10; v.percent = 35 + n * 3; break;
     case 'battleCommand': v.cost = 11; v.duration = 5 + n * 10; v.percent = 1; break;
     case 'battleCry': v.cost = 5; v.duration = 12 + n * 2.4; v.percent = 25 + n; v.secondary = 50 + n * 2; break;
