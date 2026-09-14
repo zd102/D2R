@@ -21,7 +21,7 @@ test('earned campaign levels support 1pp completion and high-PP Normal/Nightmare
       seed = 967;
       const result = simulateDuel(row.level, row.difficulty as 0 | 1 | 2, 24, build, players);
       assert.ok(result.won, JSON.stringify({ players, ...result }));
-      assert.ok(result.seconds < 150 && result.healingPotions <= 8 && result.manaPotions <= 8);
+      assert.ok(result.seconds < (players > 1 ? 240 : 150) && result.healingPotions <= 8 && result.manaPotions <= 8);
     }
   }
 });

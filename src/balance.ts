@@ -4,6 +4,13 @@ import { levelTuning, type Level } from './campaign.ts';
 import type { MonsterDef } from './bestiary.ts';
 import type { DropRank } from './items.ts';
 
+// Multipliers layer over the continuous area curve and explicit boss health tables.
+export const DIFFICULTY_POWER = [
+  { life: 1, damage: 1, defense: 1, attack: 1 },
+  { life: 1.3, damage: 1.15, defense: 1.1, attack: 1.12 },
+  { life: 2, damage: 1.3, defense: 1.25, attack: 1.3 },
+] as const;
+
 // LoD's level-70+ XP factors, softened by square root for this shorter campaign.
 const CLASSIC_HIGH_LEVEL_XP = [.9531,.9063,.8594,.8125,.7656,.7188,.6719,.625,.5781,.5313,.4844,.4375,.3906,.3438,.2969,.25,.1875,.1406,.1055,.0791,.0596,.0449,.0342,.0254,.0195,.0146,.0107,.0078,.0059];
 export function experienceFactor(playerLevel: number, monsterLevel: number) {
@@ -26,6 +33,8 @@ export function monsterExperience(playerLevel: number, monsterLevel: number, ran
   return Math.max(1, Math.floor(base * rate * weight * firstClear * factor * playerExperienceFactor(context.players)));
 }
 export function monsterStats(definition: MonsterDef, area: Level, difficulty: number, boss = false, elite = false, players = 1) {
+  difficulty = Math.max(0, Math.min(2, Math.floor(difficulty)));
+  const power = DIFFICULTY_POWER[difficulty];
   elite = elite && !boss;
   const tuning = levelTuning(area, difficulty), level = Math.min(99, tuning.level + (boss || elite ? 2 : 0));
   const uberDiablo = area.special === 'uberDiablo' && boss && definition.id === 'diablo';
@@ -34,5 +43,5 @@ export function monsterStats(definition: MonsterDef, area: Level, difficulty: nu
   for (const type of Object.keys(definition.resist ?? {}) as DamageType[]) resistances[type] = Math.min(85, definition.resist![type]! + difficulty * 10);
   if (uberDiablo) for (const type of ['fire', 'cold', 'lightning', 'poison'] as DamageType[]) resistances[type] = Math.max(resistances[type], 75);
   const damageFactor = playerDamageFactor(players, difficulty);
-  return { level, maxHp: Math.floor(maxHp * playerLifeFactor(players)), damage: damageFactor * definition.damage * tuning.damage * (uberDiablo ? 1.7 : elite ? 1.25 + difficulty * .1 : 1), defense: Math.round(tuning.defense * (uberDiablo ? 1.35 : boss ? 1.1 : elite ? 1.25 : 1)), attackRating: Math.round(damageFactor * (25 + level * 7) * (uberDiablo ? 1.5 : boss ? 1.1 : elite ? 1.2 : 1)), resistances };
+  return { level, maxHp: Math.floor(Math.floor(maxHp * power.life) * playerLifeFactor(players)), damage: power.damage * damageFactor * definition.damage * tuning.damage * (uberDiablo ? 1.7 : elite ? 1.25 + difficulty * .1 : 1), defense: Math.round(power.defense * tuning.defense * (uberDiablo ? 1.35 : boss ? 1.1 : elite ? 1.25 : 1)), attackRating: Math.round(power.attack * damageFactor * (25 + level * 7) * (uberDiablo ? 1.5 : boss ? 1.1 : elite ? 1.2 : 1)), resistances };
 }

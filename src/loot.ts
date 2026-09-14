@@ -44,7 +44,7 @@ export function rollSocketBase(level: number, random = Math.random): Item {
 }
 export function rollLoot(context: LootContext, random = Math.random) {
   const { rank } = context, difficulty = Math.max(0, Math.min(2, Math.floor(context.difficulty))), act = Math.max(0, Math.min(4, Math.floor(context.act)));
-  const level = Math.max(1, Math.min(99, Math.floor(context.level))), flags = rollDropKinds(rank, random, context.players), items: Item[] = [], runes: RuneId[] = [];
+  const level = Math.max(1, Math.min(99, Math.floor(context.level))), flags = rollDropKinds(rank, random, context.players, difficulty), items: Item[] = [], runes: RuneId[] = [];
   const boss = rank === 'miniboss' || rank === 'actBoss', elite = rank === 'elite', champion = rank === 'champion';
   const extraEquipment = random() < (rank === 'miniboss' ? .55 : elite ? .30 : champion ? .12 : 0);
   const profile = boss ? bossDropProfile(context.levelIndex) : undefined, countess = boss && (context.countess || context.levelIndex === 3);

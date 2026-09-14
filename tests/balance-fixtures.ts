@@ -1,6 +1,6 @@
 import { newHero, gainXp, learnSkill, allocateAttribute, stats, skillLevel, activeEquipment, hitChance, resistedDamage, selectCampaignLevel, completeCampaignLevel, type HeroState } from '../src/model.ts';
 import { EXPERIENCE, skillById, skillValues, type SkillId, type DamageType } from '../src/paladin.ts';
-import { BASES, makeItem, RUNEWORDS, socketItem, itemRequirements, type Item, type Mods } from '../src/items.ts';
+import { BASES, specialItem, makeItem, RUNEWORDS, socketItem, itemRequirements, type Item, type Mods } from '../src/items.ts';
 import { LEVELS, SPECIAL_LEVELS, levelLayout } from '../src/campaign.ts';
 import { encounterPlan, cowEncounterPlan } from '../src/encounter-plan.ts';
 import { BOSSES, MONSTERS, ENCOUNTERS, type MonsterDef } from '../src/bestiary.ts';
@@ -56,7 +56,7 @@ export type ReferenceBuild = 'zeal' | 'hammer';
 const base = (name: string) => makeItem(BASES.find(b => b.name === name)!);
 const word = (baseName: string, name: string) => { const item = base(baseName), recipe = RUNEWORDS.find(w => w.name === name)!; item.sockets = recipe.runes.length; recipe.runes.forEach(rune => socketItem(item, rune, () => .5)); if (item.name !== name) throw new Error(`Invalid fixture recipe: ${name}`); return item; };
 const rare = (baseName: string, requiredLevel: number, mods: Mods): Item => ({ ...base(baseName), rarity: 'rare', requiredLevel, mods });
-export function referenceHero(level: number, difficulty: 0 | 1 | 2, build: ReferenceBuild, campaignIndex?: number) {
+export function referenceHero(level: number, difficulty: 0 | 1 | 2, build: ReferenceBuild, campaignIndex?: number, prepared = false) {
   const hero = newHero(); gainXp(hero, EXPERIENCE[level - 1]); hero.difficultyLevel = difficulty;
   hero.skillPoints += difficulty * 4 + (level >= 34 ? 4 : level >= 15 ? 2 : level >= 3 ? 1 : 0);
   hero.points += difficulty * 5 + (level >= 27 ? 5 : 0); hero.bonusLife = difficulty * 20 + (level >= 24 ? 20 : 0); hero.bonusResist = difficulty * 10 + (level >= 40 ? 10 : 0);
@@ -78,6 +78,14 @@ export function referenceHero(level: number, difficulty: 0 | 1 | 2, build: Refer
   if (level >= 20) hero.equipment.boots = rare('皮靴', 20, { runWalk: 20, coldRes: 20, lightningRes: 20 });
   if (level >= 30) { hero.equipment.belt = rare('饰带', 30, { life: 40, fhr: 24, fireRes: 20 }); hero.equipment.ring = rare('戒指', 30, { life: 20, attackRating: 70, lightningRes: 15 }); }
   if (level >= 40) hero.equipment.amulet = rare('项链', 40, { paladinSkills: 1, allRes: 15, life: 20, ...(build === 'hammer' ? { fcr: 10 } : {}) });
+  // Hell completion uses attainable endgame drops with median rolls, not starter runewords.
+  // Keep the moderate fixture as the default for independent stat-budget measurements.
+  if (difficulty === 2 && prepared) {
+    for (const id of ['unique-249', 'unique-273', 'unique-377', 'set-97', 'unique-276']) {
+      const item = specialItem(id, () => .5); item.identified = true; hero.equipment[item.slot] = item;
+    }
+  }
+  if (difficulty === 2 && prepared) { hero.equipment.ring2 = specialItem('unique-275', () => .5); hero.equipment.ring2.identified = true; }
   const equipment = Object.values(hero.equipment).filter((item): item is Item => !!item);
   allocateAttribute(hero, 'strength', Math.max(0, Math.max(...equipment.map(item => itemRequirements(item).strength)) - hero.strength));
   allocateAttribute(hero, 'dexterity', Math.max(0, Math.max(build === 'zeal' ? Math.min(110, 20 + level) : 20, ...equipment.map(item => itemRequirements(item).dexterity)) - hero.dexterity));

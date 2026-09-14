@@ -25,8 +25,12 @@ export const DROP_RATES = {
   actBoss: { equipment: 1, rune: .70, charm: .04 },
 } as const;
 export type DropRank = keyof typeof DROP_RATES;
-export function rollDropKinds(rank: DropRank, random = Math.random, players = 1) {
-  const rates = DROP_RATES[rank];
+// Reward harder encounters by reducing no-drop, without multiplying guaranteed loot.
+export const DIFFICULTY_DROPS = [1, 1.2, 1.5] as const;
+export function rollDropKinds(rank: DropRank, random = Math.random, players = 1, difficulty = 0) {
+  const base = DROP_RATES[rank], factor = DIFFICULTY_DROPS[Math.max(0, Math.min(2, Math.floor(difficulty)))];
+  const boost = (chance: number) => 1 - Math.pow(1 - chance, factor);
+  const rates = difficulty === 0 ? base : { equipment: boost(base.equipment), rune: boost(base.rune), charm: boost(base.charm) };
   const count = rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : players;
   return { equipment: random() < playerDropChance(rates.equipment, count), rune: random() < playerDropChance(rates.rune, count), charm: random() < playerDropChance(rates.charm, count) };
 }

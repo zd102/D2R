@@ -6,7 +6,8 @@ import { monsterStats } from '../src/balance.ts';
 import { BOSSES, type MonsterDef } from '../src/bestiary.ts';
 import type { PlayerCount } from '../src/player-count.ts';
 import { LEVELS } from '../src/campaign.ts';
-import { stats, skillLevel } from '../src/model.ts';
+import { specialItem } from '../src/items.ts';
+import { activeEquipment, stats, skillLevel } from '../src/model.ts';
 import type { Actor } from '../src/world.ts';
 import { referenceHero, type ReferenceBuild } from './balance-fixtures.ts';
 import type { Enemy, Game } from '../src/game.ts';
@@ -21,7 +22,12 @@ export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number
     group.add(leftLeg, rightLeg, leftArm, rightArm);
     return { group, leftLeg, rightLeg, leftArm, rightArm, kind };
   }
-  const hero = referenceHero(level, difficulty, build, index); hero.campaign.current = index; hero.playerCount = players;
+  const hero = referenceHero(level, difficulty, build, index, true); hero.campaign.current = index; hero.playerCount = players;
+  if (build === 'hammer' && (difficulty === 2 || difficulty === 1 && players > 1)) {
+    for (const id of difficulty === 2 ? ['unique-105', 'unique-286'] : ['unique-105']) { const item = specialItem(id, () => .5); item.identified = true; hero.equipment[item.slot] = item; }
+    if (activeEquipment(hero).length !== Object.values(hero.equipment).filter(Boolean).length) throw new Error('Unusable high-difficulty hammer equipment');
+    hero.hp = stats(hero).maxHp; hero.mana = stats(hero).maxMana;
+  }
   hero.campaign.kills = LEVELS[index].quest.count; hero.campaign.objects = Array.from({ length: LEVELS[index].quest.count }, (_, i) => i);
   const scene = new THREE.Scene(), enemies: Enemy[] = [], resources = new Set<THREE.BufferGeometry | THREE.Material>(), manaCosts = { hp: 0, mana: 0 };
   const dispose = (object: THREE.Object3D) => { object.traverse(node => { if (node instanceof THREE.Mesh) { resources.add(node.geometry); (Array.isArray(node.material) ? node.material : [node.material]).forEach(material => resources.add(material)); } }); object.removeFromParent(); };
@@ -43,7 +49,7 @@ export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number
   const boss = spawn(0, 2, 'boss', BOSSES[index], true); game.target = boss;
   const dt = .04;
   try {
-    while (game.time < 180 && !game.dead && !boss.dead) {
+    while (game.time < (players > 1 ? 240 : 180) && !game.dead && !boss.dead) {
       game.time += dt; game.invincible = Math.max(0, game.invincible - dt); combat.update(dt);
       if (hero.skills.holyShield && hero.holyShield <= 0 && !combat.lock && !combat.zeal) combat.castAction('holyShield');
       const s = stats(hero), delta = boss.actor.group.position.clone().sub(game.position), distance = delta.length();

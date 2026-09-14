@@ -59,9 +59,13 @@ export const ATTACKS: Record<AttackId, AttackSpec> = {
   decrepify: attack('衰老', 'pool', 'magic', 9, .9, 8, 0, 2.5, { duration: .3, status: 'decrepify' }),
 };
 export const ELEMENT_COLORS: Record<DamageType, number> = { physical: 0xf1bd7b, fire: 0xff7045, cold: 0x8bdfff, lightning: 0xffdb84, poison: 0xa1e26b, magic: 0xeaa6dd };
-// Normal mode should establish pressure sooner without changing monster damage.
-// Later difficulties retain their existing combat cadence and detection ranges.
-export const NORMAL_DIFFICULTY_AI = { sightRange: 20, engageRange: 12, memory: 6, cooldownMultiplier: .88 } as const;
+// Higher difficulties pursue farther and recover faster; attack warnings retain their full duration.
+export const DIFFICULTY_AI = [
+  { sightRange: 20, engageRange: 12, memory: 6, leash: 28, alertRange: 12, cooldownMultiplier: .88, recoveryMultiplier: 1, pursuit: 1 },
+  { sightRange: 23, engageRange: 15, memory: 8, leash: 32, alertRange: 14, cooldownMultiplier: .72, recoveryMultiplier: .82, pursuit: 1.08 },
+  { sightRange: 26, engageRange: 18, memory: 11, leash: 36, alertRange: 16, cooldownMultiplier: .62, recoveryMultiplier: .72, pursuit: 1.18 },
+] as const;
+export const NORMAL_DIFFICULTY_AI = DIFFICULTY_AI[0];
 type Cast = { id: AttackId; spec: AttackSpec; left: number; origin: THREE.Vector3; target: THREE.Vector3; summon?: CombatAlly; corpse?: Enemy; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> };
 type State = { cast?: Cast; sequence: number; retaliation: number; summons: number; cloned: boolean; frenzy: number; lifetime?: number; abilities: Partial<Record<AttackId, number>>; lastAttack?: AttackId; lastSeen?: THREE.Vector3; memory: number; alerted: boolean; retreat: number; retreatCooldown: number; teleportCooldown?: number; heals?: number; auraTick?: number };
 type Missile = { source: Enemy; mesh: THREE.Mesh; velocity: THREE.Vector3; spec: AttackSpec; life: number; volley: { hit: boolean; summons?: Set<CombatAlly> } };
@@ -345,7 +349,7 @@ export class MonsterCombat {
     this.state(add).lifetime = id === 'clone' ? 16 : 12; state.summons++;
   }
   updateEnemy(enemy: Enemy, dt: number) {
-    const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, targetPoint=g.combat.classes?.target(enemy)?.actor.group.position??g.position, distance = p.distanceTo(targetPoint), normal = g.hero.difficultyLevel === 0 ? NORMAL_DIFFICULTY_AI : undefined;
+    const g = this.game, state = this.state(enemy), p = enemy.actor.group.position, targetPoint=g.combat.classes?.target(enemy)?.actor.group.position??g.position, distance = p.distanceTo(targetPoint), ai = DIFFICULTY_AI[g.hero.difficultyLevel];
     const auraRing = enemy.actor.group.getObjectByName('monster-aura'); if (auraRing) auraRing.visible = enemy.active && enemy.converted <= 0;
     enemy.actor.group.userData.hitFlash=Math.max(0,(enemy.actor.group.userData.hitFlash??0)-dt*7);
     enemy.actor.group.userData.release=Math.max(0,(enemy.actor.group.userData.release??0)-dt*5);
@@ -356,20 +360,20 @@ export class MonsterCombat {
     enemy.blind = Math.max(0, (enemy.blind ?? 0) - dt); enemy.flee = Math.max(0, (enemy.flee ?? 0) - dt);
     if (enemy.active && !enemy.preventHeal && !enemy.poison && enemy.definition?.model === 'council') enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * .01 * dt);
     if (state.lifetime !== undefined) { state.lifetime -= dt; if (state.lifetime <= 0 || g.enemies.find(e => e.id === enemy.owner)?.dead) { g.killEnemy(enemy); return; } }
-    const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < (normal?.sightRange ?? 18) && this.lineOfSight(p,targetPoint), engageRange = normal?.engageRange ?? (enemy.boss ? 12 : 10);
+    const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < ai.sightRange && this.lineOfSight(p,targetPoint), engageRange = ai.engageRange;
     if (g.started && unlocked && visible && (distance < engageRange || enemy.active)) {
-      enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = normal?.memory ?? 5;
+      enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = ai.memory;
       if (!state.alerted) {
         state.alerted = true;
         for (const ally of g.enemies) {
           if (ally === enemy || ally.dead || ally.boss || ally.converted > 0 || ally.active || ally.pack !== enemy.pack || enemy.pack === undefined) continue;
-          if (ally.actor.group.position.distanceTo(p) < 12 && this.lineOfSight(p,ally.actor.group.position)) {
-            ally.active = true; const friend = this.state(ally); friend.lastSeen = targetPoint.clone(); friend.memory = normal?.memory ?? 5; friend.alerted = true;
+          if (ally.actor.group.position.distanceTo(p) < ai.alertRange && this.lineOfSight(p,ally.actor.group.position)) {
+            ally.active = true; const friend = this.state(ally); friend.lastSeen = targetPoint.clone(); friend.memory = ai.memory; friend.alerted = true;
           }
         }
       }
     } else state.memory = Math.max(0,state.memory-dt);
-    if (!unlocked || distance > 28 || !visible && state.memory <= 0) { enemy.active = false; state.alerted = false; }
+    if (!unlocked || distance > ai.leash || !visible && state.memory <= 0) { enemy.active = false; state.alerted = false; }
     enemy.attackTime = Math.max(0, enemy.attackTime - dt * 2); enemy.cooldown = Math.max(0, enemy.cooldown - dt);
     enemy.body.velocity.x *= .65; enemy.body.velocity.z *= .65;
     if (enemy.flee > 0 && !enemy.boss && enemy.stunned <= 0 && enemy.converted <= 0) {
@@ -416,9 +420,9 @@ export class MonsterCombat {
       if (state.cast.left <= 0) {
         const cast = state.cast; state.cast = undefined; g.disposeObject(cast.mesh); this.resolve(enemy, cast);
         state.lastAttack = cast.id;
-        state.abilities[cast.id] = cast.spec.cooldown * (normal?.cooldownMultiplier ?? 1) / g.combat.slow(enemy) / (state.frenzy > 0 ? 1.25 : 1) / this.attackRate(enemy);
+        state.abilities[cast.id] = cast.spec.cooldown * ai.cooldownMultiplier / g.combat.slow(enemy) / (state.frenzy > 0 ? 1.25 : 1) / this.attackRate(enemy);
         // Strong attacks have their own cooldown; a short recovery allows other tactics between them.
-        enemy.cooldown = Math.min(state.abilities[cast.id]!, enemy.boss ? 2 : 1.5);
+        enemy.cooldown = Math.min(state.abilities[cast.id]!, (enemy.boss ? 2 : 1.5) * ai.recoveryMultiplier);
       }
       animateActor(enemy.actor, g.time + enemy.id, false, enemy.attackTime); return;
     }
@@ -444,10 +448,10 @@ export class MonsterCombat {
     const destination = visible ? targetPoint : state.lastSeen;
     if (enemy.speed > 0 && destination && (!visible || distance > preferred)) {
       enemy.rethink -= dt;
-      if (enemy.rethink <= 0) { enemy.path = g.world.path(p, destination); enemy.rethink = .65 + enemy.id%3*.1; }
+      if (enemy.rethink <= 0) { enemy.path = g.world.path(p, destination); enemy.rethink = (.65 + enemy.id%3*.1) / ai.pursuit; }
       const point = enemy.path[0];
       if (point) { const direction = point.clone().sub(p), d = direction.length(); if (d < .3) enemy.path.shift(); else {
-        direction.normalize(); const speed = enemy.speed * g.combat.slow(enemy) * (state.frenzy > 0 ? 1.25 : 1);
+        direction.normalize(); const speed = enemy.speed * ai.pursuit * g.combat.slow(enemy) * (state.frenzy > 0 ? 1.25 : 1);
         if (this.canMove(p,p.clone().addScaledVector(direction,Math.min(d,speed*dt)))) { enemy.body.velocity.set(direction.x * speed, 0, direction.z * speed); moving = speed > 0; }
         else { enemy.path = []; enemy.rethink = 0; }
       } }

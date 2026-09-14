@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { monsterExperience, experienceFactor, monsterStats } from '../src/balance.ts';
+import { DIFFICULTY_POWER, monsterExperience, experienceFactor, monsterStats } from '../src/balance.ts';
 import { LEVELS, AREA_LEVELS, SPECIAL_LEVELS, levelTuning } from '../src/campaign.ts';
 import { BOSSES, ENCOUNTERS, MONSTERS } from '../src/bestiary.ts';
 import { PALADIN_BALANCE, skillValues, xpForLevel } from '../src/paladin.ts';
@@ -54,7 +54,7 @@ test('all encounters use finite increasing chapter values, species retain their 
       for (const key of ['level', 'maxHp', 'damage', 'defense', 'attackRating'] as const) assert.ok(Number.isFinite(enemy[key]) && enemy[key] > 0);
       assert.ok(enemy.level <= 99); assert.ok(Object.values(enemy.resistances).every(v => v <= 85));
     }
-    if (area.actBoss) assert.equal(boss.maxHp, BOSSES[area.index].hpByDifficulty![diff]);
+    if (area.actBoss) assert.equal(boss.maxHp, Math.floor(BOSSES[area.index].hpByDifficulty![diff] * DIFFICULTY_POWER[diff].life));
     if (diff) assert.ok(boss.maxHp > monsterStats(BOSSES[area.index], area, diff - 1, true).maxHp);
     if (area.index) assert.ok(levelTuning(area, diff).hp > levelTuning(LEVELS[area.index - 1], diff).hp);
   }
@@ -74,10 +74,10 @@ test('moderate melee and hammer builds stay within monster, boss and incoming-da
   for (const row of simulateProgression()) for (const build of ['zeal', 'hammer'] as const) {
     const index = row.act * 5 + 4, hero = referenceHero(row.level, row.difficulty as 0 | 1 | 2, build), boss = referenceMetrics(hero, BOSSES[index], index, true);
     const minimum = hero.bindings.attack === 'zeal' ? row.difficulty === 0 ? 2.5 : 4 : row.difficulty === 0 && row.act === 0 ? 3 : 6;
-    assert.ok(boss.seconds >= minimum && boss.seconds < 65, `${build} ${row.difficulty}/${row.act}: ${boss.seconds}s`);
-    assert.ok(boss.maxHitPercent < 30, `${build} ${row.difficulty}/${row.act}: ${boss.maxHitPercent}%`);
+    assert.ok(boss.seconds >= minimum && boss.seconds < [65, 90, 140][row.difficulty], `${build} ${row.difficulty}/${row.act}: ${boss.seconds}s`);
+    assert.ok(boss.maxHitPercent < [30, 35, 44][row.difficulty], `${build} ${row.difficulty}/${row.act}: ${boss.maxHitPercent}%`);
     assert.ok(boss.hitChance >= 55);
-    for (const id of ENCOUNTERS[index]) assert.ok(referenceMetrics(hero, MONSTERS[id], index).seconds < 5, `${build}: ${id}`);
+    for (const id of ENCOUNTERS[index]) assert.ok(referenceMetrics(hero, MONSTERS[id], index).seconds < [5, 7, 11][row.difficulty], `${build}: ${id}`);
   }
 });
 

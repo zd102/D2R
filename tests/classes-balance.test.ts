@@ -4,16 +4,17 @@ import {classFixture} from './class-fixture.ts';
 import {referenceHero} from './balance-fixtures.ts';
 import {newHero,gainXp,allocateAttribute,learnSkill,stats,skillLevel} from '../src/model.ts';
 import {EXPERIENCE,skillById,type SkillId} from '../src/paladin.ts';
-import {BASES,makeItem,itemRequirements,type Item} from '../src/items.ts';
+import {BASES,specialItem,makeItem,itemRequirements,type Item} from '../src/items.ts';
 import {monsterStats} from '../src/balance.ts';
 import {BOSSES} from '../src/bestiary.ts';
 import {LEVELS} from '../src/campaign.ts';
 
 function duel(level:number,difficulty:0|1|2,index:number,build:'fire'|'cold'|'lightning'|'bow'|'javelin'){
   const amazon=['bow','javelin'].includes(build),f=classFixture(amazon?'amazon':'sorceress',false),h=newHero(amazon?'amazon':'sorceress');gainXp(h,EXPERIENCE[level-1]);
-  const gear=referenceHero(level,difficulty,amazon?'zeal':'hammer');h.equipment=gear.equipment;h.bonusLife=gear.bonusLife;h.bonusResist=gear.bonusResist;h.skillPoints+=4*(difficulty+Number(level>=34));h.difficultyLevel=difficulty;h.campaign.current=index;h.campaign.kills=LEVELS[index].quest.count;h.campaign.objects=Array.from({length:LEVELS[index].quest.count},(_,i)=>i);h.campaign.cleared=[25,25,25];h.unlockedDifficulty=2;
+  const gear=referenceHero(level,difficulty,amazon?'zeal':'hammer',undefined,true);h.equipment=gear.equipment;h.bonusLife=gear.bonusLife;h.bonusResist=gear.bonusResist;h.skillPoints+=4*(difficulty+Number(level>=34));h.difficultyLevel=difficulty;h.campaign.current=index;h.campaign.kills=LEVELS[index].quest.count;h.campaign.objects=Array.from({length:LEVELS[index].quest.count},(_,i)=>i);h.campaign.cleared=[25,25,25];h.unlockedDifficulty=2;
   if(amazon){h.equipment.weapon=makeItem(BASES.find(b=>b.baseCode===(build==='bow'?level<30?'hbw':level<65?'8hb':'6hb':level<30?'jav':level<65?'9ja':'7ja'))!);h.equipment.weapon.mods={damage:level<30?30:level<65?100:200,ias:level<30?10:20};if(build==='bow')h.equipment.shield=null;}
-  if(h.equipment.amulet?.mods){delete h.equipment.amulet.mods.paladinSkills;h.equipment.amulet.mods[amazon?'amazonSkills':'sorceressSkills']=1;}
+  if(difficulty===2&&build==='bow'){h.equipment.weapon=specialItem('unique-267',()=>.5);h.equipment.weapon.identified=true;}
+  if(h.equipment.amulet?.mods?.paladinSkills){delete h.equipment.amulet.mods.paladinSkills;h.equipment.amulet.mods[amazon?'amazonSkills':'sorceressSkills']=1;}
   const items=Object.values(h.equipment).filter((i):i is Item=>!!i);allocateAttribute(h,'strength',Math.max(0,...items.map(i=>itemRequirements(i).strength-h.strength)));allocateAttribute(h,'dexterity',Math.max(0,...items.map(i=>itemRequirements(i).dexterity-h.dexterity)));
   if(!amazon)allocateAttribute(h,'energy',Math.min(h.points,Math.floor(level/2)));else if(build==='bow')allocateAttribute(h,'dexterity',Math.min(h.points,level));allocateAttribute(h,'vitality',h.points);
   const learn=(id:SkillId,rank=1)=>{if(level<skillById[id].level)return;for(const req of skillById[id].requires)if(!h.skills[req])learn(req);while(h.skills[id]<rank&&learnSkill(h,id)){};};

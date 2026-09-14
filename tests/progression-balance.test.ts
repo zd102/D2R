@@ -77,9 +77,9 @@ test('all PP tiers keep representative act combat within damage and time budgets
     const hero = referenceHero(row.level, row.difficulty as 0 | 1 | 2, build, row.act * 5 + 4); hero.playerCount = players;
     const index = row.act * 5 + 4, boss = referenceMetrics(hero, BOSSES[index], index, true);
     const label = JSON.stringify({ players, difficulty: row.difficulty, act: row.act, build });
-    assert.ok(boss.seconds >= 2.5 && boss.seconds <= 210, `${label}: ${boss.seconds}s`);
-    assert.ok(boss.maxHitPercent < 40, `${label}: hit ${boss.maxHitPercent}%`);
+    assert.ok(boss.seconds >= 2.5 && boss.seconds <= [210, 280, 440][row.difficulty], `${label}: ${boss.seconds}s`);
+    assert.ok(boss.maxHitPercent < [40, 46, 58][row.difficulty], `${label}: hit ${boss.maxHitPercent}%`);
     assert.ok(boss.hitChance >= 55, label);
-    for (const id of ENCOUNTERS[index]) assert.ok(referenceMetrics(hero, MONSTERS[id], index).seconds <= 12, `${label}: ${id}`);
+    for (const id of ENCOUNTERS[index]) assert.ok(referenceMetrics(hero, MONSTERS[id], index).seconds <= [12, 16, 26][row.difficulty], `${label}: ${id}`);
   }
 });

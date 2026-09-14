@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { MONSTERS, ENCOUNTERS, BOSSES, isUndead, type MonsterDef } from '../src/bestiary.ts';
 import { createMonsterActor } from '../src/monster-models.ts';
-import { MonsterCombat, ATTACKS, NORMAL_DIFFICULTY_AI, segmentDistance } from '../src/monster-combat.ts';
+import { MonsterCombat, ATTACKS, DIFFICULTY_AI, NORMAL_DIFFICULTY_AI, segmentDistance } from '../src/monster-combat.ts';
 import { newHero } from '../src/model.ts';
 import type { Enemy, Game } from '../src/game.ts';
 
@@ -129,19 +129,28 @@ test('dormant packs need sight, alert nearby pack mates, and forget a lost targe
   step(NORMAL_DIFFICULTY_AI.memory + .1); assert.equal(scout.active,false); assert.equal(combat.telegraph(scout),null);
 });
 
-test('normal difficulty monsters notice targets sooner, pursue longer and recover attacks faster', () => {
-  const normal = setup(), scout = normal.spawn(MONSTERS.fallen, 0, 11);
-  scout.active = false; normal.step(.05);
-  assert.equal(scout.active, true);
-  assert.equal(normal.combat.state(scout).memory, NORMAL_DIFFICULTY_AI.memory);
-  normal.combat.startCast(scout, 'strike'); normal.game.time += ATTACKS.strike.windup; normal.combat.updateEnemy(scout, ATTACKS.strike.windup);
-  assert.equal(normal.combat.state(scout).abilities.strike, ATTACKS.strike.cooldown * NORMAL_DIFFICULTY_AI.cooldownMultiplier);
-
-  const nightmare = setup(), cautious = nightmare.spawn(MONSTERS.fallen, 0, 11);
-  nightmare.game.hero.difficultyLevel = 1; cautious.active = false; nightmare.step(.05);
-  assert.equal(cautious.active, false);
-  cautious.active = true; nightmare.combat.startCast(cautious, 'strike'); nightmare.game.time += ATTACKS.strike.windup; nightmare.combat.updateEnemy(cautious, ATTACKS.strike.windup);
-  assert.equal(nightmare.combat.state(cautious).abilities.strike, ATTACKS.strike.cooldown);
+test('each difficulty extends aggression and pursuit while shortening actual attack recovery', () => {
+  let previousCooldown = Infinity, previousRecovery = Infinity;
+  for (const difficulty of [0, 1, 2] as const) {
+    const fixture = setup(), { combat, game, spawn, step } = fixture, ai = DIFFICULTY_AI[difficulty];
+    game.hero.difficultyLevel = difficulty;
+    const scout = spawn(MONSTERS.fallen, 0, ai.engageRange - .5);
+    scout.active = false; step(.05);
+    assert.equal(scout.active, true); assert.equal(combat.state(scout).memory, ai.memory);
+    if (difficulty) {
+      const lower = setup(); lower.game.hero.difficultyLevel = difficulty - 1;
+      const unaware = lower.spawn(MONSTERS.fallen, 0, ai.engageRange - .5);
+      unaware.active = false; lower.step(.05); assert.equal(unaware.active, false);
+    }
+    combat.startCast(scout, 'strike'); game.time += ATTACKS.strike.windup;
+    combat.updateEnemy(scout, ATTACKS.strike.windup);
+    const cooldown = combat.state(scout).abilities.strike!;
+    assert.ok(cooldown < previousCooldown); assert.ok(scout.cooldown < previousRecovery);
+    previousCooldown = cooldown; previousRecovery = scout.cooldown;
+    game.world.grid.isWalkableAt = () => false;
+    step(ai.memory - .2); assert.equal(scout.active, true);
+    step(.4); assert.equal(scout.active, false);
+  }
 });
 
 test('fallen panic is local and blocked by walls; elites and converted allies hold their ground', () => {
