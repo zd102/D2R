@@ -90,7 +90,7 @@ try {
       const other = await context.newPage(); await seed(other);
       const contest = async (target, id) => target.evaluate(async ({ id }) => {
         const { SaveStore } = await import('/src/saves.ts'); const store = new SaveStore(localStorage), profile = store.read(id);
-        try { await store.transferShared(id, profile.hero, profile.revision, 5, { direction: 'withdraw', container: 'inventory', itemId: 'shared-throw' }); return true; } catch { return false; }
+        try { await store.transferShared(id, profile.hero, profile.revision, 5, { direction: 'withdraw', container: 'inventory', itemId: 'shared-throw' }, profile.resourcesRevision); return true; } catch { return false; }
       }, { id });
       const won = await Promise.all([contest(page, 'first'), contest(other, 'second')]); assert.equal(won.filter(Boolean).length, 1);
       saved = await records(page); assert.equal(saved.shared.items.length, 0); assert.equal(saved.profiles.flatMap(profile => profile.hero.inventory).filter(value => value.id === 'shared-throw').length, 1);

@@ -54,7 +54,7 @@ try {
   await page.getByRole('button', { name: '新建角色', exact: true }).click(); await page.getByLabel('角色名称', { exact: true }).fill('在线冒险者');
   await page.getByRole('button', { name: '创建并进入', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.profileName === '在线冒险者' && !window.eclipseState.paused);
-  await page.evaluate(async () => { const g = window.onlineGame; g.hero.gold = 4567; if (!await g.flushSave()) throw new Error('save failed'); });
+  await page.evaluate(async () => { const g = window.onlineGame; g.hero.gold = 4567; g.hero.runes = ['el', 'tir']; if (!await g.flushSave()) throw new Error('save failed'); });
   await leave(page);
   const downloadEvent = page.waitForEvent('download'); await page.getByRole('button', { name: '导出角色存档', exact: true }).click();
   const download = await downloadEvent; await download.saveAs(join(output, 'exported-character.json'));
@@ -65,7 +65,13 @@ try {
   await page.getByLabel('角色名称', { exact: true }).fill('上传副本');
   await page.getByRole('button', { name: '导入为新角色', exact: true }).click(); await roster(page);
   await expect(page.getByRole('option')).toHaveCount(2); await enter(page, '上传副本');
-  assert.equal(await page.evaluate(() => window.eclipseState.gold), 4567);
+  assert.equal(await page.evaluate(() => window.eclipseState.gold), 9134);
+  assert.deepEqual(await page.evaluate(() => window.onlineGame.hero.runes), ['el', 'tir', 'el', 'tir']);
+  await page.evaluate(async () => { const g = window.onlineGame; g.hero.runes.splice(1, 1); if (!await g.flushSave()) throw new Error('save failed'); });
+  await leave(page); await enter(page, '在线冒险者');
+  assert.equal(await page.evaluate(() => window.eclipseState.gold), 9134);
+  assert.deepEqual(await page.evaluate(() => window.onlineGame.hero.runes), ['el', 'el', 'tir']);
+  await leave(page); await enter(page, '上传副本');
   // The server commits a save while its first response is lost. Retrying must not roll back live state.
   let dropped = false, retryOperations = [];
   await page.route('**/api/v1/characters/*/save', async route => {

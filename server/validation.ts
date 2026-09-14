@@ -3,6 +3,7 @@ import { parseCharacterFile, parseProfile, CHARACTER_FILE_LIMIT, type SavedProfi
 import { parseSharedItems } from '../src/shared-stash.ts';
 import { randomUUID } from 'node:crypto';
 import type { Item } from '../src/items.ts';
+import { parseResources } from '../src/shared-resources.ts';
 
 export class ApiError extends Error {
   status: number; code: string;
@@ -20,14 +21,14 @@ export function string(value: unknown, max = 128): string {
 export function integer(value: unknown, min = 0, max = Number.MAX_SAFE_INTEGER): number {
   check(Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max); return value as number;
 }
-function validateTree(value: unknown, depth = 0) {
+function validateTree(value: unknown, depth = 0, field = '') {
   check(depth <= 24, 'INVALID_SAVE', '存档嵌套过深。');
   if (typeof value === 'number') check(Number.isFinite(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER, 'INVALID_SAVE', '存档数值无效。');
   if (typeof value === 'string') check(value.length <= 4096, 'INVALID_SAVE', '存档字段过长。');
-  if (Array.isArray(value)) { check(value.length <= 1000, 'INVALID_SAVE', '存档数组过大。'); value.forEach(v => validateTree(v, depth + 1)); }
+  if (Array.isArray(value)) { check(value.length <= (field === 'runes' ? 100000 : 1000), 'INVALID_SAVE', '存档数组过大。'); value.forEach(v => validateTree(v, depth + 1)); }
   else if (value && typeof value === 'object') {
     for (const [key, child] of Object.entries(value)) {
-      check(!['__proto__', 'prototype', 'constructor'].includes(key), 'INVALID_SAVE'); validateTree(child, depth + 1);
+      check(!['__proto__', 'prototype', 'constructor'].includes(key), 'INVALID_SAVE'); validateTree(child, depth + 1, key);
     }
   }
 }
@@ -48,7 +49,8 @@ export function validateHero(value: unknown): HeroState {
     if (Array.isArray(sample)) check(Array.isArray(raw[key]), 'INVALID_SAVE');
     else if (sample !== null && typeof sample === 'object') check(raw[key] && typeof raw[key] === 'object' && !Array.isArray(raw[key]), 'INVALID_SAVE');
   }
-  integer(raw.level, 1, 99); integer(raw.gold, 0, 10000000); integer(raw.kills, 0, 10000000);
+  integer(raw.level, 1, 99); integer(raw.gold, 0); integer(raw.kills, 0, 10000000);
+  parseResources({ revision: 0, gold: raw.gold, runes: raw.runes, members: [] });
   integer(raw.points, 0, 10000000); integer(raw.skillPoints, 0, 10000000);
   for (const field of ['strength','dexterity','vitality','energy']) integer(raw[field], 1, 10000);
   for (const field of ['xp','hp','mana','stamina']) check(typeof raw[field] === 'number' && (raw[field] as number) >= 0, 'INVALID_SAVE');

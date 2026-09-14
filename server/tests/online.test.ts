@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { createApp, SESSION_TIMEOUT, REMEMBER_TIMEOUT } from '../app.ts';
 import { backupDatabase } from '../backup.ts';
 import { newHero } from '../../src/model.ts';
@@ -31,9 +32,9 @@ async function client(app: App) {
   };
   return { request, login, acquire, state, cookies };
 }
-async function fixture(t: test.TestContext) {
+async function fixture(t: test.TestContext, filename = ':memory:') {
   let time = Date.now();
-  const app = await createApp({ filename: ':memory:', now: () => time, rateLimit: 10000 }); t.after(() => app.close());
+  const app = await createApp({ filename, now: () => time, rateLimit: 10000 }); t.after(() => app.close());
   const a = await client(app), b = await client(app);
   for (const [c, username] of [[a, 'account_a'], [b, 'account_b']] as const) {
     assert.equal((await c.request('/auth/register', 'POST', { username, password })).statusCode, 201);
@@ -45,6 +46,45 @@ async function fixture(t: test.TestContext) {
   };
   return { app, a, b, create, advance: (ms: number) => { time += ms; } };
 }
+
+test('existing account balances migrate without truncation or rewriting source characters', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'd2r-resources-')), filename = join(directory, 'account.sqlite');
+  const { a, create } = await fixture(t, filename);
+  t.after(() => { for (const suffix of ['', '-wal', '-shm']) rmSync(filename + suffix, { force: true }); rmdirSync(directory); });
+  const first = await create('旧甲'), second = await create('旧乙');
+  first.hero.gold = 10000000; first.hero.runes = Array(1000).fill('el'); second.hero.gold = 200; second.hero.runes = ['tir'];
+  const db = new DatabaseSync(filename);
+  try {
+    for (const profile of [first, second]) db.prepare('UPDATE characters SET profile=? WHERE id=?').run(JSON.stringify(profile), profile.id);
+    db.prepare('UPDATE stashes SET state=?').run(JSON.stringify({ version: 1, revision: 0, items: [], checkpoints: {} }));
+    const shared = (await a.request('/stash')).json();
+    assert.equal(shared.resources.gold, 10000200); assert.equal(shared.resources.runes.length, 1001);
+    assert.deepEqual((await a.request('/stash')).json(), shared);
+    assert.equal((db.prepare('SELECT profile FROM characters WHERE id=?').get(first.id) as { profile: string }).profile, JSON.stringify(first));
+    const profile = (await a.request(`/characters/${second.id}`)).json();
+    const saved = await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: profile.revision, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID() });
+    assert.equal(saved.statusCode, 200, saved.body); assert.equal(saved.json().hero.gold, 10000200); assert.equal(saved.json().hero.runes.length, 1001);
+  } finally { db.close(); }
+});
+
+test('gold and runes belong to the account, reject stale snapshots and survive character deletion', async t => {
+  const { a, b, create } = await fixture(t);
+  let first = await create('第一位'); const second = await create('第二位'), other = await create('其他账号', b);
+  first = (await a.request(`/characters/${first.id}`)).json();
+  const save = (profile: typeof first, gold: number, runes: string[]) => a.request(`/characters/${profile.id}/save`, 'PUT', {
+    hero: { ...profile.hero, gold, runes }, expectedRevision: profile.revision, expectedStashRevision: 0,
+    expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID(),
+  });
+  const response = await save(first, 12345, ['el', 'tir', 'el']); assert.equal(response.statusCode, 200, response.body);
+  const fresh = (await a.request(`/characters/${second.id}`)).json();
+  assert.equal(fresh.hero.gold, 12345); assert.deepEqual(fresh.hero.runes, ['el', 'tir', 'el']);
+  assert.equal((await save(second, 99999, [])).statusCode, 422);
+  const spent = await save(fresh, 12000, ['el', 'el']); assert.equal(spent.statusCode, 200, spent.body);
+  assert.equal((await b.request(`/characters/${other.id}`)).json().hero.gold, 0);
+  assert.deepEqual((await b.request('/stash')).json().resources.runes, []);
+  for (const profile of [response.json(), spent.json()]) assert.equal((await a.request(`/characters/${profile.id}`, 'DELETE', { expectedRevision: profile.revision, operationId: randomUUID() })).statusCode, 200);
+  const next = await create('新的角色'); assert.equal(next.hero.gold, 12000); assert.deepEqual(next.hero.runes, ['el', 'el']);
+});
 
 test('remembered login restores saves after expiry, remains exclusive and is revoked by logout', async t => {
   const { app, a, create, advance } = await fixture(t), profile = await create();
@@ -108,7 +148,7 @@ test('heartbeat expiry is 90 seconds; an old save and logout cannot affect a lat
   const other = await client(app);
   advance(SESSION_TIMEOUT - 1); assert.equal((await other.login('account_a')).statusCode, 409);
   advance(1); assert.equal((await other.login('account_a')).statusCode, 200); await other.acquire();
-  assert.equal((await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, operationId: randomUUID() })).statusCode, 401);
+  assert.equal((await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID() })).statusCode, 401);
   assert.equal((await a.request('/auth/logout', 'POST', {})).statusCode, 401);
   assert.equal((await other.request('/auth/session')).statusCode, 200);
   assert.equal((await other.request(`/characters/${profile.id}`)).json().revision, 1);
@@ -124,7 +164,7 @@ test('page ownership and epochs fence old browser documents', async t => {
   const oldEpoch = a.state.epoch;
   assert.equal((await a.acquire()).statusCode, 200);
   const currentEpoch = a.state.epoch; a.state.epoch = oldEpoch;
-  assert.equal((await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, operationId: randomUUID() })).json().code, 'WRITER_LOST');
+  assert.equal((await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID() })).json().code, 'WRITER_LOST');
   assert.equal((await a.request('/writer/release', 'POST', {})).json().code, 'WRITER_LOST');
   a.state.epoch = currentEpoch;
   assert.equal((await a.request('/writer/heartbeat', 'POST', {})).statusCode, 200);
@@ -133,10 +173,10 @@ test('account ownership protects read, export, save, rename, delete and stash', 
   const { a, b, create } = await fixture(t), profile = await create();
   for (const [path, method, payload] of [
     [`/characters/${profile.id}`, 'GET'], [`/characters/${profile.id}/export`, 'GET'],
-    [`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0 }],
+    [`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision }],
     [`/characters/${profile.id}`, 'PATCH', { name: '他人', expectedRevision: 1 }],
     [`/characters/${profile.id}`, 'DELETE', { expectedRevision: 1 }],
-    ['/stash/transfer', 'POST', { characterId: profile.id, expectedRevision: 1, expectedStashRevision: 0, transfer: { direction: 'unequip', slot: 'weapon' } }],
+    ['/stash/transfer', 'POST', { characterId: profile.id, expectedRevision: 1, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, transfer: { direction: 'unequip', slot: 'weapon' } }],
   ] as const) {
     assert.equal((await b.request(path, method, method === 'GET' ? undefined : { ...payload, operationId: randomUUID(), userId: a.state.id })).statusCode, 404);
   }
@@ -145,7 +185,7 @@ test('account ownership protects read, export, save, rename, delete and stash', 
 test('save retries are idempotent and stale revisions cannot overwrite progress', async t => {
   const { a, create } = await fixture(t), profile = await create();
   profile.hero.gold = 87654;
-  const payload = { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, operationId: randomUUID() };
+  const payload = { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID() };
   const first = await a.request(`/characters/${profile.id}/save`, 'PUT', payload);
   assert.equal(first.statusCode, 200, first.body); assert.equal(first.json().revision, 2);
   assert.deepEqual((await a.request(`/characters/${profile.id}/save`, 'PUT', payload)).json(), first.json());
@@ -155,11 +195,11 @@ test('save retries are idempotent and stale revisions cannot overwrite progress'
 });
 test('shared transfers atomically update both records, retry safely and reject old snapshots', async t => {
   const { a, create } = await fixture(t), profile = await create();
-  const payload = { characterId: profile.id, expectedRevision: 1, expectedStashRevision: 0, operationId: randomUUID(), transfer: { direction: 'unequip', slot: 'weapon' } };
+  const payload = { characterId: profile.id, expectedRevision: 1, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID(), transfer: { direction: 'unequip', slot: 'weapon' } };
   const first = await a.request('/stash/transfer', 'POST', payload); assert.equal(first.statusCode, 200, first.body);
   assert.equal(first.json().profile.hero.equipment.weapon, null); assert.equal(first.json().shared.items.length, 1);
   assert.deepEqual((await a.request('/stash/transfer', 'POST', payload)).json(), first.json());
-  const stale = await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 2, expectedStashRevision: 0, operationId: randomUUID() });
+  const stale = await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 2, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID() });
   assert.equal(stale.json().code, 'STASH_CONFLICT');
   const invalid = await a.request('/stash/transfer', 'POST', { ...payload, operationId: randomUUID(), expectedRevision: 2, expectedStashRevision: 1, transfer: { direction: 'withdraw', itemId: 'missing', container: 'inventory' } });
   assert.equal(invalid.statusCode, 422); assert.equal((await a.request('/stash')).json().revision, 1);
@@ -187,12 +227,12 @@ test('invalid and oversized uploads preserve existing records, and deleted saves
   }
   assert.equal((await a.request('/characters')).json().length, 1);
   const removed = await a.request(`/characters/${profile.id}`, 'DELETE', { expectedRevision: 1, operationId: randomUUID() }); assert.equal(removed.statusCode, 200);
-  assert.equal((await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, operationId: randomUUID() })).statusCode, 404);
+  assert.equal((await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: 1, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID() })).statusCode, 404);
 });
 test('invalid save shapes and CSRF are rejected', async t => {
   const { a, create } = await fixture(t), profile = await create();
   for (const hero of [{}, { ...profile.hero, level: 100 }, { ...profile.hero, gold: -1 }, { ...profile.hero, rulesVersion: 999 }]) {
-    const response = await a.request(`/characters/${profile.id}/save`, 'PUT', { hero, expectedRevision: 1, expectedStashRevision: 0, operationId: randomUUID() });
+    const response = await a.request(`/characters/${profile.id}/save`, 'PUT', { hero, expectedRevision: 1, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID() });
     assert.ok([409, 422].includes(response.statusCode), response.body);
   }
   a.state.csrf = ''; assert.equal((await a.request('/auth/logout', 'POST', {})).statusCode, 403);

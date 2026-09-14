@@ -26,6 +26,7 @@ try {
   }, serializeSave(hero));
   await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173');
   await page.getByRole('button', { name: '进入旅程', exact: true }).click();
+  await page.waitForFunction(() => window.eclipseState?.profileId);
   await page.evaluate(() => { const g = window.craftingGame; cancelAnimationFrame(g.frameId); g.ui.openPanel('inventory'); });
   await page.locator('.bag-item[data-item="sword"]').click();
   const preview = page.locator(`.item-runewords [data-runeword="${spirit.catalogId}"]`), craft = page.locator(`[data-craft-runeword="${spirit.catalogId}"]`);
@@ -40,10 +41,10 @@ try {
   await expect(page.locator('[data-craft-runeword]')).toHaveCount(0);
   await page.locator('[data-bag-view="stash"]').click(); await page.locator('.bag-item[data-item="shield"]').click();
   await expect(craft).toBeDisabled(); await expect(page.locator('.item-runewords')).toContainText('缺少：');
-  await page.evaluate(runes => { const g = window.craftingGame; g.hero.runes.push(...runes); g.save(false); g.ui.renderPanel(); window.realCraftSave = g.save; g.save = () => false; }, spirit.runes);
+  await page.evaluate(async runes => { const g = window.craftingGame; g.hero.runes.push(...runes); await g.flushSave(); g.ui.renderPanel(); window.realCraftSave = g.flushSave; g.flushSave = async () => false; }, spirit.runes);
   const before = await page.evaluate(() => JSON.stringify(window.craftingGame.hero));
   await craft.click(); assert.equal(await page.evaluate(() => JSON.stringify(window.craftingGame.hero)), before, 'failed save rolls back all consumed runes and item changes');
-  await page.evaluate(() => { window.craftingGame.save = window.realCraftSave; });
+  await page.evaluate(() => { window.craftingGame.flushSave = window.realCraftSave; });
   await craft.click(); saved = (await savedProfile(page)).hero; assert.equal(saved.stash[0].catalogId, spirit.catalogId);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('[data-bag-view="inventory"]').click(); await page.locator('.bag-item[data-item="armor"]').click();

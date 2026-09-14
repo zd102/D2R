@@ -42,7 +42,7 @@ export class ProfileScreen {
         switch (button.dataset.profileAction) {
           case 'new': this.editing = undefined; this.creatingClass = 'paladin'; ui.openPanel('new-profile'); break;
           case 'back': this.editing = undefined; ui.openPanel('profiles'); break;
-          case 'play': if (profile) game.startProfile(profile.id); break;
+          case 'play': if (profile) { this.busy = true; await game.startProfile(profile.id); } break;
           case 'encyclopedia': ui.openPanel('encyclopedia'); break;
           case 'rename': if (profile) { this.editing = profile; ui.openPanel('rename-profile'); } break;
           case 'delete': if (profile) { this.editing = profile; ui.openPanel('delete-profile'); } break;
@@ -55,6 +55,7 @@ export class ProfileScreen {
           case 'confirm-delete':
             if (this.editing && game.saves) {
               this.busy = true; button.disabled = true;
+              if ('initializeResources' in game.saves) await game.saves.initializeResources();
               await game.saves.delete(this.editing.id, this.editing.revision);
               game.storageAvailable = true;
               this.selectedId = undefined; this.editing = undefined; ui.openPanel('profiles');
@@ -77,12 +78,13 @@ export class ProfileScreen {
         if (ui.panel === 'new-profile') {
           const classId = new FormData(event.target).get('class');
           const profile = await game.saves.create(name, isClassId(classId) ? classId : 'paladin'); this.selectedId = profile.id;
-          ui.openPanel('profiles'); game.startProfile(profile.id);
+          ui.openPanel('profiles'); await game.startProfile(profile.id);
         } else if (ui.panel === 'rename-profile' && this.editing) {
           const profile = await game.saves.rename(this.editing.id, name, this.editing.revision);
           this.selectedId = profile.id; this.editing = undefined; ui.openPanel('profiles');
         } else if (ui.panel === 'import-profile' && this.importRaw && !this.importPending) {
           const profile = await game.saves.importCharacter(this.importRaw, name);
+          if ('initializeResources' in game.saves) await game.saves.initializeResources();
           this.selectedId = profile.id; this.importing = undefined; this.importRaw = undefined;
           game.storageAvailable = true; ui.openPanel('profiles'); ui.toast('角色已导入', profile.name);
         }

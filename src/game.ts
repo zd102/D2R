@@ -182,12 +182,34 @@ export class Game {
       if (event.key !== null && event.key !== SHARED_STASH_KEY && event.key !== PROFILE_PREFIX + this.profile.id) return;
       try {
         const current = this.saves!.read(this.profile.id);
-        if (current.revision === this.profile.revision && current.sharedRevision === this.profile.sharedRevision) { if (event.key === SHARED_STASH_KEY) this.ui.sharedStashScreen.refresh(); return; }
+        if (current.revision === this.profile.revision && current.sharedRevision === this.profile.sharedRevision
+          && current.resourcesRevision !== this.profile.resourcesRevision && !this.onlineSaveBusy
+          && this.hero.gold === this.profile.hero.gold && JSON.stringify(this.hero.runes) === JSON.stringify(this.profile.hero.runes)) {
+          this.hero.gold = current.hero.gold; this.hero.runes = [...current.hero.runes]; this.profile = current;
+          this.ui.renderPanel(); return;
+        }
+        if (current.revision === this.profile.revision && current.sharedRevision === this.profile.sharedRevision && current.resourcesRevision === this.profile.resourcesRevision) { if (event.key === SHARED_STASH_KEY) this.ui.sharedStashScreen.refresh(); return; }
       } catch { /* A removed or damaged record must not be recreated by autosave. */ }
       this.saveConflict = true; this.ui.openPanel('save-conflict');
     });
     if (this.online) this.setupOnline();
+    else if (this.saves) this.setupLocalSaves();
+    for (const type of ['click', 'pointerdown', 'keydown', 'change', 'submit']) {
+      document.getElementById('app')!.addEventListener(type, event => {
+        if (this.onlineOperation) { event.preventDefault(); event.stopImmediatePropagation(); }
+      }, true);
+    }
     this.loop();
+  }
+  private setupLocalSaves() {
+    const store = this.saves as SaveStore;
+    this.onlineSaves = new OnlineSaveCoordinator({ read: () => this.profile!, save: (id, hero, revision) => store.saveAtomic(id, hero, revision, this.profile?.resourcesRevision) });
+    this.onlineSaves.onSaved = profile => { if (this.profile?.id === profile.id) this.profile = profile; this.storageAvailable = true; };
+    this.onlineSaves.onError = error => {
+      this.storageAvailable = false;
+      if (error instanceof SaveError) { this.saveConflict = true; this.ui.openPanel('save-conflict'); }
+      else { this.setupLocalSaves(); this.ui.toast('无法保存', '本地存储不可用，当前进度仍保留在本页面。'); }
+    };
   }
   private setupOnline() {
     const store = this.online!;
@@ -238,7 +260,6 @@ export class Game {
     }
   }
   async flushSave(notify = false) {
-    if (!this.online) return this.save(notify);
     if (!this.profile || !this.onlineSaves) return this.onlineState === 'ready';
     if (this.onlineState === 'expired' || this.saveConflict) return false;
     this.onlineSaves.request(this.profile.id, this.dead ? { ...this.hero, hp: stats(this.hero).maxHp, mana: stats(this.hero).maxMana } : this.hero);
@@ -248,9 +269,8 @@ export class Game {
       return String(this.onlineState) !== 'expired';
     } catch { return false; }
   }
-  /** Execute transitions only after persistence; local callers retain synchronous behavior. */
+  /** Execute transitions only after the character and shared resources are durable. */
   commitSave(success: () => void, rollback: () => void = () => {}) {
-    if (!this.online) { if (!this.save(false)) { rollback(); return false; } success(); return true; }
     if (this.onlineOperation || this.onlineState !== 'ready') { rollback(); return false; }
     const paused = this.paused; this.onlineOperation = true; this.paused = true; this.releaseInput();
     void this.flushSave().then(ok => {
@@ -275,8 +295,10 @@ export class Game {
     } catch (error) { if (error instanceof OnlineError) this.online?.client.report(error); }
     finally { this.onlineOperation = false; }
   }
-  startProfile(id: string) {
+  async startProfile(id: string) {
     if (this.profile || !this.saves) return;
+    if (!this.online) { await (this.saves as SaveStore).initializeResources(); this.setupLocalSaves(); }
+    if (this.profile) return;
     const profile = this.saves.read(id);
     this.saves.remember(id);
     this.profile = profile; this.hero = structuredClone(profile.hero);

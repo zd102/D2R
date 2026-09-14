@@ -11,9 +11,9 @@ export const CHARACTER_FILE_FORMAT = 'eclipse-ii-character';
 export const CHARACTER_FILE_LIMIT = 2 * 1024 * 1024;
 export type SavedProfile = {
   version: 2; id: string; name: string; createdAt: number; updatedAt: number;
-  revision: number; hero: HeroState; sharedRevision?: number;
+  revision: number; hero: HeroState; sharedRevision?: number; resourcesRevision?: number;
 };
-export type SharedStash = { version: 1; revision: number; items: Item[]; checkpoints: Record<string, SavedProfile>; migrationSources?: string[] };
+export type SharedStash = { version: 1 | 2; revision: number; items: Item[]; checkpoints: Record<string, SavedProfile>; migrationSources?: string[]; resources?: import('./shared-resources.ts').SharedResources };
 export class SaveError extends Error {
   code: 'name' | 'missing' | 'corrupt' | 'conflict' | 'file' | 'shared';
   constructor(message: string, code: SaveError['code']) { super(message); this.code = code; }
@@ -35,6 +35,7 @@ export function parseProfile(raw: string | null): SavedProfile | null {
     const hero = parseSave(JSON.stringify({ version: 1, hero: data.hero }));
     if (!hero) return null;
     return { version: 2, id: data.id, name: normalizeName(data.name), createdAt: data.createdAt, updatedAt: data.updatedAt, revision: data.revision, hero,
+      ...(Number.isSafeInteger(data.resourcesRevision) && data.resourcesRevision >= 0 ? { resourcesRevision: data.resourcesRevision } : {}),
       ...(Number.isSafeInteger(data.sharedRevision) && data.sharedRevision > 0 ? { sharedRevision: data.sharedRevision } : {}) };
   } catch { return null; }
 }

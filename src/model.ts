@@ -530,7 +530,7 @@ export function parseSave(raw: string | null): HeroState | null {
     if(h.classId !== undefined && !isClassId(h.classId)) return null;
     const hero = newHero(h.classId ?? 'paladin'), legacy = h.rulesVersion !== 2, base = CLASSES[hero.classId].attributes; hero.level = integer(h.level, 1, 1, 99);
     if (h.rulesVersion !== undefined && h.rulesVersion !== 2) return null;
-    for (const key of ['gold', 'kills', 'points', 'skillPoints'] as const) hero[key] = integer(h[key], key === 'skillPoints' ? hero.level - 1 : 0, 0, 10000000);
+    for (const key of ['kills', 'points', 'skillPoints'] as const) hero[key] = integer(h[key], key === 'skillPoints' ? hero.level - 1 : 0, 0, 10000000);
     hero.playerCount = parsePlayerCount(h.playerCount);
     hero.xp = decimal(h.xp, 0, 0, hero.level === 99 ? 0 : xpForLevel(hero.level) - 1);
     for (const key of Object.keys(base) as Attribute[]) hero[key] = integer(h[key], base[key], base[key], 10000);
@@ -577,7 +577,8 @@ export function parseSave(raw: string | null): HeroState | null {
     }
     placeItems(hero.cube, CUBE_ROWS, CUBE_COLUMNS);
     if (!packItems(hero.inventory)) { const items = hero.inventory; hero.inventory = []; for (const item of items) { if (packItems([...hero.inventory, item])) hero.inventory.push(item); else hero.stash.push(item); } placeItems(hero.inventory); }
-    hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)).slice(0, 1000) : []; hero.identifyScrolls = integer(h.identifyScrolls, 0, 0, 99);
+    hero.gold = integer(h.gold, 0, 0, Number.MAX_SAFE_INTEGER);
+    hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)) : []; hero.identifyScrolls = integer(h.identifyScrolls, 0, 0, 99);
     hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(shrine[0-2]|boss|life|attributes|resistance|jungle|summit)$/.test(key)))] : [];
     hero.respecUsed = Array.isArray(h.respecUsed) ? [...new Set<number>(h.respecUsed.filter((value: unknown) => value === 0 || value === 1 || value === 2))] : [];
     hero.bonusLife = integer(h.bonusLife, 0, 0, 60); hero.bonusResist = integer(h.bonusResist, 0, 0, 30); hero.holyShield = decimal(h.holyShield, 0, 0, 3600); hero.poison = decimal(h.poison, 0, 0, 120); hero.curse = decimal(h.curse, 0, 0, 120); hero.cold = decimal(h.cold, 0, 0, 120); hero.running = h.running !== false;

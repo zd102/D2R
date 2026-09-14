@@ -9,6 +9,17 @@ const profile = (id: string, level = 1, name = id): SavedProfile => ({ version: 
 const snapshot = (origin: string, profiles: SavedProfile[], items: Item[] = []): OriginSnapshot => ({ origin, capturedAt: 1, entries: Object.fromEntries(profiles.map(p => [PROFILE_PREFIX + p.id, JSON.stringify(p)])), shared: JSON.stringify({ version: 1, revision: 3, items, checkpoints: {} }) });
 const equipment = (id: string): Item => ({ ...newHero().equipment.weapon!, id });
 
+test('origin merge preserves shared balances once instead of adding every character snapshot', () => {
+  const a = profile('a'), b = profile('b'), c = profile('c');
+  a.hero.gold = b.hero.gold = 500; a.hero.runes = b.hero.runes = ['el']; c.hero.gold = 20; c.hero.runes = ['tir'];
+  const target = snapshot('target', [a, b]);
+  target.shared = JSON.stringify({ version: 1, revision: 0, items: [], checkpoints: {}, resources: { revision: 4, gold: 500, runes: ['el'], members: ['a:1', 'b:1'] } });
+  const plan = planOriginMerge(target, [snapshot('source', [c])], () => 'unused');
+  assert.equal(plan.shared.resources?.gold, 520); assert.deepEqual(plan.shared.resources?.runes, ['el', 'tir']);
+  const merged = snapshotStore({ ...target, entries: plan.writes, shared: JSON.stringify(plan.shared) });
+  assert.equal(merged.list().length, 3); assert.ok(merged.list().every(p => p.hero.gold === 520));
+});
+
 test('same character keeps progressed version despite a newer timestamp on an old save; sources remain intact', () => {
   const old = profile('paladin', 24); old.updatedAt = 999; old.revision = 500;
   const advanced = profile('paladin', 54); advanced.hero.campaign.cleared = [25, 1, 0];

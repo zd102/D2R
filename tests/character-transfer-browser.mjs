@@ -64,7 +64,8 @@ try {
   const download = await downloadEvent;
   assert.match(download.suggestedFilename(), /^eclipse-ii-.*\.json$/);
   const exported = await readFile(await download.path(), 'utf8');
-  assert.deepEqual(JSON.parse(exported).profile, first); assert.deepEqual(await records(page), before);
+  const { resourcesRevision, ...exportedProfile } = JSON.parse(exported).profile;
+  assert.equal(resourcesRevision, 1); assert.deepEqual(exportedProfile, first); assert.deepEqual(await records(page), before);
   await page.screenshot({ path: `${output}/desktop-roster.png` });
   await checkView(page, { width: 1440, height: 960 });
 
@@ -102,7 +103,7 @@ try {
   assert.equal(Object.keys(await records(page)).length, 3);
   await page.getByRole('button', { name: '进入旅程', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.profileName === '存储失败重试' && !window.eclipseState.paused);
-  assert.equal((await page.evaluate(() => window.eclipseState)).gold, seed.hero.gold);
+  assert.equal((await page.evaluate(() => window.eclipseState)).gold, seed.hero.gold * 3);
   await page.keyboard.press('Escape');
   console.log('Import preview, cancellation, download, round trip, duplicate names, invalid files and storage retry passed');
 

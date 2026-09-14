@@ -49,8 +49,8 @@ export class SharedStashScreen {
     const revision = this.state.revision, unequippedId = request.direction === 'unequip' ? game.hero.equipment[request.slot]?.id : undefined;
     this.busy = true; this.error = ''; this.ui.renderPanel();
     try {
-      if (game.online && !await game.flushSave()) return;
-      const result = await game.saves.transferShared(game.profile.id, game.hero, game.profile.revision, revision, request);
+      if (!await game.flushSave()) { this.error = '当前进度未能保存，请重试。'; return; }
+      const result = await game.saves.transferShared(game.profile.id, game.hero, game.profile.revision, revision, request, game.profile.resourcesRevision);
       game.profile = result.profile; game.hero = structuredClone(result.profile.hero); game.storageAvailable = true; this.state = result.shared;
       this.selected = request.direction === 'equip' ? { side: 'equipment', id: request.itemId } : request.direction === 'move' ? { side: 'shared', id: request.itemId } : unequippedId ? { side: 'shared', id: unequippedId } : undefined;
       game.audio.play('equip'); this.ui.toast(request.direction === 'move' ? '已调整共享仓库' : request.direction === 'equip' ? '已装备，替换装备已放回共享仓库' : request.direction === 'unequip' ? '已卸下至共享仓库' : request.direction === 'deposit' ? '已存入共享仓库' : request.container === 'inventory' ? '已取回背包' : '已取回个人仓库');

@@ -2,6 +2,7 @@ import { newHero, parseSave, SAVE_KEY, type HeroState } from './model.ts';
 import { isClassId, type ClassId } from './classes.ts';
 import { parseSharedItems, moveSharedItem, type SharedLock, type SharedTransfer } from './shared-stash.ts';
 import { sharedRaw, commitSharedRaw, sharedTransaction } from './shared-storage.ts';
+import { collectResources, parseResources, withResources, updateResources } from './shared-resources.ts';
 import { PROFILE_PREFIX, LAST_PROFILE_KEY, MIGRATION_KEY, RULES_BACKUP_PREFIX, CHARACTER_FILE_FORMAT, SaveError, normalizeName, parseProfile, parseCharacterFile, type SavedProfile, type SharedStash } from './save-format.ts';
 export * from './save-format.ts';
 type SaveStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'>;
@@ -16,14 +17,15 @@ export class SaveStore {
     if (raw === null) return { version: 1, revision: 0, items: [], checkpoints: {} };
     try {
       const data = JSON.parse(raw);
-      if (data.version !== 1 || !Number.isSafeInteger(data.revision) || data.revision < 0 || !data.checkpoints || typeof data.checkpoints !== 'object' || Array.isArray(data.checkpoints)) throw new Error();
+      if (![1, 2].includes(data.version) || data.version === 2 && data.resources === undefined || !Number.isSafeInteger(data.revision) || data.revision < 0 || !data.checkpoints || typeof data.checkpoints !== 'object' || Array.isArray(data.checkpoints)) throw new Error();
       const checkpoints: Record<string, SavedProfile> = {};
       for (const [id, value] of Object.entries(data.checkpoints)) {
         const profile = parseProfile(JSON.stringify(value));
         if (!profile || profile.id !== id) throw new Error();
         checkpoints[id] = profile;
       }
-      return { version: 1, revision: data.revision, items: parseSharedItems(data.items), checkpoints,
+      return { version: data.version, revision: data.revision, items: parseSharedItems(data.items), checkpoints,
+        ...(data.resources === undefined ? {} : { resources: parseResources(data.resources) }),
         ...(Array.isArray(data.migrationSources) && data.migrationSources.every((value: unknown) => typeof value === 'string') ? { migrationSources: data.migrationSources } : {}) };
     } catch { throw new SaveError('共享仓库数据无法读取，原数据已保留。', 'corrupt'); }
   }
@@ -31,13 +33,32 @@ export class SaveStore {
     const checkpoint = this.readShared().checkpoints[profile.id];
     return checkpoint && checkpoint.createdAt === profile.createdAt && (checkpoint.sharedRevision !== profile.sharedRevision || checkpoint.revision >= profile.revision) ? checkpoint : profile;
   }
-  async transferShared(id: string, hero: HeroState, revision: number, sharedRevision: number, request: SharedTransfer) {
+  async initializeResources() {
+    return this.sharedLock(() => {
+      const shared = this.readShared(), profiles = this.list(false);
+      if (this.invalidCount) throw new SaveError('部分角色存档损坏，无法合并金币和符文，原数据已保留。', 'corrupt');
+      const resources = collectResources(shared.resources, profiles);
+      if (shared.version !== 2 || JSON.stringify(resources) !== JSON.stringify(shared.resources)) {
+        // Older pages reject version 2 instead of dropping the new shared balances.
+        shared.version = 2; shared.resources = resources; commitSharedRaw(this.storage, JSON.stringify(shared));
+      }
+    });
+  }
+  async saveAtomic(id: string, hero: HeroState, revision: number, resourcesRevision?: number) {
+    const snapshot = structuredClone(hero);
+    const profile = await this.sharedLock(() => this.save(id, snapshot, revision, resourcesRevision));
+    // The atomic checkpoint remains authoritative if the compatibility mirror fails.
+    try { this.storage.setItem(PROFILE_PREFIX + id, JSON.stringify(profile)); } catch { /* Already committed. */ }
+    return profile;
+  }
+  async transferShared(id: string, hero: HeroState, revision: number, sharedRevision: number, request: SharedTransfer, resourcesRevision?: number) {
     const snapshot = structuredClone(hero);
     return this.sharedLock(() => {
       const current = this.current(id, revision), shared = this.readShared();
       if (shared.revision !== sharedRevision) throw new SaveError('共享仓库已在其他窗口更新，请重新选择物品。', 'shared');
+      if (shared.resources) shared.resources = updateResources(shared.resources, snapshot, resourcesRevision);
       moveSharedItem(snapshot, shared.items, request);
-      const profile = { ...current, hero: snapshot, revision: current.revision + 1, sharedRevision: shared.revision + 1, updatedAt: Date.now() };
+      const profile = withResources({ ...current, hero: snapshot, revision: current.revision + 1, sharedRevision: shared.revision + 1, updatedAt: Date.now() }, shared.resources);
       // One atomic write commits both sides. Profile readers prefer this checkpoint;
       // the next ordinary save writes the character key with a newer revision.
       shared.checkpoints[id] = profile; shared.revision++;
@@ -46,7 +67,7 @@ export class SaveStore {
       return { profile, shared };
     });
   }
-  list(): SavedProfile[] {
+  list(resources = true): SavedProfile[] {
     const profiles: SavedProfile[] = [];
     this.invalidCount = 0;
     for (let i = 0; i < this.storage.length; i++) {
@@ -56,14 +77,15 @@ export class SaveStore {
       if (profile && key === PROFILE_PREFIX + profile.id) profiles.push(this.checkpoint(profile));
       else this.invalidCount++;
     }
-    return profiles.sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
+    const shared = resources ? this.readShared().resources : undefined;
+    return profiles.map(profile => withResources(profile, shared)).sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
   }
   read(id: string): SavedProfile {
     const raw = this.storage.getItem(PROFILE_PREFIX + id);
     if (raw === null) throw new SaveError('该角色存档已不存在。', 'missing');
     const profile = parseProfile(raw);
     if (!profile || profile.id !== id) throw new SaveError('该角色存档无法读取，原数据已保留。', 'corrupt');
-    return this.checkpoint(profile);
+    return withResources(this.checkpoint(profile), this.readShared().resources);
   }
   checkName(name: string, exceptId?: string) {
     const normalized = normalizeName(name);
@@ -107,10 +129,18 @@ export class SaveStore {
     if (hero.rulesVersion !== 2 && !this.storage.getItem(RULES_BACKUP_PREFIX + id)) this.storage.setItem(RULES_BACKUP_PREFIX + id, raw);
     if (!hero.campaign && !this.storage.getItem('eclipse-ii-before-campaign:' + id)) this.storage.setItem('eclipse-ii-before-campaign:' + id, raw);
   }
-  save(id: string, hero: HeroState, revision: number): SavedProfile {
+  save(id: string, hero: HeroState, revision: number, resourcesRevision?: number): SavedProfile {
     const current = this.current(id, revision);
     this.backupPreviousSystems(id);
     const profile = { ...current, hero: structuredClone(hero), updatedAt: Date.now(), revision: current.revision + 1 };
+    const shared = this.readShared();
+    if (shared.resources) {
+      shared.resources = updateResources(shared.resources, hero, resourcesRevision);
+      const result = withResources(profile, shared.resources);
+      shared.checkpoints[id] = result;
+      commitSharedRaw(this.storage, JSON.stringify(shared));
+      return result;
+    }
     // Each character has its own key; saving one never rewrites another character.
     this.storage.setItem(PROFILE_PREFIX + id, JSON.stringify(profile));
     if (this.readShared().checkpoints[id]?.revision >= profile.revision) throw new SaveError('该角色物品已在其他窗口转移。', 'conflict');

@@ -51,7 +51,7 @@ try {
   await page.screenshot({ path: `${output}/profiles-create.png` });
   await page.getByRole('button', { name: '创建并进入', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.profileName === '晨星');
-  assert.equal((await state(page)).gold, 0); assert.equal((await state(page)).level, 1);
+  assert.equal((await state(page)).gold, 270); assert.equal((await state(page)).level, 1);
   await leave(page);
   const beforeA = (await records(page)).find(p => p.name === '晨星');
   assert.equal(beforeA.hero.mana, 15); assert.equal((await records(page)).length, 2);
@@ -73,7 +73,7 @@ try {
   await page.getByRole('button', { name: '删除角色', exact: true }).click();
   await page.getByRole('button', { name: '保留角色', exact: true }).click(); assert.equal((await records(page)).length, 2);
   await page.getByRole('button', { name: '删除角色', exact: true }).click();
-  await page.getByRole('button', { name: '确认删除', exact: true }).click(); await page.reload(); await roster(page);
+  await page.getByRole('button', { name: '确认删除', exact: true }).click(); await roster(page); await page.reload(); await roster(page);
   assert.equal((await records(page)).length, 1); assert.equal(await page.getByRole('option', { name: '灰烬行者' }).count(), 0);
   assert.equal(await page.evaluate(key => localStorage.getItem(key), SAVE_KEY), original, 'Migration backup remains intact');
   console.log('Migration, creation, selection, isolation, rename and deletion passed');
@@ -115,6 +115,7 @@ try {
     assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await mobile.screenshot({ path: `${output}/profiles-${viewport.width}.png` });
     await mobile.getByRole('button', { name: '进入旅程', exact: true }).tap();
+    await mobile.waitForFunction(() => window.eclipseState?.profileId);
     assert.equal((await state(mobile)).profileName, '守夜者1');
     await mobile.close();
   }

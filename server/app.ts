@@ -8,6 +8,7 @@ import { newHero } from '../src/model.ts';
 import { isClassId } from '../src/classes.ts';
 import { normalizeName, SaveError, CHARACTER_FILE_FORMAT, type SavedProfile, type SharedStash } from '../src/save-format.ts';
 import { moveSharedItem, type SharedTransfer } from '../src/shared-stash.ts';
+import { collectResources, withResources, updateResources } from '../src/shared-resources.ts';
 
 type User = { id: string; username: string; normalized: string; password_hash: string };
 type Session = { id: string; user_id: string; token_hash: string; expires_at: number; absolute_expires_at: number; writer_id: string | null; writer_epoch: number };
@@ -163,12 +164,21 @@ export async function createApp(options: Options) {
   });
   function readCharacter(userId: string, id: string): SavedProfile {
     const row = db.get<Character>('SELECT * FROM characters WHERE user_id=? AND id=? AND deleted_at IS NULL', userId, id);
-    check(row, 'CHARACTER_NOT_FOUND', '角色不存在或已删除。', 404); return JSON.parse(row.profile) as SavedProfile;
+    check(row, 'CHARACTER_NOT_FOUND', '角色不存在或已删除。', 404); return withResources(JSON.parse(row.profile) as SavedProfile, readStash(userId).resources);
   }
   function readStash(userId: string): SharedStash {
+    if (!db.connection.isTransaction) return db.transaction(() => readStash(userId));
     const row = db.get<{ state: string }>('SELECT state FROM stashes WHERE user_id=?', userId);
     check(row, 'INVALID_SAVE', '账号仓库无法读取。'); const state = JSON.parse(row.state) as SharedStash;
-    validateStash(state.items); return state;
+    check([1, 2].includes(state.version) && (state.version !== 2 || state.resources !== undefined), 'INVALID_SAVE', '账号仓库无法读取。');
+    validateStash(state.items);
+    const profiles = db.all<Character>('SELECT * FROM characters WHERE user_id=? AND deleted_at IS NULL', userId).map(row => JSON.parse(row.profile) as SavedProfile);
+    const resources = collectResources(state.resources, profiles);
+    if (state.version !== 2 || JSON.stringify(resources) !== JSON.stringify(state.resources)) {
+      state.version = 2; state.resources = resources;
+      db.run('UPDATE stashes SET state=? WHERE user_id=?', JSON.stringify(state), userId);
+    }
+    return state;
   }
   function noDuplicateItems(userId: string, changed: SavedProfile, shared: SharedStash) {
     const items = [...heroItems(changed.hero), ...shared.items];
@@ -197,7 +207,8 @@ export async function createApp(options: Options) {
   }
   app.get('/api/v1/characters', async req => {
     const active = session(req);
-    return db.all<Character>('SELECT * FROM characters WHERE user_id=? AND deleted_at IS NULL', active.user_id).map(row => JSON.parse(row.profile)).sort((a: SavedProfile, b: SavedProfile) => b.updatedAt - a.updatedAt);
+    const shared = readStash(active.user_id);
+    return db.all<Character>('SELECT * FROM characters WHERE user_id=? AND deleted_at IS NULL', active.user_id).map(row => withResources(JSON.parse(row.profile), shared.resources)).sort((a: SavedProfile, b: SavedProfile) => b.updatedAt - a.updatedAt);
   });
   app.get('/api/v1/characters/:id', async req => readCharacter(session(req).user_id, param(req, 'id')));
   function createCharacter(userId: string, data: Record<string, unknown>, imported = false) {
@@ -209,7 +220,10 @@ export async function createApp(options: Options) {
     const stash = readStash(userId);
     const profile: SavedProfile = { version: 2, id: randomUUID(), name, createdAt: now(), updatedAt: now(), revision: 1, sharedRevision: stash.revision, hero };
     noDuplicateItems(userId, profile, stash);
-    db.run('INSERT INTO characters (id,user_id,name_key,profile) VALUES (?,?,?,?)', profile.id, userId, name.toLowerCase(), JSON.stringify(profile)); return profile;
+    db.run('INSERT INTO characters (id,user_id,name_key,profile) VALUES (?,?,?,?)', profile.id, userId, name.toLowerCase(), JSON.stringify(profile));
+    stash.resources = collectResources(stash.resources, [profile]);
+    db.run('UPDATE stashes SET state=? WHERE user_id=?', JSON.stringify(stash), userId);
+    return withResources(profile, stash.resources);
   }
   app.post('/api/v1/characters', async req => mutate(req, (userId, data) => createCharacter(userId, data)));
   // JSON encoding a file as a string can nearly double its wire size; the decoded file is still capped at 2 MiB.
@@ -231,8 +245,12 @@ export async function createApp(options: Options) {
     const profile = readCharacter(userId, param(req, 'id')), stash = readStash(userId); revision(profile, data.expectedRevision);
     check(stash.revision === integer(data.expectedStashRevision), 'STASH_CONFLICT', '仓库存档已更新，请重新载入。', 409);
     const hero = validateHero(data.hero); check(hero.classId === profile.hero.classId, 'INVALID_SAVE', '角色职业不能更改。');
+    check(data.expectedResourcesRevision !== undefined, 'CLIENT_UPDATE_REQUIRED', '请刷新页面以使用共享金币和符文。', 409);
+    stash.resources = updateResources(stash.resources!, hero, integer(data.expectedResourcesRevision));
+    profile.resourcesRevision = stash.resources.revision;
     profile.hero = hero; profile.revision++; profile.sharedRevision = stash.revision; profile.updatedAt = now();
-    noDuplicateItems(userId, profile, stash); updateProfile(userId, profile); return profile;
+    noDuplicateItems(userId, profile, stash); updateProfile(userId, profile);
+    db.run('UPDATE stashes SET state=? WHERE user_id=?', JSON.stringify(stash), userId); return profile;
   }));
   app.get('/api/v1/stash', async req => readStash(session(req).user_id));
   app.post('/api/v1/stash/transfer', async req => mutate(req, (userId, data) => {

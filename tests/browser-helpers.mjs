@@ -29,6 +29,7 @@ export async function openCampaign(page) {
   await page.locator('.panel-campaign').waitFor();
 }
 export async function savedProfile(page) {
+  await page.waitForFunction(() => !window.eclipseState?.saveBusy);
   return page.evaluate(({ last, prefix }) => JSON.parse(localStorage.getItem(prefix + localStorage.getItem(last))), { last: LAST_PROFILE_KEY, prefix: PROFILE_PREFIX });
 }
 export async function inventoryItems(page) {
