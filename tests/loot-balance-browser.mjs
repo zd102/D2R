@@ -11,7 +11,7 @@ try {
     const { newHero } = await import('/src/model.ts');
     const { LEVELS, SPECIAL_LEVELS } = await import('/src/campaign.ts');
     const hero = newHero(); hero.level = 99; hero.campaign.cleared = [25, 25, 25];
-    const rows = [], original = Math.random;
+    const rows = [], countess = [], original = Math.random;
     try {
       for (const [rank, level, specialArea] of [
         ['elite', LEVELS[0]], ['miniboss', LEVELS[0]], ['actBoss', LEVELS[24]],
@@ -24,13 +24,21 @@ try {
           runes: loot.filter(drop => drop.rune).length, gold: loot.filter(drop => drop.gold).length,
           annihilus: loot.filter(drop => drop.item?.catalogId === 'unique-382').length });
       }
+      for (const difficulty of [0, 1, 2]) {
+        hero.difficultyLevel = difficulty;
+        const loot = [], game = { hero, level: LEVELS[3], nextId: 1, addLoot(drop) { loot.push(drop); } };
+        Math.random = () => .999999;
+        Game.prototype.dropLoot.call(game, { x: 0, z: 0 }, 'miniboss', 99);
+        countess.push(loot.filter(drop => drop.rune).map(drop => drop.rune));
+      }
     } finally { Math.random = original; }
-    return rows;
+    return { rows, countess };
   });
-  assert.deepEqual(results.map(row => row.equipment), [3, 0, 4, 0, 5, 2, 2, 0, 3, 0]);
-  assert.deepEqual(results.map(row => row.runes), [1, 0, 2, 0, 2, 0, 2, 0, 1, 0]);
-  assert.ok(results.every(row => row.gold === 1));
-  assert.deepEqual(results.map(row => row.annihilus), [0, 0, 0, 0, 0, 0, 0, 0, 1, 1]);
+  assert.deepEqual(results.rows.map(row => row.equipment), [3, 0, 4, 0, 5, 2, 2, 0, 3, 0]);
+  assert.deepEqual(results.rows.map(row => row.runes), [1, 0, 2, 0, 2, 0, 2, 0, 1, 0]);
+  assert.ok(results.rows.every(row => row.gold === 1));
+  assert.deepEqual(results.rows.map(row => row.annihilus), [0, 0, 0, 0, 0, 0, 0, 0, 1, 1]);
+  assert.deepEqual(results.countess, [['ral'], ['io'], ['ist']]);
   assert.deepEqual(errors, []);
-  console.log('Live loot generation: equipment caps, boss extras, optional cow loot and guaranteed Annihilus passed');
+  console.log('Live loot generation: equipment caps, boss extras, cow loot, Annihilus and difficulty-capped Countess guarantees passed');
 } finally { await browser.close(); }

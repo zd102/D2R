@@ -56,7 +56,7 @@ test('boss first-clear guarantees an eligible unique; repeats stay worthwhile wi
   assert.ok(first.items.every(item => (item.requiredLevel ?? 1) <= 35));
   const repeat = rollLoot(context, () => .5); assert.equal(repeat.items.length, 3); assert.ok(repeat.items.every(i => i.rarity === 'rare'));
   assert.equal(rollLoot({ ...context, rank: 'miniboss', countess: true }, () => 0).runes.length, 4);
-  assert.equal(rollLoot({ ...context, rank: 'miniboss', countess: true }, () => .99).runes.length, 0);
+  assert.equal(rollLoot({ ...context, rank: 'miniboss', countess: true }, () => .99).runes.length, 1);
 });
 test('loot level comes from the encounter; MF improves quality but cannot remove white bases', () => {
   const random = seeded(), ordinary = { level: 5, act: 0, difficulty: 0, rank: 'monster' as const };

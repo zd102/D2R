@@ -83,10 +83,15 @@ test('Countess special runes stop at Ral/Io/Ist, while Hellforge first clears us
     const random = seeded(52 + difficulty), maxima = [7, 15, 23];
     let total = 0;
     for (let n = 0; n < 1000; n++) {
-      const result = rollLoot(countess, random); assert.ok(result.runes.length <= 4); total += result.runes.length;
+      const result = rollLoot(countess, random); assert.ok(result.runes.length >= 1 && result.runes.length <= 4); total += result.runes.length;
+      assert.ok(result.runes.some(rune => RUNE_ORDER.indexOf(rune) <= maxima[difficulty]));
       assert.ok(result.runes.slice(1).every(rune => RUNE_ORDER.indexOf(rune) <= maxima[difficulty]));
     }
-    assert.ok(total > 200 && total < 340);
+    assert.ok(total >= 1000 && total < 1150);
+    for (const players of [1, 8]) for (const firstClear of [false, true]) for (const magicFind of [0, 1000]) {
+      const fallback = rollLoot({ ...countess, players, firstClear, magicFind }, () => .999999);
+      assert.deepEqual(fallback.runes, [['ral'], ['io'], ['ist']][difficulty]);
+    }
     const forge = { level: 99, act: 3, difficulty, rank: 'miniboss' as const, levelIndex: 17 };
     const first = rollLoot({ ...forge, firstClear: true }, () => .999999), repeat = rollLoot(forge, () => .999999);
     assert.equal(first.runes.length, 1); assert.equal(first.runes[0], ['amn', 'um', 'gul'][difficulty]); assert.deepEqual(repeat.runes, []);

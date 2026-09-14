@@ -29,7 +29,7 @@ test('boss bonus runes are rare while extra uniques and first-clear guarantees r
   for (const profile of BOSS_DROP_PROFILES) {
     const rank = profile.levelIndex % 5 === 4 ? 'actBoss' : 'miniboss';
     const input = { ...context, rank, levelIndex: profile.levelIndex } as const;
-    assert.equal(rollLoot(input, () => .08).runes.length, 0, `${profile.levelIndex}: no common repeat runes`);
+    assert.equal(rollLoot(input, () => .08).runes.length, profile.levelIndex === 3 ? 1 : 0, `${profile.levelIndex}: only Countess guarantees repeat runes`);
     const maximum = rollLoot(input, () => 0);
     assert.equal(maximum.items.filter(item => !item.charm).length, rank === 'actBoss' ? 5 : 4);
     assert.equal(maximum.items.filter(item => item.rarity === 'unique').length, 1, 'extra boss unique remains');

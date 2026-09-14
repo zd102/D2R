@@ -59,7 +59,10 @@ export function rollLoot(context: LootContext, random = Math.random) {
   if (countess) {
     const table = RUNE_TREASURES.find(table => table.id === `Countess Rune${['', ' (N)', ' (H)'][difficulty]}`)!;
     const weight = table.entries[0][1], tier = Number(table.entries[0][0].slice(6));
+    const beforeSpecial = runes.length;
     for (let i = 0; i < table.picks; i++) if (random() < weight / (weight + table.noDrop) * .1) runes.push(rollRuneTreasure(tier, random));
+    // Guarantee a difficulty-capped special rune even if only the base pool succeeded.
+    if (runes.length === beforeSpecial) runes.push(rollRuneTreasure(tier, random));
   } else if (profile && random() < profile.runeChance) {
     // The boss's treasure tier is also bounded by encounter progression.
     const pool = new Set(runePool(level, difficulty, act));
