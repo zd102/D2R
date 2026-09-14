@@ -75,14 +75,14 @@ try {
       request.onerror = () => reject(request.error);
     });
   }, shared);
-  await databasePage.goto(`${old.origin}/`);
+  await databasePage.goto(`${old.origin}/?mode=local`);
   await databasePage.getByRole('heading', { name: '旧入口存档恢复' }).waitFor();
   const databaseBackup = JSON.parse(await downloadJson(databasePage, databasePage.getByRole('button', { name: '下载旧入口完整备份' })));
   assert.equal(databaseBackup.shared, shared, 'Preserve IndexedDB-only shared data');
   await databaseContext.close();
   const failedContext = await browser.newContext();
   await failedContext.addInitScript(() => { indexedDB.open = () => { throw new Error('Database unavailable'); }; });
-  const failedPage = await failedContext.newPage(); await failedPage.goto(`${old.origin}/`);
+  const failedPage = await failedContext.newPage(); await failedPage.goto(`${old.origin}/?mode=local`);
   await failedPage.getByRole('heading', { name: '旧入口存档恢复' }).waitFor();
   const partial = JSON.parse(await downloadJson(failedPage, failedPage.getByRole('button', { name: '下载旧入口完整备份' })));
   assert.ok(partial.sharedError, 'An unreadable database is reported, not treated as an empty origin');

@@ -11,7 +11,11 @@ export async function initializeMode() {
   let resumed: string | null = null;
   try { resumed = sessionStorage.getItem('eclipse-return-mode'); sessionStorage.removeItem('eclipse-return-mode'); } catch { /* Preferences are optional. */ }
   // An explicit local-mode URL also makes existing browser regressions select their storage mode.
-  if (resumed === 'local' || new URL(location.href).searchParams.get('mode') === 'local') return;
+  const localUrl = () => { const url = new URL(location.href); url.searchParams.set('mode', 'local'); return url.href; };
+  if (resumed === 'local' && new URL(location.href).searchParams.get('mode') !== 'local') {
+    location.replace(localUrl()); return new Promise<void>(() => {});
+  }
+  if (new URL(location.href).searchParams.get('mode') === 'local') return;
   const root = document.getElementById('app')!;
   await new Promise<void>(resolve => {
     let client: OnlineClient | undefined, generation = 0;
@@ -26,7 +30,7 @@ export async function initializeMode() {
     const choose = () => {
       generation++; client?.dispose(); client = undefined;
       shell('选择游戏模式', `<p>选择角色与旅程的保存方式</p><div class="mode-options"><button id="mode-local"><strong>本地模式</strong><span>无需账号 · 存档保存在本机浏览器</span></button><button id="mode-online"><strong>在线模式</strong><span>注册或登录 · 存档保存在服务器</span></button></div>`);
-      document.getElementById('mode-local')!.onclick = finish;
+      document.getElementById('mode-local')!.onclick = () => location.assign(localUrl());
       document.getElementById('mode-online')!.onclick = () => { void connect(); };
       document.getElementById('mode-local')!.focus();
     };

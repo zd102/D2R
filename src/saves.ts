@@ -23,7 +23,8 @@ export class SaveStore {
         if (!profile || profile.id !== id) throw new Error();
         checkpoints[id] = profile;
       }
-      return { version: 1, revision: data.revision, items: parseSharedItems(data.items), checkpoints };
+      return { version: 1, revision: data.revision, items: parseSharedItems(data.items), checkpoints,
+        ...(Array.isArray(data.migrationSources) && data.migrationSources.every((value: unknown) => typeof value === 'string') ? { migrationSources: data.migrationSources } : {}) };
     } catch { throw new SaveError('共享仓库数据无法读取，原数据已保留。', 'corrupt'); }
   }
   private checkpoint(profile: SavedProfile) {
