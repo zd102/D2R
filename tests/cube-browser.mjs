@@ -26,8 +26,10 @@ try {
   await page.getByRole('button', { name: '进入旅程', exact: true }).click();
   await page.evaluate(() => { const g = window.cubeGame; cancelAnimationFrame(g.frameId); g.ui.openPanel('inventory'); });
   await expect(page.locator('[data-container="cube"]')).toHaveCount(0);
+  await page.evaluate(async () => { const g = window.cubeGame; g.ui.closePanel(); if (!await g.flushSave()) throw new Error('Fixture save failed'); g.enterLevel(6, 0); });
+  await page.waitForFunction(() => !window.cubeGame.inCamp && window.cubeGame.level.index === 6);
   await page.evaluate(() => {
-    const g = window.cubeGame; g.ui.closePanel(); g.enterLevel(6, 0);
+    const g = window.cubeGame;
     const p = g.world.layout.objects[0]; g.position.set(p.x, 0, p.z); g.body.position.set(p.x, .5, p.z);
     g.world.chests.forEach(chest => { chest.opened = true; });
     g.enemies.forEach(e => { if (!e.boss) e.dead = true; });

@@ -76,7 +76,7 @@ try {
   await page.evaluate(async () => { const g = window.onlineGame; g.hero.hp = 1; g.drink(14); if (!await g.flushSave()) throw new Error('potion save failed'); });
   await leave(page); await enter(page, '上传副本');
   assert.equal(await page.evaluate(() => window.onlineGame.hero.potions[14]), 1);
-  await page.keyboard.press('i'); await page.getByRole('tab', { name: '药水', exact: true }).click();
+  await page.keyboard.press('i'); await page.getByRole('tab', { name: '背包', exact: true }).click();
   await expect(page.locator('[data-potion-code]')).toHaveCount(15);
   await expect(page.locator('[data-potion-code="hp5"] b')).toHaveText('7');
   await page.locator('[data-potion-binding="0"]').selectOption('14');

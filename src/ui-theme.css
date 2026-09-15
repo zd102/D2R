@@ -522,22 +522,3 @@ kbd { font-family: Georgia, "Microsoft YaHei", serif; font-variant-numeric: tabu
 .potion-group .potion-slot { grid-column: auto; height: 30px; }
 .potion-slot-name { font-size: 8px; line-height: 10px; padding: 0 2px 7px; max-width: 100%; overflow: hidden; }
 .potion-group .potion-slot b { font-size: 9px; bottom: 1px; }
-.potion-storage { min-width: 0; }
-.potion-storage > p { font-size: 12px; color: #c1b79e; }
-.potion-bindings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
-.potion-bindings label { display: grid; gap: 5px; min-width: 0; font-size: 12px; }
-.potion-bindings select { width: 100%; min-width: 0; background: #171a16; color: #e1d3ad; padding: 8px 4px; border: 1px solid #675e46; }
-.potion-storage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.potion-storage-grid section { min-width: 0; }
-.potion-storage-grid h3 { font-size: 14px; margin: 10px 0; }
-.potion-storage-entry { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 8px 0; border-bottom: 1px solid #77664740; }
-.potion-storage-entry svg { width: 18px; height: 18px; }
-.potion-storage-entry strong { font-size: 12px; }
-.potion-storage-entry small { display: block; font-size: 10px; color: #aaa48e; line-height: 1.5; }
-.potion-storage-entry b { font-size: 12px; }
-.potion-storage-entry .secondary-button { padding: 6px; min-height: 30px; font-size: 11px; }
-.potion-storage-link { margin-top: 8px; width: 100%; font-size: 11px; }
-@media (max-width: 700px) {
-  .potion-bindings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .potion-storage-grid { grid-template-columns: minmax(0, 1fr); }
-}

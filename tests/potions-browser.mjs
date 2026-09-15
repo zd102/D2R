@@ -30,7 +30,7 @@ try {
   for (const width of [1440, 390, 360]) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, isMobile: width < 700, hasTouch: width < 700 });
     const page = await context.newPage(); await expose(page);
-    const hero = newHero(); hero.gold = 10000;
+    const hero = newHero(); hero.gold = 10000; hero.cubeUnlocked = true;
     await page.addInitScript(save => { if (!localStorage.getItem('potion-fixture')) { localStorage.setItem('eclipse-ii-save-v1', save); localStorage.setItem('potion-fixture', '1'); } }, serializeSave(hero));
     await page.goto(`${base}?mode=local`); await enter(page);
     await page.evaluate(() => window.potionGame.ui.togglePanel('shop'));
@@ -45,12 +45,16 @@ try {
         g.addLoot(loot); g.collectLoot(loot);
       }
     }); await settle(page);
-    await page.keyboard.press('i'); await page.getByRole('tab', { name: '药水', exact: true }).click();
-    await expect(page.locator('[data-potion-code]')).toHaveCount(15);
+    await page.keyboard.press('i'); await page.getByRole('tab', { name: '背包', exact: true }).click();
+    await expect(page.getByRole('tab', { name: '药水', exact: true })).toHaveCount(0);
+    await expect(page.locator('.bag-column [data-potion-code]')).toHaveCount(15);
+    const containers = await page.locator('.inventory-containers .diablo-grid').evaluateAll(grids => grids.map(grid => { const r = grid.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right }; }));
+    assert.equal(containers.length, 2); assert.ok(Math.abs(containers[0].y - containers[1].y) <= 1 && containers[1].x > containers[0].right, 'cube and backpack sit alongside each other');
     for (const potion of POTIONS) await expect(page.locator(`[data-potion-code="${potion.code}"] b`)).toHaveText(potion.code === 'hp1' ? '8' : potion.code === 'mp1' ? '6' : potion.kind === 'rejuvenation' ? '1' : '2');
     for (const [slot, index] of [11, 12, 13, 14].entries()) { await page.locator(`[data-potion-binding="${slot}"]`).selectOption(String(index)); await settle(page); }
     assert.deepEqual(await page.evaluate(() => window.potionGame.hero.potionBindings), [11, 12, 13, 14]);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    assert.equal(await page.locator('.inventory-potions button').evaluateAll(buttons => buttons.every(button => { const r = button.getBoundingClientRect(), clip = button.closest('.inventory-grid-scroll').getBoundingClientRect(); return r.top >= clip.top && r.bottom <= clip.bottom + 1 && button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })), true, 'all potion counts and use buttons fit without scrolling');
     await page.screenshot({ path: `${output}/potions-${width}.png` });
     await page.evaluate(() => { const g = window.potionGame; g.ui.closePanel(); g.hero.hp = 1; g.hero.mana = 0; });
     for (const key of ['1', '2']) await page.keyboard.press(key);
@@ -62,7 +66,7 @@ try {
     assert.equal(await page.evaluate(async () => { const { stats } = await import('/src/model.ts'); const h = window.potionGame.hero; return h.hp === stats(h).maxHp && h.mana === stats(h).maxMana && h.potionRecovery.length === 0; }), true);
     assert.equal(await page.locator('[data-potion-slot]').evaluateAll(buttons => buttons.every(button => { const r = button.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; })), true);
     // Utility potions are still usable directly and can occupy any hotkey.
-    await page.keyboard.press('i'); await page.getByRole('tab', { name: '药水', exact: true }).click();
+    await page.keyboard.press('i'); await page.getByRole('tab', { name: '背包', exact: true }).click();
     await page.evaluate(() => { const h = window.potionGame.hero; h.poison = h.cold = 6; h.stamina = 0; });
     for (const index of [2, 3, 4]) { await page.locator(`[data-potion="${index}"]`).click(); await settle(page); }
     assert.deepEqual(await page.evaluate(() => window.potionGame.hero.potionTimers), [30, 30, 30]);

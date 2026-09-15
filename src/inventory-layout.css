@@ -199,8 +199,53 @@
   .inventory-screen .recipe-pagination { margin-top: 6px; }
 }
 
-/* Keep utility potions in one small row below the bag. */
-.panel-inventory .utility-potions { display: flex; flex-wrap: nowrap; gap: 4px; margin-top: 6px; }
-.panel-inventory .utility-potions .secondary-button { flex: 1; min-width: 0; min-height: 30px; height: 30px; margin: 0; padding: 3px 4px; gap: 3px; font-size: 10px; white-space: nowrap; }
-.panel-inventory .utility-potions svg { width: 13px; height: 13px; flex: none; }
-.panel-inventory .utility-potions kbd { margin-left: auto; font-size: 9px; }
+/* The backpack keeps carried items, cube and shared supplies in one workspace. */
+.inventory-screen .inventory-containers { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 12px; }
+.inventory-screen .inventory-containers:not(:has([data-container=cube])) { max-width: 420px; margin-inline: auto; }
+.inventory-screen .inventory-containers:has([data-container=cube]) { grid-template-columns: minmax(0, 10fr) minmax(0, 3fr); }
+.inventory-screen .inventory-containers .inventory-container { margin: 0; min-width: 0; }
+.inventory-screen .inventory-containers .diablo-grid,
+.inventory-screen .inventory-containers .diablo-grid[data-container=cube],
+.inventory-screen .inventory-grid-scroll:has([data-container=cube]) [data-container=inventory] { width: 100%; max-width: none; }
+.inventory-screen .inventory-containers .inventory-section-heading { gap: 4px; min-height: 36px; margin-bottom: 8px; }
+.inventory-screen [data-storage-section=cube] .inventory-section-heading { flex-wrap: nowrap; white-space: nowrap; }
+.inventory-screen [data-storage-section=cube] .inventory-section-heading svg { display: none; }
+.inventory-screen [data-storage-section=cube] .inventory-section-heading > span:first-child { font-size: 0; }
+.inventory-screen [data-storage-section=cube] .inventory-section-heading > span:first-child::after { content: '方块'; font-size: 11px; }
+.inventory-screen [data-storage-section=cube] .cube-storage-note { font-size: 10px; line-height: 1.5; }
+.inventory-screen .inventory-grid-scroll { padding: 0; scrollbar-gutter: stable; }
+.inventory-potions { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ui-border); }
+.inventory-potions-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.inventory-potions-heading strong { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: normal; color: #d8bf93; }
+.inventory-potions-heading svg { width: 15px; height: 15px; }
+.inventory-potions-heading small { font-size: 10px; color: var(--ui-muted); }
+.inventory-potion-bindings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.inventory-potion-bindings label { display: flex; align-items: center; min-width: 0; background: #08070680; border: 1px solid #695335; }
+.inventory-potion-bindings kbd { display: grid; place-items: center; width: 25px; height: 30px; flex: none; font: 12px Georgia, serif; color: #e8c888; background: #ab81311a; }
+.inventory-potion-bindings select { width: 100%; min-width: 0; height: 32px; padding: 4px; border: 0; color: #dfd1b7; background: #17130e; font-family: inherit; font-size: 11px; }
+.inventory-potion-bindings select:focus-visible { outline: 2px solid #d8bf93; outline-offset: -2px; }
+.inventory-potion-stock { display: grid; gap: 6px; }
+.inventory-potion-row { display: grid; grid-template-columns: 28px repeat(5, minmax(0, 1fr)); gap: 5px; align-items: center; }
+.inventory-potion-row > span { font-size: 10px; color: var(--ui-muted); }
+.inventory-potion { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; min-width: 0; min-height: 40px; padding: 4px 2px; border: 1px solid #62533b; border-top: 2px solid var(--potion-color); background: #18140e; color: #d7cab2; cursor: pointer; }
+.inventory-potion > span { font-size: 10px; }
+.inventory-potion > b { font: 12px Georgia, serif; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.inventory-potion:disabled { opacity: .4; cursor: default; }
+.inventory-potion:not(:disabled):hover { background: #34291a; border-color: var(--potion-color); }
+.inventory-potion:focus-visible { outline: 2px solid #efd6a4; outline-offset: 1px; }
+@media (min-width: 1151px) {
+  .inventory-potion-bindings { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .inventory-screen > .paladin-inventory { grid-template-columns: 210px minmax(0, 1.4fr) minmax(300px, 1fr); }
+}
+@media (max-width: 1150px) and (min-width: 961px) {
+  .inventory-screen > .paladin-inventory { grid-template-columns: 180px minmax(0, 1fr) 290px; }
+}
+@media (max-width: 700px) {
+  .inventory-potions { margin-top: 14px; padding-top: 10px; }
+  .inventory-screen .inventory-containers { gap: 8px; }
+  .inventory-screen .inventory-grid-scroll { scrollbar-gutter: auto; }
+  .inventory-potion { min-height: 42px; }
+}
+@media (max-height: 580px) {
+  .inventory-potions { margin-top: 12px; }
+}

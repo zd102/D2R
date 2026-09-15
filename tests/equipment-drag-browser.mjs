@@ -28,7 +28,7 @@ try {
     }, { save: serializeSave(hero), key: SHARED_STASH_KEY, items: shared });
     const enter = async () => { await page.getByRole('button', { name: '进入旅程', exact: true }).click(); await page.waitForFunction(() => window.equipmentDragGame && !window.equipmentDragGame.paused); await page.evaluate(() => cancelAnimationFrame(window.equipmentDragGame.frameId)); };
     await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173'); await enter();
-    const state = () => page.evaluate(() => { const g = window.equipmentDragGame; return { hero: structuredClone(g.hero), shared: g.saves.readShared(), revision: g.profile.revision }; });
+    const state = () => page.evaluate(async () => { const g = window.equipmentDragGame; await g.onlineSaves?.flush(); return { hero: structuredClone(g.hero), shared: g.saves.readShared(), revision: g.profile.revision }; });
     const pane = async (kind, value) => { const button = page.locator(`button[data-${kind}-pane="${value}"]`); if (await button.isVisible() && await button.getAttribute('aria-pressed') !== 'true') await button.click(); };
     const cdp = touch ? await page.context().newCDPSession(page) : null;
     const pointer = async (type, x, y) => {
