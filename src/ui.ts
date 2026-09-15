@@ -108,7 +108,7 @@ export class UI {
           </div><span class="belt-divider"></span><div class="potion-group">
             ${[0, 1, 2, 3].map(slot => `<button class="skill potion-slot" data-potion-slot="${slot}" aria-label="药水快捷键 ${slot + 1}"><kbd>${slot + 1}</kbd><span class="potion-slot-name"></span><b>0</b></button>`).join('')}
           </div></div>
-          <div class="paladin-status"><span id="active-aura-label">无灵气</span><span id="holy-shield-label"></span><span id="ammo-label" hidden></span><button data-action="run-mode" ${tip('切换跑步与行走')}><i data-lucide="footprints"></i></button><div class="stamina-track" ${tip('耐力')}><i id="stamina-fill"></i></div></div>
+          <div class="paladin-status"><span id="active-aura-label">无灵气</span><span id="holy-shield-label"></span><span id="class-state-label" hidden></span><span id="ammo-label" hidden></span><button data-action="run-mode" ${tip('切换跑步与行走')}><i data-lucide="footprints"></i></button><div class="stamina-track" ${tip('耐力')}><i id="stamina-fill"></i></div></div>
           <nav class="bottom-nav"><button data-panel="character" ${tip('角色 · C')}>${icon('user-round')}<span>角色</span><kbd class="nav-key" aria-hidden="true">C</kbd><b id="points-badge" hidden></b></button><button data-panel="skills" ${tip('技能 · T')}>${icon('book-open')}<span>技能</span><kbd class="nav-key" aria-hidden="true">T</kbd><b id="skill-points-badge" hidden></b></button><button data-panel="inventory" ${tip('背包 · I')}>${icon('backpack')}<span>背包</span><kbd class="nav-key" aria-hidden="true">I</kbd></button><button data-panel="quest" ${tip('任务 · J')}>${icon('scroll-text')}<span>任务</span><kbd class="nav-key" aria-hidden="true">J</kbd></button><button data-panel="map" ${tip('地图 · Tab')}>${icon('map')}<span>地图</span><kbd class="nav-key" aria-hidden="true">Tab</kbd></button><span class="gold-count">${icon('coins')}<b id="gold-value">0</b></span><button id="party-shortcut" data-panel="pause" ${tip('暂停 · Esc')}>${icon('pause')}</button></nav>
         </div>
         <div class="resource mana"><div class="orb-frame"><div class="orb"><div class="orb-fill" id="mana-fill"></div><div class="orb-shine"></div><span id="mana-value">15<small>/ 15</small></span></div></div><div class="resource-caption"><span>法力</span><small id="mana-percent">100%</small></div></div>
@@ -602,6 +602,9 @@ export class UI {
     const auraLabel=document.getElementById('active-aura-label')!;
     setText(auraLabel, h.activeAura ? skillName(h.activeAura) : classBuffs[0]??(h.classId==='paladin'?'无灵气':CLASSES[h.classId].name));
     auraLabel.title=classBuffs.join(' · ');
+    const pets=game.combat.expansion.pets.pets,trapCount=game.combat.expansion.traps.length,martial=Object.entries(game.combat.expansion.charges).map(([id,charge])=>`${skillName(id as SkillId)} ${charge.stacks}`);
+    const classState=[pets.length?`召唤 ${pets.length}`:'',trapCount?`陷阱 ${trapCount}/5`:'',...martial,(h.marks?.wolf??0)>0?'狼印记':'',(h.marks?.bear??0)>0?'熊印记':''].filter(Boolean).join(' · ');
+    const classStateLabel=document.getElementById('class-state-label');if(classStateLabel){classStateLabel.hidden=!classState;setText(classStateLabel,classState);classStateLabel.title=pets.map(p=>`${skillName(p.expansionId)} ${Math.ceil(p.hp)}/${Math.ceil(p.maxHp)}`).join(' · ');}
     setText(document.getElementById('holy-shield-label')!, h.holyShield > 0 ? `圣盾 ${Math.ceil(h.holyShield)}s` : h.poison > 0 ? '中毒' : h.curse > 0 ? '伤害加深' : '');
     const ammo = document.getElementById('ammo-label')!;
     ammo.hidden = !s.ranged; setText(ammo, s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '');

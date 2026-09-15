@@ -1,3 +1,4 @@
+import { expansionMode } from './expansion-skills.ts';
 import { availableCharges, bindChargedSkill } from './model';
 import { ALL_SKILLS } from './paladin';
 import { POTIONS, potionDescription } from './potions.ts';
@@ -119,17 +120,21 @@ export class CharacterScreen {
     if (v.min || v.max) { const multiplier = id === 'blessedHammer' && s.aura.id === 'concentration' ? 1 + s.aura.damage / 200 : 1+(s.mods[`${v.type}SkillDamage` as Modifier]??0)/100; rows.push([`${damageTypeNames[v.type]}伤害${['inferno','blaze','fireWall'].includes(id)?' / 秒':v.type==='poison'?' / 全程':''}`, `${Math.floor(v.min * multiplier)} - ${Math.floor(v.max * multiplier)}`]); }
     if (v.damage && v.type === 'physical') rows.push([id==='magicArrow'?'附加武器伤害':'伤害加成', `${v.damage>0?'+':''}${v.damage}${id==='magicArrow'?'':'%'}`]);
     if (v.attack) rows.push(['准确率', `+${v.attack}%`]);
-    if (v.hits > 1) rows.push(['连续攻击', `${v.hits} 次`]);
+    if (v.hits > 1) rows.push([['summon','corpse'].includes(expansionMode(id)??'')?'召唤上限':expansionMode(id)==='trap'?'发射次数':['feralRage','maul'].includes(id)?'聚气上限':'连续攻击', `${v.hits}`]);
     if (v.duration) rows.push(['持续时间', `${number(v.duration)} 秒`]);
-    if (v.healing) rows.push([id==='valkyrie'?'召唤生命':'恢复生命', number(v.healing)]);
+    if (v.healing) rows.push([id==='valkyrie'||['summon','corpse'].includes(expansionMode(id)??'')?'召唤生命':['boneWall','bonePrison'].includes(id)?'骨墙生命':id==='skeletonMastery'?'生命加成':'恢复生命', number(v.healing)]);
     if (v.percent) rows.push([({ vengeance: '各元素附加', conversion: '转化几率', holyShield: '防御加成', fanaticism: '技能攻击速度', holyFreeze: '减速', conviction: '降低元素抗性', thorns: '反弹伤害', cleansing: '缩短持续时间', vigor: '移动速度', meditation: '法力恢复', redemption: '救赎几率' } as Partial<Record<SkillId, string>>)[id] ?? '抗性 / 防御加成', `${v.percent}%`]);
     if (id === 'holyShield') rows.push(['增加格挡', `${v.secondary}%`]);
     if (id === 'fistOfHeavens') rows.push(['圣光弹魔法伤害', number(v.secondary)]);
     if (['holyFire', 'holyFreeze', 'holyShock'].includes(id)) rows.push(['攻击附加伤害', `${Math.floor(v.min * v.secondary)} - ${Math.floor(v.max * v.secondary)}`]);
-    const effectNames:Partial<Record<SkillId,string>>={criticalStrike:'双倍伤害几率',dodge:'近战闪避',avoid:'远程闪避',evade:'移动闪避',pierce:'穿透几率',penetrate:'准确率加成',warmth:'法力恢复',fireMastery:'火焰增伤',lightningMastery:'闪电增伤',coldMastery:'降低冰冷抗性',staticField:'削减当前生命',energyShield:'伤害转移',slowMissiles:'投射物减速',dopplezon:'继承生命',fireArrow:'物理转火焰',coldArrow:'物理转冰冷',lightningBolt:'物理转闪电',magicArrow:'物理转魔法',impale:'损耗耐久几率'};
+    const effectNames:Partial<Record<SkillId,string>>={amplifyDamage:'降低物理抗性',weaken:'降低物理伤害',decrepify:'减速／降低物理抗性',ironMaiden:'反弹近战伤害',lowerResist:'降低元素抗性',revive:'重生生命加成',golemMastery:'石魔生命加成',skeletonMastery:'重生生命加成',clayGolem:'减慢目标',bloodGolem:'吸取生命',wearwolf:'生命加成',wearbear:'生命加成',shapeShifting:'生命加成',feralRage:'吸取生命',hunger:'吸取生命／法力',ironSkin:'防御加成',increasedStamina:'耐力加成',increasedSpeed:'移动速度',swordMastery:'双倍打击概率',axeMastery:'双倍打击概率',maceMastery:'双倍打击概率',poleArmMastery:'双倍打击概率',spearMastery:'双倍打击概率',throwingMastery:'双倍打击概率',clawMastery:'双倍打击概率',dragonTail:'爆炸火焰伤害比例',findItem:'寻找物品概率',findPotion:'寻找药剂概率',weaponBlock:'双爪格挡概率',corpseExplosion:'尸体生命伤害下限',tigerStrike:'每层物理伤害加成',cobraStrike:'吸取生命／法力',fade:'元素抗性',burstOfSpeed:'技能攻速',oakSage:'生命上限加成',naturalResistance:'元素抗性',shout:'防御加成',battleOrders:'生命／法力／耐力加成',battleCommand:'技能等级加成',summonResist:'召唤元素抗性',bladeShield:'武器伤害比例',bladeFury:'武器伤害比例',bladeSentinel:'武器伤害比例',criticalStrike:'双倍伤害几率',dodge:'近战闪避',avoid:'远程闪避',evade:'移动闪避',pierce:'穿透几率',penetrate:'准确率加成',warmth:'法力恢复',fireMastery:'火焰增伤',lightningMastery:'闪电增伤',coldMastery:'降低冰冷抗性',staticField:'削减当前生命',energyShield:'伤害转移',slowMissiles:'投射物减速',dopplezon:'继承生命',fireArrow:'物理转火焰',coldArrow:'物理转冰冷',lightningBolt:'物理转闪电',magicArrow:'物理转魔法',impale:'损耗耐久几率'};
     if(v.percent&&effectNames[id]) rows[rows.findIndex(([label])=>label==='抗性 / 防御加成')]=[effectNames[id]!,`${v.percent}%`];
     if(id==='innerSight') rows.push(['降低防御',number(v.secondary)]);
     if(id==='energyShield') rows.push(['每点伤害消耗法力',number(v.secondary)]);
+    const fixedEffect=({spiritOfBarbs:['近战反击伤害',''],ironGolem:['近战反击伤害',''],battleCommand:['技能等级加成',' 级'],maul:['眩晕时间',' 秒']} as Partial<Record<SkillId,[string,string]>>)[id];
+    if(fixedEffect){const index=rows.findIndex(([label])=>label==='抗性 / 防御加成'||label===effectNames[id]);if(index>=0)rows[index]=[fixedEffect[0],`${number(v.percent)}${fixedEffect[1]}`];}
+    if(['boneArmor','cycloneArmor'].includes(id)){const index=rows.findIndex(([label])=>label==='抗性 / 防御加成');if(index>=0)rows[index]=['吸收伤害',number(v.percent)];}
+    if(v.physicalMax)rows.push(['附加物理伤害',`${Math.floor(v.physicalMin??0)} - ${Math.floor(v.physicalMax)}`]);
     if (v.radius) rows.push(['范围', `${number(v.radius)} 码`]);
     if(!isPassive(id)) rows.push(['法力消耗', number(v.cost)]);
     return `<dl class="skill-values">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl>`;

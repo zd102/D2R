@@ -1,3 +1,5 @@
+import { expansionMode } from './expansion-skills.ts';
+import { EXPANSION_SKILL_DATA } from './expansion-skill-data.ts';
 import { ITEM_SKILL_ROWS } from './item-skill-definitions.ts';
 import { ALL_SKILLS as SKILLS, isAura, type SkillId, type DamageType } from './paladin.ts';
 import { ORIGINAL_CLASS_SKILLS } from './class-skill-data.ts';
@@ -59,7 +61,7 @@ export function levelMods(mods: Mods, level: number): Mods {
   return result;
 }
 const originalSkills: SkillId[] = ['sacrifice', 'smite', 'might', 'prayer', 'resistFire', 'holyBolt', 'holyFire', 'thorns', 'defiance', 'resistCold', 'zeal', 'charge', 'blessedAim', 'cleansing', 'resistLightning', 'vengeance', 'blessedHammer', 'concentration', 'holyFreeze', 'vigor', 'conversion', 'holyShield', 'holyShock', 'sanctuary', 'meditation', 'fistOfHeavens', 'fanaticism', 'conviction', 'redemption', 'salvation'];
-export function catalogSkill(param: string) { if (param.toLowerCase() === 'eruption') return 'fissure'; return ITEM_SKILL_ROWS.find(row => String(row[1]) === param || row[2].replaceAll(' ', '').toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.[0] ?? originalSkills[Number(param) - 96] ?? (Object.entries(ORIGINAL_CLASS_SKILLS).find(([,skill])=>skill.number===Number(param))?.[0] as SkillId | undefined) ?? SKILLS.find(skill => skill.id.toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.id; }
+export function catalogSkill(param: string) { if (param.toLowerCase() === 'eruption') return 'fissure'; return (Object.entries(EXPANSION_SKILL_DATA).find(([,s])=>String(s.number)===param||s.name.replaceAll(' ','').toLowerCase()===param.replaceAll(' ','').toLowerCase())?.[0] as SkillId | undefined) ?? ITEM_SKILL_ROWS.find(row => String(row[1]) === param || row[2].replaceAll(' ', '').toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.[0] ?? originalSkills[Number(param) - 96] ?? (Object.entries(ORIGINAL_CLASS_SKILLS).find(([,skill])=>skill.number===Number(param))?.[0] as SkillId | undefined) ?? SKILLS.find(skill => skill.id.toLowerCase() === param.replaceAll(' ', '').toLowerCase())?.id; }
 
 export function itemDamage(amount: number, type: DamageType, mods: Mods, resistance: number, conviction = 0) {
   const elemental = type !== 'physical' && type !== 'magic';
@@ -88,6 +90,6 @@ export function itemTrigger([event, param, chance, level]: CatalogProperty) {
   if (!['hit-skill', 'gethit-skill', 'att-skill', 'kill-skill', 'death-skill', 'levelup-skill'].includes(event)) return undefined;
   const name = param.toLowerCase().replaceAll(' ', '');
   const kind = ({ '66': 'amplify', amplifydamage: 'amplify', '87': 'decrepify', decrepify: 'decrepify', '82': 'lifeTap', lifetap: 'lifeTap', '72': 'weaken', weaken: 'weaken' } as Record<string, ItemCurse>)[name];
-  const skill = catalogSkill(param), mode = skill && (itemSkillKind(skill) ?? classSkillMode(skill));
+  const skill = catalogSkill(param), mode = skill && (expansionMode(skill) ?? itemSkillKind(skill) ?? classSkillMode(skill));
   return skill && (kind || ['spell', 'curse', 'buff', 'summon', 'corpse'].includes(mode ?? '') || ['holyBolt', 'fistOfHeavens'].includes(skill)) ? { event, kind, skill, chance, level } : undefined;
 }

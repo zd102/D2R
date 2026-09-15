@@ -7,7 +7,9 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { createApp, SESSION_TIMEOUT, REMEMBER_TIMEOUT } from '../app.ts';
 import { backupDatabase } from '../backup.ts';
-import { newHero } from '../../src/model.ts';
+import { newHero, gainXp, learnSkill } from '../../src/model.ts';
+import { skillsForClass, EXPERIENCE } from '../../src/paladin.ts';
+import { BASES, makeItem } from '../../src/items.ts';
 import { CHARACTER_FILE_FORMAT } from '../../src/save-format.ts';
 
 const password = 'online-test-password-123';
@@ -46,6 +48,21 @@ async function fixture(t: test.TestContext, filename = ':memory:') {
   };
   return { app, a, b, create, advance: (ms: number) => { time += ms; } };
 }
+
+test('four restored classes retain skills, offhand weapons and companions through authenticated saves',async t=>{
+  const {a}=await fixture(t);
+  for(const classId of ['necromancer','barbarian','druid','assassin'] as const){
+    const created=await a.request('/characters','POST',{name:classId,classId,operationId:randomUUID()});assert.equal(created.statusCode,200,created.body);
+    const profile=created.json();gainXp(profile.hero,EXPERIENCE[79]);for(const skill of skillsForClass(classId))assert.ok(learnSkill(profile.hero,skill.id));
+    if(classId==='barbarian'||classId==='assassin')profile.hero.equipment.shield=makeItem(BASES.find(b=>b.baseCode===(classId==='barbarian'?'hax':'ktr'))!);
+    if(classId==='necromancer')profile.hero.companions=[{id:'ironGolem',rank:1,hp:.7,life:3000,metal:makeItem(BASES.find(b=>b.baseCode==='hax')!)}];
+    if(classId==='druid')profile.hero.companions=[{id:'summonSpiritWolf',rank:1,hp:.8,life:3000}];
+    const saved=await a.request(`/characters/${profile.id}/save`,'PUT',{hero:profile.hero,expectedRevision:profile.revision,expectedStashRevision:0,expectedResourcesRevision:profile.resourcesRevision,operationId:randomUUID()});assert.equal(saved.statusCode,200,saved.body);
+    const read=(await a.request(`/characters/${profile.id}`)).json();assert.equal(read.hero.classId,classId);assert.equal(Object.values(read.hero.skills).filter(value=>Number(value)>0).length,30);
+    assert.equal(read.hero.equipment.shield?.id,profile.hero.equipment.shield?.id);assert.equal(read.hero.companions?.[0]?.id,profile.hero.companions?.[0]?.id);
+    if(classId==='necromancer')assert.equal(read.hero.companions[0].metal.id,profile.hero.companions[0].metal.id);
+  }
+});
 
 test('existing account balances migrate without truncation or rewriting source characters', async t => {
   const directory = mkdtempSync(join(tmpdir(), 'd2r-resources-')), filename = join(directory, 'account.sqlite');

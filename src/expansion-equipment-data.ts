@@ -1,0 +1,3 @@
+// Generated from LoD 1.13 Weapons.txt / Armor.txt (e67aa992be5db412bd0437bb8afb95eedee0c9bc).
+export const ONE_HANDED_SWORDS:Record<string,number[]> = {"2hs":[2,9],"clm":[5,12],"gis":[3,16],"bsw":[7,19],"flb":[9,15],"gsd":[12,20],"92h":[8,26],"9cm":[13,30],"9gs":[10,37],"9b9":[14,40],"9fb":[19,35],"9gd":[24,40],"72h":[22,56],"7cm":[22,62],"7gs":[15,75],"7b7":[24,54],"7fb":[26,70],"7gd":[25,65]};
+export const BOOT_KICKS:Record<string,number[]> = {"lbt":[3,8],"vbt":[4,10],"mbt":[6,12],"tbt":[8,16],"hbt":[10,20],"xlb":[26,46],"xvb":[28,50],"xmb":[23,52],"xtb":[37,64],"xhb":[39,80],"ulb":[65,100],"uvb":[60,110],"umb":[69,118],"utb":[50,145],"uhb":[83,149]};

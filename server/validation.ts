@@ -34,7 +34,7 @@ function validateTree(value: unknown, depth = 0, field = '') {
 }
 export function heroItems(hero: HeroState): Item[] {
   return [...hero.inventory, ...hero.stash, ...hero.cube, ...Object.values(hero.equipment), ...Object.values(hero.alternate),
-    ...Object.values(hero.corpse?.equipment ?? {}), ...(hero.corpse?.extras ?? []), ...Object.values(hero.mercenary?.equipment ?? {})].filter((item): item is Item => !!item);
+    ...Object.values(hero.corpse?.equipment ?? {}), ...(hero.corpse?.extras ?? []), ...(hero.companions??[]).flatMap(p=>p.metal?[p.metal]:[]), ...Object.values(hero.mercenary?.equipment ?? {})].filter((item): item is Item => !!item);
 }
 export function uniqueItems(items: Item[]) {
   const ids = items.map(item => item.id); check(new Set(ids).size === ids.length, 'DUPLICATE_ITEM', '发现重复物品，请重新载入角色。', 409);

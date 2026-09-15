@@ -181,6 +181,8 @@ export class MonsterCombat {
   telegraph(enemy: Enemy) { const cast = this.states.get(enemy.id)?.cast; return cast ? { name: cast.spec.name, remaining: cast.left, total: cast.spec.windup } : null; }
   walkable(p: { x: number; z: number }) { return gridWalkable(this.game.world.grid, p); }
   lineOfSight(a: { x: number; z: number }, b: { x: number; z: number }) {
+    const wall=this.game.combat?.expansion?.walls.find(w=>w.ally.hp>0&&Math.hypot(w.ally.actor.group.position.x-b.x,w.ally.actor.group.position.z-b.z)<.1);
+    if(wall){const distance=Math.hypot(b.x-a.x,b.z-a.z),factor=Math.max(0,distance-.75)/Math.max(.001,distance);b={x:a.x+(b.x-a.x)*factor,z:a.z+(b.z-a.z)*factor};}
     const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) * 3));
     for (let i = 0; i <= steps; i++) if (!this.walkable({ x: a.x + (b.x - a.x) * i / steps, z: a.z + (b.z - a.z) * i / steps })) return false;
     return true;

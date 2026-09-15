@@ -1,3 +1,6 @@
+import { companionAuras } from './companion-auras.ts';
+import type { SavedCompanion } from './expansion-pets.ts';
+import { isExpansionSkill, expansionMode } from './expansion-skills.ts';
 import { POTIONS, POTION_LIMIT, DEFAULT_POTION_BINDINGS, emptyPotions, potionAmount, type PotionRecovery } from './potions.ts';
 import { itemCharges, chargeGroups, consumeCharge, type ChargeBinding } from './item-charges.ts';
 import { refreshBaseStock, parseBaseStock, type BaseStock } from './progression-equipment.ts';
@@ -12,7 +15,8 @@ import { affixById } from './affixes.ts';
 import { catalogSetBonuses, CLASS_NAMES } from './item-catalog.ts';
 import { filledSockets } from './items.ts';
 import type { SkillSlot } from './controls.ts';
-import { rangedBase } from './items.ts';
+import { rangedBase, weaponType } from './items.ts';
+import { canOffhand, usesBothHands, weaponBaseDamage, WEAPON_LOCAL_MODS } from './equipment-hands.ts';
 import { CLASSES, isClassId, type ClassId } from './classes.ts';
 import { skillsForClass, isPassive } from './paladin.ts';
 import { mercenaryPartyAuras, mercenaryStats, parseMercenary, type MercenaryState } from './mercenary.ts';
@@ -20,12 +24,14 @@ import { strongerAura } from './mercenary-auras.ts';
 export { rarityNames, slotNames, rollItem, SLOTS } from './items.ts';
 export type { Slot, Item, Rarity } from './items.ts';
 export type HeroState = {
+  companions?:SavedCompanion[];
+  marks?:{wolf:number;bear:number};
   mercenary: MercenaryState | null;
   rulesVersion: 2; playerCount: PlayerCount; classId: ClassId; level: number; xp: number; gold: number; kills: number; points: number;
   strength: number; dexterity: number; vitality: number; energy: number;
   skillPoints: number; skills: Record<SkillId, number>; activeAura: SkillId | null;
   bindings: Record<SkillSlot, ActionId>; chargeBindings?: Partial<Record<SkillSlot, ChargeBinding>>;
-  buffs: Partial<Record<SkillId, { remaining: number; rank: number; absorb?: number }>>;
+  buffs: Partial<Record<SkillId, { remaining: number; rank: number; absorb?: number; stacks?: number }>>;
   hp: number; mana: number; stamina: number; running: boolean; potions: number[]; potionTimers: number[]; potionBindings: number[]; potionRecovery: PotionRecovery[]; potionsShared?: boolean;
   ammo: { arrows: number; bolts: number };
   equipment: Record<Slot, Item | null>; alternate: { weapon: Item | null; shield: Item | null }; weaponSet: 0 | 1;
@@ -45,15 +51,20 @@ export function hasCube(hero: HeroState) {
 export const emptyEquipment = () => Object.fromEntries(SLOTS.map(slot => [slot, null])) as Record<Slot, Item | null>;
 export const difficulty = (hero: HeroState) => hero.difficultyLevel;
 export const difficultyNames = ['普通', '噩梦', '地狱'];
+function starterWeapon(classId:ClassId) {
+  const code=({paladin:'ssd',amazon:'jav',sorceress:'sst',necromancer:'wnd',barbarian:'hax',druid:'clb',assassin:'ktr'} as const)[classId];
+  const item=makeItem(BASES.find(base=>base.baseCode===code)??BASES[0],classId==='paladin'?'starter-sword':classId==='amazon'?'starter-javelin':classId==='sorceress'?'starter-staff':`starter-${classId}`);
+  if(classId==='sorceress')item.mods={skill_fireBolt:1};if(classId==='necromancer')item.mods={skill_raiseSkeleton:1};return item;
+}
 export const newHero = (classId: ClassId = 'paladin'): HeroState => ({
   mercenary: null,
   rulesVersion: 2, playerCount: 1, classId, level: 1, xp: 0, gold: 0, kills: 0, points: 0, ...CLASSES[classId].attributes,
   skillPoints: 0, skills: emptySkills(), activeAura: null,
-  bindings: { attack: 'attack', cleave: 'attack', ward: 'attack', nova: 'attack', dash: 'attack', bolt: classId === 'sorceress' ? 'fireBolt' : 'attack' },
+  bindings: { attack: 'attack', cleave: 'attack', ward: 'attack', nova: 'attack', dash: 'attack', bolt: classId === 'sorceress' ? 'fireBolt' : classId==='necromancer'?'raiseSkeleton':'attack' },
   buffs: {},
   hp: CLASSES[classId].life, mana: CLASSES[classId].mana, stamina: CLASSES[classId].stamina, running: true, potions: emptyPotions().map((_, i) => i === 0 ? 6 : i === 1 ? 4 : 0), potionBindings: [...DEFAULT_POTION_BINDINGS], potionRecovery: [], potionTimers: [0, 0, 0], stage: 1, difficultyLevel: 0, unlockedDifficulty: 0, shrines: [], bossDefeated: false,
   ammo: { arrows: 0, bolts: 0 },
-  equipment: { ...emptyEquipment(), weapon: classId === 'paladin' ? makeItem(BASES[0], 'starter-sword') : classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='jav')!, 'starter-javelin') : { ...makeItem(BASES.find(base=>base.baseCode==='sst')!, 'starter-staff'), mods: { skill_fireBolt: 1 } }, shield: classId === 'sorceress' ? null : makeItem(BASES.find(base => base.name === '圆盾')!, 'starter-shield') },
+  equipment: { ...emptyEquipment(), weapon: starterWeapon(classId), shield: ['sorceress','barbarian','druid','assassin'].includes(classId) ? null : makeItem(BASES.find(base => base.name === '圆盾')!, 'starter-shield') },
   alternate: { weapon: classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='sbw')!,'starter-bow') : null, shield: null }, weaponSet: 0, inventory: [], stash: [], cube: [], cubeUnlocked: false, runes: [], identifyScrolls: 0,
   campaign: newCampaign(), baseStock: { difficulty: 0, offers: [] },
   questRewards: [], respecUsed: [], bonusLife: 0, bonusResist: 0, holyShield: 0, holyShieldLevel: 0, poison: 0, curse: 0, cold: 0, corpse: null,
@@ -67,7 +78,7 @@ export function activeEquipment(hero: HeroState, equipment = hero.equipment): It
     let changed = false;
     for (const item of pending) {
       if (accepted.includes(item) || itemRequirements(item).strength > str || itemRequirements(item).dexterity > dex) continue;
-      if (item.slot === 'shield' && equipment.weapon?.twoHanded) continue;
+      if (item === equipment.shield && (usesBothHands(hero.classId,equipment.weapon) || item.slot==='weapon'&&!canOffhand(hero.classId,item))) continue;
       accepted.push(item); const mods = levelMods(itemMods(item), hero.level); str += mods.strength ?? 0; dex += mods.dexterity ?? 0; changed = true;
     }
     if (!changed) break;
@@ -101,7 +112,7 @@ export function skillLevel(hero: HeroState, id: ActionId, mods = equipmentMods(h
   const grant = (mods[`oskill_${id}`] ?? 0) + (id === 'criticalStrike' ? mods.grantedCriticalStrike ?? 0 : id === 'evade' ? mods.grantedEvade ?? 0 : 0);
   if (!ownClass) return grant ? grant + (mods.allSkills ?? 0) + command + (skillById[id].tree==='fire'||['holyFire','fireArrow','explodingArrow','immolationArrow','firestorm','moltenBoulder','volcano','fissure'].includes(id) ? mods.fireSkills??0 : 0) : 0;
   if (!hero.skills[id] && !mods[`skill_${id}`] && !grant) return 0;
-  return command + hero.skills[id] + Math.min(3, grant) + (mods[`skill_${id}`] ?? 0) + (id === 'holyFire' || skillById[id].tree === 'fire' || ['fireArrow','explodingArrow','immolationArrow'].includes(id) ? mods.fireSkills ?? 0 : 0) + (mods.allSkills ?? 0) + (mods[`${hero.classId}Skills`] ?? 0) + (mods[skillById[id].tree === 'fire' ? 'fireSkillsTab' : `${skillById[id].tree}Skills` as Modifier] ?? 0);
+  return command + hero.skills[id] + Math.min(3, grant) + (mods[`skill_${id}`] ?? 0) + (id === 'holyFire' || skillById[id].tree === 'fire' || ['fireArrow','explodingArrow','immolationArrow','firestorm','moltenBoulder','fissure','volcano','armageddon','fireClaws','fireGolem','fireBlast','fistsOfFire','wakeOfFire','wakeOfInferno'].includes(id) ? mods.fireSkills ?? 0 : 0) + (mods.allSkills ?? 0) + (mods[`${hero.classId}Skills`] ?? 0) + (mods[skillById[id].tree === 'fire' ? 'fireSkillsTab' : `${skillById[id].tree}Skills` as Modifier] ?? 0);
 }
 export function auraValues(hero: HeroState, mods = equipmentMods(hero)) {
   const id = hero.activeAura, rank = id ? skillLevel(hero, id, mods) : 0;
@@ -112,24 +123,27 @@ export function equippedAuras(hero: HeroState, mods = equipmentMods(hero)) {
   for (const id of Object.keys(hero.skills) as SkillId[]) if (isAura(id) && mods[`aura_${id}`]) ranks.set(id, mods[`aura_${id}`]!);
   if (selected.id) ranks.set(selected.id, Math.max(ranks.get(selected.id) ?? 0, selected.rank));
   const active = activeEquipment(hero);
-  const auras = [...ranks].map(([id, rank]) => ({ id, rank, ...skillValues(id, rank, hero.skills), mercenary: false, equipment: (mods[`aura_${id}`] ?? 0) >= rank, pulses: (mods[`aura_${id}`] ?? 0) >= rank ? Math.max(1,active.filter(item=>(itemMods(item)[`aura_${id}`]??0)>0).length) : 1 }));
+  const auras = [...ranks].map(([id, rank]) => ({ id, rank, ...skillValues(id, rank, hero.skills), mercenary: false, source:undefined as {x:number;z:number}|undefined, equipment: (mods[`aura_${id}`] ?? 0) >= rank, pulses: (mods[`aura_${id}`] ?? 0) >= rank ? Math.max(1,active.filter(item=>(itemMods(item)[`aura_${id}`]??0)>0).length) : 1 }));
+  for(const aura of companionAuras(hero)){const value={...aura,mercenary:false,equipment:true,pulses:1};const index=auras.findIndex(a=>a.id===aura.id);if(index<0)auras.push(value);else if(strongerAura(value,auras[index]))auras[index]=value;}
   for (const aura of mercenaryPartyAuras(hero)) {
     const index = auras.findIndex(other => other.id === aura.id);
-    if (index < 0) auras.push(aura); else if (strongerAura(aura, auras[index])) auras[index] = aura;
+    if (index < 0) auras.push({...aura,source:undefined}); else if (strongerAura(aura, auras[index])) auras[index] = {...aura,source:undefined};
   }
   return auras;
 }
-export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippedAuras>) {
+export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippedAuras>, hand:'weapon'|'shield'='weapon') {
   const mods = equipmentMods(hero);
+  const otherWeapon=hero.equipment[hand==='weapon'?'shield':'weapon'];
+  if(otherWeapon?.slot==='weapon'&&activeEquipment(hero).includes(otherWeapon)){const local=levelMods(itemMods(otherWeapon),hero.level);for(const key of WEAPON_LOCAL_MODS)mods[key]=(mods[key]??0)-(local[key]??0);}
   const buff = (id: SkillId) => skillValues(id, hero.buffs[id]?.remaining ? hero.buffs[id]!.rank : 0, hero.skills);
   mods.lifeSteal = (mods.lifeSteal ?? 0) + buff('feralRage').percent;
   const fade = buff('fade'); mods.allRes = (mods.allRes ?? 0) + fade.percent;
-  mods.damageReduction = (mods.damageReduction ?? 0) + (hero.buffs.fade?.remaining ? hero.buffs.fade.rank : 0);
+  mods.damageReduction = (mods.damageReduction ?? 0) + ((hero.marks?.bear??0)>0?20:0) + (hero.buffs.fade?.remaining ? hero.buffs.fade.rank : 0);
   const form = Math.max(buff('wearwolf').percent,buff('wearbear').percent);
-  mods.maxLifePercent = (mods.maxLifePercent ?? 0) + (form ? form + skillValues('shapeShifting',skillLevel(hero,'shapeShifting',mods)).percent : 0) + buff('battleOrders').percent + buff('oakSage').percent;
+  mods.maxLifePercent = (mods.maxLifePercent ?? 0) + ((hero.marks?.wolf??0)>0?40:0) + (form ? form + skillValues('shapeShifting',skillLevel(hero,'shapeShifting',mods)).percent : 0) + buff('battleOrders').percent + buff('oakSage').percent;
   mods.maxManaPercent = (mods.maxManaPercent ?? 0) + buff('battleOrders').percent;
   mods.damage = (mods.damage ?? 0) + buff('heartOfWolverine').damage;
-  mods.attackRatingPercent = (mods.attackRatingPercent ?? 0) + buff('heartOfWolverine').attack;
+  mods.attackRatingPercent = (mods.attackRatingPercent ?? 0) + ((hero.marks?.wolf??0)>0?30:0) + buff('heartOfWolverine').attack;
   const active = activeEquipment(hero), aura = auraValues(hero, mods), auras = providedAuras ?? equippedAuras(hero, mods);
   const character = CLASSES[hero.classId], passive = (id: SkillId) => skillValues(id, skillLevel(hero,id,mods),hero.skills);
 
@@ -141,29 +155,35 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
   const enchant = buff('enchant');
   if(enchant.min) { mods.fireMinDamage=(mods.fireMinDamage??0)+enchant.min; mods.fireMaxDamage=(mods.fireMaxDamage??0)+enchant.max; }
   mods.pierceChance = Math.min(100,(mods.pierceChance??0)+passive('pierce').percent);
-  const classDefense = Math.max(...(['frozenArmor','shiverArmor','chillingArmor'] as const).map(id=>buff(id).percent));
+  const classDefense = passive('ironSkin').percent+buff('shout').percent+buff('wearbear').secondary+buff('concentrate').percent+buff('cloakOfShadows').percent+Math.max(...(['frozenArmor','shiverArmor','chillingArmor'] as const).map(id=>buff(id).percent));
   const auraStat = (id: SkillId, key: 'percent' | 'damage' | 'attack' | 'secondary') => auras.find(aura => aura.id === id)?.[key] ?? 0;
   const attributes = Object.fromEntries(Object.entries(BASE_ATTRIBUTES).map(([key]) => [key, hero[key as Attribute] + (mods[key as Modifier] ?? 0)])) as Record<Attribute, number>;
-  const weapon = active.find(item => item === hero.equipment.weapon), shield = active.find(item => item === hero.equipment.shield);
+  const weapon = active.find(item => item === hero.equipment[hand] && item.slot==='weapon'), offhand=active.find(item=>item===hero.equipment.shield&&item.slot==='weapon'), shield = active.find(item => item === hero.equipment.shield&&item.slot==='shield');
+  const weaponKind=weapon&&weaponType(weapon), masteryId:SkillId|null=hero.classId==='barbarian'?({sword:'swordMastery',dagger:'swordMastery',axe:'axeMastery',mace:'maceMastery',hammer:'maceMastery',scepter:'maceMastery',staff:'maceMastery',polearm:'poleArmMastery',spear:'spearMastery',throwing:'throwingMastery',javelin:'throwingMastery'} as Partial<Record<string,SkillId>>)[weaponKind??'']??null:hero.classId==='assassin'&&weaponKind==='claw'?'clawMastery':null;
+  const mastery=masteryId?passive(masteryId):skillValues('attack',0);
+  mods.allRes=(mods.allRes??0)+passive('naturalResistance').percent;
+  mods.damage=(mods.damage??0)+mastery.damage+buff('wearbear').damage+(hero.buffs.maul?.stacks??0)*buff('maul').damage;
+  mods.pierceChance=Math.min(100,(mods.pierceChance??0)+(masteryId==='throwingMastery'?mastery.secondary:0));
   const holy = hero.holyShield > 0 && shield ? skillValues('holyShield', hero.holyShieldLevel || skillLevel(hero, 'holyShield', mods), hero.skills) : null;
   const maxHp = Math.max(1, (character.life + (hero.vitality - character.attributes.vitality) * character.lifePerVitality + (hero.level - 1) * character.lifePerLevel + (mods.life ?? 0) + hero.bonusLife) * (1 + (mods.maxLifePercent ?? 0) / 100) + (attributes.vitality - hero.vitality) * character.lifePerVitality + Math.floor((mods.lifePerLevel ?? 0) * hero.level));
   const maxMana = Math.max(1, (character.mana + (hero.energy - character.attributes.energy) * character.manaPerEnergy + (hero.level - 1) * character.manaPerLevel + (mods.mana ?? 0)) * (1 + (mods.maxManaPercent ?? 0) / 100) + (attributes.energy - hero.energy) * character.manaPerEnergy + Math.floor((mods.manaPerLevel ?? 0) * hero.level));
-  const maxStamina = (character.stamina + attributes.vitality - character.attributes.vitality + hero.level - 1 + (mods.stamina ?? 0)) * (1 + (auraStat('vigor', 'secondary') + buff('battleOrders').percent) / 100);
+  const maxStamina = (character.stamina + (attributes.vitality - character.attributes.vitality + hero.level - 1)*(hero.classId==='assassin'?1.25:1) + (mods.stamina ?? 0)) * (1 + (auraStat('vigor', 'secondary') + buff('battleOrders').percent+passive('increasedStamina').percent) / 100);
   const weaponMods = weapon ? addMods(itemMods(weapon), catalogItemSetBonuses(weapon, active)) : {}, weaponED = weaponMods.damage ?? 0;
-  const weaponMin = Math.floor((weapon?.minDamage ?? (weapon ? weapon.power * .65 : 1)) * (1 + weaponED / 100)) + (mods.damageFlat ?? 0) + (mods.minDamage ?? 0);
-  const weaponMax = Math.max(weaponMin + 1, Math.floor((weapon?.maxDamage ?? weapon?.power ?? 2) * (1 + (weaponED + Math.floor((weaponMods.damagePercentPerLevel ?? 0) * hero.level)) / 100)) + (mods.damageFlat ?? 0) + (mods.maxDamage ?? 0) + Math.floor((mods.maxDamagePerLevel ?? 0) * hero.level));
+  const baseDamage=weaponBaseDamage(hero.classId,weapon,hand==='shield'?hero.equipment.weapon:hero.equipment.shield);
+  const weaponMin = Math.floor(baseDamage[0] * (1 + weaponED / 100)) + (mods.damageFlat ?? 0) + (mods.minDamage ?? 0);
+  const weaponMax = Math.max(weaponMin + 1, Math.floor(baseDamage[1] * (1 + (weaponED + Math.floor((weaponMods.damagePercentPerLevel ?? 0) * hero.level)) / 100)) + (mods.damageFlat ?? 0) + (mods.maxDamage ?? 0) + Math.floor((mods.maxDamagePerLevel ?? 0) * hero.level));
   const ranged = hero.buffs.delirium ? undefined : rangedBase(weapon);
   const rangedMin = ranged ? Math.floor(ranged.min * (1 + weaponED / 100)) + (mods.damageFlat ?? 0) + (mods.minDamage ?? 0) : weaponMin;
   const rangedMax = ranged ? Math.max(rangedMin, Math.floor(ranged.max * (1 + (weaponED + Math.floor((weaponMods.damagePercentPerLevel ?? 0) * hero.level)) / 100)) + (mods.damageFlat ?? 0) + (mods.maxDamage ?? 0) + Math.floor((mods.maxDamagePerLevel ?? 0) * hero.level)) : weaponMax;
-  const attributeDamage = ranged ? (attributes.strength * ranged.strength + attributes.dexterity * ranged.dexterity) / 100 : attributes.strength;
+  const attributeDamage = ranged ? (attributes.strength * ranged.strength + attributes.dexterity * ranged.dexterity) / 100 : weaponKind==='claw'||weaponKind==='dagger'?(attributes.strength+attributes.dexterity)*.75:attributes.strength;
   const damageBonus = attributeDamage + (mods.damage ?? 0) - weaponED + auraStat('might', 'damage') + auraStat('concentration', 'damage') + auraStat('fanaticism', 'damage');
   const attackMin = (ranged ? rangedMin : weaponMin) * (1 + damageBonus / 100), attackMax = (ranged ? rangedMax : weaponMax) * (1 + damageBonus / 100);
   const baseAttackRating = Math.max(1, attributes.dexterity * 5 - 15 + (mods.attackRating ?? 0) + Math.floor((mods.attackRatingPerLevel ?? 0) * hero.level)), attackRatingBonus = auras.reduce((sum, aura) => sum + aura.attack, 0) + (auras.some(aura => aura.id === 'blessedAim') ? 0 : hero.skills.blessedAim * 5) + (mods.attackRatingPercent ?? 0) + Math.floor((mods.attackRatingPercentPerLevel ?? 0) * hero.level);
-  const classAttack = passive('penetrate').attack + enchant.attack;
+  const classAttack = passive('penetrate').attack + enchant.attack+mastery.attack+buff('wearwolf').attack;
   const attackRating = Math.floor(baseAttackRating * (1 + (attackRatingBonus + classAttack) / 100));
   const armorItems = active.filter(item => item.slot !== 'weapon'), localED = (item: Item) => (itemMods(item).enhancedDefense ?? 0) + (catalogItemSetBonuses(item, active).enhancedDefense ?? 0);
   const globalED = (mods.enhancedDefense ?? 0) - armorItems.reduce((sum, item) => sum + localED(item), 0);
-  const defense = Math.floor((attributes.dexterity / 4 + armorItems.reduce((total, item) => total + Math.floor(item.power * (1 + localED(item) / 100)), 0) + (mods.defense ?? 0) + Math.floor((mods.defensePerLevel ?? 0) * hero.level)) * (1 + (globalED + auraStat('defiance', 'percent') + classDefense + (holy?.percent ?? 0)) / 100));
+  const defense = hero.buffs.berserk?.remaining ? 0 : Math.floor((attributes.dexterity / 4 + armorItems.reduce((total, item) => total + Math.floor(item.power * (1 + localED(item) / 100)), 0) + (mods.defense ?? 0) + Math.floor((mods.defensePerLevel ?? 0) * hero.level)) * (1 + (globalED + auraStat('defiance', 'percent') + classDefense + (holy?.percent ?? 0)) / 100));
   const block = shield ? Math.min(75, Math.max(0, Math.floor(((shield.block ?? 30) + character.blockBonus + (holy?.secondary ?? 0) + (mods.block ?? 0)) * (attributes.dexterity - 15) / (hero.level * 2)))) : 0;
   const resistances = {} as Record<'fire' | 'cold' | 'lightning' | 'poison', number>, maxResistances = { fire: 75, cold: 75, lightning: 75, poison: 75 };
   const penalty = [0, 40, 100][difficulty(hero)];
@@ -176,16 +196,16 @@ export function stats(hero: HeroState, providedAuras?: ReturnType<typeof equippe
     resistances[element] = Math.max(-100, Math.min(maxResistances[element], (potionBonus ? 50 : 0) + (mods.allRes ?? 0) + (mods[`${element}Res`] ?? 0) + hero.bonusResist - penalty + (resistSkill ? auraStat(resistSkill, 'percent') : 0) + (element !== 'poison' ? auraStat('salvation', 'percent') : 0)));
   }
   const frozen = hero.cold > 0 && !mods.cannotBeFrozen;
-  const effectiveIAS = Math.max(-50, Math.min(75, Math.floor(120 * (mods.ias ?? 0) / (120 + (mods.ias ?? 0))) + auraStat('fanaticism', 'percent') + (hero.buffs.delirium ? 33 : 0) - (weapon?.speed ?? 0) - (frozen ? 50 : 0)));
-  return { ...attributes, weapon, ranged, rangedMin, rangedMax, maxHp, maxMana, maxStamina, weaponMin, weaponMax, damageBonus, smiteDamageBonus: damageBonus - attributeDamage + attributes.strength, attackMin, attackMax, attack: (attackMin + attackMax) / 2, baseAttackRating, attackRatingBonus: attackRatingBonus + classAttack, attackRating, defense, armor: defense,
-    criticalStrike: passive('criticalStrike').percent, dodge: passive('dodge').percent, avoid: passive('avoid').percent, evade: passive('evade').percent,
-    magic: skillValues('blessedHammer', skillLevel(hero, 'blessedHammer', mods), hero.skills).max, xpNeeded: xpForLevel(hero.level), block, resistances, maxResistances,
+  const effectiveIAS = Math.max(-50, Math.min(75, Math.floor(120 * (mods.ias ?? 0) / (120 + (mods.ias ?? 0))) + auraStat('fanaticism', 'percent') + ((hero.marks?.bear??0)>0?25:0)+buff('burstOfSpeed').percent+buff('wearwolf').secondary+(hero.buffs.maul?.stacks??0)*3+buff('frenzy').percent*Math.min(1,(hero.buffs.frenzy?.stacks??0)/5) + (hero.buffs.delirium ? 33 : 0) - (weapon?.speed ?? 0) - (frozen ? 50 : 0)));
+  return { ...attributes, weapon, offhand, ranged, rangedMin, rangedMax, maxHp, maxMana, maxStamina, weaponMin, weaponMax, damageBonus, smiteDamageBonus: damageBonus - attributeDamage + attributes.strength, attackMin, attackMax, attack: (attackMin + attackMax) / 2, baseAttackRating, attackRatingBonus: attackRatingBonus + classAttack, attackRating, defense, armor: defense,
+    criticalStrike: Math.max(passive('criticalStrike').percent,mastery.percent), dodge: passive('dodge').percent, avoid: passive('avoid').percent, evade: passive('evade').percent,
+    magic: skillValues('blessedHammer', skillLevel(hero, 'blessedHammer', mods), hero.skills).max, xpNeeded: xpForLevel(hero.level), block, weaponBlock:offhand&&weaponKind==='claw'?passive('weaponBlock').percent:0, resistances, maxResistances,
     smiteMin: (shield?.smiteMin ?? 0) + (holy?.min ?? 0) + (mods.damageFlat ?? 0), smiteMax: (shield?.smiteMax ?? 0) + (holy?.max ?? 0) + (mods.damageFlat ?? 0), hasShield: !!shield,
     castFrames: breakpointFrames(mods.fcr ?? 0, [...character.fcr], character.cast), recoveryFrames: breakpointFrames(mods.fhr ?? 0, [...character.fhr], character.recovery), blockFrames: holy ? ((mods.fbr ?? 0) >= 86 ? 1 : 2) : breakpointFrames(mods.fbr ?? 0, [...character.fbr], character.block),
     lightningFrames: breakpointFrames(mods.fcr ?? 0, [0,7,15,23,35,52,78,117,194],19),
     attackFrames: Math.max(7, Math.ceil(15 * 100 / (100 + effectiveIAS))), zealFrames: Math.max(4, Math.ceil(7 * 100 / (100 + effectiveIAS))),
     rangedFrames: Math.max(7, Math.ceil((ranged?.kind === 'crossbow' ? 19 : 16) * 100 / (100 + effectiveIAS))),
-    runSpeed: (1 + (mods.runWalk ?? 0) / 100 + auraStat('vigor', 'percent') / 100) * (frozen ? .5 : 1) * (hero.buffs.delirium ? 1.33 : 1),
+    runSpeed: (1 + (mods.runWalk ?? 0) / 100 + auraStat('vigor', 'percent') / 100+(passive('increasedSpeed').percent+buff('burstOfSpeed').secondary+buff('frenzy').secondary*Math.min(1,(hero.buffs.frenzy?.stacks??0)/5)+buff('feralRage').secondary*Math.min(1,(hero.buffs.feralRage?.stacks??1)/Math.max(1,buff('feralRage').hits)))/100) * (frozen ? .5 : 1) * (hero.buffs.delirium ? 1.33 : 1),
     manaRegen: maxMana / PALADIN_BALANCE.manaRecoverySeconds * (1 + ((mods.manaRegen ?? 0) + passive('warmth').percent + auraStat('meditation', 'percent')) / 100), lifeRegen: (mods.replenishLife ?? 0) * 25 / 256, mods, aura, auras,
   };
 }
@@ -242,7 +262,7 @@ export function setAura(hero: HeroState, id: SkillId | null) { if (id && (!isSki
 export function allocateAttribute(hero: HeroState, key: Attribute, count = 1) {
   if (!Object.hasOwn(BASE_ATTRIBUTES, key) || !Number.isSafeInteger(count) || count < 1 || hero.points < count) return false;
   hero.points -= count; hero[key] += count;
-  if (key === 'vitality') { hero.hp += count * CLASSES[hero.classId].lifePerVitality; hero.stamina += count; }
+  if (key === 'vitality') { hero.hp += count * CLASSES[hero.classId].lifePerVitality; hero.stamina += count*(hero.classId==='assassin'?1.25:1); }
   if (key === 'energy') hero.mana += count * CLASSES[hero.classId].manaPerEnergy; return true;
 }
 export function equipReason(hero: HeroState, item: Item, target: Slot = item.slot) {
@@ -250,9 +270,9 @@ export function equipReason(hero: HeroState, item: Item, target: Slot = item.slo
   if (item.jewel) return '珠宝用于镶嵌';
   if (item.requiredClass && item.requiredClass !== CLASSES[hero.classId].code) return `仅限${CLASS_NAMES[item.requiredClass] ?? item.requiredClass}`;
   if (item.charm) return '护身符在背包中生效'; if (item.identified === false) return '需要先鉴定'; if (item.durability === 0) return '装备已损坏';
-  if (item.slot !== target && !(item.slot === 'ring' && target === 'ring2')) return '不匹配的装备栏';
+  if (item.slot !== target && !(item.slot === 'ring' && target === 'ring2') && !(target==='shield'&&canOffhand(hero.classId,item))) return '不匹配的装备栏';
   if ((item.requiredLevel ?? 1) > hero.level) return `需要等级 ${item.requiredLevel}`;
-  const gear = { ...hero.equipment, [target]: null }; if (item.twoHanded) gear.shield = null; if (target === 'shield' && gear.weapon?.twoHanded) gear.weapon = null;
+  const gear = { ...hero.equipment, [target]: null }; if (usesBothHands(hero.classId,item)) gear.shield = null; if (target === 'shield' && usesBothHands(hero.classId,gear.weapon)) gear.weapon = null;
   const mods: Mods = {}; activeEquipment(hero, gear).forEach(gear => addMods(mods, levelMods(itemMods(gear), hero.level))); for (const charm of activeCharms(hero)) addMods(mods, levelMods(itemMods(charm), hero.level));
   if (hero.strength + (mods.strength ?? 0) < itemRequirements(item).strength) return `需要力量 ${itemRequirements(item).strength}`;
   if (hero.dexterity + (mods.dexterity ?? 0) < itemRequirements(item).dexterity) return `需要敏捷 ${itemRequirements(item).dexterity}`; return '';
@@ -264,7 +284,7 @@ export function equipFromItems(hero: HeroState, items: Item[], id: string, targe
   if (equipReason(hero, item, slot)) return false;
   const equipment = { ...hero.equipment }, remaining = items.filter(other => other.id !== id), removed = new Set<Item>();
   const remove = (key: Slot) => { if (equipment[key]) { remaining.push(equipment[key]!); removed.add(equipment[key]!); } equipment[key] = null; };
-  remove(slot); if (item.twoHanded) remove('shield'); if (slot === 'shield' && equipment.weapon?.twoHanded) remove('weapon');
+  remove(slot); if (usesBothHands(hero.classId,item)) remove('shield'); if (slot === 'shield' && usesBothHands(hero.classId,equipment.weapon)) remove('weapon');
   const layout = remaining.map(item => { const copy = { ...item }; if (removed.has(item)) { delete copy.x; delete copy.y; } return copy; });
   const positions = packItems(layout, rows, items === hero.cube ? CUBE_COLUMNS : 10);
   if (items === hero.stash && remaining.length > 300 || new Set(remaining.map(item => item.id)).size !== remaining.length || !positions) return false;
@@ -353,7 +373,7 @@ export function respec(hero: HeroState) {
   const bonus = hero.questRewards.filter(key => /^[0-2]:jungle$/.test(key)).length * 5;
   const base = Object.fromEntries(Object.entries(CLASSES[hero.classId].attributes).map(([key, value]) => [key, value + bonus])) as Record<Attribute, number>;
   hero.points += Object.keys(base).reduce((sum, key) => sum + hero[key as Attribute] - base[key as Attribute], 0);
-  Object.assign(hero, base); hero.skillPoints += Object.values(hero.skills).reduce((sum, rank) => sum + rank, 0); hero.skills = emptySkills(); hero.activeAura = null; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.buffs = {};
+  Object.assign(hero, base); hero.skillPoints += Object.values(hero.skills).reduce((sum, rank) => sum + rank, 0); hero.skills = emptySkills(); hero.companions=[]; hero.activeAura = null; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.buffs = {};
   for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) hero.bindings[key] = 'attack'; clampResources(hero); return true;
 }
 export function grantQuestReward(hero: HeroState, event: 'shrine0' | 'shrine1' | 'shrine2' | 'boss') {
@@ -542,9 +562,9 @@ export function parseSave(raw: string | null): HeroState | null {
     const seen = new Set<string>(); const uniqueItem = (value: unknown) => { const item = parseItem(value); if (!item || seen.has(item.id)) return null; seen.add(item.id); return item; };
     if (h.equipment && typeof h.equipment === 'object') for (const slot of SLOTS) {
       if (h.equipment[slot] === null || legacy && !Object.hasOwn(h.equipment, slot)) hero.equipment[slot] = null;
-      else if (h.equipment[slot]) { const item = uniqueItem(h.equipment[slot]); if (item && (item.slot === slot || slot === 'ring2' && item.slot === 'ring')) hero.equipment[slot] = item; }
+      else if (h.equipment[slot]) { const item = uniqueItem(h.equipment[slot]); if (item && (item.slot === slot || slot === 'ring2' && item.slot === 'ring' || slot==='shield'&&canOffhand(hero.classId,item))) hero.equipment[slot] = item; }
     }
-    for (const slot of ['weapon', 'shield'] as const) { const item = uniqueItem(h.alternate?.[slot]); if (item?.slot === slot) hero.alternate[slot] = item; } hero.weaponSet = h.weaponSet === 1 ? 1 : 0;
+    for (const slot of ['weapon', 'shield'] as const) { const item = uniqueItem(h.alternate?.[slot]); if (item && (item.slot === slot || slot==='shield'&&canOffhand(hero.classId,item))) hero.alternate[slot] = item; } hero.weaponSet = h.weaponSet === 1 ? 1 : 0;
     hero.inventory = Array.isArray(h.inventory) ? h.inventory.map(uniqueItem).filter((item: Item | null): item is Item => !!item).slice(0, 200) : [];
     hero.stash = Array.isArray(h.stash) ? h.stash.map(uniqueItem).filter((item: Item | null): item is Item => !!item) : [];
     hero.cubeUnlocked = h.cubeUnlocked === true || hasCube(hero);
@@ -563,17 +583,23 @@ export function parseSave(raw: string | null): HeroState | null {
     hero.bonusLife = integer(h.bonusLife, 0, 0, 60); hero.bonusResist = integer(h.bonusResist, 0, 0, 30); hero.holyShield = decimal(h.holyShield, 0, 0, 3600); hero.poison = decimal(h.poison, 0, 0, 120); hero.curse = decimal(h.curse, 0, 0, 120); hero.cold = decimal(h.cold, 0, 0, 120); hero.running = h.running !== false;
     hero.holyShieldLevel = integer(h.holyShieldLevel, 0, 0, 100);
     if (h.corpse && typeof h.corpse === 'object') {
-      const equipment = emptyEquipment(); for (const slot of SLOTS) { const item = uniqueItem(h.corpse.equipment?.[slot]); if (item && (item.slot === slot || slot === 'ring2' && item.slot === 'ring')) equipment[slot] = item; }
+      const equipment = emptyEquipment(); for (const slot of SLOTS) { const item = uniqueItem(h.corpse.equipment?.[slot]); if (item && (item.slot === slot || slot === 'ring2' && item.slot === 'ring' || slot==='shield'&&canOffhand(hero.classId,item))) equipment[slot] = item; }
       const extras = Array.isArray(h.corpse.extras) ? h.corpse.extras.map(uniqueItem).filter((item: Item | null): item is Item => !!item).slice(0, 200) : [];
       hero.corpse = { equipment, extras, x: decimal(h.corpse.x, 0, -FIELD_BOUND, FIELD_BOUND), z: decimal(h.corpse.z, 11, -FIELD_BOUND, FIELD_BOUND), xpLost: integer(h.corpse.xpLost, 0, 0, 1000000000), gold: integer(h.corpse.gold, 0, 0, 10000000) };
     }
     parseMercenary(hero, h.mercenary, uniqueItem);
     for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) { const id = h.bindings?.[key]; if (isSkill(id) && !isPassive(id) && skillLevel(hero, id) && !(key === 'attack' && isAura(id))) hero.bindings[key] = id; }
     for (const key of Object.keys(hero.bindings) as SkillSlot[]) { const charge = h.chargeBindings?.[key]; if (charge) { hero.bindings[key]='attack'; if(isSkill(charge.id) && Number.isInteger(charge.rank)) bindChargedSkill(hero, key, charge.id, charge.rank); } }
-    for(const skill of Object.values(skillById)) if(skill.mode === 'buff' && h.buffs?.[skill.id]) {
-      const buff=h.buffs[skill.id]; hero.buffs[skill.id]={remaining:decimal(buff.remaining,0,0,3600),rank:integer(buff.rank,0,0,100), ...(['cycloneArmor','boneArmor'].includes(skill.id)?{absorb:decimal(buff.absorb,skillValues(skill.id,integer(buff.rank,0,0,100),hero.skills).percent,0,100000)}:{})};
+    for(const skill of Object.values(skillById)) if((skill.mode === 'buff'||['frenzy','feralRage','maul','berserk','concentrate','cloakOfShadows'].includes(skill.id)) && h.buffs?.[skill.id]) {
+      const buff=h.buffs[skill.id]; hero.buffs[skill.id]={remaining:decimal(buff.remaining,0,0,3600),rank:integer(buff.rank,0,0,100), ...(buff.stacks!==undefined?{stacks:integer(buff.stacks,0,0,50)}:{}), ...(['cycloneArmor','boneArmor'].includes(skill.id)?{absorb:decimal(buff.absorb,skillValues(skill.id,integer(buff.rank,0,0,100),hero.skills).percent,0,100000)}:{})};
     }
     if (isSkill(h.activeAura) && isAura(h.activeAura) && skillLevel(hero, h.activeAura)) hero.activeAura = h.activeAura;
+    if(h.marks&&typeof h.marks==='object')hero.marks={wolf:decimal(h.marks.wolf,0,0,180),bear:decimal(h.marks.bear,0,0,180)};
+    if(Array.isArray(h.companions))hero.companions=h.companions.slice(0,64).flatMap((entry:SavedCompanion)=>{
+      if(!entry||!isExpansionSkill(entry.id)||!(expansionMode(entry.id)==='summon'||['raiseSkeleton','raiseSkeletalMage','revive'].includes(entry.id)))return [];
+      const rank=integer(entry.rank,0,1,100),metal=entry.metal?uniqueItem(entry.metal):undefined;if(!rank||entry.id==='ironGolem'&&!metal)return [];
+      return [{id:entry.id,rank,hp:decimal(entry.hp,1,0,1),life:decimal(entry.life,3600,0,3600),...(metal?{metal}:{}),...(typeof entry.monster==='string'?{monster:entry.monster.slice(0,80)}:{}),damage:decimal(entry.damage,10,0,100000),maxHp:decimal(entry.maxHp,100,1,10000000),...(entry.resistance?{resistance:Object.fromEntries((['physical','magic','fire','cold','lightning','poison'] as const).map(type=>[type,decimal(entry.resistance?.[type],0,-100,200)])) as Record<DamageType,number>}:{}),...(entry.shots!==undefined?{shots:integer(entry.shots,0,0,5)}:{})}];
+    });
     const s = stats(hero); hero.hp = decimal(h.hp, s.maxHp, 1, s.maxHp); hero.mana = decimal(h.mana, s.maxMana, 0, s.maxMana); hero.stamina = decimal(h.stamina, s.maxStamina, 0, s.maxStamina); return hero;
   } catch { return null; }
 }

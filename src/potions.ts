@@ -29,8 +29,8 @@ export function potionIndex(code: string): number | undefined {
 }
 export function potionAmount(index: number, classId: ClassId) {
   const potion = POTIONS[index];
-  return potion?.kind === 'health' ? health[potion.tier - 1] * (classId === 'sorceress' ? 1 : 1.5)
-    : potion?.kind === 'mana' ? mana[potion.tier - 1] * (classId === 'sorceress' ? 1 : .75) : 0;
+  return potion?.kind === 'health' ? health[potion.tier - 1] * (classId==='barbarian'?2:['sorceress','necromancer','druid'].includes(classId)?1:1.5)
+    : potion?.kind === 'mana' ? mana[potion.tier - 1] * (classId==='barbarian'?.5:['sorceress','necromancer','druid'].includes(classId)?1:.75) : 0;
 }
 export function potionDescription(index: number, classId: ClassId) {
   const potion = POTIONS[index], amount = potionAmount(index, classId);

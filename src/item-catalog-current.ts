@@ -27,6 +27,9 @@ const helms = (id: string, name: string, rune: string, properties: CatalogProper
   properties: [['ac%', '', 75, 100], ['hp%', '', 5, 5], ...properties],
 });
 export const ADDED_RUNEWORDS: CatalogWord[] = [
+  { id:'d2r-Mosaic',key:'Mosaic',name:'马赛克',runes:['r23','r25','r11'],include:['h2h'],exclude:[],properties:[['preserve-charges','',50,50],['skilltab','20',2,2],['swing2','',20,20],['dmg%','',200,250],['extra-cold','',8,15],['extra-ltng','',8,15],['extra-fire','',8,15]] },
+  { id:'d2r-Metamorphosis',key:'Metamorphosis',name:'变形',runes:['r16','r32','r19'],include:['helm'],exclude:[],properties:[['metamorphosis','',1,1],['skilltab','16',5,5],['crush','',25,25],['ac%','',50,80],['res-all','',10,10]] },
+  { id:'d2r-Hustle-weapon',key:'Hustle Weapon',name:'躁动',runes:['r13','r18','r02'],include:['weap'],exclude:[],properties:[['hit-skill','Burst of Speed',5,1],['aura','Fanaticism',1,1],['swing2','',10,10],['dmg%','',180,200]] },
   helms('Bulwark', '壁垒', 'r12', [['lifesteal', '', 4, 6], ['regen', '', 30, 30], ['red-dmg%', '', 10, 15]]),
   helms('Cure', '治愈', 'r07', [['aura', 'Cleansing', 1, 1], ['res-pois', '', 10, 30], ['res-pois-len', '', 50, 50]]),
   helms('Hearth', '炉火', 'r10', [['res-cold', '', 10, 30], ['abs-cold%', '', 10, 15], ['nofreeze', '', 1, 1]]),

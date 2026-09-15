@@ -95,9 +95,10 @@ export class MercenaryCombat {
       this.target = enemy; this.path = path; this.rethink = MERCENARY_PURSUIT.repathInterval; return;
     }
   }
-  triggerItemBuff(id: 'fade'|'boneArmor'|'delirium', rank: number) {
+  triggerItemBuff(id: 'fade'|'boneArmor'|'delirium'|'burstOfSpeed', rank: number) {
     const merc = this.game.hero.mercenary; if (!merc || merc.status !== 'alive') return;
     const value = skillValues(id, rank);
+    if(id==='fade'&&merc.buffs)delete merc.buffs.burstOfSpeed;if(id==='burstOfSpeed'&&merc.buffs)delete merc.buffs.fade;
     (merc.buffs ??= {})[id] = { rank, remaining: value.duration, ...(id === 'boneArmor' ? { absorb: value.percent } : {}) };
     if (this.ally) updateItemForm(this.ally.actor, merc.buffs, this.game.time);
   }
@@ -209,7 +210,7 @@ export class MercenaryCombat {
     if (source && !spec?.triggered && hasMonsterAffix(source, 'cursed') && Math.random() < .75 && g.monsterCombat) g.monsterCombat.mercenaryCurseUntil = g.time + curseDuration({ buffs: merc.buffs ?? {} }, 5);
     if (source && merc.hp > 0) {
       g.combat.triggerItems('gethit-skill', source, activeMercenaryEquipment(g.hero), true);
-      if (!missile && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); const reflected = damage * (thorns?.percent ?? 0) / 100 + (thorns?.secondary ?? 0) + (s.mods.reflectDamage ?? 0); if (reflected > 0) g.combat.damage(source, reflected, 'physical', false, false, this.snapshot()); }
+      if (!missile && type === 'physical') { const thorns = s.auras.find(aura => aura.id === 'thorns'); const reflected = damage * (thorns?.percent ?? 0) / 100 + (thorns?.secondary ?? 0) + (s.mods.reflectDamage ?? 0) + (merc.buffs?.spiritOfBarbs?skillValues('spiritOfBarbs',merc.buffs.spiritOfBarbs.rank).percent:0) + (curse==='ironMaiden'?damage*skillValues('ironMaiden',g.combat.itemCurses.get(source)?.rank??1).percent/100:0); if (reflected > 0) g.combat.damage(source, reflected, 'physical', false, false, this.snapshot()); }
     }
     if (merc.hp <= 0) {
       merc.status = 'dead'; delete merc.buffs; merc.cold = merc.poison = merc.potionHealing = 0;

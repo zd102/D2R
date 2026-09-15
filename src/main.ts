@@ -30,6 +30,7 @@ try {
     mode: game.online ? 'online' : 'local', saveBusy: game.onlineSaveBusy, onlineState: game.onlineState,
     profileId: game.profile?.id ?? null, profileName: game.profile?.name ?? null,
     classId:game.hero.classId, classModel:game.actor.group.userData.classId, buffs:structuredClone(game.hero.buffs),
+    expansionCombat:{summons:game.combat.expansion.pets.pets.map(p=>({skill:p.expansionId,hp:p.hp,maxHp:p.maxHp,x:p.actor.group.position.x,z:p.actor.group.position.z})),traps:game.combat.expansion.traps.map(t=>({skill:t.id,shots:t.shots,x:t.mesh.position.x,z:t.mesh.position.z})),charges:structuredClone(game.combat.expansion.charges),motion:game.combat.expansion.motion?.id??null,missiles:game.combat.expansion.missiles.map(m=>({skill:m.id,x:m.mesh.position.x,z:m.mesh.position.z})),walls:game.combat.expansion.walls.length,form:game.actor.group.userData.itemForm?.kind??null},
     classCombat:{missiles:game.combat.classes.missiles.map(m=>({skill:m.skill,x:m.mesh.position.x,z:m.mesh.position.z,direction:m.direction.toArray()})),fields:game.combat.classes.fields.map(f=>({skill:f.id,life:f.life})),summons:game.combat.classes.summons.map(s=>({skill:s.id,hp:s.hp,maxHp:s.maxHp,x:s.actor.group.position.x,z:s.actor.group.position.z}))},
     mercenary: game.hero.mercenary ? { ...structuredClone(game.hero.mercenary), level: game.hero.level, maxHp: mercenaryStats(game.hero).maxHp, attacks: game.mercenary.attacks, position: game.mercenary.position?.toArray() ?? null } : null,
     position: { x: game.position.x, z: game.position.z }, level: game.hero.level,

@@ -382,6 +382,15 @@ export class GameWorld {
       if (ix + offset >= 0 && ix + offset < this.grid.width && iz + offsetZ >= 0 && iz + offsetZ < this.grid.height) this.grid.setWalkableAt(ix + offset, iz + offsetZ, false);
     }
   }
+  temporaryCollider(x:number,z:number,w:number,d:number) {
+    const obstacle={x,z,w,d},body=new CANNON.Body({mass:0,shape:new CANNON.Box(new CANNON.Vec3(w/2,1,d/2)),position:new CANNON.Vec3(x,1,z)});
+    this.physics.addBody(body);this.obstacles.push(obstacle);this.navigationGrid=undefined;
+    const ix=Math.round(x)+this.gridOffset,iz=Math.round(z)+this.gridOffsetZ,wasWalkable=this.grid.isWalkableAt(ix,iz);
+    this.grid.setWalkableAt(ix,iz,false);let released=false;
+    return ()=>{if(released)return;released=true;this.physics.removeBody(body);const index=this.obstacles.indexOf(obstacle);if(index>=0)this.obstacles.splice(index,1);this.navigationGrid=undefined;
+      if(wasWalkable&&!this.obstacles.some(o=>Math.abs(o.x-x)<=o.w/2&&Math.abs(o.z-z)<=o.d/2))this.grid.setWalkableAt(ix,iz,true);
+    };
+  }
   body(x: number, z: number, radius = PLAYER_RADIUS) {
     const body = new CANNON.Body({ mass: 1, shape: new CANNON.Sphere(radius), position: new CANNON.Vec3(x, .5, z), linearDamping: .95, fixedRotation: true });
     body.linearFactor.set(1, 0, 1); body.updateMassProperties(); this.physics.addBody(body); return body;

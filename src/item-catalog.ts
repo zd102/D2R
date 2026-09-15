@@ -39,7 +39,7 @@ export function expandBases(legacy: ItemBase[]): ItemBase[] {
   })), ...imported.filter(base => !existing.has(base.baseCode!))];
 }
 const extraProperties: Record<string, Modifier> = {
-  ...EFFECT_PROPERTIES,
+  ...EFFECT_PROPERTIES, 'preserve-charges':'preserveCharges', metamorphosis:'metamorphosis',
   vit: 'vitality', allskills: 'allSkills', crush: 'crushingBlow', deadly: 'deadlyStrike', openwounds: 'openWounds', nofreeze: 'cannotBeFrozen',
   'red-dmg%': 'damageReduction', 'regen-mana': 'manaRegen', 'mana%': 'maxManaPercent', 'hp%': 'maxLifePercent',
   'res-fire-max': 'maxFireRes', 'res-cold-max': 'maxColdRes', 'res-ltng-max': 'maxLightningRes', 'res-pois-max': 'maxPoisonRes',
@@ -67,7 +67,7 @@ export function catalogMods(properties: CatalogProperty[], random = () => .5): M
     else if (code === 'all-stats') add({ strength: value, dexterity: value, vitality: value, energy: value });
     else if (code === 'dmg-norm') add({ minDamage: min, maxDamage: max });
     else if (code === 'reduce-ac') add({ targetDefense: Math.abs(value) });
-    else if (code === 'skilltab' && !['0','1','2','3','4','5','9','10','11'].includes(param)) continue;
+    else if (code === 'skilltab' && (Number(param)<0 || Number(param)>20)) continue;
     else if (code === 'randclassskill') add({ [['amazonSkills','sorceressSkills','necromancerSkills','paladinSkills','barbarianSkills','druidSkills','assassinSkills'][value]]: 3 });
     else if (supportsAffixProperty(code)) add(rollAffix({ properties: [[code, Number(param) || 0, min, max]] } as Parameters<typeof rollAffix>[0], () => roll).mods);
   }
@@ -91,7 +91,7 @@ export function catalogPropertyStatus(property: CatalogProperty): 'active' | 'ot
   const [rawCode, param] = property;
   const code = rawCode.toLowerCase();
   if (code.startsWith('*') || ['bloody', 'state', 'fade'].includes(code)) return 'unused';
-  if (['nec', 'bar', 'dru', 'ass'].includes(code) || code === 'skilltab' && !['0','1','2','3','4','5','9','10','11'].includes(param) || code === 'skill' && (!catalogSkill(param) || skillById[catalogSkill(param)!].itemOnly)) return 'other-class';
+  if (code === 'skilltab' && (Number(param)<0 || Number(param)>20) || code === 'skill' && (!catalogSkill(param) || skillById[catalogSkill(param)!].itemOnly)) return 'other-class';
   if (code === 'oskill' || code === 'charged') return catalogSkill(param) ? 'active' : 'inactive';
   if (code === 'aura') return catalogSkill(param) && isAura(catalogSkill(param)!) ? 'active' : 'inactive';
   if (code === 'ethereal') return 'active';

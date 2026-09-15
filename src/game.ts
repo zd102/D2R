@@ -1,3 +1,4 @@
+import { expansionMode } from './expansion-skills.ts';
 import { vendorPrice } from './model.ts';
 import { POTIONS, POTION_LIMIT, potionDescription, useUtilityPotion, useRecoveryPotion } from './potions.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count';
@@ -314,6 +315,8 @@ export class Game {
   get areaName() { return this.inCamp ? CAMP.name : this.level.name; }
   loadArea(inCamp: boolean, resume?: CampReturn) {
     const suspending = this.campReturn?.world === this.world;
+    const traveling=this.combat?.expansion.owner===this.hero?this.combat.expansion.pets.export():this.hero.companions??[];
+    this.combat?.expansion.pets.clear();
     this.renderBudget.reset();
     if (!suspending) this.monsterBatches.dispose();
     this.audio.stopEffects?.();
@@ -343,6 +346,7 @@ export class Game {
     this.enemies = resume?.enemies ?? []; this.loot = resume?.loot ?? []; this.effects = resume?.effects ?? [];
     this.visited = resume?.visited ?? new Set(); this.combat = resume?.combat ?? new PaladinCombat(this);
     this.monsterCombat = resume?.monsterCombat ?? new MonsterCombat(this);
+    this.combat.expansion.pets.restore(traveling);
     this.mercenary.sync();
     if (inCamp && mercenaryUnlocked(this.hero)) {
       this.mercenaryVendor = createActor('hero', 'paladin');
@@ -797,7 +801,7 @@ export class Game {
     return true;
   }
   repeatableSkill(id: ActionId) {
-    return !isAura(id) && !isPassive(id) && !['buff', 'summon'].includes(classSkillMode(id) ?? '') && !['holyShield', 'innerSight', 'slowMissiles'].includes(id);
+    return !isAura(id) && !isPassive(id) && !['buff', 'summon'].includes(expansionMode(id) ?? classSkillMode(id) ?? '') && !['holyShield', 'innerSight', 'slowMissiles'].includes(id);
   }
   updateSkillInput(dt: number): boolean {
     this.skillRetry = Math.max(0, this.skillRetry - dt);
@@ -895,10 +899,10 @@ export class Game {
       this.save(false);
     }
   }
-  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level, mercenaryMods?: Mods) {
+  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level, mercenaryMods?: Mods, corpseSearch=false) {
     const mods = stats(this.hero).mods, diff = difficulty(this.hero);
     mods.magicFind = (mods.magicFind ?? 0) + (mercenaryMods?.magicFind ?? 0); mods.goldFind = (mods.goldFind ?? 0) + (mercenaryMods?.goldFind ?? 0);
-    const drop = rollLoot({ players: this.hero.playerCount, level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
+    const drop = rollLoot({ players: corpseSearch?1:this.hero.playerCount, level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !corpseSearch && !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
     this.addLoot({ id: this.nextId++, x: position.x + .4, z: position.z + .2, gold: drop.gold, mesh: new THREE.Group() });
     drop.items.forEach((item, i) => this.addLoot({ id: this.nextId++, x: position.x - .6 + i * .8, z: position.z + .6, item, mesh: new THREE.Group() }));
     drop.runes.forEach((rune, i) => this.addLoot({ id: this.nextId++, x: position.x + .8, z: position.z - .5 - i * .6, rune, mesh: new THREE.Group() }));
@@ -1074,6 +1078,7 @@ export class Game {
     this.ui.renderPanel(); this.save(false);
   }
   save(notify = true) {
+    if(this.combat?.expansion.owner===this.hero)this.hero.companions=this.dead?[]:this.combat.expansion.pets.export();
     if (this.ui?.sharedStashScreen?.busy) return false;
     if (!this.profile) return true;
     if (!this.saves || this.saveConflict) return false;
@@ -1219,7 +1224,7 @@ export class Game {
     // FrameClock already supplies fixed ticks. Interpolating every static wall's
     // quaternion again is unused: actors read the simulated positions directly.
     this.world.physics.step(1 / 60, dt === 1 / 60 ? undefined : dt, 3);
-    this.position.set(this.body.position.x, 0, this.body.position.z);
+    this.position.set(this.body.position.x, this.combat.expansion.jumpHeight, this.body.position.z);
     const campTarget = CAMP[this.pendingCampTarget];
     if (this.pendingPortal && this.pendingCampTarget === 'returnPortal' && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.pendingPortal = false; this.resumeCampReturn(); return; }
     if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'mercenaryMerchant' ? 'mercenary-shop' : this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }

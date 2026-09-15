@@ -5,8 +5,8 @@ import { newHero, parseSave, serializeSave } from '../src/model.ts';
 import { compatibleRunewords, socketRuneword } from '../src/runeword-crafting.ts';
 
 const recipe = (name: string) => AVAILABLE_RUNEWORDS.find(word => word.name === name)!;
-const baseFor = (name: string) => {
-  const word = recipe(name), base = BASES.find(base => (base.sockets ?? 0) >= word.runes.length && runewordFits({ ...makeItem(base, 'candidate'), sockets: word.runes.length }, word))!;
+const baseFor = (name: string | typeof AVAILABLE_RUNEWORDS[number]) => {
+  const word = typeof name === 'string' ? recipe(name) : name, base = BASES.find(base => (base.sockets ?? 0) >= word.runes.length && runewordFits({ ...makeItem(base, 'candidate'), sockets: word.runes.length }, word))!;
   return { ...makeItem(base, 'craft-base'), sockets: word.runes.length };
 };
 
@@ -22,7 +22,7 @@ test('ready recipes come first and availability is recalculated without reorderi
 
 test('every craftable runeword matches manual socketing without consuming unrelated runes', () => {
   for (const word of AVAILABLE_RUNEWORDS) {
-    const hero = newHero(), item = baseFor(word.name), manual = structuredClone(item);
+    const hero = newHero(), item = baseFor(word), manual = structuredClone(item);
     hero.inventory = [item]; hero.runes = [...word.runes, 'zod'];
     for (const rune of word.runes) assert.ok(socketItem(manual, rune, () => .25));
     assert.ok(socketRuneword(hero, item.id, word.catalogId!, () => .25), word.name);
@@ -42,7 +42,7 @@ test('valid rune prefixes can be completed in inventory, private stash and cube 
 });
 
 test('duplicate rune requirements count missing copies and failure preserves everything', () => {
-  const word = AVAILABLE_RUNEWORDS.find(word => new Set(word.runes).size < word.runes.length)!, hero = newHero(), item = baseFor(word.name);
+  const word = AVAILABLE_RUNEWORDS.find(word => new Set(word.runes).size < word.runes.length)!, hero = newHero(), item = baseFor(word);
   hero.inventory = [item]; hero.runes = [...new Set(word.runes)];
   const option = compatibleRunewords(item, hero.runes).find(option => option.word === word)!;
   assert.ok(option.missing.length > 0);

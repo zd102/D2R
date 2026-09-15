@@ -353,7 +353,7 @@ export function migrateCatalogItem(item: Item) {
   if (rangedProperties?.length) item.mods = { ...catalogMods(rangedProperties), ...item.mods };
   if (item.catalogVersion === 1) return item;
   const special = ['unique', 'set'].includes(item.rarity) ? SPECIAL_ITEMS.find(entry => entry.catalogId === item.catalogId || entry.name === item.name) : undefined;
-  const word = item.rarity === 'runeword' ? RUNEWORDS.find(entry => (entry.catalogId === item.catalogId || entry.name === item.name) && entry.runes.join() === item.runes?.join()) : undefined;
+  const word = item.rarity === 'runeword' ? RUNEWORDS.find(entry => (item.catalogId ? entry.catalogId === item.catalogId : entry.name === item.name && runewordFits({...item,rarity:'common'},entry)) && entry.runes.join() === item.runes?.join()) : undefined;
   if (special) {
     const legacy = LEGACY_CURATED_SPECIALS.find(entry => entry.id === special.catalogId);
     // Pre-catalog saves must not acquire the new drop-only unique adjustments.

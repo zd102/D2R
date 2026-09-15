@@ -1,10 +1,11 @@
+import { CLASS_SKILL_MOD_NAMES, SKILL_TAB_MODS } from './classes.ts';
 import { catalogSkill } from './item-effects.ts';
 import { skillName } from './paladin.ts';
 import { AFFIX_DATA, AFFIX_BASES, AFFIX_TYPES, type AffixDefinition } from './affix-data.ts';
 import type { Item, Modifier, Mods } from './items.ts';
 import { CATALOG_BASES } from './item-catalog-data.ts';
 
-export const AFFIX_MOD_NAMES = {
+export const AFFIX_MOD_NAMES = { ...CLASS_SKILL_MOD_NAMES,
   amazonSkills: '亚马逊技能', sorceressSkills: '法师技能', bowSkills: '弓与弩技能', passiveSkills: '被动与魔法技能', javelinSkills: '标枪与长矛技能', fireSkillsTab: '火焰法术技能', lightningSkills: '闪电法术技能', coldSkills: '冰冷法术技能',
   paladinSkills: '圣骑士技能', attackRatingPerLevel: '每级准确率', attackRatingPercentPerLevel: '每级准确率加成 %', maxDamagePerLevel: '每级最大伤害',
   fireMinDamage: '最小火焰伤害', fireMaxDamage: '最大火焰伤害', coldMinDamage: '最小冰冷伤害', coldMaxDamage: '最大冰冷伤害',
@@ -63,7 +64,7 @@ const PROPERTY_MODS: Record<string, Modifier> = {
   lifesteal: 'lifeSteal', manasteal: 'manaSteal', 'mag%': 'magicFind', 'gold%': 'goldFind', regen: 'replenishLife', 'mana-kill': 'manaOnKill',
   'red-dmg': 'damageReductionFlat', 'red-mag': 'magicReduction', thorns: 'reflectDamage', knock: 'knockback', noheal: 'preventHeal',
   'ignore-ac': 'ignoreDefense', 'half-freeze': 'halfFreeze', 'regen-stam': 'staminaRegen', stamdrain: 'staminaDrain',
-  'dmg-demon': 'damageDemons', 'dmg-undead': 'damageUndead', 'att-demon': 'attackDemons', 'att-undead': 'attackUndead', 'dmg-to-mana': 'damageToMana', pal: 'paladinSkills', ama: 'amazonSkills', sor: 'sorceressSkills',
+  'dmg-demon': 'damageDemons', 'dmg-undead': 'damageUndead', 'att-demon': 'attackDemons', 'att-undead': 'attackUndead', 'dmg-to-mana': 'damageToMana', pal: 'paladinSkills', ama: 'amazonSkills', sor: 'sorceressSkills', nec:'necromancerSkills', bar:'barbarianSkills', dru:'druidSkills', ass:'assassinSkills',
   'fire-min': 'fireMinDamage', 'fire-max': 'fireMaxDamage', 'cold-min': 'coldMinDamage', 'cold-max': 'coldMaxDamage', 'ltng-min': 'lightningMinDamage', 'ltng-max': 'lightningMaxDamage',
 };
 const PER_LEVEL: Record<string, [Modifier, number]> = { 'ac/lvl': ['defensePerLevel', 8], 'hp/lvl': ['lifePerLevel', 8], 'mana/lvl': ['manaPerLevel', 8], 'dmg/lvl': ['maxDamagePerLevel', 8], 'att/lvl': ['attackRatingPerLevel', 2], 'att%/lvl': ['attackRatingPercentPerLevel', 2] };
@@ -80,7 +81,7 @@ export function rollAffix(affix: AffixDefinition, random = Math.random): { mods:
     else if (code === 'charged') continue;
     else if (code === 'indestruct') add('indestructible', 1);
     else if (PER_LEVEL[code]) { const [mod, divisor] = PER_LEVEL[code]; add(mod, param / divisor); }
-    else if (code === 'skilltab') { const key = ({ 0: 'bowSkills', 1: 'passiveSkills', 2: 'javelinSkills', 3: 'fireSkillsTab', 4: 'lightningSkills', 5: 'coldSkills', 9: 'combatSkills', 10: 'offensiveSkills', 11: 'defensiveSkills' } as Partial<Record<number, Modifier>>)[param]; if(key) add(key, integerRoll(min, max, random)); }
+    else if (code === 'skilltab') { const key = SKILL_TAB_MODS[param]; if(key) add(key, integerRoll(min, max, random)); }
     else if (code === 'ease') add('requirementReduction', -integerRoll(min, max, random));
     else if (code === 'cold-len') add('coldDuration', integerRoll(min, max, random) / 25);
     else if (code === 'sock') sockets = param || integerRoll(min, max, random);

@@ -1,3 +1,4 @@
+import { companionAuras, setCompanionAuras } from './companion-auras.ts';
 import { POTIONS, potionAmount } from './potions.ts';
 import { newHero, stats, emptyEquipment, equippedAuras, type HeroState } from './model.ts';
 import { addMods, itemMods, itemRequirements, weaponType, packItems, type Item, type Mods } from './items.ts';
@@ -83,8 +84,9 @@ export function mercenaryStats(hero: HeroState) {
   proxy.equipment = emptyEquipment();
   for (const item of activeMercenaryEquipment(hero)) proxy.equipment[item.slot] = item;
   if (merc) { proxy.skills[merc.aura] = mercenaryAuraRank(hero.level); proxy.activeAura = merc.aura; proxy.cold = merc.cold; proxy.buffs = merc.buffs ?? {}; }
-  const auras = mercenaryAuras(hero, true).map(aura => ({ ...aura, mercenary: false }));
-  for (const aura of equippedAuras({ ...hero, mercenary: null }).filter(aura => isPartyAura(aura.id) && (distances.get(hero) ?? 0) <= aura.radius)) {
+  const auras = mercenaryAuras(hero, true).map(aura => ({ ...aura, mercenary: false,source:undefined as {x:number;z:number}|undefined }));
+  const partyHero={...hero,mercenary:null};setCompanionAuras(partyHero,companionAuras(hero));
+  for (const aura of equippedAuras(partyHero).filter(aura => isPartyAura(aura.id) && (distances.get(hero) ?? 0) <= aura.radius)) {
     const index = auras.findIndex(other => other.id === aura.id);
     if (index < 0) auras.push(aura); else if (strongerAura(aura, auras[index])) auras[index] = aura;
   }
@@ -160,7 +162,7 @@ export function parseMercenary(hero: HeroState, value: unknown, parseItem: (valu
   const merc: MercenaryState = { status: data.status, hp: 0, aura: isMercenaryAura(data.aura) ? data.aura : 'prayer', equipment: { weapon: null, helm: null, armor: null }, cold: 0, poison: 0 };
   for (const slot of MERCENARY_SLOTS) { const item = parseItem(data.equipment?.[slot]); if (item && mercenaryItemAllowed(item, slot)) merc.equipment[slot] = item; }
   hero.mercenary = merc;
-  if (merc.status === 'alive' && data.buffs) for (const id of ['fade','boneArmor','delirium'] as const) {
+  if (merc.status === 'alive' && data.buffs) for (const id of ['fade','boneArmor','delirium','burstOfSpeed','shout','battleOrders','battleCommand'] as const) {
     const buff = data.buffs[id];
     if (!buff || !Number.isFinite(buff.rank) || !Number.isFinite(buff.remaining) || buff.rank < 1 || buff.remaining <= 0) continue;
     const rank = Math.min(100, Math.floor(buff.rank)), value = skillValues(id, rank);

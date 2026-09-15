@@ -112,7 +112,7 @@ test('unsupported original effects are visible and never claimed to be functiona
   assert.equal(catalogPropertyStatus(['hit-skill', 'Frozen Orb', 5, 10]), 'active');
   assert.equal(catalogPropertyStatus(['gethit-skill', 'Delerium Change', 1, 50]), 'active');
   assert.equal(catalogPropertyStatus(['gethit-skill', 'Unknown skill', 1, 50]), 'inactive');
-  assert.equal(catalogPropertyStatus(['skilltab', '8', 2, 2]), 'other-class');
+  assert.equal(catalogPropertyStatus(['skilltab', '8', 2, 2]), 'active');
   assert.equal(catalogPropertyStatus(['*hp', '', -10, -10]), 'unused');
 });
 

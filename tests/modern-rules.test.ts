@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { classFixture } from './class-fixture.ts';
 import { skillValues } from '../src/paladin.ts';
-import { BASES, RUNEWORDS, makeItem, socketItem, specialItem, itemMods, type Item } from '../src/items.ts';
+import { BASES, RUNEWORDS, makeItem, socketItem, specialItem, itemMods, migrateCatalogItem, type Item } from '../src/items.ts';
 import { newHero, stats, skillLevel, swapWeapons, serializeSave, parseSave, activeEquipment } from '../src/model.ts';
 import { CATALOG_SPECIALS as OLD_SPECIALS } from '../src/item-catalog-data.ts';
 import { ADDED_RUNEWORDS } from '../src/item-catalog-current.ts';
@@ -68,7 +68,7 @@ test('Nova and Thunder Storm gain static hard-point synergies, Hydra is bounded 
 
 test('new runewords have complete effects, legal bases, rune bonuses once and persistent rolls', () => {
   for (const word of ADDED_RUNEWORDS) {
-    const item = craft(word.include.includes('tors') ? 'brs' : 'msk', word.id);
+    const item = craft(word.include.includes('tors') ? 'brs' : word.include.includes('h2h') ? 'clw' : word.include.includes('weap') ? 'crs' : 'msk', word.id);
     assert.deepEqual(unappliedItemEffects(item), [], word.key);
     const hero = newHero(); hero.stash = [item]; assert.deepEqual(parseSave(serializeSave(hero))!.stash, [item]);
   }
@@ -96,5 +96,14 @@ test('curated uniques improve new drops while old numerical rolls remain untouch
       assert.deepEqual(loaded.stash[0].mods,legacy.mods,key);
       assert.deepEqual(loaded.stash[0].catalogRolls,legacy.catalogRolls,key);
     }
+  }
+});
+
+// The two Hustle recipes share both their display name and rune order.
+test('legacy same-name runewords recover their own recipe using the equipment base',()=>{
+  for(const [code,id] of [['brs','d2r-Hustle-armor'],['crs','d2r-Hustle-weapon']]){
+    const item=craft(code,id);delete item.catalogId;delete item.catalogVersion;
+    migrateCatalogItem(item);assert.equal(item.catalogId,id);
+    assert.equal(item.mods.staminaDrain,id.endsWith('armor')?50:undefined);
   }
 });

@@ -41,6 +41,7 @@
     "test:item-art": "node tests/item-art-browser.mjs",
     "test:ranged": "node tests/ranged-browser.mjs",
     "test:classes": "node tests/classes-browser.mjs",
+    "test:expansion-classes": "node tests/expansion-classes-browser.mjs",
     "test:modern": "node tests/modern-browser.mjs",
     "test:item-rolls": "node tests/item-rolls-browser.mjs",
     "test:shared-stash": "node tests/shared-stash-browser.mjs && node tests/storage-equipment-browser.mjs && node tests/stash-exchange-browser.mjs",

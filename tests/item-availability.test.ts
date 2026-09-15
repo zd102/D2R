@@ -7,11 +7,12 @@ import { chestContext, chestTreasure, chestItem, rollChestCodes, rollChestLoot, 
 import { rollLoot } from '../src/loot.ts';
 import { BOSS_DROP_PROFILES, bossSpecialPool } from '../src/boss-loot.ts';
 import { LEVELS, AREA_LEVELS } from '../src/campaign.ts';
-import { CLASS_IDS } from '../src/classes.ts';
+import { CLASS_IDS, CLASSES } from '../src/classes.ts';
 import { ENCYCLOPEDIA_ITEMS, encyclopediaItem, itemDropSources, recipeBases } from '../src/encyclopedia.ts';
 import { newHero, insertRune, parseSave, serializeSave } from '../src/model.ts';
 
-const unsupportedClasses = new Set(['nec', 'bar', 'dru', 'ass']);
+const restoredClasses = new Set(['nec', 'bar', 'dru', 'ass']);
+const unsupportedClasses = new Set(['war']);
 const removedMisc = CHEST_MISC.filter(item => !/^[hm]p[1-5]$/.test(item.code) && !['vps', 'yps', 'wms', 'rvs', 'rvl'].includes(item.code));
 const rng = (seed = 921) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 
@@ -56,11 +57,11 @@ test('every removed miscellaneous item is unreachable even when its original che
   }
 });
 
-test('unavailable class gear is excluded from all monster and boss pools across 75 encounters', () => {
-  const removedBases = BASES.filter(base => unsupportedClasses.has(base.requiredClass ?? ''));
-  const removedSpecials = SPECIAL_ITEMS.filter(item => unsupportedClasses.has(item.requiredClass ?? ''));
+test('all seven classes participate in monster, chest and boss pools across 75 encounters', () => {
+  const removedBases = BASES.filter(base => restoredClasses.has(base.requiredClass ?? ''));
+  const removedSpecials = SPECIAL_ITEMS.filter(item => restoredClasses.has(item.requiredClass ?? ''));
   assert.equal(removedBases.length, 66); assert.equal(removedSpecials.length, 19);
-  for (const base of removedBases) assert.throws(() => chestItem(base, 99), /Unavailable chest base/);
+  for (const base of removedBases) assert.equal(chestItem(base, 99).requiredClass,base.requiredClass);
   for (const rarity of ['unique', 'set'] as const) {
     assert.ok(specialPool(99, rarity).every(item => !unsupportedClasses.has(item.requiredClass ?? '')));
   }
@@ -76,7 +77,7 @@ test('unavailable class gear is excluded from all monster and boss pools across 
       }
     }
   }
-  assert.deepEqual(seenClasses, new Set(['pal', 'ama', 'sor']));
+  assert.deepEqual(seenClasses, new Set(CLASS_IDS.map(id=>CLASSES[id].code)));
 });
 
 test('random jewelry always has properties while common weapons and socket bases remain available', () => {
@@ -91,24 +92,14 @@ test('random jewelry always has properties while common weapons and socket bases
   assert.deepEqual(seen, new Set(['rin', 'amu', 'jew'])); assert.ok(common > 0 && socketed > 0);
 });
 
-test('unavailable recipes and sources disappear and legacy claws cannot consume crafting runes', () => {
+test('Chaos, restored class equipment and encyclopedia sources are available with stable IDs', () => {
   const chaos = RUNEWORDS.find(word => word.catalogId === 'Runeword16')!;
-  assert.ok(chaos); assert.ok(!AVAILABLE_RUNEWORDS.includes(chaos));
-  assert.deepEqual(recipeBases(chaos), []); assert.equal(encyclopediaItem('word-Runeword16'), undefined);
-  for (const base of BASES.filter(base => unsupportedClasses.has(base.requiredClass ?? ''))) {
-    assert.ok(!ENCYCLOPEDIA_ITEMS.some(entry => entry.base === base));
-    const item = makeItem(base); item.sockets = 3;
-    assert.equal(runewordFits(item, chaos), false);
-    const hero = newHero(); hero.stash = [item]; hero.runes = [...chaos.runes];
-    const before = serializeSave(hero);
-    assert.equal(insertRune(hero, item.id, chaos.runes[0]), false);
-    assert.equal(serializeSave(hero), before); assert.deepEqual(parseSave(before)!.stash, hero.stash);
-  }
-  for (const special of SPECIAL_ITEMS.filter(item => unsupportedClasses.has(item.requiredClass ?? ''))) {
-    assert.equal(encyclopediaItem(special.catalogId!), undefined);
-    for (const diff of [0, 1, 2]) assert.deepEqual(itemDropSources({ id: special.catalogId!, name: special.name, english: '', kind: special.rarity, level: special.level, icon: '', special }, diff), []);
-  }
-  // Base IDs remain stable after filtering, so links to existing equipment still work.
+  assert.ok(AVAILABLE_RUNEWORDS.includes(chaos));assert.ok(recipeBases(chaos).length);assert.ok(encyclopediaItem('word-Runeword16'));
+  const base=BASES.find(base=>base.requiredClass==='ass'&&(base.sockets??0)>=3)!;
+  const hero=newHero('assassin'),item=makeItem(base);item.sockets=3;hero.stash=[item];hero.runes=[...chaos.runes];
+  for(const rune of chaos.runes)assert.ok(insertRune(hero,item.id,rune));assert.equal(item.name,chaos.name);assert.equal(hero.runes.length,0);
+  assert.equal(parseSave(serializeSave(hero))!.stash[0].name,chaos.name);
+  for(const special of SPECIAL_ITEMS.filter(item=>restoredClasses.has(item.requiredClass??'')))assert.ok(encyclopediaItem(special.catalogId!));
   for (const entry of ENCYCLOPEDIA_ITEMS) if (entry.base) assert.equal(entry.id, `base-${BASES.indexOf(entry.base)}`);
 });
 

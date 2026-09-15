@@ -185,3 +185,5 @@
 .class-option strong small { font-size:9px; letter-spacing:1px; opacity:.65; }
 .class-option span>span { font-size:11px; color:#c2c1b6; }
 .class-option span>small { font-size:11px; color:#818e88; }
+
+#class-state-label { max-width:min(60vw,540px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#bcd3ad; }

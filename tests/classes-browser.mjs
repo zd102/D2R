@@ -15,7 +15,7 @@ async function layout(page){assert.equal(await page.evaluate(()=>document.docume
 async function roster(page){await page.keyboard.press('Escape');await page.locator('[data-action="profiles"]').click();await page.getByRole('dialog',{name:'选择角色',exact:true}).waitFor();}
 try {
   const page=await browser.newPage({viewport:{width:1440,height:960}});watch(page);await page.goto(base);
-  for(const id of CLASS_IDS){await page.getByRole('button',{name:'新建角色',exact:true}).click();await expect(page.locator('.class-option')).toHaveCount(3);await page.locator(`input[name="class"][value="${id}"]`).check();await page.locator('#profile-name').fill(CLASSES[id].name+'验证');
+  for(const id of CLASS_IDS){await page.getByRole('button',{name:'新建角色',exact:true}).click();await expect(page.locator('.class-option')).toHaveCount(7);await page.locator(`input[name="class"][value="${id}"]`).check();await page.locator('#profile-name').fill(CLASSES[id].name+'验证');
     if(id==='amazon')await page.screenshot({path:`${output}/create-desktop.png`});await layout(page);
     await page.getByRole('button',{name:'创建并进入',exact:true}).click();await page.waitForFunction(id=>window.eclipseState?.classId===id&&!window.eclipseState.paused,id);assert.equal((await state(page)).classModel,id);
     await page.keyboard.press('c');await expect(page.locator('.character-banner')).toContainText(CLASSES[id].name);await page.keyboard.press('Escape');
@@ -23,7 +23,7 @@ try {
     if(id==='sorceress'){await page.mouse.click(900,450,{button:'right'});await page.waitForFunction(()=>window.eclipseState.classCombat.missiles.some(m=>m.skill==='fireBolt'));}
     await roster(page);await expect(page.getByRole('option',{name:CLASSES[id].name+'验证',exact:true})).toContainText(CLASSES[id].name);
   }
-  await page.reload();await expect(page.getByRole('option')).toHaveCount(3);await expect(page.getByRole('option',{name:'法师验证',exact:true})).toContainText('法师');
+  await page.reload();await expect(page.getByRole('option')).toHaveCount(7);await expect(page.getByRole('option',{name:'法师验证',exact:true})).toContainText('法师');
   for(const viewport of [{width:390,height:844},{width:360,height:740},{width:844,height:390}]){await page.setViewportSize(viewport);await page.getByRole('button',{name:'新建角色',exact:true}).click();await page.locator('input[value="sorceress"]').check();await layout(page);await page.screenshot({path:`${output}/create-${viewport.width}.png`});await page.locator('[data-profile-action="back"]').click();}
   await page.close();
   for(const id of ['amazon','sorceress']){
@@ -47,5 +47,5 @@ try {
     await roster(p);await p.reload();await p.getByRole('button',{name:'进入旅程',exact:true}).click();assert.equal((await state(p)).classId,id);assert.deepEqual((await state(p)).bindings,bindings);assert.equal((await state(p)).skills[skill],2);assert.equal((await state(p)).classCombat.summons.length,0);
     await context.close();
   }
-  assert.deepEqual(errors,[]);console.log('PASS: class creation, three class models, six trees, learning/binding, mouse aim, buffs, summons, teleport, reload and mobile layouts');
+  assert.deepEqual(errors,[]);console.log('PASS: seven-class creation, existing class models and skill trees, learning/binding, mouse aim, buffs, summons, teleport, reload and mobile layouts');
 }finally{await browser.close();}
