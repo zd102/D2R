@@ -44,6 +44,7 @@
     "test:item-rolls": "node tests/item-rolls-browser.mjs",
     "test:shared-stash": "node tests/shared-stash-browser.mjs && node tests/storage-equipment-browser.mjs && node tests/stash-exchange-browser.mjs",
     "test:ui": "node tests/ui-layout-browser.mjs && node tests/ui-interactions-browser.mjs && node tests/ui-accessibility-browser.mjs && node tests/inventory-details-browser.mjs",
+    "test:mobile-ui": "node tests/mobile-ui-browser.mjs",
     "test:inventory-drag": "node tests/inventory-drag-browser.mjs && node tests/drag-exchange-browser.mjs && node tests/equipment-drag-browser.mjs",
     "test:cube": "node tests/cube-browser.mjs",
     "test:runeword-tooltip": "node tests/runeword-tooltip-browser.mjs",

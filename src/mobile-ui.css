@@ -1,0 +1,254 @@
+/* Phone overrides only. Keep the media query in sync with mobile-ui.ts. */
+@media (hover: none) and (pointer: coarse) and (max-width: 600px),
+       (hover: none) and (pointer: coarse) and (max-height: 600px) and (max-width: 1100px) {
+  #app {
+    --touch-left: max(12px, env(safe-area-inset-left));
+    --touch-right: max(12px, env(safe-area-inset-right));
+    --touch-top: max(8px, env(safe-area-inset-top));
+    --touch-bottom: env(safe-area-inset-bottom, 0px);
+    --touch-key: clamp(48px, 14vw, 58px);
+    --touch-controls-bottom: calc(82px + var(--touch-bottom));
+  }
+
+  /* Flatten the desktop belt so each touch group can occupy its own corner. */
+  .hud, .hud-center, .action-row { display: contents; filter: none; }
+  .hud .belt-divider, .hud .nav-key, .hud .skill-group kbd,
+  .hud .gold-count, .resource-caption, .orb-shine, .orb-frame::before,
+  .orb-frame::after, #mobile-attack, .area-caption, .corner-mark { display: none; }
+  .hud .skill-group, .hud .potion-group, .hud .resource,
+  .hud .hero-strip, .hud .bottom-nav, .hud .paladin-status { position: fixed; z-index: 6; }
+  .hud .skill-group {
+    right: var(--touch-right); bottom: var(--touch-controls-bottom);
+    display: grid; grid-template-columns: repeat(3, var(--touch-key)); gap: 7px;
+  }
+  .hud .skill-group .skill {
+    width: var(--touch-key); height: var(--touch-key); border-radius: 12px;
+    touch-action: none; padding: 4px; background-color: #21190ee8;
+  }
+  .hud .skill-group .attack-skill {
+    order: 6; border-radius: 50%; border: 2px solid #e2b96c;
+    background: radial-gradient(circle at 40% 30%, #74532d, #2b1c10 80%);
+    box-shadow: inset 0 0 0 3px #130d0880, 0 2px 8px #0008;
+  }
+  .hud .skill svg { width: 27px; height: 27px; margin-top: -8px; }
+  .hud .skill-name { font-size: 10px; line-height: 1.15; bottom: 5px; padding: 0 3px; }
+  .hud .attack-skill .skill-name { font-size: 9px; padding: 0; white-space: nowrap; }
+  .hud .skill::before { display: none; }
+  .hud .skill:hover { filter: none; }
+  .hud .skill:active { filter: brightness(1.4); border-color: #ffe2a3; }
+  .hud .potion-group {
+    left: var(--touch-left); bottom: calc(var(--touch-controls-bottom) + var(--touch-key) * 2 + 19px);
+    width: auto; display: grid; grid-template-columns: repeat(4, 48px); gap: 7px;
+  }
+  .hud .potion-group .potion-slot {
+    grid-column: auto; width: 48px; height: 48px; border-radius: 8px; padding: 4px 2px;
+    align-items: center; border-top-width: 3px;
+  }
+  .hud .potion-slot-name { font-size: 10px; line-height: 13px; padding: 0 1px 5px; }
+  .hud .potion-group .potion-slot b { bottom: 1px; right: 4px; font-size: 11px; }
+  .hud .potion-slot kbd { left: 2px; top: 0; font-size: 9px; }
+  .mobile-controls { display: contents; }
+  #joystick {
+    position: fixed; left: var(--touch-left); bottom: var(--touch-controls-bottom);
+    width: 108px; height: 108px; z-index: 6; display: grid; place-items: center;
+    pointer-events: auto; touch-action: none; border-radius: 50%;
+    border: 1px solid #c7b48e80; background: radial-gradient(circle, #bc9e5e18, #19150ec9);
+  }
+  #joystick::before { content: ''; position: absolute; inset: 18px; border: 1px solid #c7b48e30; border-radius: 50%; }
+  #joystick > div { width: 42px; height: 42px; border-radius: 50%; border: 1px solid #bfa16a; background: radial-gradient(circle at 35% 30%, #b69a6370, #4b3c25c0); pointer-events: none; }
+
+  /* Slim resources and navigation leave the middle of the world clear. */
+  .hud .resource { left: var(--touch-left); right: auto; top: calc(var(--touch-top) + 50px); bottom: auto; width: 144px; padding: 0; }
+  .hud .resource.mana { top: calc(var(--touch-top) + 76px); }
+  .hud .orb-frame { width: 100%; height: 22px; border: 1px solid #967343; border-radius: 5px; padding: 2px; background: #100c09d9; }
+  .hud .orb { border-radius: 2px; width: 100%; height: 100%; box-shadow: none; }
+  .hud .orb > span { inset: 0; transform: none; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4px; font: 11px/16px Georgia, serif; }
+  .hud .health .orb > span::before { content: '生命'; font: 10px sans-serif; }
+  .hud .mana .orb > span::before { content: '法力'; font: 10px sans-serif; }
+  .hud .orb small { font-size: 10px; }
+  .hud .hero-strip {
+    left: var(--touch-left); right: var(--touch-right); bottom: calc(44px + var(--touch-bottom));
+    height: 24px; gap: 8px; margin: 0; padding: 0 6px; border: 0;
+    background: #14100ce8; pointer-events: none;
+  }
+  .hud .hero-name, .hud .hero-name b { font-size: 10px; }
+  .hud .xp-track { height: 3px; }
+  .hud #xp-value { font-size: 9px; }
+  .hud .bottom-nav {
+    left: 0; right: 0; bottom: 0; height: calc(45px + var(--touch-bottom));
+    padding: 0 var(--touch-right) var(--touch-bottom) var(--touch-left);
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px;
+    background: #18120bf5; border-top: 1px solid #806239;
+  }
+  .hud .bottom-nav > button {
+    position: relative; height: 44px; min-width: 44px; margin: 0; font-size: 10px;
+    display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  }
+  .hud .bottom-nav button svg { width: 17px; height: 17px; }
+  .hud .bottom-nav button > b { position: absolute; top: 1px; right: 3px; font-size: 9px; }
+  .hud .bottom-nav > button:last-child::after { content: '设置'; font-size: 10px; }
+  .hud .paladin-status {
+    top: calc(var(--touch-top) + 104px); left: var(--touch-left); bottom: auto;
+    width: 144px; height: auto; min-height: 24px; padding: 0; gap: 4px; flex-wrap: wrap;
+    font-size: 10px; pointer-events: none; text-shadow: 0 1px 3px #000;
+  }
+  .hud .paladin-status > button { position: fixed; left: calc(var(--touch-left) + 112px); bottom: var(--touch-controls-bottom); width: 44px; height: 44px; pointer-events: auto; border: 1px solid #9b7a4950; border-radius: 50%; background: #1a140cd9; }
+  .hud .paladin-status > button svg { width: 20px; height: 20px; }
+  .hud .stamina-track { width: 52px; }
+  .topbar { padding: var(--touch-top) var(--touch-right) 0 var(--touch-left); }
+  .topbar .brand-sigil { width: 25px; height: 25px; }
+  .topbar .title-row { gap: 6px; }
+  .topbar h1, .topbar h1 span { font-size: 23px; }
+  .topbar .edition, .topbar .offline, .top-tools [data-action=save] { display: none; }
+  .top-tools { gap: 6px; }
+  .top-tools button { width: 44px; height: 44px; }
+  .world-info { top: calc(var(--touch-top) + 50px); right: var(--touch-right); width: 104px; }
+  .location { margin-bottom: 5px; }
+  .location .chapter, .location > span:last-child { font-size: 9px; }
+  .location h2 { margin: 2px 0; font-size: 15px; }
+  .minimap-button { height: 68px; }
+  .quest-track { display: flex; margin-top: 4px; padding: 6px 0; min-height: 44px; gap: 4px; }
+  .quest-track strong { font-size: 11px; }
+  .quest-track #quest-step, .quest-track .quest-final { display: none; }
+  #party-status { left: var(--touch-left); top: calc(var(--touch-top) + 150px); width: 144px; max-height: max(44px, calc(100dvh - 450px)); gap: 4px; }
+  #party-status #mercenary-status { min-height: 44px; max-width: 100%; }
+  #combat-status { gap: 4px; }
+  #combat-status .status-chip { min-height: 36px; flex-basis: 130px; }
+  #boss-bar { top: calc(var(--touch-top) + 230px); left: 50%; transform: translateX(-50%); width: min(220px, 65vw); }
+  #context-action {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--touch-controls-bottom) + var(--touch-key) * 2 + 78px);
+    max-width: calc(100vw - 24px); min-height: 44px; padding: 8px 16px; font-size: 12px;
+    white-space: normal; text-align: center; z-index: 7;
+  }
+  #context-action kbd { display: none; }
+  #toasts { top: 36%; bottom: auto; left: 50%; transform: translateX(-50%); width: min(260px, 76vw); pointer-events: none; }
+  #toasts .toast { padding: 8px 10px; }
+  #toasts .toast:not(:last-child) { display: none; }
+
+  /* Dialog headers stay fixed; each workspace owns its scrolling. */
+  #overlay {
+    padding: var(--touch-top) var(--touch-right) max(8px, var(--touch-bottom)) var(--touch-left);
+    touch-action: pan-y; overscroll-behavior: contain;
+  }
+  #overlay .panel {
+    width: 100%; max-width: 100%; max-height: 100%; border-radius: 8px;
+  }
+  #overlay .panel:is(.panel-inventory, .panel-shared-stash) { height: 100%; }
+  #overlay .panel-header { padding: 6px 10px; gap: 8px; min-height: 56px; }
+  #overlay .panel-header h2 { font-size: 19px; margin: 0; }
+  #overlay .panel-header small { font-size: 8px; }
+  #overlay .panel-description, #overlay .panel-emblem, #overlay .panel-close kbd { display: none; }
+  #overlay .panel-header > button { min-width: 44px; min-height: 44px; width: 44px; padding: 8px; }
+  #overlay .panel-body { padding: 10px; overscroll-behavior: contain; scroll-padding: 8px; }
+  #overlay :is(.primary-button, .secondary-button, .text-button, .compact-tabs button, .character-tabs button,
+    .inventory-primary-tabs button, .inventory-pane-tabs button, .rune-pane-tabs button,
+    .shared-mobile-tabs button, .shared-tabs button, .campaign-toolbar button, .recipe-pagination button,
+    .item-actions > button, .shared-actions button, .equipment-heading button, .inventory-potion,
+    .mercenary-tabs button, .sheet-tabs button, .attribute-list button, .socket-options button) { min-height: 44px; }
+  #overlay :is(select, input[type=text], input[type=search], input[type=password]) { min-height: 44px; font-size: 16px; }
+  #overlay input[type=range] { min-height: 44px; touch-action: pan-y; }
+  #overlay summary { min-height: 44px; padding-block: 12px; }
+  #overlay .affix-range-toggle { min-height: 44px; margin: 0; }
+  #overlay .inventory-potion-bindings kbd { width: 28px; }
+  #overlay .inventory-potions-heading { flex-wrap: wrap; }
+  #overlay .inventory-potion-row { grid-template-columns: 24px repeat(5, minmax(0, 1fr)); gap: 4px; }
+  #overlay .item-actions, #overlay .shared-actions { gap: 6px; }
+  #overlay .shared-actions { flex: none; }
+  #overlay .inventory-screen > .inventory-pane-tabs, #overlay .rune-pane-tabs { min-height: 44px; padding: 0; }
+  #overlay .inventory-footer { min-height: 44px; padding-top: 0; }
+  #overlay .inventory-screen .item-actions > button { font-size: 12px; padding: 5px; }
+  #overlay .inventory-screen .item-actions > :is([data-identify], [data-salvage]) { grid-column: auto; }
+  #overlay .shared-workspace { grid-template-rows: 44px minmax(120px, .85fr) minmax(180px, 1fr); }
+  #overlay .shared-workspace:not(:has(.shared-selected)) { grid-template-rows: 44px minmax(0, 1fr); }
+  #overlay .shared-tabs { height: auto; min-height: 44px; flex: none; }
+  #overlay .shared-heading { min-height: 44px; height: auto; }
+  #overlay .skill-pane-tabs { display: flex; position: sticky; top: -10px; z-index: 3; padding: 4px 0; background: #19130f; }
+  #overlay .skill-screen .skill-layout { display: contents; }
+  #overlay .skill-screen:not([data-skill-pane=tree]) :is(.skill-tree, .skill-toolbar),
+  #overlay .skill-screen:not([data-skill-pane=detail]) .skill-inspector,
+  #overlay .skill-screen:not([data-skill-pane=bindings]) :is(.binding-grid, .binding-heading) { display: none; }
+  #overlay .skill-inspector { border: 0; padding: 0; max-height: none; }
+  #overlay .skill-tree { grid-template-rows: repeat(6, 64px); }
+  #overlay .binding-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }
+  #overlay .binding-grid label > span { font-size: 11px; line-height: 1.5; }
+  #overlay .skill-toolbar .character-tabs { display: flex; }
+  #overlay .skill-toolbar .character-tabs button { flex: 1; padding-inline: 4px; }
+  #overlay .panel-map #large-map { max-height: calc(100dvh - 180px); object-fit: contain; }
+  #overlay .shop-items > div { gap: 8px; }
+  #overlay .shop-items .secondary-button { min-width: 64px; }
+  #overlay .pause-layout { gap: 16px; }
+  #overlay .settings-row { gap: 8px; }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 600px) and (max-width: 1100px) {
+  #app { --touch-key: 52px; --touch-controls-bottom: calc(58px + var(--touch-bottom)); }
+  .hud .hero-strip { display: none; }
+  .hud .resource { top: var(--touch-top); left: calc(var(--touch-left) + 142px); width: 128px; }
+  .hud .resource.mana { top: calc(var(--touch-top) + 26px); }
+  .hud .paladin-status { top: var(--touch-top); left: calc(var(--touch-left) + 282px); width: 120px; }
+  .hud .paladin-status > button { left: calc(var(--touch-left) + 112px); }
+  .hud .potion-group { left: 50%; transform: translateX(-50%); bottom: var(--touch-controls-bottom); }
+  .world-info { top: var(--touch-top); right: calc(var(--touch-right) + 104px); width: 86px; display: flex; flex-direction: column; }
+  .world-info .location { order: 1; }
+  .world-info .chapter, .world-info #difficulty, .world-info .quest-track { display: none; }
+  .world-info .location h2 { font-size: 11px; text-align: center; }
+  .minimap-button { height: 56px; }
+  #party-status { top: calc(var(--touch-top) + 55px); width: 146px; max-height: max(44px, calc(100dvh - 245px)); }
+  #boss-bar { top: calc(var(--touch-top) + 60px); width: 200px; }
+  #context-action { bottom: calc(var(--touch-controls-bottom) + 60px); max-width: 210px; }
+  #toasts { top: 30%; width: 210px; }
+  #overlay .panel-header { min-height: 50px; padding-block: 2px; }
+  #overlay .panel-header small { display: none; }
+  #overlay .panel-body { padding: 8px 10px; }
+  #overlay .inventory-screen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto minmax(0, 1fr) auto; gap: 5px 10px; }
+  #overlay .inventory-screen > .inventory-primary-tabs { grid-column: 1; grid-row: 1; }
+  #overlay .inventory-screen > .inventory-pane-tabs { grid-column: 2; grid-row: 1; }
+  #overlay .inventory-screen > .paladin-inventory { grid-column: 1 / -1; grid-row: 2; }
+  #overlay .inventory-screen > .inventory-footer { grid-column: 1 / -1; grid-row: 3; }
+  #overlay .inventory-screen[data-inventory-view=runes] > .inventory-primary-tabs { grid-column: 1 / -1; }
+  #overlay .inventory-screen .inventory-detail-heading { display: none; }
+  #overlay .inventory-screen .item-actions { margin-top: 4px; padding-top: 4px; gap: 4px; }
+  #overlay .inventory-screen .paladin-inventory { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  #overlay .inventory-screen .item-actions > button { min-height: 44px; }
+  #overlay .shared-intro { display: none; }
+  #overlay .shared-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr); gap: 6px 12px; }
+  #overlay .shared-mobile-tabs { display: flex; grid-column: 1; grid-row: 1; }
+  #overlay .shared-mobile-tabs button[data-shared-pane=equipment] { display: block; }
+  #overlay .shared-loadout { display: none; grid-column: 1; grid-row: 2; }
+  #overlay .shared-workspace[data-pane=equipment] .shared-loadout { display: block; }
+  #overlay .shared-workspace[data-pane=equipment] .shared-columns > section { display: none; }
+  #overlay .shared-columns > section { grid-column: 1; grid-row: 2; }
+  #overlay .shared-item-details { grid-column: 2; grid-row: 1 / -1; padding: 0 0 0 10px; }
+  #overlay .shared-workspace:not(:has(.shared-selected)) { grid-template-columns: minmax(0, 1fr); }
+  #overlay .skill-tree { max-width: 520px; margin-inline: auto; }
+  #overlay .binding-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #overlay .pause-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 600px) and (max-width: 740px) {
+  #app { --touch-key: 48px; }
+  .hud .potion-group { left: calc(var(--touch-left) + 166px); transform: none; grid-template-columns: repeat(2, 48px); }
+  .hud .paladin-status { top: calc(var(--touch-top) + 55px); left: calc(var(--touch-left) + 142px); }
+  #context-action { left: calc(var(--touch-left) + 205px); max-width: 158px; bottom: calc(var(--touch-controls-bottom) + 112px); }
+  #boss-bar { top: calc(var(--touch-top) + 90px); width: 180px; }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) and (max-width: 350px) {
+  #joystick { width: 96px; height: 96px; }
+  .hud .paladin-status > button { left: var(--touch-left); bottom: calc(var(--touch-controls-bottom) + 110px); }
+  .hud .potion-group { left: auto; right: var(--touch-right); }
+  .hud .skill-group { gap: 6px; }
+}
+
+/* On short, narrow landscape screens, read properties beside the item actions. */
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-width: 700px) and (max-height: 600px) {
+  #overlay .inventory-screen[data-inventory-pane=details] > .inventory-footer { display: none; }
+  #overlay .inventory-screen[data-inventory-pane=details] .paladin-inventory > .item-details {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 10px;
+  }
+  #overlay .inventory-screen[data-inventory-pane=details] .item-actions {
+    align-content: start; overflow: auto; margin: 0; padding: 0 0 0 8px;
+    border-top: 0; border-left: 1px solid var(--ui-border);
+  }
+}

@@ -15,6 +15,7 @@ import { itemVisual, runeArtwork } from './item-art';
 import { RUNE_ORDER, runeNumber, runeLabel } from './items';
 import { runeUpgradeCost, upgradeRune } from './loot';
 import { skillSlotNames } from './controls';
+import { phoneUI, TOUCH_SKILL_NAMES } from './mobile-ui';
 import { equipmentPanel } from './equipment-ui';
 import { itemDetails } from './item-details-ui';
 import { hasCube, transferItem, CUBE_COLUMNS, type ItemContainer } from './model';
@@ -62,7 +63,7 @@ export class CharacterScreen {
       if (data.recipePage !== undefined) { this.recipePage = Math.max(0, Number(data.recipePage)); render = true; }
       if (data.sheetTab) { this.sheetTab = data.sheetTab as typeof this.sheetTab; render = true; }
       if (data.skillPane) { this.skillPane = data.skillPane as typeof this.skillPane; render = true; }
-      if (data.selectSkill && innerWidth <= 700) this.skillPane = 'detail';
+      if (data.selectSkill && (innerWidth <= 700 || phoneUI())) this.skillPane = 'detail';
       if (data.tree) this.skillPane = 'tree';
       if (data.unequip) { const container = data.unequipTo === 'cube' ? 'cube' : data.unequipTo === 'stash' ? 'stash' : 'inventory'; changed = unequipItem(h, data.unequip as Slot, container); if (!changed) ui.toast('目标容器空间不足'); }
       if (data.cubeStore) { changed = transferItem(h, data.cubeStore, 'cube'); if (!changed) ui.toast('无法存入方块', '请确认方块已解锁且有完整空位'); }
@@ -134,7 +135,7 @@ export class CharacterScreen {
     return `<dl class="skill-values">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
   }
   skills() {
-    const bindingNames = skillSlotNames(this.game.movementMode);
+    const bindingNames = phoneUI() ? TOUCH_SKILL_NAMES : skillSlotNames(this.game.movementMode);
     const classId=this.game.hero.classId, SKILLS=skillsForClass(classId), trees:readonly SkillTree[]=CLASSES[classId].trees;
     if(!trees.includes(this.tree))this.tree=trees[0];
     if(!SKILLS.some(skill=>skill.id===this.selectedSkill&&skill.tree===this.tree))this.selectedSkill=SKILLS.find(skill=>skill.tree===this.tree)!.id;

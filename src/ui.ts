@@ -23,6 +23,7 @@ import { EncyclopediaScreen } from './encyclopedia-ui';
 import { heroStatuses, statusTime } from './status-effects';
 import { panelFrame, rememberDialogFocus, navigateDialogTabs } from './ui-components';
 import { settingsPanel } from './settings-ui';
+import { phoneUI } from './mobile-ui';
 import { itemDetails } from './item-details-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
@@ -77,6 +78,7 @@ export class UI {
   tooltipTouch = false;
   tooltipDismissedKey?: string;
   panelOpener?: HTMLElement;
+  private releaseTouchControls = () => {};
   constructor(game: Game) {
     this.game = game;
     void document.fonts.ready.then(() => { this.labelSizes = new WeakMap(); });
@@ -265,7 +267,8 @@ export class UI {
       const element = (event.target as HTMLElement).closest<HTMLElement>('button'); if (!element) return;
       this.game.audio.unlock();
       if (element.dataset.panel) this.togglePanel(element.dataset.panel as Panel);
-      if (element.dataset.skill) this.game.useSkill(element.dataset.skill as Skill);
+      // Touch primary attacks start on pointerdown; the synthesized click must not cast twice.
+      if (element.dataset.skill && !(event.detail > 0 && (element.id === 'mobile-attack' || phoneUI() && element.matches('.attack-skill')))) this.game.useSkill(element.dataset.skill as Skill);
       if (element.dataset.potionSlot !== undefined) this.game.drink(this.game.hero.potionBindings[Number(element.dataset.potionSlot)]);
       if (element.dataset.potion) this.game.drink(Number(element.dataset.potion), this.panel === 'inventory');
       if (element.dataset.item) { this.game.audio.play('uiClick'); this.selectedItem = element.dataset.item; if (innerWidth <= 700 || innerHeight <= 580) this.characterScreen.inventoryPane = 'details'; this.renderPanel(); }
@@ -335,14 +338,40 @@ export class UI {
       const dist = Math.hypot(x, y), max = rect.width * .3; if (dist > max) { x *= max / dist; y *= max / dist; }
       this.game.joystick.set(x / max, y / max); knob.style.transform = `translate(${x}px, ${y}px)`;
     };
-    joystick.addEventListener('pointerdown', event => { joystick.setPointerCapture(event.pointerId); this.game.begin(); handleJoystick(event); });
-    joystick.addEventListener('pointermove', event => { if (joystick.hasPointerCapture(event.pointerId)) handleJoystick(event); });
-    const reset = () => { this.game.joystick.set(0, 0); knob.style.transform = ''; };
-    joystick.addEventListener('pointerup', reset); joystick.addEventListener('pointercancel', reset);
-    const attack = document.getElementById('mobile-attack')!;
-    attack.addEventListener('pointerdown', event => { if (this.game.paused || this.game.dead) return; attack.setPointerCapture(event.pointerId); this.game.target = this.game.nearestEnemy(12); this.game.heldAttack = true; this.game.useSkill('attack'); });
-    attack.addEventListener('pointerup', () => this.game.heldAttack = false);
-    attack.addEventListener('pointercancel', () => this.game.heldAttack = false);
+    let joystickPointer: number | undefined;
+    const reset = () => {
+      const pointer = joystickPointer; joystickPointer = undefined;
+      this.game.joystick.set(0, 0); knob.style.transform = '';
+      if (pointer !== undefined && joystick.hasPointerCapture(pointer)) joystick.releasePointerCapture(pointer);
+    };
+    joystick.addEventListener('pointerdown', event => {
+      if (this.game.paused || this.game.dead || joystickPointer !== undefined) return;
+      joystickPointer = event.pointerId; joystick.setPointerCapture(event.pointerId); this.game.begin(); handleJoystick(event);
+    });
+    joystick.addEventListener('pointermove', event => { if (joystickPointer === event.pointerId) handleJoystick(event); });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) joystick.addEventListener(type, event => { if (joystickPointer === event.pointerId) reset(); });
+    const resetAttacks: (() => void)[] = [];
+    for (const attack of [document.getElementById('mobile-attack')!, document.querySelector<HTMLElement>('.attack-skill')!]) {
+      let attackPointer: number | undefined;
+      const release = () => {
+        const pointer = attackPointer; attackPointer = undefined;
+        if (pointer === undefined) return;
+        this.game.heldAttack = false;
+        if (attack.hasPointerCapture(pointer)) attack.releasePointerCapture(pointer);
+      };
+      resetAttacks.push(release);
+      attack.addEventListener('pointerdown', event => {
+        if (attack.id !== 'mobile-attack' && !phoneUI() || event.button !== 0 || attackPointer !== undefined || this.game.paused || this.game.dead) return;
+        attackPointer = event.pointerId; attack.setPointerCapture(event.pointerId); this.game.begin();
+        this.game.target = this.game.nearestEnemy(12); this.game.heldAttack = true; this.game.useSkill('attack');
+      });
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) attack.addEventListener(type, event => { if (attackPointer === event.pointerId) release(); });
+    }
+    const releaseTouch = () => { reset(); for (const release of resetAttacks) release(); };
+    window.addEventListener('resize', releaseTouch);
+    window.addEventListener('blur', releaseTouch);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) releaseTouch(); });
+    this.releaseTouchControls = releaseTouch;
   }
   refreshAudioButton() {
     const button = document.getElementById('sound-button'); if (!button) return;
@@ -374,6 +403,7 @@ export class UI {
     if (panel === 'campaign') this.campaignScreen.reset();
     if (panel !== this.panel && panel !== 'death') this.game.audio.play(panel === 'shared-stash' ? 'chest' : 'uiOpen');
     this.hideTooltip(); this.panel = panel; this.game.paused = true; this.game.releaseInput(); this.overlay.hidden = false;
+    this.releaseTouchControls();
     document.getElementById('combat-status')!.hidden = true;
     this.renderPanel();
     (this.overlay.querySelector<HTMLButtonElement>('.profile-delete [data-profile-action="back"]') ?? this.overlay.querySelector<HTMLInputElement>('#profile-name') ?? this.overlay.querySelector<HTMLButtonElement>('[aria-selected="true"]') ?? this.overlay.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
@@ -596,7 +626,7 @@ export class UI {
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
     bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); bar.querySelector('span')!.title = boss.name; setText(bar.querySelector('small')!, questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
     const aliveKeys = new Set<string>();
-    const controlRects = ['joystick', 'mobile-attack'].map(id => document.getElementById(id)!)
+    const controlRects = [...document.querySelectorAll<HTMLElement>(phoneUI() ? '#joystick, .skill-group, .potion-group' : '#joystick, #mobile-attack')]
       .filter(element => element.getClientRects().length).map(element => element.getBoundingClientRect());
     for (const chest of game.world.chests) {
       if (chest.opened || Math.hypot(chest.x - game.position.x, chest.z - game.position.z) > 11) continue;
