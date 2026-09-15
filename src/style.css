@@ -71,8 +71,9 @@ h1{font-size:35px;line-height:1.05;color:#e1d4b8;text-shadow:0 2px 7px #000}h1 s
 
 .movement-hint{font-size:11px;line-height:1.8;color:#a8b59d;margin:10px 0 0;overflow-wrap:anywhere}
 
-.ally-resources{position:absolute;left:0;top:0;width:54px;display:grid;gap:3px;pointer-events:none;filter:drop-shadow(0 1px 2px #000)}
+/* Move the bars and their shadows together without a filtered surface that can trail on mobile. */
+.ally-resources{position:absolute;left:0;top:0;width:54px;display:grid;gap:3px;pointer-events:none;will-change:transform}
 .ally-resources[hidden]{display:none}
-.ally-resource{height:6px;border:1px solid #d0bc8d99;background:#130f14e8;overflow:hidden}
+.ally-resource{height:6px;border:1px solid #d0bc8d99;background:#130f14e8;overflow:hidden;box-shadow:0 1px 2px #000}
 .ally-resource i{display:block;height:100%;background:#d24b50}
 .ally-resource.magic i{background:#428de5}
