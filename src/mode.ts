@@ -18,6 +18,9 @@ export async function initializeMode() {
   if (new URL(location.href).searchParams.get('mode') === 'local') return;
   const root = document.getElementById('app')!;
   await new Promise<void>(resolve => {
+    // Safari's keyboard reduces the visual viewport independently of CSS viewport units.
+    const fitViewport = () => root.style.setProperty('--mode-viewport-height', `${window.visualViewport?.height ?? innerHeight}px`);
+    fitViewport(); window.visualViewport?.addEventListener('resize', fitViewport); window.addEventListener('resize', fitViewport);
     let client: OnlineClient | undefined, generation = 0;
     const shell = (title: string, content: string) => {
       root.innerHTML = `<main class="mode-page"><section class="mode-card" aria-labelledby="mode-title"><img src="/sigil.svg" alt=""/><small>ECLIPSE II</small><h1 id="mode-title">${title}</h1>${content}<p id="mode-error" role="alert" hidden></p></section></main>`;
@@ -26,7 +29,10 @@ export async function initializeMode() {
       const element = document.getElementById('mode-error');
       if (element) { element.textContent = value instanceof Error ? value.message : '在线服务暂时不可用。'; element.hidden = false; }
     };
-    const finish = () => { root.innerHTML = ''; resolve(); };
+    const finish = () => {
+      window.visualViewport?.removeEventListener('resize', fitViewport); window.removeEventListener('resize', fitViewport);
+      root.style.removeProperty('--mode-viewport-height'); root.innerHTML = ''; resolve();
+    };
     const choose = () => {
       generation++; client?.dispose(); client = undefined;
       shell('选择游戏模式', `<p>选择角色与旅程的保存方式</p><div class="mode-options"><button id="mode-local"><strong>本地模式</strong><span>无需账号 · 存档保存在本机浏览器</span></button><button id="mode-online"><strong>在线模式</strong><span>注册或登录 · 存档保存在服务器</span></button></div>`);

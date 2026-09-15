@@ -291,6 +291,7 @@ export class Game {
     try {
       if (!await this.flushSave(true)) return;
       if (this.online) await this.online.client.logout();
+      this.profile = undefined; // The final save succeeded; pagehide must not queue another request.
       returnToMode();
     } catch (error) { if (error instanceof OnlineError) this.online?.client.report(error); }
     finally { this.onlineOperation = false; }
@@ -442,7 +443,7 @@ export class Game {
   }
   returnToProfiles(discard = false) {
     if (discard) { this.profile = undefined; this.online?.client.dispose(); returnToMode(this.online ? 'online' : 'local'); return; }
-    this.commitSave(() => returnToMode(this.online ? 'online' : 'local'));
+    this.commitSave(() => { this.profile = undefined; returnToMode(this.online ? 'online' : 'local'); });
   }
   get position() { return this.actor.group.position; }
   resize() {

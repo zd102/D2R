@@ -1,9 +1,17 @@
 import { onlineId, type OnlineClient } from './online-client.ts';
-import { SaveError, type SavedProfile, type SharedStash } from './save-format.ts';
+import { SaveError, parseProfile, type SavedProfile, type SharedStash } from './save-format.ts';
 import type { ClassId } from './classes.ts';
 import type { HeroState } from './model.ts';
 import type { SharedTransfer } from './shared-stash.ts';
 import { withResources } from './shared-resources.ts';
+
+// An API process may still return an older character schema after the browser updates.
+// Apply the same migrations as local saves before any received hero reaches gameplay.
+function receivedProfile(value: SavedProfile): SavedProfile {
+  const profile = parseProfile(JSON.stringify(value));
+  if (!profile) throw new SaveError('在线角色数据无法读取，请刷新页面后重试。', 'corrupt');
+  return profile;
+}
 
 export class OnlineSaveStore {
   readonly client: OnlineClient;
@@ -14,14 +22,15 @@ export class OnlineSaveStore {
   constructor(client: OnlineClient) { this.client = client; }
   async refresh() {
     const [profiles, shared] = await Promise.all([this.client.request<SavedProfile[]>('/characters'), this.client.request<SharedStash>('/stash')]);
-    this.profiles = profiles; this.shared = shared;
+    this.profiles = profiles.map(receivedProfile); this.shared = shared;
     try { this.lastId = sessionStorage.getItem(`eclipse-online-last:${this.client.session!.user.id}`); } catch { /* Optional selection preference. */ }
   }
-  list() { return this.profiles.map(profile => withResources(profile, this.shared.resources)); }
-  read(id: string) { const value = this.profiles.find(p => p.id === id); if (!value) throw new SaveError('该角色不存在。', 'missing'); return withResources(value, this.shared.resources); }
+  list() { return this.profiles.map(profile => receivedProfile(withResources(profile, this.shared.resources))); }
+  read(id: string) { const value = this.profiles.find(p => p.id === id); if (!value) throw new SaveError('该角色不存在。', 'missing'); return receivedProfile(withResources(value, this.shared.resources)); }
   readShared() { return this.shared; }
   remember(id: string) { this.lastId = id; try { sessionStorage.setItem(`eclipse-online-last:${this.client.session!.user.id}`, id); } catch { /* Optional preference. */ } }
-  private accept(profile: SavedProfile) {
+  private accept(value: SavedProfile) {
+    const profile = receivedProfile(value);
     if (this.shared.resources && profile.resourcesRevision !== undefined) this.shared.resources = { ...this.shared.resources, revision: profile.resourcesRevision, gold: profile.hero.gold, runes: [...profile.hero.runes], potions: [...profile.hero.potions] };
     this.profiles = [profile, ...this.profiles.filter(p => p.id !== profile.id)]; return profile;
   }
@@ -38,7 +47,7 @@ export class OnlineSaveStore {
   }
   async transferShared(id: string, _hero: HeroState, expectedRevision: number, expectedStashRevision: number, transfer: SharedTransfer, _resourcesRevision?: number) {
     const result = await this.mutation<{ profile: SavedProfile; shared: SharedStash }>('/stash/transfer', 'POST', { characterId: id, expectedRevision, expectedStashRevision, transfer });
-    this.accept(result.profile); this.shared = result.shared; return result;
+    const profile = this.accept(result.profile); this.shared = result.shared; return { ...result, profile };
   }
 }
 
