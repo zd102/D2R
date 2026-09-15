@@ -1,3 +1,4 @@
+import { SHARED_STASH_ROWS } from './shared-stash.ts';
 import { emptyPotions } from './potions.ts';
 import { SaveStore, PROFILE_PREFIX, MIGRATION_KEY, type SavedProfile, type SharedStash } from './saves.ts';
 import { SAVE_KEY, parseSave, newHero, type HeroState } from './model.ts';
@@ -64,12 +65,14 @@ export function planOriginMerge(target: OriginSnapshot, sources: OriginSnapshot[
       continue;
     }
     const copy = structuredClone(item); delete copy.x; delete copy.y; seen.set(item.id, copy);
-    if (items.length < 100 && placeItems([...items, copy], 10)) items.push(copy); else overflow.push(copy);
+    if (placeItems([...items, copy], SHARED_STASH_ROWS)) items.push(copy); else overflow.push(copy);
   }
   // Keep excess equipment accessible without changing the normal shared stash size.
-  for (let i = 0; i < overflow.length; i += 200) {
+  for (let i = 0; i < overflow.length;) {
     const hero = newHero(); for (const slot of Object.keys(hero.equipment) as (keyof typeof hero.equipment)[]) hero.equipment[slot] = null;
-    hero.alternate = { weapon: null, shield: null }; hero.inventory = []; hero.stash = overflow.slice(i, i + 200);
+    hero.alternate = { weapon: null, shield: null }; hero.inventory = []; hero.stash = [];
+    while (i < overflow.length && placeItems([...hero.stash, overflow[i]], stashRows(hero.stash))) hero.stash.push(overflow[i++]);
+    if (!hero.stash.length) throw new Error("Cannot fit migrated item");
     if (!placeItems(hero.stash, stashRows(hero.stash))) throw new Error('无法排列迁移暂存物品。');
     profiles.push({ version: 2, id: id(), name: uniqueName('合并仓库余量'), createdAt: Date.now(), updatedAt: Date.now(), revision: 1, hero });
   }

@@ -235,8 +235,64 @@ export function moveItem(items: Item[], id: string, x: number, y: number, rows =
   for (const item of items) { const position = plan.positions.get(item.id)!; item.x = position.x; item.y = position.y; }
   return true;
 }
-export function stashRows(items: Item[]) {
-  return Math.max(10, Math.ceil(items.reduce((sum, item) => sum + footprint(item)[0] * footprint(item)[1], 0) / 10) + 4, ...items.map(item => (item.y ?? 0) + footprint(item)[1]));
+export const PERSONAL_STASH_ROWS = 30;
+export function stashRows(_items: Item[]) { return PERSONAL_STASH_ROWS; }
+export function transferItems(from: Item[], to: Item[], id: string, sourceRows: number, rows: number, position?: { x: number; y: number }, preview = false, sourceColumns = 10, columns = 10) {
+  const item = from.find(item => item.id === id); if (!item || from === to) return false;
+  if (new Set([...from, ...to].map(item => item.id)).size !== from.length + to.length) return false;
+  const moved = { ...item }; delete moved.x; delete moved.y;
+  // Legacy over-capacity personal saves remain withdrawable; never accept exchanges back into them.
+  const overflow = !packItems(from, sourceRows, sourceColumns);
+  if (overflow) sourceRows = Math.max(sourceRows, from.reduce((sum, item) => sum + footprint(item)[1], 0), ...from.map(item => (item.y ?? 0) + footprint(item)[1]));
+  const sourcePositions = packItems(from, sourceRows, sourceColumns), targetPositions = packItems(to, rows, columns);
+  if (!sourcePositions || !targetPositions) return false;
+  const origin = sourcePositions.get(id)!;
+  const sourceLayout = from.filter(other => other !== item).map(other => ({ ...other, ...sourcePositions.get(other.id)! }));
+  const targetLayout = to.map(other => ({ ...other, ...targetPositions.get(other.id)! }));
+  if (position) {
+    const { x, y } = position;
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x + origin.width > columns || y + origin.height > rows) return false;
+    moved.x = x; moved.y = y;
+    for (let i = targetLayout.length - 1; i >= 0; i--) {
+      const other = targetLayout[i];
+      if (x + origin.width <= other.x || other.x + other.width <= x || y + origin.height <= other.y || other.y + other.height <= y) continue;
+      if (other.x < x || other.y < y || other.x + other.width > x + origin.width || other.y + other.height > y + origin.height) return false;
+      if (overflow) return false;
+      targetLayout.splice(i, 1);
+      sourceLayout.push({ ...other, x: origin.x + other.x - x, y: origin.y + other.y - y });
+    }
+  }
+  const nextTarget = [...targetLayout, moved];
+  const nextSourcePositions = packItems(sourceLayout, sourceRows, sourceColumns), positions = packItems(nextTarget, rows, columns);
+  if (!nextSourcePositions || !positions) return false;
+  if (position && (positions.get(id)!.x !== position.x || positions.get(id)!.y !== position.y)) return false;
+  if (sourceLayout.some(entry => { const p = nextSourcePositions.get(entry.id)!; return p.x !== entry.x || p.y !== entry.y; })) return false;
+  if (preview) return true;
+  const originals = new Map([...from, ...to].map(entry => [entry.id, entry]));
+  const apply = (layout: Item[], placements: Map<string, { x: number; y: number }>) => layout.map(entry => {
+    const original = originals.get(entry.id)!, p = placements.get(entry.id)!; original.x = p.x; original.y = p.y; return original;
+  });
+  from.splice(0, from.length, ...apply(sourceLayout, nextSourcePositions));
+  to.splice(0, to.length, ...apply(nextTarget, positions));
+  return true;
+}
+// Try category order first, then larger rectangles first if that packs more tightly.
+// Commit only a complete layout, retaining every item's rolled properties.
+export function organizeItems(items: Item[], rows: number, columns = 10) {
+  const quality = ['legendary', 'runeword', 'unique', 'set', 'rare', 'magic', 'common'];
+  const kind = (item: Item) => item.misc ? 'zz-misc' : item.charm ? 'zy-charm' : item.jewel ? 'zx-jewel' : `${item.slot === 'ring2' ? 'ring' : item.slot}:${item.slot === 'weapon' ? weaponType(item) ?? '' : ''}`;
+  const compare = (a: Item, b: Item) => kind(a).localeCompare(kind(b)) || quality.indexOf(a.rarity) - quality.indexOf(b.rarity) || (a.base ?? a.name).localeCompare(b.base ?? b.name, 'zh-CN') || b.level - a.level || a.id.localeCompare(b.id);
+  const sorted = [...items].sort(compare), area = (item: Item) => footprint(item)[0] * footprint(item)[1];
+  let best: Map<string, ItemPosition> | null = null, score = Infinity;
+  for (const order of [sorted, [...sorted].sort((a, b) => area(b) - area(a) || compare(a, b)), [...sorted].sort((a, b) => footprint(b)[1] - footprint(a)[1] || footprint(b)[0] - footprint(a)[0] || compare(a, b))]) {
+    const positions = packItems(order.map(item => ({ ...item, x: undefined, y: undefined })), rows, columns);
+    if (!positions) continue;
+    const extent = Math.max(0, ...[...positions.values()].map(p => (p.y + p.height - 1) * columns + p.x + p.width));
+    if (extent < score) { best = positions; score = extent; }
+  }
+  if (!best) return false;
+  for (const item of sorted) { const p = best.get(item.id)!; item.x = p.x; item.y = p.y; }
+  items.splice(0, items.length, ...sorted); return true;
 }
 export function placeItems(items: Item[], rows = 4, columns = 10) { const positions = packItems(items, rows, columns); if (!positions) return false; for (const item of items) { const p = positions.get(item.id)!; item.x = p.x; item.y = p.y; } return true; }
 export type SpecialItem = ItemBase & { base: string; rarity: 'set' | 'unique'; mods: Mods; catalogId?: string; qualityLevel?: number; treasureClass?: number; dropWeight?: number; setId?: string; eventOnly?: boolean };

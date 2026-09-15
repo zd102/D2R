@@ -35,7 +35,7 @@ test('exact drops preserve the displayed layout of legacy items without saved co
 });
 
 test('private and shared destinations enforce capacity and reject duplicate identifiers', () => {
-  const hero = newHero(); hero.stash = Array.from({ length: 200 }, (_, i) => ring(`stored-${i}`)); placeItems(hero.stash, 30);
+  const hero = newHero(); hero.stash = Array.from({ length: 300 }, (_, i) => ring(`stored-${i}`)); placeItems(hero.stash, 30);
   const before = structuredClone(hero);
   assert.equal(unequipToItems(hero, hero.stash, 'weapon', 30, { x: 0, y: 24 }), false); assert.deepEqual(hero, before);
   const shared = [{ ...ring('occupied'), x: 8, y: 8 }], sharedBefore = structuredClone(shared);

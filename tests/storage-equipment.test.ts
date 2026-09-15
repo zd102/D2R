@@ -39,18 +39,18 @@ test('requirements and failed backpack unequips never mutate item coordinates or
 });
 test('shared equipment swaps reuse the released space and support a chosen ring slot', () => {
   const hero = fixture(); hero.equipment.ring2 = item('rin', 'old-right');
-  const shared = Array.from({ length: 100 }, (_, i) => item('rin', `shared-${i}`)); placeItems(shared, 10);
+  const shared = Array.from({ length: 500 }, (_, i) => item('rin', `shared-${i}`)); placeItems(shared, 50);
   const backpack = structuredClone(hero.inventory);
   moveSharedItem(hero, shared, { direction: 'equip', itemId: 'shared-0', target: 'ring2' });
-  assert.equal(hero.equipment.ring2?.id, 'shared-0'); assert.equal(shared.length, 100);
+  assert.equal(hero.equipment.ring2?.id, 'shared-0'); assert.equal(shared.length, 500);
   assert.ok(shared.some(item => item.id === 'old-right')); assert.deepEqual(hero.inventory, backpack);
   const before = structuredClone({ hero, shared });
   assert.throws(() => moveSharedItem(hero, shared, { direction: 'unequip', slot: 'weapon' }), /空间不足/);
   assert.deepEqual({ hero, shared }, before);
 });
 test('a shared swap that cannot fit displaced sword and shield preserves both sides', () => {
-  const hero = fixture(), shared = [item('2hs', 'incoming'), ...Array.from({ length: 94 }, (_, i) => item('rin', `full-${i}`))];
-  assert.ok(placeItems(shared, 10));
+  const hero = fixture(), shared = [item('2hs', 'incoming'), ...Array.from({ length: 494 }, (_, i) => item('rin', `full-${i}`))];
+  assert.ok(placeItems(shared, 50));
   const before = structuredClone({ hero, shared });
   assert.throws(() => moveSharedItem(hero, shared, { direction: 'equip', itemId: 'incoming' }), /空间不足/);
   assert.deepEqual({ hero, shared }, before);

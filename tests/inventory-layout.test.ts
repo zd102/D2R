@@ -78,7 +78,7 @@ test('backpack and stash moves persist across save loading and container transfe
 });
 test('expanded legacy stash rows retain their manual coordinates when another item is transferred in', () => {
   const hero = newHero(); hero.stash = [sword('legacy', 8, 14)]; hero.inventory = [ring('new')];
-  assert.equal(stashRows(hero.stash), 17);
+  assert.equal(stashRows(hero.stash), 30);
   assert.equal(moveStorage(hero, 'new', true), true); assert.equal(hero.stash[0].y, 14);
-  assert.equal(stashRows(parseSave(serializeSave(hero))!.stash), 17);
+  assert.equal(stashRows(parseSave(serializeSave(hero))!.stash), 30);
 });

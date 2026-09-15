@@ -229,6 +229,19 @@ test('shared transfers atomically update both records, retry safely and reject o
   const invalid = await a.request('/stash/transfer', 'POST', { ...payload, operationId: randomUUID(), expectedRevision: 2, expectedStashRevision: 1, transfer: { direction: 'withdraw', itemId: 'missing', container: 'inventory' } });
   assert.equal(invalid.statusCode, 422); assert.equal((await a.request('/stash')).json().revision, 1);
   assert.equal((await a.request(`/characters/${profile.id}`)).json().revision, 2);
+  let current = first.json();
+  for (const transfer of [
+    { direction: 'sort', container: 'shared' },
+    { direction: 'withdraw', container: 'stash', itemId: profile.hero.equipment.weapon.id, position: { x: 8, y: 27 } },
+    { direction: 'sort', container: 'stash' },
+    { direction: 'deposit', container: 'stash', itemId: profile.hero.equipment.weapon.id, position: { x: 8, y: 47 } },
+  ]) {
+    const nextPayload = { ...payload, expectedRevision: current.profile.revision, expectedStashRevision: current.shared.revision, operationId: randomUUID(), transfer };
+    const response = await a.request('/stash/transfer', 'POST', nextPayload);
+    assert.equal(response.statusCode, 200, response.body); current = response.json();
+    assert.deepEqual((await a.request('/stash/transfer', 'POST', nextPayload)).json(), current);
+  }
+  assert.equal((await a.request('/stash')).json().items[0].y, 47);
 });
 test('upload creates new profiles and IDs; exports preserve gameplay data and omit account stash', async t => {
   const { a, create } = await fixture(t), first = await create('原角色');

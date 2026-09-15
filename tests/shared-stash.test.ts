@@ -23,6 +23,28 @@ function fixture() {
 const gear = (id: string) => makeItem(BASES.find(base => base.baseCode === 'rin')!, id);
 const properties = (item: Item) => { const copy = structuredClone(item); delete copy.x; delete copy.y; return copy; };
 
+test('cross-container exchanges and both sorts commit atomically and survive reload', async () => {
+  const { store, storage, a } = fixture(); a.hero.stash = [{ ...gear('personal'), x: 0, y: 0 }];
+  let current = store.save(a.id, a.hero, a.revision);
+  storage.setItem(SHARED_STASH_KEY, JSON.stringify({ version: 1, revision: 1, checkpoints: {}, items: [{ ...gear('shared'), x: 8, y: 40 }] }));
+  const requests = [
+    { direction: 'deposit' as const, container: 'stash' as const, itemId: 'personal', position: { x: 8, y: 40 } },
+    { direction: 'sort' as const, container: 'shared' as const },
+    { direction: 'sort' as const, container: 'stash' as const },
+  ];
+  for (const request of requests) {
+    const revision = store.readShared().revision, before = [...storage.data]; storage.failKey = SHARED_STASH_KEY;
+    await assert.rejects(store.transferShared(a.id, current.hero, current.revision, revision, request), /Quota/);
+    assert.deepEqual([...storage.data], before); storage.failKey = undefined;
+    const result = await store.transferShared(a.id, current.hero, current.revision, revision, request);
+    assert.deepEqual(store.readShared().items, result.shared.items); assert.deepEqual(store.read(a.id).hero.stash, result.profile.hero.stash);
+    await assert.rejects(store.transferShared(a.id, current.hero, current.revision, revision, request));
+    current = result.profile;
+  }
+  assert.deepEqual(store.readShared().items.map(item => [item.id, item.x, item.y]), [['personal', 0, 0]]);
+  assert.deepEqual(current.hero.stash.map(item => [item.id, item.x, item.y]), [['shared', 0, 0]]);
+});
+
 test('both personal containers deposit and both withdrawal destinations work across separate roles', async () => {
   const { store, a, b } = fixture(); a.hero.inventory = [gear('bag')]; a.hero.stash = [gear('private')];
   let current = store.save(a.id, a.hero, a.revision), revision = 0;
@@ -59,10 +81,10 @@ test('rolled equipment, sockets, quantities and unidentified status survive tran
 test('full shared space and full personal destinations reject transfers without touching either record', async () => {
   const { store, storage, a } = fixture(); a.hero.inventory = [gear('incoming')];
   const current = store.save(a.id, a.hero, a.revision);
-  storage.setItem(SHARED_STASH_KEY, JSON.stringify({ version: 1, revision: 1, checkpoints: {}, items: Array.from({ length: 100 }, (_, i) => gear(`shared-${i}`)) }));
+  storage.setItem(SHARED_STASH_KEY, JSON.stringify({ version: 1, revision: 1, checkpoints: {}, items: Array.from({ length: 500 }, (_, i) => gear(`shared-${i}`)) }));
   const before = [...storage.data]; await assert.rejects(store.transferShared(a.id, current.hero, current.revision, 1, { direction: 'deposit', container: 'inventory', itemId: 'incoming' }), /空间不足/); assert.deepEqual([...storage.data], before);
   const hero = newHero(); hero.inventory = Array.from({ length: 40 }, (_, i) => gear(`bag-${i}`));
-  hero.stash = Array.from({ length: 200 }, (_, i) => gear(`stash-${i}`));
+  hero.stash = Array.from({ length: 300 }, (_, i) => gear(`stash-${i}`));
   for (const container of ['inventory', 'stash'] as const) {
     const items = [gear('overflow')], unchanged = structuredClone({ hero, items });
     assert.throws(() => moveSharedItem(hero, items, { direction: 'withdraw', container, itemId: 'overflow' }), /不足|已满/); assert.deepEqual({ hero, items }, unchanged);

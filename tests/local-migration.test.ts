@@ -48,12 +48,13 @@ test('shared merge deduplicates IDs and never duplicates equipment already owned
 });
 test('shared overflow stays accessible in a personal stash and merged output parses', () => {
   // Swords occupy several cells; each input fits but their union exceeds the shared grid.
-  const left = Array.from({ length: 15 }, (_, i) => equipment('left-' + i));
-  const right = Array.from({ length: 15 }, (_, i) => equipment('right-' + i));
-  const plan = planOriginMerge(snapshot('target', [], left), [snapshot('source', [], right)], () => 'overflow');
+  const left = Array.from({ length: 70 }, (_, i) => equipment('left-' + i));
+  const right = Array.from({ length: 70 }, (_, i) => equipment('right-' + i));
+  let nextId = 0;
+  const plan = planOriginMerge(snapshot('target', [], left), [snapshot('source', [], right)], () => `overflow-${nextId++}`);
   assert.ok(plan.report.overflowItems > 0);
   const store = snapshotStore({ origin: 'target', capturedAt: 1, entries: plan.writes, shared: JSON.stringify(plan.shared) });
-  assert.equal(store.readShared().items.length + store.list().flatMap(p => p.hero.stash).length, 30);
+  assert.equal(store.readShared().items.length + store.list().flatMap(p => p.hero.stash).length, 140);
   assert.equal(store.invalidCount, 0);
 });
 test('corrupt records and unrelated characters reusing an ID abort instead of being silently discarded', () => {

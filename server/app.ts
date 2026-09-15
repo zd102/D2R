@@ -260,7 +260,7 @@ export async function createApp(options: Options) {
     revision(profile, data.expectedRevision);
     check(shared.revision === integer(data.expectedStashRevision), 'STASH_CONFLICT', '共享仓库已更新，请重新载入。', 409);
     const transfer = record(data.transfer);
-    check(['deposit', 'withdraw', 'equip', 'unequip', 'move'].includes(String(transfer.direction)), 'INVALID_TRANSFER');
+    check(['deposit', 'withdraw', 'equip', 'unequip', 'move', 'sort'].includes(String(transfer.direction)), 'INVALID_TRANSFER');
     try { moveSharedItem(profile.hero, shared.items, transfer as SharedTransfer); }
     catch (error) { throw new ApiError(422, 'INVALID_TRANSFER', error instanceof Error ? error.message : '无法转移物品。'); }
     profile.revision++; shared.revision++; profile.sharedRevision = shared.revision; profile.updatedAt = now();
