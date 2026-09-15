@@ -216,12 +216,32 @@ test('holy bolt pierces undead and demons and hammer damages along its moving tr
   for (let i = 0; i < 60; i++) combat.update(.05); assert.equal(combat.projectiles.length, 0);
 });
 
-test('hammer spirals intersect the selected cast-time target at close and mid range, without homing or passing through walls', () => {
-  for (const distance of [1.2, 2, 3.5, 4.9]) {
-    const { combat, game, enemy } = setup(), target = enemy('demon', distance); game.target = target;
-    combat.castAction('blessedHammer'); for (let i = 0; i < 60; i++) combat.update(.04);
-    assert.ok(target.hp < 10000, `hammer hits at ${distance}`);
+test('hammer follows a fixed clockwise outward spiral regardless of aim, facing or selected target', () => {
+  const paths: number[][][] = [];
+  for (const aimed of [false, true]) for (const distance of [-4.9, -1.2, 1.2, 4.9]) {
+    const { combat, game, enemy } = setup();
+    game.target = enemy('demon', distance); game.aim.set(distance, 0, -distance);
+    game.actor.group.rotation.y = distance;
+    assert.ok(combat.castAction('blessedHammer', aimed));
+    const hammer = combat.projectiles[0], path = [hammer.mesh.position.toArray()];
+    assert.ok(hammer.mesh.position.x < hammer.origin.x, 'launch is upper-left in the isometric view');
+    let radius = hammer.mesh.position.clone().setY(0).distanceTo(hammer.origin);
+    for (let i = 0; i < 20; i++) {
+      const before = hammer.mesh.position.clone().sub(hammer.origin);
+      combat.updateProjectile(hammer, .05);
+      const after = hammer.mesh.position.clone().sub(hammer.origin);
+      assert.ok(before.x * after.z - before.z * after.x > 0, 'clockwise in screen coordinates');
+      const nextRadius = Math.hypot(after.x, after.z);
+      assert.ok(nextRadius > radius, 'each step expands the orbit'); radius = nextRadius;
+      path.push(hammer.mesh.position.toArray());
+      game.position.set(10, 0, 10); game.aim.set(-10, 0, -10);
+    }
+    paths.push(path);
   }
+  for (const path of paths) assert.deepEqual(path, paths[0], 'aim and caster movement cannot rotate or drag the spiral');
+});
+
+test('hammer cannot home or pass through walls, including the launch offset', () => {
   const moved = setup(), movingTarget = moved.enemy('demon', 3); moved.game.target = movingTarget;
   moved.combat.castAction('blessedHammer'); movingTarget.actor.group.position.set(12, 0, 12);
   for (let i = 0; i < 60; i++) moved.combat.update(.04); assert.equal(movingTarget.hp, 10000);

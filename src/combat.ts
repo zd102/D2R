@@ -173,9 +173,10 @@ export class PaladinCombat {
       const mesh = createProjectileVisual('magic',hammer?'hammer':'bolt',.15,g.projectileVisuals);
       mesh.position.copy(origin).setY(.9); g.world.scene.add(mesh);
       const concentration = hammer ? 1 + (s.auras.find(aura => aura.id === 'concentration')?.damage ?? 0) / 200 : 1;
-      // Align one point on the spiral with the aim at cast time, without homing afterward.
-      const aimDistance = Math.max(1.2, Math.min(4.5, aimed ? g.aim.distanceTo(origin) : target ? target.actor.group.position.distanceTo(origin) : 2));
-      const phase = Math.atan2(direction.z, direction.x) - (hammer ? 7 * (aimDistance - .7) / 2.5 : 0);
+      // Fixed world -X launch appears upper-left in the isometric camera.
+      // Increasing XZ angle then sweeps clockwise on screen, independent of aim.
+      const phase = hammer ? Math.PI : Math.atan2(direction.z, direction.x);
+      if (hammer) mesh.position.x -= .7;
       this.projectiles.push({ mesh, origin, direction, phase, age: 0, life: hammer ? 2.3 : 1.25, damage: (v.min + Math.random() * (v.max - v.min)) * concentration, healing: v.healing, kind: hammer ? 'hammer' : 'bolt', hit: new Set(), snapshot: this.snapshot(), speed: 14, pierce: 0, magicArrow: 0, explosion: 0 });
       g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); return true;
     }
@@ -302,7 +303,9 @@ export class PaladinCombat {
     const g = this.game, remaining = Math.min(dt, Math.max(0, projectile.life - projectile.age));
     const steps = Math.max(1, Math.ceil(remaining / .01)), step = remaining / steps;
     for (let i = 0; i < steps; i++) {
-      const previous = projectile.mesh.position.clone(); projectile.age += step;
+      const previous = projectile.kind === 'hammer' && projectile.age === 0
+        ? projectile.origin.clone().setY(.9) : projectile.mesh.position.clone();
+      projectile.age += step;
       if (projectile.kind === 'hammer') {
         const radius = .7 + projectile.age * 2.5, angle = projectile.age * 7 + projectile.phase;
         projectile.mesh.position.set(projectile.origin.x + Math.cos(angle) * radius, .9, projectile.origin.z + Math.sin(angle) * radius); projectile.mesh.rotation.z += step * 15;
