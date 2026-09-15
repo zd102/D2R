@@ -3,6 +3,7 @@ import { itemMovePlan, moveItem, packItems, footprint, stashRows, SLOTS, slotNam
 import { equipFromItems, equipReason, canUnequipToItems, unequipToItems, swapRingSlots, hasCube, transferItem } from './model';
 import { equipmentPanel } from './equipment-ui';
 import type { UI } from './ui';
+import { phoneUI } from './mobile-ui';
 
 type Container = 'inventory' | 'stash' | 'cube' | 'shared';
 const containerNames: Record<Container, string> = { inventory: '背包', stash: '私人仓库', shared: '共享仓库', cube: '赫拉迪克方块' };
@@ -17,6 +18,7 @@ type Drag = {
   ghost?: HTMLElement; hintBox?: HTMLElement; preview?: HTMLElement; swapPreview?: HTMLElement; dock?: HTMLElement;
   slotTarget?: HTMLButtonElement; equipCheck?: { slot: Slot; valid: boolean; reason: string };
   storageTarget?: HTMLElement; autoPlace: boolean; swapped: number; hint: string;
+  touchPending?: boolean; moved?: boolean;
 };
 
 export class InventoryDrag {
@@ -25,6 +27,7 @@ export class InventoryDrag {
   private frame = 0;
   private lastFrame = 0;
   private suppressClick = false;
+  private holdTimer?: ReturnType<typeof setTimeout>;
 
   constructor(ui: UI) {
     this.ui = ui;
@@ -33,6 +36,10 @@ export class InventoryDrag {
       if (this.drag && this.drag.pointerId !== event.pointerId) this.cancel();
     }, true);
     ui.overlay.addEventListener('pointerdown', event => this.pointerDown(event));
+    // Native scrolling remains available until a stationary hold picks up the item.
+    ui.overlay.addEventListener('touchmove', event => {
+      if (this.drag?.active && this.drag.pointerId !== null && event.cancelable) event.preventDefault();
+    }, { passive: false });
     window.addEventListener('pointermove', event => this.pointerMove(event), { capture: true, passive: false });
     window.addEventListener('pointerup', event => {
       if (event.pointerId !== this.drag?.pointerId) return;
@@ -44,7 +51,10 @@ export class InventoryDrag {
     ui.overlay.addEventListener('lostpointercapture', event => { if (event.target === ui.overlay && event.pointerId === this.drag?.pointerId) this.cancel(); });
     ui.overlay.addEventListener('dragstart', event => { if ((event.target as Element).closest('.bag-item,[data-equipment-slot]')) event.preventDefault(); });
     ui.overlay.addEventListener('contextmenu', event => { if (this.drag) event.preventDefault(); });
-    ui.overlay.addEventListener('scroll', () => { if (this.drag?.active && this.drag.pointerId !== null) this.updatePointer(this.drag.clientX, this.drag.clientY); }, true);
+    ui.overlay.addEventListener('scroll', () => {
+      if (this.drag?.touchPending) { this.cancel(); this.suppressClick = true; }
+      else if (this.drag?.active && this.drag.pointerId !== null) this.updatePointer(this.drag.clientX, this.drag.clientY);
+    }, true);
     ui.overlay.addEventListener('focusout', event => { if (this.drag?.pointerId === null && event.target === this.drag.source) this.cancel(); });
     document.addEventListener('click', event => {
       if (this.suppressClick && event.detail > 0) { event.preventDefault(); event.stopImmediatePropagation(); this.suppressClick = false; }
@@ -79,18 +89,33 @@ export class InventoryDrag {
     drag.grabX = Math.min(drag.origin.width - 1, Math.floor(drag.offsetX / (rect.width / drag.origin.width)));
     drag.grabY = Math.min(drag.origin.height - 1, Math.floor(drag.offsetY / (rect.height / drag.origin.height)));
     this.drag = drag;
+    if (event.pointerType === 'touch' && phoneUI()) {
+      drag.touchPending = true;
+      this.holdTimer = setTimeout(() => {
+        if (this.drag !== drag || !drag.source.isConnected) { this.cancel(); return; }
+        drag.touchPending = false;
+        this.startPointerDrag(); this.updatePointer(drag.clientX, drag.clientY);
+      }, 350);
+    }
   }
 
   private pointerMove(event: PointerEvent) {
     const drag = this.drag; if (!drag || event.pointerId !== drag.pointerId) return;
     if (event.pointerType === 'mouse' && !(event.buttons & 1)) { this.cancel(); return; }
+    if (drag.touchPending) {
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 8) { this.cancel(); this.suppressClick = true; }
+      else { drag.clientX = event.clientX; drag.clientY = event.clientY; }
+      return;
+    }
     if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
     event.preventDefault();
-    if (!drag.active) {
-      this.activate(); this.ui.overlay.setPointerCapture(event.pointerId);
-      this.lastFrame = performance.now(); this.frame = requestAnimationFrame(now => this.autoScroll(now));
-    }
+    if (!drag.active) this.startPointerDrag();
     this.updatePointer(event.clientX, event.clientY);
+  }
+
+  private startPointerDrag() {
+    this.activate(); this.ui.hideTooltip(); this.ui.overlay.setPointerCapture(this.drag!.pointerId!);
+    this.lastFrame = performance.now(); this.frame = requestAnimationFrame(now => this.autoScroll(now));
   }
 
   private activate() {
@@ -127,6 +152,7 @@ export class InventoryDrag {
     const drag = this.drag; if (!drag?.active) return;
     if (!drag.source.isConnected || this.ui.panel !== drag.panel) { this.cancel(); return; }
     drag.clientX = clientX; drag.clientY = clientY;
+    drag.moved ||= drag.touchPending === undefined || Math.hypot(clientX - drag.startX, clientY - drag.startY) >= 8;
     drag.slotTarget?.removeAttribute('data-drop-valid');
     drag.storageTarget?.removeAttribute('data-drop-valid'); drag.storageTarget = undefined; drag.autoPlace = false;
     const hovered = document.elementFromPoint(clientX, clientY);
@@ -229,7 +255,7 @@ export class InventoryDrag {
     const drag = this.drag; if (!drag?.active || drag.pointerId === null) return;
     if (!drag.source.isConnected) { this.cancel(); return; }
     const panel = drag.grid?.closest<HTMLElement>('.inventory-grid-scroll,.shared-grid-scroll');
-    if (!panel || drag.autoPlace || drag.sourceSlot && drag.slotTarget) { this.lastFrame = now; this.frame = requestAnimationFrame(time => this.autoScroll(time)); return; }
+    if (!panel || !drag.moved || drag.autoPlace || drag.sourceSlot && drag.slotTarget) { this.lastFrame = now; this.frame = requestAnimationFrame(time => this.autoScroll(time)); return; }
     const rect = panel.getBoundingClientRect();
     const top = rect.top, dt = Math.min(50, now - this.lastFrame) / 1000; this.lastFrame = now;
     if (drag.clientX >= rect.left && drag.clientX <= rect.right && drag.clientY >= rect.top && drag.clientY <= rect.bottom) {
@@ -298,6 +324,7 @@ export class InventoryDrag {
   }
 
   cancel() {
+    clearTimeout(this.holdTimer); this.holdTimer = undefined;
     const drag = this.drag; if (!drag) return;
     this.drag = undefined; cancelAnimationFrame(this.frame);
     if (drag.active && drag.pointerId !== null) this.suppressClick = true;

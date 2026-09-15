@@ -109,7 +109,7 @@ export class UI {
             ${[0, 1, 2, 3].map(slot => `<button class="skill potion-slot" data-potion-slot="${slot}" aria-label="药水快捷键 ${slot + 1}"><kbd>${slot + 1}</kbd><span class="potion-slot-name"></span><b>0</b></button>`).join('')}
           </div></div>
           <div class="paladin-status"><span id="active-aura-label">无灵气</span><span id="holy-shield-label"></span><span id="ammo-label" hidden></span><button data-action="run-mode" ${tip('切换跑步与行走')}><i data-lucide="footprints"></i></button><div class="stamina-track" ${tip('耐力')}><i id="stamina-fill"></i></div></div>
-          <nav class="bottom-nav"><button data-panel="character" ${tip('角色 · C')}>${icon('user-round')}<span>角色</span><kbd class="nav-key" aria-hidden="true">C</kbd><b id="points-badge" hidden></b></button><button data-panel="skills" ${tip('技能 · T')}>${icon('book-open')}<span>技能</span><kbd class="nav-key" aria-hidden="true">T</kbd><b id="skill-points-badge" hidden></b></button><button data-panel="inventory" ${tip('背包 · I')}>${icon('backpack')}<span>背包</span><kbd class="nav-key" aria-hidden="true">I</kbd></button><button data-panel="quest" ${tip('任务 · J')}>${icon('scroll-text')}<span>任务</span><kbd class="nav-key" aria-hidden="true">J</kbd></button><button data-panel="map" ${tip('地图 · Tab')}>${icon('map')}<span>地图</span><kbd class="nav-key" aria-hidden="true">Tab</kbd></button><span class="gold-count">${icon('coins')}<b id="gold-value">0</b></span><button data-panel="pause" ${tip('暂停 · Esc')}>${icon('pause')}</button></nav>
+          <nav class="bottom-nav"><button data-panel="character" ${tip('角色 · C')}>${icon('user-round')}<span>角色</span><kbd class="nav-key" aria-hidden="true">C</kbd><b id="points-badge" hidden></b></button><button data-panel="skills" ${tip('技能 · T')}>${icon('book-open')}<span>技能</span><kbd class="nav-key" aria-hidden="true">T</kbd><b id="skill-points-badge" hidden></b></button><button data-panel="inventory" ${tip('背包 · I')}>${icon('backpack')}<span>背包</span><kbd class="nav-key" aria-hidden="true">I</kbd></button><button data-panel="quest" ${tip('任务 · J')}>${icon('scroll-text')}<span>任务</span><kbd class="nav-key" aria-hidden="true">J</kbd></button><button data-panel="map" ${tip('地图 · Tab')}>${icon('map')}<span>地图</span><kbd class="nav-key" aria-hidden="true">Tab</kbd></button><span class="gold-count">${icon('coins')}<b id="gold-value">0</b></span><button id="party-shortcut" data-panel="pause" ${tip('暂停 · Esc')}>${icon('pause')}</button></nav>
         </div>
         <div class="resource mana"><div class="orb-frame"><div class="orb"><div class="orb-fill" id="mana-fill"></div><div class="orb-shine"></div><span id="mana-value">15<small>/ 15</small></span></div></div><div class="resource-caption"><span>法力</span><small id="mana-percent">100%</small></div></div>
       </footer>
@@ -231,6 +231,8 @@ export class UI {
     document.addEventListener('click', event => {
       const recipe = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-runeword]') : null;
       if (recipe) { this.tooltipDismissedKey = undefined; showTooltip(recipe); }
+      const status = phoneUI() && event.target instanceof Element ? event.target.closest<HTMLElement>('.status-chip') : null;
+      if (status) showTooltip(status);
     });
     document.addEventListener('pointerdown', event => {
       this.tooltipTouch = event.pointerType === 'touch';
@@ -550,11 +552,18 @@ export class UI {
   update(dt: number) {
     if (!this.game.profile) return;
     const game = this.game, h = game.hero, s = stats(h);
+    const phone = phoneUI(), shortcut = document.getElementById('party-shortcut')!;
+    if (shortcut.dataset.panel !== (phone ? 'mercenary' : 'pause')) {
+      shortcut.dataset.panel = phone ? 'mercenary' : 'pause';
+      shortcut.dataset.tip = phone ? '管理佣兵' : '暂停 · Esc';
+      shortcut.setAttribute('aria-label', phone ? '佣兵' : '暂停 · Esc');
+      setMarkup(shortcut, icon(phone ? 'swords' : 'pause')); this.refreshIcons();
+    }
     const mercenaryStatus = document.getElementById('mercenary-status')!;
-    mercenaryStatus.hidden = !game.profile || !mercenaryUnlocked(h) || !!this.panel;
+    mercenaryStatus.hidden = !game.profile || !mercenaryUnlocked(h) || !!this.panel || phone && !h.mercenary;
     if (!mercenaryStatus.hidden) {
       const merc = h.mercenary, maxHp = mercenaryStats(h).maxHp;
-      setMarkup(mercenaryStatus, merc ? `<span>米山 · Lv. ${h.level} <kbd>O</kbd></span><small>${merc.status === 'dead' ? '已阵亡 · 需重新雇佣' : `${skillName(merc.aura)} · ${Math.ceil(merc.hp)} / ${maxHp}`}</small><progress aria-label="米山生命" max="${maxHp}" value="${merc.hp}"></progress>` : '<span>佣兵 · O</span><small>可在营地雇佣米山</small>');
+      setMarkup(mercenaryStatus, phone && merc ? `<span>米山<small>${merc.status === 'dead' ? '已阵亡' : `${Math.ceil(merc.hp / maxHp * 100)}%`}</small></span><progress aria-label="米山生命" max="${maxHp}" value="${merc.hp}"></progress>` : merc ? `<span>米山 · Lv. ${h.level} <kbd>O</kbd></span><small>${merc.status === 'dead' ? '已阵亡 · 需重新雇佣' : `${skillName(merc.aura)} · ${Math.ceil(merc.hp)} / ${maxHp}`}</small><progress aria-label="米山生命" max="${maxHp}" value="${merc.hp}"></progress>` : '<span>佣兵 · O</span><small>可在营地雇佣米山</small>');
     }
     this.updateStatuses(s);
     if (this.tooltipTarget && !this.tooltipTarget.isConnected) this.hideTooltip();

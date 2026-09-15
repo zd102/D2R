@@ -88,8 +88,8 @@ try {
       await page.locator('.cleave-skill').tap();
       await page.waitForFunction(() => window.compatGame.hero.mana < 15);
       await page.screenshot({ path: `${output}/${name}-camp.png`, scale: 'css' });
-      for (const panel of ['character', 'inventory', 'skills', 'map', 'quest', 'pause']) {
-        await page.locator(`.bottom-nav [data-panel="${panel}"]`).tap();
+      for (const panel of ['character', 'inventory', 'skills', 'map', 'quest', 'mercenary', 'pause']) {
+        await page.locator(`${panel === 'pause' ? '.top-tools' : '.bottom-nav'} [data-panel="${panel}"]`).tap();
         await expect(page.locator('#overlay .panel')).toBeVisible();
         await expect(page.locator('.panel-body')).not.toBeEmpty();
         await page.locator('.panel-close').tap();
@@ -109,7 +109,7 @@ try {
       await page.setViewportSize({ width: 852, height: 393 });
       await page.screenshot({ path: `${output}/${name}-stash-landscape.png`, scale: 'css' });
       assert.deepEqual(errors, []);
-      console.log(`PASS ${name}: keyboard-height login scroll; older API profiles create, enter, move, cast, open six panels, save, reload and transfer items without losing progress.`);
+      console.log(`PASS ${name}: keyboard-height login scroll; older API profiles create, enter, move, cast, open seven panels, save, reload and transfer items without losing progress.`);
     } finally { await browser.close(); }
   }
 } finally { await vite.close(); await app.close(); }

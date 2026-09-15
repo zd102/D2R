@@ -37,6 +37,7 @@ try {
       else if (type === 'move') await page.mouse.move(x, y, { steps: 6 });
       else if (type === 'cancel') { await page.locator('#overlay').evaluate(el => el.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1, bubbles: true }))); await page.mouse.up(); }
       else await page.mouse.up();
+      if (cdp && type === 'down') await expect(page.locator('.item-drag-ghost')).toBeVisible();
     };
     const cleanup = async () => { await page.waitForFunction(() => !window.equipmentDragGame.ui.sharedStashScreen.busy); await expect(page.locator('.item-drag-ghost,.item-drag-hint,.drag-storage-dock,.item-drop-preview,.item-swap-preview,.gear-slot.is-dragging')).toHaveCount(0); };
     const start = async slot => {

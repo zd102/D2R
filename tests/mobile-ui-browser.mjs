@@ -50,6 +50,12 @@ try {
   for (const [width, height] of [[390, 844], [320, 568], [360, 640], [430, 932], [568, 320], [667, 375], [844, 390], [932, 430]]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => { const g = window.mobileGame; g.ui.closePanel(); g.ui.update(0); g.renderer.render(g.world.scene, g.camera); });
+    await page.locator('.bottom-nav [data-panel="mercenary"]').tap();
+    await expect(page.locator('.panel-mercenary')).toBeVisible();
+    await page.locator('.panel-close').tap();
+    await page.locator('.top-tools [data-panel="pause"]').tap();
+    await expect(page.locator('.panel-pause')).toBeVisible();
+    await page.locator('.panel-close').tap();
     await reachable(page, '.hud .skill, #joystick, .hud .bottom-nav button, .hud .paladin-status button, .top-tools button');
     assert.ok(await page.locator('.resource .orb small').evaluateAll(nodes => nodes.every(node => {
       const r = node.getBoundingClientRect(), orb = node.closest('.orb').getBoundingClientRect();
@@ -127,6 +133,36 @@ try {
     window.mobileGame.ui.closePanel();
     for (const side of ['left', 'right', 'top', 'bottom']) document.getElementById('app').style.removeProperty(`--touch-${side}`);
   });
+  // Crowded combat HUD stays within two short rows in both orientations.
+  await page.evaluate(() => {
+    const g = window.mobileGame; g.hero.campaign.cleared[0] = 20;
+    g.hero.mercenary = { status: 'alive', hp: 100, aura: 'prayer', equipment: { weapon: null, armor: null, helm: null }, cold: 0, poison: 0 };
+    g.hero.potionTimers = [120, 120, 120]; g.hero.poison = g.hero.curse = g.hero.cold = 10;
+    g.hero.buffs.fade = { rank: 1, remaining: 100 };
+    g.ui.update(0);
+  });
+  const statusTouch = await context.newCDPSession(page);
+  for (const [width, height] of [[320, 568], [393, 695], [568, 320], [852, 393]]) {
+    await page.setViewportSize({ width, height }); await page.evaluate(() => window.mobileGame.ui.update(0));
+    const hud = await page.locator('#party-status').boundingBox();
+    assert.ok(hud.width <= 144 && hud.height <= 92, 'party HUD is bounded even with many buffs');
+    const joystickTop = (await page.locator('#joystick').boundingBox()).y;
+    assert.ok(hud.y + hud.height <= joystickTop, 'party HUD clears the joystick');
+    assert.equal(await page.locator('#combat-status').evaluate(node => node.scrollHeight <= node.clientHeight && node.scrollWidth > node.clientWidth), true);
+    await page.locator('.status-chip').first().tap();
+    await expect(page.locator('#ui-tooltip')).toBeVisible();
+    await expect(page.locator('#ui-tooltip')).toContainText('中毒');
+    const strip = await page.locator('#combat-status').boundingBox();
+    await statusTouch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: strip.x + 125, y: strip.y + 22, id: 7 }] });
+    for (const offset of [105, 80, 50, 20]) await statusTouch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: strip.x + offset, y: strip.y + 22, id: 7 }] });
+    await statusTouch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForFunction(() => document.getElementById('combat-status').scrollLeft > 30);
+    await page.locator('#mercenary-status').tap();
+    await expect(page.locator('.panel-mercenary')).toBeVisible(); await page.locator('.panel-close').tap();
+    await page.evaluate(() => window.mobileGame.ui.update(0));
+    await page.screenshot({ path: `${output}/party-${width}x${height}.png` });
+    await page.locator('#combat-status').evaluate(node => node.scrollLeft = 0);
+  }
   // Two fingers can move and attack together; lost capture, rotation and modals release both.
   await page.setViewportSize({ width: 390, height: 844 });
   const cdp = await context.newCDPSession(page);

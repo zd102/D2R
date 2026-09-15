@@ -29,7 +29,7 @@ try {
     }, { save: serializeSave(hero), key: SHARED_STASH_KEY, items: sharedItems });
     const enter = async () => { await page.getByRole('button', { name: '进入旅程', exact: true }).click(); await page.waitForFunction(() => window.dragGame && !window.dragGame.paused); await page.evaluate(() => cancelAnimationFrame(window.dragGame.frameId)); };
     await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173'); await enter();
-    const state = () => page.evaluate(() => ({ hero: structuredClone(window.dragGame.hero), shared: window.dragGame.saves.readShared(), revision: window.dragGame.profile.revision }));
+    const state = () => page.evaluate(async () => { const g = window.dragGame; await g.onlineSaves?.flush(); return { hero: structuredClone(g.hero), shared: g.saves.readShared(), revision: g.profile.revision }; });
     const pane = async (kind, value) => { const button = page.locator(`button[data-${kind}-pane="${value}"]`); if (await button.isVisible() && await button.getAttribute('aria-pressed') !== 'true') await button.click(); };
     const cdp = touch ? await page.context().newCDPSession(page) : null;
     const hintFits = async () => {
@@ -41,6 +41,7 @@ try {
       else if (type === 'down') { await page.mouse.move(x, y); await page.mouse.down(); }
       else if (type === 'move') await page.mouse.move(x, y, { steps: 6 });
       else await page.mouse.up();
+      if (cdp && type === 'down') await expect(page.locator('.item-drag-ghost')).toBeVisible();
     };
     const start = async (container, id) => {
       if (await page.locator('.panel-inventory').count()) await pane('inventory', 'items');
@@ -100,6 +101,18 @@ try {
     await page.keyboard.press('Escape');
     const openShared = async () => { await page.evaluate(() => { const g = window.dragGame, p = g.world.sharedStash.position; g.position.set(p.x, 0, p.z); g.body.position.set(p.x, .5, p.z); g.useSharedStash(); }); await expect(page.locator('.panel-shared-stash')).toBeVisible(); };
     await openShared();
+    if (touch) {
+      await pane('shared', 'shared');
+      const original = await state(), source = await page.locator('[data-shared-item="shared-large"]').boundingBox();
+      const x = source.x + source.width / 2, y = source.y + source.height - 4;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 9 }] });
+      for (const dy of [15, 35, 60, 90]) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - dy, id: 9 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.waitForFunction(() => document.querySelector('[data-container="shared"]').closest('.shared-grid-scroll').scrollTop > 25);
+      await page.waitForTimeout(400);
+      assert.deepEqual(await state(), original, 'shared stash swipe scrolls without moving items or changing revisions');
+      await expect(page.locator('.item-drag-ghost')).toHaveCount(0);
+    }
     before = await state(); await dropRegion('shared', 'shared-large', 3, 0, false); assert.deepEqual(await state(), before);
     // Simulate an actual database failure on release; both regions must retain their positions.
     await page.evaluate(() => { window.originalExchangePut = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function(value, key) { if (this.name === 'shared') throw new DOMException('Full', 'QuotaExceededError'); return window.originalExchangePut.call(this, value, key); }; });

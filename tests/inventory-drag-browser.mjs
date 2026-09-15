@@ -89,6 +89,7 @@ try {
   await mobile.locator('[data-item="drag-sword"]').scrollIntoViewIfNeeded();
   let g = await grid(mobile);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: g.x + .5 * g.cell, y: g.y + .5 * g.row, id: 1 }] });
+  await expect(mobile.locator('.item-drag-ghost')).toBeVisible();
   for (let step = 1; step <= 8; step++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: g.x + (.5 + 7 * step / 8) * g.cell, y: g.y + (.5 + step / 8) * g.row, id: 1 }] });
   await expect(mobile.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'true'); await mobile.screenshot({ path: `${output}/inventory-drag-mobile.png` });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
@@ -96,12 +97,14 @@ try {
   await mobile.locator('[data-bag-view="stash"]').tap(); await mobile.locator('[data-item="drag-armor"]').scrollIntoViewIfNeeded();
   g = await grid(mobile);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: g.x + .5 * g.cell, y: g.y + .5 * g.row, id: 2 }] });
+  await expect(mobile.locator('.item-drag-ghost')).toBeVisible();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: g.x + 6.5 * g.cell, y: g.y + 1.5 * g.row, id: 2 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   assert.deepEqual(await position(mobile, 'stash', 'drag-armor'), { x: 6, y: 1 });
   const mobileBeforeCancel = await savedProfile(mobile); g = await grid(mobile);
   const armorRect = await mobile.locator('[data-item="drag-armor"]').boundingBox();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: armorRect.x + .5 * g.cell, y: armorRect.y + .5 * g.row, id: 3 }] });
+  await expect(mobile.locator('.item-drag-ghost')).toBeVisible();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: g.x + 3.5 * g.cell, y: armorRect.y + .5 * g.row, id: 3 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
   assert.deepEqual(await savedProfile(mobile), mobileBeforeCancel); assert.equal(await mobile.locator('.item-drag-ghost').count(), 0);
@@ -110,6 +113,7 @@ try {
   const scrollSource = await mobile.locator('[data-item="drag-armor"]').boundingBox();
   assert.equal(await mobile.locator('.inventory-grid-scroll').evaluate(el => el.scrollHeight > el.clientHeight), true, '300-cell private stash scrolls inside its container');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: scrollSource.x + .5 * g.cell, y: scrollSource.y + .5 * g.row, id: 4 }] });
+  await expect(mobile.locator('.item-drag-ghost')).toBeVisible();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: g.x + 8.5 * g.cell, y: g.y + 4.5 * g.row, id: 4 }] });
   await expect(mobile.locator('.item-drop-preview')).toHaveAttribute('data-valid', 'true');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
@@ -121,9 +125,21 @@ try {
   const tall = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const tallHero = structuredClone(hero); tallHero.stash.push({ ...makeItem(BASES.find(item => item.slot === 'ring'), 'deep-ring'), x: 9, y: 29 });
   await open(tall, tallHero); await tall.locator('[data-bag-view="stash"]').tap();
+  const scrollTouch = await tall.context().newCDPSession(tall), beforeScroll = await savedProfile(tall);
+  const swipeItem = await tall.locator('[data-item="drag-armor"]').boundingBox();
+  const sx = swipeItem.x + swipeItem.width / 2, sy = swipeItem.y + swipeItem.height - 5;
+  await scrollTouch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sx, y: sy, id: 5 }] });
+  for (const dy of [15, 35, 60, 90]) await scrollTouch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sx, y: sy - dy, id: 5 }] });
+  await scrollTouch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await tall.waitForFunction(() => document.querySelector('.inventory-grid-scroll').scrollTop > 25);
+  await tall.waitForTimeout(400); // A canceled hold must not turn into a delayed pickup.
+  assert.deepEqual(await savedProfile(tall), beforeScroll, 'swiping from an item scrolls without moving or saving it');
+  await expect(tall.locator('.item-drag-ghost')).toHaveCount(0);
+  await tall.locator('[data-item="drag-armor"]').scrollIntoViewIfNeeded();
   const touch = await tall.context().newCDPSession(tall), origin = await tall.locator('[data-item="drag-armor"]').boundingBox();
   const scroller = await tall.locator('.inventory-grid-scroll').boundingBox(), cells = await grid(tall);
   await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: origin.x + cells.cell * .5, y: origin.y + cells.row * .5, id: 8 }] });
+  await expect(tall.locator('.item-drag-ghost')).toBeVisible();
   await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cells.x + cells.cell * 8.5, y: scroller.y + scroller.height - 8, id: 8 }] });
   await tall.waitForFunction(() => document.querySelector('.inventory-grid-scroll').scrollTop > 40);
   assert.equal(await tall.locator('.panel').evaluate(el => el.scrollTop), 0, 'only a long container scrolls at its edge');

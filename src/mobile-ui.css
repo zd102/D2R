@@ -86,7 +86,7 @@
   }
   .hud .bottom-nav button svg { width: 17px; height: 17px; }
   .hud .bottom-nav button > b { position: absolute; top: 1px; right: 3px; font-size: 9px; }
-  .hud .bottom-nav > button:last-child::after { content: '设置'; font-size: 10px; }
+  .hud .bottom-nav > button[data-panel=mercenary]::after { content: '佣兵'; font-size: 10px; }
   .hud .paladin-status {
     top: calc(var(--touch-top) + 104px); left: var(--touch-left); bottom: auto;
     width: 144px; height: auto; min-height: 24px; padding: 0; gap: 4px; flex-wrap: wrap;
@@ -110,10 +110,17 @@
   .quest-track { display: flex; margin-top: 4px; padding: 6px 0; min-height: 44px; gap: 4px; }
   .quest-track strong { font-size: 11px; }
   .quest-track #quest-step, .quest-track .quest-final { display: none; }
-  #party-status { left: var(--touch-left); top: calc(var(--touch-top) + 150px); width: 144px; max-height: max(44px, calc(100dvh - 450px)); gap: 4px; }
-  #party-status #mercenary-status { min-height: 44px; max-width: 100%; }
-  #combat-status { gap: 4px; }
-  #combat-status .status-chip { min-height: 36px; flex-basis: 130px; }
+  #party-status { left: var(--touch-left); top: calc(var(--touch-top) + 150px); width: 144px; max-height: 92px; gap: 4px; }
+  #party-status #mercenary-status { flex: none; width: 144px; height: 44px; min-height: 0; max-width: 100%; padding: 5px 8px; }
+  #mercenary-status > span { display: flex; align-items: center; justify-content: space-between; font-size: 11px; }
+  #mercenary-status > span small { font-size: 10px; margin: 0; }
+  #mercenary-status progress { height: 4px; margin-top: 5px; }
+  #combat-status { flex: none; flex-direction: row; height: 44px; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: pan-x; }
+  #combat-status .status-group { flex-wrap: nowrap; gap: 4px; }
+  #combat-status .status-heading, #combat-status .status-chip > span { display: none; }
+  #combat-status .status-chip { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 3px 2px 5px; gap: 1px; grid-template-columns: 1fr; justify-items: center; border-radius: 5px; touch-action: pan-x; }
+  #combat-status .status-chip svg { width: 18px; height: 18px; }
+  #combat-status .status-chip > b { font-size: 9px; line-height: 11px; }
   #boss-bar { top: calc(var(--touch-top) + 230px); left: 50%; transform: translateX(-50%); width: min(220px, 65vw); }
   #context-action {
     position: fixed; left: 50%; transform: translateX(-50%);
@@ -141,6 +148,9 @@
   #overlay .panel-description, #overlay .panel-emblem, #overlay .panel-close kbd { display: none; }
   #overlay .panel-header > button { min-width: 44px; min-height: 44px; width: 44px; padding: 8px; }
   #overlay .panel-body { padding: 10px; overscroll-behavior: contain; scroll-padding: 8px; }
+  #overlay :is(.bag-item, [data-equipment-slot]) { touch-action: pan-y; -webkit-touch-callout: none; }
+  #overlay :is(.inventory-grid-scroll, .shared-grid-scroll) { touch-action: pan-y; overscroll-behavior: contain; }
+  #overlay .bag-column::before, #overlay .shared-grid-scroll::before { content: '滑动滚动 · 长按物品后拖动'; display: block; flex: none; font-size: 10px; line-height: 18px; color: #b8a887; }
   #overlay :is(.primary-button, .secondary-button, .text-button, .compact-tabs button, .character-tabs button,
     .inventory-primary-tabs button, .inventory-pane-tabs button, .rune-pane-tabs button,
     .shared-mobile-tabs button, .shared-tabs button, .campaign-toolbar button, .recipe-pagination button,
@@ -194,7 +204,7 @@
   .world-info .chapter, .world-info #difficulty, .world-info .quest-track { display: none; }
   .world-info .location h2 { font-size: 11px; text-align: center; }
   .minimap-button { height: 56px; }
-  #party-status { top: calc(var(--touch-top) + 55px); width: 146px; max-height: max(44px, calc(100dvh - 245px)); }
+  #party-status { top: calc(var(--touch-top) + 54px); gap: 3px; }
   #boss-bar { top: calc(var(--touch-top) + 60px); width: 200px; }
   #context-action { bottom: calc(var(--touch-controls-bottom) + 60px); max-width: 210px; }
   #toasts { top: 30%; width: 210px; }
