@@ -16,6 +16,8 @@
     "test:online": "node tests/online-browser.mjs",
     "test:online-compat": "node tests/online-compat-browser.mjs",
     "balance:report": "node scripts/balance-report.ts",
+    "balance:classes": "node scripts/class-audit.mjs",
+    "balance:class-variants": "node scripts/class-audit-variants.mjs",
     "items:report": "node scripts/item-attribute-report.ts",
     "test:item-skills": "node tests/item-skills-browser.mjs",
     "test:item-effects": "node tests/item-effects-browser.mjs",
