@@ -560,10 +560,10 @@ export class UI {
       setMarkup(shortcut, icon(phone ? 'swords' : 'pause')); this.refreshIcons();
     }
     const mercenaryStatus = document.getElementById('mercenary-status')!;
-    mercenaryStatus.hidden = !game.profile || !mercenaryUnlocked(h) || !!this.panel || phone && !h.mercenary;
+    mercenaryStatus.hidden = phone || !mercenaryUnlocked(h) || !!this.panel;
     if (!mercenaryStatus.hidden) {
       const merc = h.mercenary, maxHp = mercenaryStats(h).maxHp;
-      setMarkup(mercenaryStatus, phone && merc ? `<span>米山<small>${merc.status === 'dead' ? '已阵亡' : `${Math.ceil(merc.hp / maxHp * 100)}%`}</small></span><progress aria-label="米山生命" max="${maxHp}" value="${merc.hp}"></progress>` : merc ? `<span>米山 · Lv. ${h.level} <kbd>O</kbd></span><small>${merc.status === 'dead' ? '已阵亡 · 需重新雇佣' : `${skillName(merc.aura)} · ${Math.ceil(merc.hp)} / ${maxHp}`}</small><progress aria-label="米山生命" max="${maxHp}" value="${merc.hp}"></progress>` : '<span>佣兵 · O</span><small>可在营地雇佣米山</small>');
+      setMarkup(mercenaryStatus, merc ? `<span>米山 · Lv. ${h.level} <kbd>O</kbd></span><small>${merc.status === 'dead' ? '已阵亡 · 需重新雇佣' : `${skillName(merc.aura)} · ${Math.ceil(merc.hp)} / ${maxHp}`}</small><progress aria-label="米山生命" max="${maxHp}" value="${merc.hp}"></progress>` : '<span>佣兵 · O</span><small>可在营地雇佣米山</small>');
     }
     this.updateStatuses(s);
     if (this.tooltipTarget && !this.tooltipTarget.isConnected) this.hideTooltip();
@@ -635,6 +635,26 @@ export class UI {
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
     bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); bar.querySelector('span')!.title = boss.name; setText(bar.querySelector('small')!, questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
     const aliveKeys = new Set<string>();
+    const updateOverhead = (key: string, actor: THREE.Group, resources: { name: string; value: number; max: number; kind: string }[]) => {
+      const point = game.project(actor.position.clone().add(new THREE.Vector3(0, Number(actor.userData.labelHeight ?? 2.4), 0)));
+      if (game.dead || !point.visible || point.x < 0 || point.x > innerWidth || point.y < 0 || point.y > innerHeight) return;
+      aliveKeys.add(key);
+      let label = this.labelNodes.get(key);
+      if (!label) {
+        label = document.createElement('div'); label.className = 'ally-resources'; label.dataset.actor = key;
+        setMarkup(label, resources.map(resource => `<div class="ally-resource ${resource.kind}" role="progressbar" aria-label="${resource.name}" aria-valuemin="0"><i></i></div>`).join(''));
+        this.labels.append(label); this.labelNodes.set(key, label);
+      }
+      label.hidden = game.paused;
+      label.style.transform = `translate(${point.x}px, ${point.y}px) translate(-50%, -100%)`;
+      resources.forEach((resource, index) => {
+        const bar = label.children[index] as HTMLElement, max = Math.max(0, resource.max), value = Math.max(0, Math.min(max, resource.value));
+        bar.setAttribute('aria-valuemax', String(max)); bar.setAttribute('aria-valuenow', String(value));
+        bar.querySelector('i')!.style.width = `${max > 0 ? value / max * 100 : 0}%`;
+      });
+    };
+    updateOverhead('hero', game.actor.group, [{ name: '角色生命', value: h.hp, max: s.maxHp, kind: 'life' }, { name: '角色法力', value: h.mana, max: s.maxMana, kind: 'magic' }]);
+    if (h.mercenary?.status === 'alive' && game.mercenary.ally) updateOverhead('mercenary', game.mercenary.ally.actor.group, [{ name: '米山生命', value: h.mercenary.hp, max: mercenaryStats(h).maxHp, kind: 'life' }]);
     const controlRects = [...document.querySelectorAll<HTMLElement>(phoneUI() ? '#joystick, .skill-group, .potion-group' : '#joystick, #mobile-attack')]
       .filter(element => element.getClientRects().length).map(element => element.getBoundingClientRect());
     for (const chest of game.world.chests) {

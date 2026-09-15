@@ -68,7 +68,7 @@ try {
     await page.reload(); await page.getByRole('button', { name: '进入旅程', exact: true }).click();
     await page.waitForFunction(() => window.eclipseState?.mercenary?.position);
     assert.equal((await savedProfile(page)).hero.mercenary.aura, 'holyFreeze');
-    await page.locator('#mercenary-status').click(); await page.locator('[data-mercenary-unequip="helm"]').click();
+    await page.locator(width < 700 ? '.bottom-nav [data-panel=mercenary]' : '#mercenary-status').click(); await page.locator('[data-mercenary-unequip="helm"]').click();
     assert.ok((await savedProfile(page)).hero.inventory.some(item => item.id === helm.id));
     await page.locator(`[data-mercenary-equip="${helm.id}"]`).click();
     await page.locator('[data-mercenary-item="merc-spear"]').click();
@@ -167,6 +167,30 @@ try {
     await page.screenshot({ path: `${output}/rehired-${width}.png` });
     // Keep simulation still while measuring simultaneous companion, buff and boss HUDs.
     await page.evaluate(() => { const g = window.mercenaryVerification; cancelAnimationFrame(g.frameId); g.ui.closePanel(); });
+    const overhead = await page.evaluate(async () => {
+      const g = window.mercenaryVerification, { stats } = await import('/src/model.ts'), { mercenaryStats } = await import('/src/mercenary.ts');
+      const originalPosition = g.mercenary.ally.actor.group.position.clone();
+      const original = { hp: g.hero.hp, mana: g.hero.mana, mercHp: g.hero.mercenary.hp };
+      g.mercenary.ally.actor.group.position.copy(g.position).addScalar(1); g.mercenary.ally.actor.group.position.y = 0;
+      g.hero.hp = stats(g.hero).maxHp / 2; g.hero.mana = stats(g.hero).maxMana / 4; g.hero.mercenary.hp = mercenaryStats(g.hero).maxHp / 3;
+      g.ui.update(0);
+      const hero = document.querySelector('[data-actor=hero]'), merc = document.querySelector('[data-actor=mercenary]');
+      const fills = [...document.querySelectorAll('.ally-resource i')].map(node => parseFloat(node.style.width));
+      const before = merc.style.transform;
+      g.mercenary.ally.actor.group.position.x += 1; g.ui.update(0);
+      const follows = merc.style.transform !== before;
+      const pointer = getComputedStyle(hero).pointerEvents;
+      g.hero.mercenary.status = 'dead'; g.ui.update(0);
+      const deathHidden = !document.querySelector('[data-actor=mercenary]');
+      g.mercenary.ally.actor.group.position.copy(originalPosition);
+      g.hero.mercenary.status = 'alive'; g.hero.hp = original.hp; g.hero.mana = original.mana; g.hero.mercenary.hp = original.mercHp; g.ui.update(0);
+      const restored = !!document.querySelector('[data-actor=mercenary]');
+      return { fills, follows, pointer, deathHidden, restored };
+    });
+    assert.equal(overhead.fills.length, 3);
+    for (const [index, value] of [50, 25, 100 / 3].entries()) assert.ok(Math.abs(overhead.fills[index] - value) < .01);
+    assert.ok(overhead.follows && overhead.deathHidden && overhead.restored);
+    assert.equal(overhead.pointer, 'none');
     const hudViewports = width === 390 ? [[390, 844], [844, 390]] : [[width, width === 360 ? 740 : 960]];
     for (const [hudWidth, hudHeight] of hudViewports) {
       await page.setViewportSize({ width: hudWidth, height: hudHeight });
@@ -177,11 +201,11 @@ try {
           g.hero.poison = g.hero.curse = g.hero.cold = 30; g.hero.mercenary.aura = 'prayer'; g.ui.update(0);
           document.getElementById('boss-bar').hidden = !bossVisible;
         }, bossVisible);
-        await expect(page.locator('#mercenary-status')).toBeVisible(); await expect(page.locator('#combat-status')).toBeVisible();
+        await expect(page.locator('#mercenary-status'))[width < 700 ? 'toBeHidden' : 'toBeVisible'](); await expect(page.locator('#combat-status')).toBeVisible();
         const overlaps = await page.evaluate(() => {
           const selectors = ['#mercenary-status', '#combat-status', '.topbar', '.world-info', '#boss-bar', '.hud', '#joystick', '#mobile-attack'];
           const visible = selectors.map(selector => ({ selector, node: document.querySelector(selector) })).filter(({ node }) => node.getClientRects().length).map(({ selector, node }) => ({ selector, rect: node.getBoundingClientRect() }));
-          return visible.slice(0, 2).flatMap(a => visible.filter(b => b !== a && a.rect.right > b.rect.left && a.rect.left < b.rect.right && a.rect.bottom > b.rect.top && a.rect.top < b.rect.bottom).map(b => `${a.selector} overlaps ${b.selector}`));
+          return visible.filter(a => ['#mercenary-status', '#combat-status'].includes(a.selector)).flatMap(a => visible.filter(b => b !== a && a.rect.right > b.rect.left && a.rect.left < b.rect.right && a.rect.bottom > b.rect.top && a.rect.top < b.rect.bottom).map(b => `${a.selector} overlaps ${b.selector}`));
         });
         assert.deepEqual(overlaps, [], `Companion and effects fit ${hudWidth}x${hudHeight}, boss=${bossVisible}`);
         assert.ok(await page.locator('#combat-status').evaluate(node => {

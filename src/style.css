@@ -70,3 +70,9 @@ h1{font-size:35px;line-height:1.05;color:#e1d4b8;text-shadow:0 2px 7px #000}h1 s
 @media (pointer:coarse) and (min-width:701px) and (max-height:580px){.mobile-controls{display:block;position:absolute;inset:0;pointer-events:none;z-index:4}.quest-track{display:none}.topbar{padding:15px 21px}.brand-sigil{width:28px;height:28px}.title-row{gap:8px}h1{font-size:27px}h1 span{font-size:30px}.edition{margin-left:36px;font-size:8px}.world-info{top:67px}.location h2{font-size:17px}#joystick{position:absolute;left:23px;bottom:25px;width:84px;height:84px;border-radius:50%;border:1px solid #c6c7a742;background:radial-gradient(circle,#bacaae0a,#1c2c28a0);pointer-events:auto;display:grid;place-items:center;touch-action:none}#joystick>div{width:32px;height:32px;border-radius:50%;border:1px solid #b7b9907a;background:#65725477;pointer-events:none}#mobile-attack{position:absolute;right:25px;bottom:33px;width:65px;height:65px;border-radius:50%;border:1px solid #c6b47b99;display:grid;place-items:center;background:#354539b8;pointer-events:auto;touch-action:none}#mobile-attack svg{width:27px;height:27px;color:#d1c69a}#context-action{bottom:134px}#toasts{top:26%}.toast{padding:7px 20px}.toast strong{font-size:12px}.toast span{font-size:9px}}
 
 .movement-hint{font-size:11px;line-height:1.8;color:#a8b59d;margin:10px 0 0;overflow-wrap:anywhere}
+
+.ally-resources{position:absolute;left:0;top:0;width:54px;display:grid;gap:3px;pointer-events:none;filter:drop-shadow(0 1px 2px #000)}
+.ally-resources[hidden]{display:none}
+.ally-resource{height:6px;border:1px solid #d0bc8d99;background:#130f14e8;overflow:hidden}
+.ally-resource i{display:block;height:100%;background:#d24b50}
+.ally-resource.magic i{background:#428de5}

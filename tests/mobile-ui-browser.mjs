@@ -149,6 +149,10 @@ try {
     const joystickTop = (await page.locator('#joystick').boundingBox()).y;
     assert.ok(hud.y + hud.height <= joystickTop, 'party HUD clears the joystick');
     assert.equal(await page.locator('#combat-status').evaluate(node => node.scrollHeight <= node.clientHeight && node.scrollWidth > node.clientWidth), true);
+    await expect(page.locator('#mercenary-status')).toBeHidden();
+    await page.locator('.bottom-nav [data-panel=mercenary]').tap();
+    await expect(page.locator('.panel-mercenary')).toBeVisible(); await page.locator('.panel-close').tap();
+    await page.evaluate(() => window.mobileGame.ui.update(0));
     await page.locator('.status-chip').first().tap();
     await expect(page.locator('#ui-tooltip')).toBeVisible();
     await expect(page.locator('#ui-tooltip')).toContainText('中毒');
@@ -157,9 +161,6 @@ try {
     for (const offset of [105, 80, 50, 20]) await statusTouch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: strip.x + offset, y: strip.y + 22, id: 7 }] });
     await statusTouch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await page.waitForFunction(() => document.getElementById('combat-status').scrollLeft > 30);
-    await page.locator('#mercenary-status').tap();
-    await expect(page.locator('.panel-mercenary')).toBeVisible(); await page.locator('.panel-close').tap();
-    await page.evaluate(() => window.mobileGame.ui.update(0));
     await page.screenshot({ path: `${output}/party-${width}x${height}.png` });
     await page.locator('#combat-status').evaluate(node => node.scrollLeft = 0);
   }

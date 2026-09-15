@@ -111,10 +111,7 @@
   .quest-track strong { font-size: 11px; }
   .quest-track #quest-step, .quest-track .quest-final { display: none; }
   #party-status { left: var(--touch-left); top: calc(var(--touch-top) + 150px); width: 144px; max-height: 92px; gap: 4px; }
-  #party-status #mercenary-status { flex: none; width: 144px; height: 44px; min-height: 0; max-width: 100%; padding: 5px 8px; }
-  #mercenary-status > span { display: flex; align-items: center; justify-content: space-between; font-size: 11px; }
-  #mercenary-status > span small { font-size: 10px; margin: 0; }
-  #mercenary-status progress { height: 4px; margin-top: 5px; }
+  #party-status #mercenary-status { display: none; }
   #combat-status { flex: none; flex-direction: row; height: 44px; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: pan-x; }
   #combat-status .status-group { flex-wrap: nowrap; gap: 4px; }
   #combat-status .status-heading, #combat-status .status-chip > span { display: none; }
