@@ -1,3 +1,4 @@
+import { potionIndex, potionTier } from '../src/potions.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chestContext, chestTreasure, rollChestCodes, rollChestLoot, chestItem, chestQualityChance } from '../src/chests.ts';
@@ -17,9 +18,9 @@ test('bonus chest rolls retain the original empty check and four NoDrop picks', 
   assert.deepEqual(rollChestCodes(context, () => draws.shift() ?? 0), ['gld']);
   const random = rng(94); let empty = 0, count = 0;
   for (let i = 0; i < 25000; i++) { const codes = rollChestCodes(context, random); empty += Number(!codes.length); count += codes.length; assert.ok(codes.length <= 4); }
-  // Junk retains only 8/16 Potion 1 picks, of which 29/30 are usable;
+  // Junk retains only 8/16 Potion 1 picks, including the rare rejuvenation leaf;
   // Good retains 5/10 Jewelry picks. Removed leaves do not get rerolled.
-  const usefulWeight = 15 + 15 * (8 / 16) * (29 / 30) + 10 + 2 * (5 / 10);
+  const usefulWeight = 15 + 15 * (8 / 16) * 1 + 10 + 2 * (5 / 10);
   assert.ok(Math.abs(empty / 25000 - (.25 + .75 * (1 - usefulWeight / 142) ** 4)) < .015);
   assert.ok(Math.abs(count / 25000 - .75 * 4 * usefulWeight / 142) < .03);
 });
@@ -46,10 +47,10 @@ test('all chest branches resolve with usable drops and without replacing removed
 test('even an empty bonus table gives a gold pile and usable potion in all 75 areas', () => {
   for (const level of LEVELS) for (const diff of [0, 1, 2]) for (const goldFind of [0, 100]) {
     const ctx = chestContext(level, diff, 0, goldFind), drops = rollChestLoot(ctx, () => 0);
-    assert.deepEqual(drops, [{ gold: (5 + ctx.level) * (1 + goldFind / 100) }, { potion: 0 }]);
+    assert.deepEqual(drops, [{ gold: (5 + ctx.level) * (1 + goldFind / 100) }, { potion: potionIndex(`hp${potionTier(ctx.act, ctx.difficulty)}`) }]);
     let calls = 0;
     const mana = rollChestLoot(ctx, () => calls++ ? .99 : 0);
-    assert.equal(mana.at(-1)!.potion, 1);
+    assert.equal(mana.at(-1)!.potion, potionIndex(`mp${potionTier(ctx.act, ctx.difficulty)}`));
   }
 });
 test('MF changes quality only, while gold find changes pile size only', () => {

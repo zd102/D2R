@@ -17,7 +17,8 @@ export class SaveStore {
     if (raw === null) return { version: 1, revision: 0, items: [], checkpoints: {} };
     try {
       const data = JSON.parse(raw);
-      if (![1, 2].includes(data.version) || data.version === 2 && data.resources === undefined || !Number.isSafeInteger(data.revision) || data.revision < 0 || !data.checkpoints || typeof data.checkpoints !== 'object' || Array.isArray(data.checkpoints)) throw new Error();
+      if (![1, 2, 3].includes(data.version) || data.version >= 2 && data.resources === undefined || !Number.isSafeInteger(data.revision) || data.revision < 0 || !data.checkpoints || typeof data.checkpoints !== 'object' || Array.isArray(data.checkpoints)) throw new Error();
+      if (data.version === 3 && (!data.resources?.potions || !data.resources?.potionMembers)) throw new Error();
       const checkpoints: Record<string, SavedProfile> = {};
       for (const [id, value] of Object.entries(data.checkpoints)) {
         const profile = parseProfile(JSON.stringify(value));
@@ -36,11 +37,11 @@ export class SaveStore {
   async initializeResources() {
     return this.sharedLock(() => {
       const shared = this.readShared(), profiles = this.list(false);
-      if (this.invalidCount) throw new SaveError('部分角色存档损坏，无法合并金币和符文，原数据已保留。', 'corrupt');
+      if (this.invalidCount) throw new SaveError('部分角色存档损坏，无法合并金币、符文和药水，原数据已保留。', 'corrupt');
       const resources = collectResources(shared.resources, profiles);
-      if (shared.version !== 2 || JSON.stringify(resources) !== JSON.stringify(shared.resources)) {
-        // Older pages reject version 2 instead of dropping the new shared balances.
-        shared.version = 2; shared.resources = resources; commitSharedRaw(this.storage, JSON.stringify(shared));
+      if (shared.version !== 3 || JSON.stringify(resources) !== JSON.stringify(shared.resources)) {
+        // Older pages reject version 3 instead of dropping the new shared balances.
+        shared.version = 3; shared.resources = resources; commitSharedRaw(this.storage, JSON.stringify(shared));
       }
     });
   }
@@ -96,7 +97,9 @@ export class SaveStore {
   }
   create(name: string, classId: ClassId = 'paladin'): SavedProfile {
     if(!isClassId(classId)) throw new SaveError('不支持的职业。', 'file');
-    return this.createProfile(name, newHero(classId));
+    const hero = newHero(classId);
+    if (this.readShared().resources?.potionMembers?.length) hero.potions.fill(0);
+    return this.createProfile(name, hero);
   }
   private createProfile(name: string, hero: HeroState): SavedProfile {
     const normalized = this.checkName(name);

@@ -16,7 +16,7 @@ test('local resources merge old characters once, survive deletion and remain sha
   b = store.save(b.id, { ...b.hero, gold: 200, runes: ['tir', 'el'] }, b.revision);
   const original = data.get(PROFILE_PREFIX + a.id);
   await store.initializeResources(); await store.initializeResources();
-  assert.equal(store.readShared().version, 2);
+  assert.equal(store.readShared().version, 3);
   assert.equal(data.get(PROFILE_PREFIX + a.id), original);
   a = store.read(a.id); b = store.read(b.id);
   assert.equal(a.hero.gold, 10000200); assert.equal(b.hero.runes.length, 1002);
@@ -45,4 +45,33 @@ test('failed resource writes preserve both character and wallet; import contribu
   const imported = store.importCharacter(store.exportCharacter(a.id).content, '副本');
   await store.initializeResources(); await store.initializeResources();
   assert.equal(store.read(imported.id).hero.gold, 100); assert.deepEqual(store.read(a.id).hero.runes, ['ral', 'ral']);
+});
+
+test('v2 wallets migrate every personal potion once, reject stale spending and do not duplicate exported shared stacks', async () => {
+  const { store, data } = fixture();
+  const a = store.create('旧药甲'), b = store.create('旧药乙');
+  // Emulate the previous shared gold/rune format, whose characters still owned potions.
+  data.set(SHARED_STORAGE_KEY, JSON.stringify({ version: 2, revision: 0, items: [], checkpoints: {}, resources: {
+    revision: 4, gold: 10, runes: [], members: [a, b].map(p => `${p.id}:${p.createdAt}`),
+  } }));
+  await store.initializeResources(); await store.initializeResources();
+  let first = store.read(a.id); const stale = store.read(b.id);
+  assert.equal(first.hero.potions[0], 12); assert.equal(first.hero.potions[1], 8);
+  first.hero.potions[0]--; first.hero.potions[14] = 2; first.hero.potionBindings = [14, 13, 3, 4];
+  first = await store.saveAtomic(first.id, first.hero, first.revision, first.resourcesRevision);
+  const fresh = store.read(b.id); assert.equal(fresh.hero.potions[0], 11); assert.equal(fresh.hero.potions[14], 2);
+  assert.deepEqual(fresh.hero.potionBindings, [0, 1, 13, 14]);
+  await assert.rejects(store.saveAtomic(stale.id, stale.hero, stale.revision, stale.resourcesRevision), /共享/);
+  store.importCharacter(store.exportCharacter(first.id).content, '导入副本');
+  await store.initializeResources(); assert.equal(store.readShared().resources!.potions![14], 2);
+  store.delete(first.id, first.revision); const created = store.create('新角色'); await store.initializeResources();
+  assert.equal(store.read(created.id).hero.potions[0], 11);
+  assert.equal(store.read(created.id).hero.potions[14], 2);
+});
+
+test('a corrupt migrated potion wallet cannot recollect stale role snapshots', async () => {
+  const { store, data } = fixture(); store.create('甲'); await store.initializeResources();
+  const shared = JSON.parse(data.get(SHARED_STORAGE_KEY)!); delete shared.resources.potions;
+  data.set(SHARED_STORAGE_KEY, JSON.stringify(shared)); const before = new Map(data);
+  await assert.rejects(store.initializeResources(), /无法读取/); assert.deepEqual(data, before);
 });

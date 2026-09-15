@@ -54,7 +54,7 @@ try {
   await page.getByRole('button', { name: '新建角色', exact: true }).click(); await page.getByLabel('角色名称', { exact: true }).fill('在线冒险者');
   await page.getByRole('button', { name: '创建并进入', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.profileName === '在线冒险者' && !window.eclipseState.paused);
-  await page.evaluate(async () => { const g = window.onlineGame; g.hero.gold = 4567; g.hero.runes = ['el', 'tir']; if (!await g.flushSave()) throw new Error('save failed'); });
+  await page.evaluate(async () => { const g = window.onlineGame; g.hero.gold = 4567; g.hero.runes = ['el', 'tir']; g.hero.potions[11] = 7; g.hero.potions[14] = 2; g.hero.potionBindings = [11, 12, 13, 14]; if (!await g.flushSave()) throw new Error('save failed'); });
   await leave(page);
   const downloadEvent = page.waitForEvent('download'); await page.getByRole('button', { name: '导出角色存档', exact: true }).click();
   const download = await downloadEvent; await download.saveAs(join(output, 'exported-character.json'));
@@ -66,11 +66,24 @@ try {
   await page.getByRole('button', { name: '导入为新角色', exact: true }).click(); await roster(page);
   await expect(page.getByRole('option')).toHaveCount(2); await enter(page, '上传副本');
   assert.equal(await page.evaluate(() => window.eclipseState.gold), 9134);
+  assert.equal(await page.evaluate(() => window.onlineGame.hero.potions[11]), 7);
+  assert.equal(await page.evaluate(() => window.onlineGame.hero.potions[14]), 2);
   assert.deepEqual(await page.evaluate(() => window.onlineGame.hero.runes), ['el', 'tir', 'el', 'tir']);
   await page.evaluate(async () => { const g = window.onlineGame; g.hero.runes.splice(1, 1); if (!await g.flushSave()) throw new Error('save failed'); });
   await leave(page); await enter(page, '在线冒险者');
   assert.equal(await page.evaluate(() => window.eclipseState.gold), 9134);
   assert.deepEqual(await page.evaluate(() => window.onlineGame.hero.runes), ['el', 'el', 'tir']);
+  await page.evaluate(async () => { const g = window.onlineGame; g.hero.hp = 1; g.drink(14); if (!await g.flushSave()) throw new Error('potion save failed'); });
+  await leave(page); await enter(page, '上传副本');
+  assert.equal(await page.evaluate(() => window.onlineGame.hero.potions[14]), 1);
+  await page.keyboard.press('i'); await page.getByRole('tab', { name: '药水', exact: true }).click();
+  await expect(page.locator('[data-potion-code]')).toHaveCount(15);
+  await expect(page.locator('[data-potion-code="hp5"] b')).toHaveText('7');
+  await page.locator('[data-potion-binding="0"]').selectOption('14');
+  await page.evaluate(async () => { if (!await window.onlineGame.flushSave()) throw new Error('binding save failed'); });
+  await leave(page); await enter(page, '在线冒险者');
+  assert.deepEqual(await page.evaluate(() => window.onlineGame.hero.potionBindings), [11, 12, 13, 14]);
+
   await leave(page); await enter(page, '上传副本');
   // The server commits a save while its first response is lost. Retrying must not roll back live state.
   let dropped = false, retryOperations = [];

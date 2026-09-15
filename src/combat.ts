@@ -2,7 +2,7 @@ import { monsterTraits } from './monster-traits.ts';
 import { castItemSkill } from './item-skill-combat.ts';
 import { itemSkillKind, type ItemSkillId } from './item-skill-definitions.ts';
 import { withCastingSkill, castingSkillRanks, castingSkillLevel, castingSkillCost, castChargedSkill, reconcileSkillBindings } from './model.ts';
-import { tickPotionTimers } from './potions.ts';
+import { tickPotionTimers, tickRecoveryPotions } from './potions.ts';
 import { hasMonsterAffix } from './monster-affixes.ts';
 import type { AttackSpec } from './monster-combat.ts';
 import { playerLifeFactor } from './player-count.ts';
@@ -42,7 +42,6 @@ export class PaladinCombat {
   movementRecovery = 0;
   fohDelay = 0;
   auraTimer = 0;
-  regen: [number, number] = [0, 0];
   repairTime = new WeakMap<Item, number>();
   itemCurses = new WeakMap<Enemy, { kind: ItemCurse; remaining: number; rank?: number }>();
   private triggeringItem = false;
@@ -440,7 +439,7 @@ export class PaladinCombat {
     const cleanse = 1 / (1 - (s.auras.find(aura => aura.id === 'cleansing')?.percent ?? 0) / 100);
     h.poison = Math.max(0, h.poison - dt * cleanse / (1 - Math.min(75, s.mods.poisonLength ?? 0) / 100)); h.curse = Math.max(0, h.curse - dt * cleanse); h.cold = Math.max(0, h.cold - dt);
     if (h.poison > 0) h.hp = Math.max(1, h.hp - dt * resistedDamage(2 + difficulty(h) * 2, s.resistances.poison));
-    for (const index of [0, 1] as const) if (this.regen[index] > 0) { const restored = Math.min(this.regen[index], (index ? 15 : 30) * dt); this.regen[index] -= restored; const key = index ? 'mana' : 'hp'; h[key] = Math.min(index ? s.maxMana : s.maxHp, h[key] + restored); }
+    tickRecoveryPotions(h, dt, s.maxHp, s.maxMana);
     if (h.potionTimers[0] > 0) h.stamina = s.maxStamina;
     else if (this.moving && h.running && h.stamina > 0) h.stamina = Math.max(0, h.stamina - dt * 6 * Math.max(0, 1 - (s.mods.staminaDrain ?? 0) / 100)); else h.stamina = Math.min(s.maxStamina, h.stamina + dt * (this.moving ? 4 : 16) * (1 + ((s.mods.staminaRegen ?? 0) + (s.aura.id === 'vigor' ? s.aura.secondary : 0)) / 100));
     this.auraRing.visible = !!s.auras.length; this.auraRing.position.copy(g.position).setY(.08); this.auraRing.rotation.z = g.time * .4;

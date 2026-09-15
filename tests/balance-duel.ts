@@ -1,3 +1,4 @@
+import { POTIONS, potionIndex, potionTier, useRecoveryPotion } from '../src/potions.ts';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PaladinCombat } from '../src/combat.ts';
@@ -62,7 +63,8 @@ export function simulateDuel(level: number, difficulty: 0 | 1 | 2, index: number
       else if (game.time % 3 < 2 && (distance <= 2.6 || build === 'hammer' && distance <= 5)) combat.castAction(hero.bindings.attack);
       for (const i of [0, 1] as const) {
         const key = i ? 'mana' : 'hp', maximum = i ? s.maxMana : s.maxHp;
-        if (hero[key] < maximum * .55 && combat.regen[i] < (i ? 15 : 30) && hero.potions[i] > 0) { hero.potions[i]--; combat.regen[i] += i ? 80 : 160; manaCosts[key]++; }
+        const potion = potionIndex(`${i ? 'mp' : 'hp'}${potionTier(LEVELS[index].act, difficulty)}`)!;
+        if (hero[key] < maximum * .55 && !hero.potionRecovery.some(effect => POTIONS[effect.index].kind === (i ? 'mana' : 'health')) && manaCosts[key] < 8) { hero.potions[potion] = 1; if (!useRecoveryPotion(hero, potion, s.maxHp, s.maxMana)) manaCosts[key]++; }
       }
       monsterCombat.update(dt);
       for (const enemy of enemies) if (!enemy.dead) { enemy.body.position.x += enemy.body.velocity.x * dt; enemy.body.position.z += enemy.body.velocity.z * dt; enemy.actor.group.position.set(enemy.body.position.x, 0, enemy.body.position.z); }

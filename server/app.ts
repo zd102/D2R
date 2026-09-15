@@ -6,7 +6,7 @@ import { ApiError, check, record, string, integer, validateHero, importProfile, 
 import { hashPassword, verifyPassword } from './password.ts';
 import { newHero } from '../src/model.ts';
 import { isClassId } from '../src/classes.ts';
-import { normalizeName, SaveError, CHARACTER_FILE_FORMAT, type SavedProfile, type SharedStash } from '../src/save-format.ts';
+import { normalizeName, parseProfile, SaveError, CHARACTER_FILE_FORMAT, type SavedProfile, type SharedStash } from '../src/save-format.ts';
 import { moveSharedItem, type SharedTransfer } from '../src/shared-stash.ts';
 import { collectResources, withResources, updateResources } from '../src/shared-resources.ts';
 
@@ -164,18 +164,19 @@ export async function createApp(options: Options) {
   });
   function readCharacter(userId: string, id: string): SavedProfile {
     const row = db.get<Character>('SELECT * FROM characters WHERE user_id=? AND id=? AND deleted_at IS NULL', userId, id);
-    check(row, 'CHARACTER_NOT_FOUND', '角色不存在或已删除。', 404); return withResources(JSON.parse(row.profile) as SavedProfile, readStash(userId).resources);
+    check(row, 'CHARACTER_NOT_FOUND', '角色不存在或已删除。', 404); return withResources(parseProfile(row.profile)!, readStash(userId).resources);
   }
   function readStash(userId: string): SharedStash {
     if (!db.connection.isTransaction) return db.transaction(() => readStash(userId));
     const row = db.get<{ state: string }>('SELECT state FROM stashes WHERE user_id=?', userId);
     check(row, 'INVALID_SAVE', '账号仓库无法读取。'); const state = JSON.parse(row.state) as SharedStash;
-    check([1, 2].includes(state.version) && (state.version !== 2 || state.resources !== undefined), 'INVALID_SAVE', '账号仓库无法读取。');
+    check([1, 2, 3].includes(state.version) && (state.version === 1 || state.resources !== undefined), 'INVALID_SAVE', '账号仓库无法读取。');
+    check(state.version !== 3 || state.resources?.potions && state.resources?.potionMembers, 'INVALID_SAVE', '共享药水仓库无法读取。');
     validateStash(state.items);
     const profiles = db.all<Character>('SELECT * FROM characters WHERE user_id=? AND deleted_at IS NULL', userId).map(row => JSON.parse(row.profile) as SavedProfile);
     const resources = collectResources(state.resources, profiles);
-    if (state.version !== 2 || JSON.stringify(resources) !== JSON.stringify(state.resources)) {
-      state.version = 2; state.resources = resources;
+    if (state.version !== 3 || JSON.stringify(resources) !== JSON.stringify(state.resources)) {
+      state.version = 3; state.resources = resources;
       db.run('UPDATE stashes SET state=? WHERE user_id=?', JSON.stringify(state), userId);
     }
     return state;
@@ -208,7 +209,7 @@ export async function createApp(options: Options) {
   app.get('/api/v1/characters', async req => {
     const active = session(req);
     const shared = readStash(active.user_id);
-    return db.all<Character>('SELECT * FROM characters WHERE user_id=? AND deleted_at IS NULL', active.user_id).map(row => withResources(JSON.parse(row.profile), shared.resources)).sort((a: SavedProfile, b: SavedProfile) => b.updatedAt - a.updatedAt);
+    return db.all<Character>('SELECT * FROM characters WHERE user_id=? AND deleted_at IS NULL', active.user_id).map(row => withResources(parseProfile(row.profile)!, shared.resources)).sort((a: SavedProfile, b: SavedProfile) => b.updatedAt - a.updatedAt);
   });
   app.get('/api/v1/characters/:id', async req => readCharacter(session(req).user_id, param(req, 'id')));
   function createCharacter(userId: string, data: Record<string, unknown>, imported = false) {
@@ -218,6 +219,7 @@ export async function createApp(options: Options) {
     const name = checkName(userId, data.name ?? source?.name), hero = source?.hero ?? newHero(data.classId as Parameters<typeof newHero>[0]);
     heroItems(hero).forEach(item => { item.id = randomUUID(); });
     const stash = readStash(userId);
+    if (!imported && stash.resources?.potionMembers?.length) hero.potions.fill(0);
     const profile: SavedProfile = { version: 2, id: randomUUID(), name, createdAt: now(), updatedAt: now(), revision: 1, sharedRevision: stash.revision, hero };
     noDuplicateItems(userId, profile, stash);
     db.run('INSERT INTO characters (id,user_id,name_key,profile) VALUES (?,?,?,?)', profile.id, userId, name.toLowerCase(), JSON.stringify(profile));

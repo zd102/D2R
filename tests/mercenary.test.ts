@@ -118,9 +118,9 @@ test('malformed guard resources and aura values are sanitized without corrupting
 test('feeding a health potion consumes one shared bottle and heals only the mercenary over time', () => {
   const h = hero(); h.mercenary!.hp = 100; const playerHp = h.hp, count = h.potions[0];
   assert.ok(feedMercenaryPotion(h)); assert.equal(h.potions[0], count - 1); assert.equal(h.mercenary!.hp, 100);
-  updateMercenaryPotion(h, 1); assert.equal(h.mercenary!.hp, 130); assert.equal(h.hp, playerHp);
-  const loaded = parseSave(serializeSave(h))!; assert.equal(loaded.mercenary!.potionHealing, 130);
-  updateMercenaryPotion(loaded, 10); assert.equal(loaded.mercenary!.hp, 260); assert.equal(loaded.mercenary!.potionHealing, 0);
+  updateMercenaryPotion(h, 1); assert.equal(h.mercenary!.hp, 107.5); assert.equal(h.hp, playerHp);
+  const loaded = parseSave(serializeSave(h))!; assert.equal(loaded.mercenary!.potionHealing, 37.5);
+  updateMercenaryPotion(loaded, 10); assert.equal(loaded.mercenary!.hp, 145); assert.equal(loaded.mercenary!.potionHealing, 0);
   loaded.mercenary!.hp = mercenaryStats(loaded).maxHp - 1; feedMercenaryPotion(loaded); updateMercenaryPotion(loaded, 1);
   assert.equal(loaded.mercenary!.hp, mercenaryStats(loaded).maxHp);
 });

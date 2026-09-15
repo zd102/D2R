@@ -1,3 +1,4 @@
+import { POTIONS, potionIndex, potionTier, useRecoveryPotion } from '../src/potions.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {classFixture} from './class-fixture.ts';
@@ -25,7 +26,7 @@ function duel(level:number,difficulty:0|1|2,index:number,build:'fire'|'cold'|'li
   else if(build==='bow'){primary=level<24?'magicArrow':'strafe';learn('criticalStrike',5);learn(primary,20);learn('penetrate',10);learn('criticalStrike',20);learn('penetrate',20);}
   else{primary=level<18?'powerStrike':'chargedStrike';learn('criticalStrike');learn(primary,20);learn('powerStrike',20);learn('lightningFury',20);learn('lightningStrike',20);}
   h.ammo.arrows=600;Object.assign(f.hero,h);f.hero.hp=stats(h).maxHp;f.hero.mana=stats(h).maxMana;const boss=f.enemy(amazon&&build==='javelin'?2:6);Object.assign(boss,monsterStats(BOSSES[index],LEVELS[index],difficulty,true));boss.hp=boss.maxHp;boss.boss=true;boss.definition=BOSSES[index];f.game.target=boss;
-  let seconds=0,potions=0;while(seconds<120&&!boss.dead){if(f.hero.mana<stats(h).maxMana*.25&&f.combat.regen[1]<15&&potions<8){f.combat.regen[1]+=80;potions++;}f.game.aim.copy(boss.actor.group.position);if(seconds%3<2)f.combat.castAction(primary,true);f.tick(.04);seconds+=.04;}
+  let seconds=0,potions=0;while(seconds<120&&!boss.dead){if(f.hero.mana<stats(h).maxMana*.25&&!f.hero.potionRecovery.some(effect=>POTIONS[effect.index].kind==='mana')&&potions<8){const potion=potionIndex(`mp${potionTier(LEVELS[index].act,difficulty)}`)!;f.hero.potions[potion]=1;if(!useRecoveryPotion(f.hero,potion,stats(h).maxHp,stats(h).maxMana))potions++;}f.game.aim.copy(boss.actor.group.position);if(seconds%3<2)f.combat.castAction(primary,true);f.tick(.04);seconds+=.04;}
   f.combat.classes.clear();return{level,difficulty,build,seconds:Math.round(seconds*10)/10,manaPotions:potions,arrows:600-h.ammo.arrows,won:boss.dead,remaining:Math.round(boss.hp/boss.maxHp*100),rank:skillLevel(h,primary)};
 }
 test('legal Amazon and Sorceress builds can damage and defeat representative chapter bosses within bounded mana budgets',t=>{

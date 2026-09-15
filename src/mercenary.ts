@@ -1,3 +1,4 @@
+import { POTIONS, potionAmount } from './potions.ts';
 import { newHero, stats, emptyEquipment, equippedAuras, type HeroState } from './model.ts';
 import { addMods, itemMods, itemRequirements, weaponType, packItems, type Item, type Mods } from './items.ts';
 import { levelMods } from './item-effects.ts';
@@ -11,24 +12,29 @@ export { MERCENARY_AURAS, mercenaryAuraRank, mercenaryAuraValues, type Mercenary
 export const MERCENARY_SLOTS = ['weapon', 'helm', 'armor'] as const;
 export type MercenarySlot = typeof MERCENARY_SLOTS[number];
 export const MERCENARY_JAB = { hits: 2, chainDelay: .16, recovery: .8 } as const;
-export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number; buffs?: HeroState['buffs'] };
-export const MERCENARY_POTION = { healing: 160, perSecond: 30 } as const;
+export type MercenaryState = { status: 'alive' | 'dead'; hp: number; aura: MercenaryAura; equipment: Record<MercenarySlot, Item | null>; cold: number; poison: number; potionHealing?: number; potionRate?: number; buffs?: HeroState['buffs'] };
+export const MERCENARY_POTION = { healing: 45, perSecond: 7.5 } as const;
+const mercenaryPotionIndex = (hero: HeroState) => POTIONS.map((p, index) => ({ ...p, index })).filter(p => p.kind === 'health' && hero.potions[p.index] > 0).sort((a, b) => b.tier - a.tier)[0]?.index;
 export function mercenaryPotionReason(hero: HeroState) {
   const merc = hero.mercenary;
   if (!merc) return '尚未雇佣米山';
   if (merc.status !== 'alive' || merc.hp <= 0) return '米山已阵亡，需要重新雇佣';
   if (merc.hp >= mercenaryStats(hero).maxHp) return '米山生命值已满';
-  return hero.potions[0] > 0 ? '' : '生命药剂已用尽';
+  return mercenaryPotionIndex(hero) !== undefined ? '' : '生命药剂已用尽';
 }
 export function feedMercenaryPotion(hero: HeroState) {
   if (mercenaryPotionReason(hero)) return false;
-  hero.potions[0]--; hero.mercenary!.potionHealing = (hero.mercenary!.potionHealing ?? 0) + MERCENARY_POTION.healing; return true;
+  const index = mercenaryPotionIndex(hero)!, healing = potionAmount(index, 'paladin');
+  hero.potions[index]--; hero.mercenary!.potionHealing = (hero.mercenary!.potionHealing ?? 0) + healing;
+  hero.mercenary!.potionRate = Math.max(hero.mercenary!.potionRate ?? 0, healing / 6); return true;
 }
 export function updateMercenaryPotion(hero: HeroState, dt: number, maxHp = mercenaryStats(hero).maxHp) {
   const merc = hero.mercenary;
   if (!merc || merc.status !== 'alive' || merc.hp <= 0 || !Number.isFinite(dt) || dt <= 0) return;
-  const restored = Math.min(merc.potionHealing ?? 0, MERCENARY_POTION.perSecond * dt);
+  const restored = Math.min(merc.potionHealing ?? 0, (merc.potionRate ?? MERCENARY_POTION.perSecond) * dt);
   merc.potionHealing = Math.max(0, (merc.potionHealing ?? 0) - restored); merc.hp = Math.min(maxHp, merc.hp + restored);
+  if (merc.hp >= maxHp) merc.potionHealing = 0;
+  if (!merc.potionHealing) merc.potionRate = 0;
 }
 export const mercenaryUnlocked = (hero: HeroState) => hero.campaign.cleared.some(count => count >= 5);
 export const mercenaryCost = (hero: HeroState) => Math.min(50000, 300 + hero.level * 80 + hero.level * hero.level * 5);
@@ -162,6 +168,7 @@ export function parseMercenary(hero: HeroState, value: unknown, parseItem: (valu
   }
   merc.hp = Math.max(0, Math.min(mercenaryStats(hero).maxHp, typeof data.hp === 'number' && Number.isFinite(data.hp) ? data.hp : 0));
   if (merc.status === 'dead' || !merc.hp) { merc.status = 'dead'; merc.hp = 0; }
+  merc.potionRate = typeof data.potionRate === 'number' && Number.isFinite(data.potionRate) && data.potionRate > 0 ? Math.min(80, data.potionRate) : MERCENARY_POTION.perSecond;
   merc.potionHealing = merc.status === 'alive' && typeof data.potionHealing === 'number' && Number.isFinite(data.potionHealing) ? Math.max(0, Math.min(1000000, data.potionHealing)) : 0;
   for (const key of ['cold', 'poison'] as const) merc[key] = typeof data[key] === 'number' && Number.isFinite(data[key]) ? Math.max(0, Math.min(120, data[key]!)) : 0;
 }

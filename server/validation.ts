@@ -51,6 +51,8 @@ export function validateHero(value: unknown): HeroState {
   }
   integer(raw.level, 1, 99); integer(raw.gold, 0); integer(raw.kills, 0, 10000000);
   parseResources({ revision: 0, gold: raw.gold, runes: raw.runes, members: [] });
+  parseResources({ revision: 0, gold: 0, runes: [], members: [], potions: raw.potions, potionMembers: [] });
+  check((raw.potionBindings as unknown[]).length === 4 && (raw.potionBindings as unknown[]).every(value => Number.isInteger(value) && Number(value) >= 0 && Number(value) < 15), 'INVALID_SAVE', '药水快捷键无效。');
   integer(raw.points, 0, 10000000); integer(raw.skillPoints, 0, 10000000);
   for (const field of ['strength','dexterity','vitality','energy']) integer(raw[field], 1, 10000);
   for (const field of ['xp','hp','mana','stamina']) check(typeof raw[field] === 'number' && (raw[field] as number) >= 0, 'INVALID_SAVE');

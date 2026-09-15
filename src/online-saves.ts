@@ -22,7 +22,7 @@ export class OnlineSaveStore {
   readShared() { return this.shared; }
   remember(id: string) { this.lastId = id; try { sessionStorage.setItem(`eclipse-online-last:${this.client.session!.user.id}`, id); } catch { /* Optional preference. */ } }
   private accept(profile: SavedProfile) {
-    if (this.shared.resources && profile.resourcesRevision !== undefined) this.shared.resources = { ...this.shared.resources, revision: profile.resourcesRevision, gold: profile.hero.gold, runes: [...profile.hero.runes] };
+    if (this.shared.resources && profile.resourcesRevision !== undefined) this.shared.resources = { ...this.shared.resources, revision: profile.resourcesRevision, gold: profile.hero.gold, runes: [...profile.hero.runes], potions: [...profile.hero.potions] };
     this.profiles = [profile, ...this.profiles.filter(p => p.id !== profile.id)]; return profile;
   }
   private mutation<T>(path: string, method: string, data: object) { return this.client.reliable<T>(path, method, { ...data, operationId: onlineId() }); }

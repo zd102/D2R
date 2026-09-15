@@ -1,4 +1,4 @@
-import { POTIONS } from './potions.ts';
+import { POTIONS, potionAmount } from './potions.ts';
 import { stats, type HeroState } from './model.ts';
 import { skillName, skillIcon, skillValues, type SkillId } from './paladin.ts';
 
@@ -9,6 +9,12 @@ export function heroStatuses(hero: HeroState, current = stats(hero)): HeroStatus
     const potion = POTIONS[index + 2];
     if (remaining > 0) effects.push({ id: `potion-${potion.code}`, name: potion.name, icon: potion.icon, kind: 'buff', remaining, description: potion.description });
   });
+  for (const kind of ['health', 'mana'] as const) {
+    const pending = hero.potionRecovery.filter(effect => POTIONS[effect.index].kind === kind);
+    if (pending.length) effects.push({ id: `recovery-${kind}`, name: kind === 'health' ? '生命恢复' : '法力恢复', icon: kind === 'health' ? 'heart-pulse' : 'droplets', kind: 'buff',
+      remaining: pending.reduce((time, effect) => time + effect.remaining / potionAmount(effect.index, hero.classId) * (kind === 'health' ? 6 : 3), 0),
+      description: `剩余恢复 ${Math.ceil(pending.reduce((amount, effect) => amount + effect.remaining, 0))} 点；回满后结束` });
+  }
   const debuff = (id: string, name: string, icon: string, remaining: number, description: string) => {
     if (remaining > 0) effects.push({ id, name, icon, remaining, description, kind: 'debuff' });
   };

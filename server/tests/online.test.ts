@@ -53,15 +53,20 @@ test('existing account balances migrate without truncation or rewriting source c
   t.after(() => { for (const suffix of ['', '-wal', '-shm']) rmSync(filename + suffix, { force: true }); rmdirSync(directory); });
   const first = await create('旧甲'), second = await create('旧乙');
   first.hero.gold = 10000000; first.hero.runes = Array(1000).fill('el'); second.hero.gold = 200; second.hero.runes = ['tir'];
+  for (const profile of [first, second]) {
+    profile.hero.potions = [6, 4, 1, 2, 3]; delete profile.hero.potionsShared; delete profile.hero.potionBindings; delete profile.hero.potionRecovery;
+  }
   const db = new DatabaseSync(filename);
   try {
     for (const profile of [first, second]) db.prepare('UPDATE characters SET profile=? WHERE id=?').run(JSON.stringify(profile), profile.id);
     db.prepare('UPDATE stashes SET state=?').run(JSON.stringify({ version: 1, revision: 0, items: [], checkpoints: {} }));
     const shared = (await a.request('/stash')).json();
     assert.equal(shared.resources.gold, 10000200); assert.equal(shared.resources.runes.length, 1001);
+    assert.deepEqual(shared.resources.potions, [12, 8, 2, 4, 6, ...Array(10).fill(0)]);
     assert.deepEqual((await a.request('/stash')).json(), shared);
     assert.equal((db.prepare('SELECT profile FROM characters WHERE id=?').get(first.id) as { profile: string }).profile, JSON.stringify(first));
     const profile = (await a.request(`/characters/${second.id}`)).json();
+    assert.deepEqual(profile.hero.potionBindings, [0, 1, 13, 14]); assert.deepEqual(profile.hero.potionRecovery, []);
     const saved = await a.request(`/characters/${profile.id}/save`, 'PUT', { hero: profile.hero, expectedRevision: profile.revision, expectedStashRevision: 0, expectedResourcesRevision: profile.resourcesRevision, operationId: randomUUID() });
     assert.equal(saved.statusCode, 200, saved.body); assert.equal(saved.json().hero.gold, 10000200); assert.equal(saved.json().hero.runes.length, 1001);
   } finally { db.close(); }
@@ -84,6 +89,26 @@ test('gold and runes belong to the account, reject stale snapshots and survive c
   assert.deepEqual((await b.request('/stash')).json().resources.runes, []);
   for (const profile of [response.json(), spent.json()]) assert.equal((await a.request(`/characters/${profile.id}`, 'DELETE', { expectedRevision: profile.revision, operationId: randomUUID() })).statusCode, 200);
   const next = await create('新的角色'); assert.equal(next.hero.gold, 12000); assert.deepEqual(next.hero.runes, ['el', 'el']);
+});
+
+test('account potion inventory is shared, isolated, retry-safe and preserved after all characters are deleted', async t => {
+  const { a, b, create } = await fixture(t);
+  let first = await create('药水甲'); const second = await create('药水乙'), other = await create('其他账号药水', b);
+  first = (await a.request(`/characters/${first.id}`)).json();
+  assert.equal(first.hero.potions[0], 6); // New roles cannot farm starter potions.
+  first.hero.potions[0]--; first.hero.potions[11] = 1200; first.hero.potions[14] = 2;
+  first.hero.potionBindings = [11, 12, 13, 14];
+  const body = { hero: first.hero, expectedRevision: first.revision, expectedStashRevision: 0, expectedResourcesRevision: first.resourcesRevision, operationId: randomUUID() };
+  const response = await a.request(`/characters/${first.id}/save`, 'PUT', body);
+  assert.equal(response.statusCode, 200, response.body);
+  assert.deepEqual((await a.request(`/characters/${first.id}/save`, 'PUT', body)).json(), response.json());
+  const fresh = (await a.request(`/characters/${second.id}`)).json();
+  assert.deepEqual(fresh.hero.potions, first.hero.potions); assert.deepEqual(fresh.hero.potionBindings, [0, 1, 13, 14]);
+  const stale = await a.request(`/characters/${second.id}/save`, 'PUT', { ...body, hero: second.hero, expectedRevision: second.revision, expectedResourcesRevision: second.resourcesRevision, operationId: randomUUID() });
+  assert.notEqual(stale.statusCode, 200);
+  assert.equal((await b.request(`/characters/${other.id}`)).json().hero.potions[14], 0);
+  for (const profile of [response.json(), fresh]) assert.equal((await a.request(`/characters/${profile.id}`, 'DELETE', { expectedRevision: profile.revision, operationId: randomUUID() })).statusCode, 200);
+  const next = await create('药水继承'); assert.equal(next.hero.potions[11], 1200); assert.equal(next.hero.potions[14], 2); assert.equal(next.hero.potions[0], 5);
 });
 
 test('remembered login restores saves after expiry, remains exclusive and is revoked by logout', async t => {

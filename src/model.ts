@@ -1,3 +1,4 @@
+import { POTIONS, POTION_LIMIT, DEFAULT_POTION_BINDINGS, emptyPotions, potionAmount, type PotionRecovery } from './potions.ts';
 import { itemCharges, chargeGroups, consumeCharge, type ChargeBinding } from './item-charges.ts';
 import { refreshBaseStock, parseBaseStock, type BaseStock } from './progression-equipment.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count.ts';
@@ -25,7 +26,7 @@ export type HeroState = {
   skillPoints: number; skills: Record<SkillId, number>; activeAura: SkillId | null;
   bindings: Record<SkillSlot, ActionId>; chargeBindings?: Partial<Record<SkillSlot, ChargeBinding>>;
   buffs: Partial<Record<SkillId, { remaining: number; rank: number; absorb?: number }>>;
-  hp: number; mana: number; stamina: number; running: boolean; potions: number[]; potionTimers: number[];
+  hp: number; mana: number; stamina: number; running: boolean; potions: number[]; potionTimers: number[]; potionBindings: number[]; potionRecovery: PotionRecovery[]; potionsShared?: boolean;
   ammo: { arrows: number; bolts: number };
   equipment: Record<Slot, Item | null>; alternate: { weapon: Item | null; shield: Item | null }; weaponSet: 0 | 1;
   inventory: Item[]; stash: Item[]; cube: Item[]; cubeUnlocked: boolean; runes: RuneId[]; identifyScrolls: number;
@@ -50,7 +51,7 @@ export const newHero = (classId: ClassId = 'paladin'): HeroState => ({
   skillPoints: 0, skills: emptySkills(), activeAura: null,
   bindings: { attack: 'attack', cleave: 'attack', ward: 'attack', nova: 'attack', dash: 'attack', bolt: classId === 'sorceress' ? 'fireBolt' : 'attack' },
   buffs: {},
-  hp: CLASSES[classId].life, mana: CLASSES[classId].mana, stamina: CLASSES[classId].stamina, running: true, potions: [6, 4, 0, 0, 0], potionTimers: [0, 0, 0], stage: 1, difficultyLevel: 0, unlockedDifficulty: 0, shrines: [], bossDefeated: false,
+  hp: CLASSES[classId].life, mana: CLASSES[classId].mana, stamina: CLASSES[classId].stamina, running: true, potions: emptyPotions().map((_, i) => i === 0 ? 6 : i === 1 ? 4 : 0), potionBindings: [...DEFAULT_POTION_BINDINGS], potionRecovery: [], potionTimers: [0, 0, 0], stage: 1, difficultyLevel: 0, unlockedDifficulty: 0, shrines: [], bossDefeated: false,
   ammo: { arrows: 0, bolts: 0 },
   equipment: { ...emptyEquipment(), weapon: classId === 'paladin' ? makeItem(BASES[0], 'starter-sword') : classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='jav')!, 'starter-javelin') : { ...makeItem(BASES.find(base=>base.baseCode==='sst')!, 'starter-staff'), mods: { skill_fireBolt: 1 } }, shield: classId === 'sorceress' ? null : makeItem(BASES.find(base => base.name === '圆盾')!, 'starter-shield') },
   alternate: { weapon: classId === 'amazon' ? makeItem(BASES.find(base=>base.baseCode==='sbw')!,'starter-bow') : null, shield: null }, weaponSet: 0, inventory: [], stash: [], cube: [], cubeUnlocked: false, runes: [], identifyScrolls: 0,
@@ -476,7 +477,7 @@ export function createCorpse(hero: HeroState, x: number, z: number) {
   if (!hero.corpse) hero.corpse = { equipment: hero.equipment, extras: [], x, z, xpLost: loss, gold };
   else { hero.corpse.xpLost += loss; hero.corpse.gold += gold; for (const slot of SLOTS) { const item = hero.equipment[slot]; if (item) { if (hero.corpse.equipment[slot]) hero.corpse.extras.push(item); else hero.corpse.equipment[slot] = item; } } }
   hero.equipment = emptyEquipment();
-  hero.potionTimers = [0, 0, 0]; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.poison = 0; hero.curse = 0; hero.cold = 0;
+  hero.potionTimers = [0, 0, 0]; hero.potionRecovery = []; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.poison = 0; hero.curse = 0; hero.cold = 0;
 }
 export function recoverCorpse(hero: HeroState, inField = true) {
   const corpse = hero.corpse; if (!corpse) return false;
@@ -559,7 +560,14 @@ export function parseSave(raw: string | null): HeroState | null {
     }
     if (hero.bossDefeated && (hero.campaign.current >= hero.campaign.cleared[hero.difficultyLevel] || !questComplete(hero.campaign))) hero.bossDefeated = false;
     hero.stage = hero.campaign.current + 1;
-    if (Array.isArray(h.potions)) hero.potions = [6, 4, 0, 0, 0].map((fallback, index) => integer(h.potions[index], fallback, 0, 99));
+    if (Array.isArray(h.potions)) hero.potions = POTIONS.map((_, index) => integer(h.potions[index], index === 0 ? 6 : index === 1 ? 4 : 0, 0, POTION_LIMIT));
+    if (h.potionsShared === true) hero.potionsShared = true;
+    hero.potionBindings = DEFAULT_POTION_BINDINGS.map((fallback, index) => integer(h.potionBindings?.[index], fallback, 0, POTIONS.length - 1));
+    hero.potionRecovery = Array.isArray(h.potionRecovery) ? h.potionRecovery.slice(0, 4).flatMap((entry: PotionRecovery) => {
+      const potion = POTIONS[entry?.index];
+      return potion && ['health', 'mana'].includes(potion.kind) && Number.isInteger(entry.index) && Number.isFinite(entry.remaining) && entry.remaining > 0
+        ? [{ index: entry.index, remaining: Math.min(entry.remaining, potionAmount(entry.index, hero.classId)) }] : [];
+    }) : [];
     hero.potionTimers = [0, 1, 2].map(index => decimal(h.potionTimers?.[index], 0, 0, Number.MAX_SAFE_INTEGER));
     if (h.ammo && typeof h.ammo === 'object') hero.ammo = { arrows: integer(h.ammo.arrows, 0, 0, 600), bolts: integer(h.ammo.bolts, 0, 0, 600) };
     const seen = new Set<string>(); const uniqueItem = (value: unknown) => { const item = parseItem(value); if (!item || seen.has(item.id)) return null; seen.add(item.id); return item; };

@@ -1,3 +1,4 @@
+import { potionIndex, potionTier } from '../src/potions.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BASES, SPECIAL_ITEMS, RUNEWORDS, AVAILABLE_RUNEWORDS, makeItem, rollItem, specialPool, runewordFits } from '../src/items.ts';
@@ -11,7 +12,7 @@ import { ENCYCLOPEDIA_ITEMS, encyclopediaItem, itemDropSources, recipeBases } fr
 import { newHero, insertRune, parseSave, serializeSave } from '../src/model.ts';
 
 const unsupportedClasses = new Set(['nec', 'bar', 'dru', 'ass']);
-const removedMisc = CHEST_MISC.filter(item => !/^[hm]p[1-5]$/.test(item.code) && !['vps', 'yps', 'wms'].includes(item.code));
+const removedMisc = CHEST_MISC.filter(item => !/^[hm]p[1-5]$/.test(item.code) && !['vps', 'yps', 'wms', 'rvs', 'rvl'].includes(item.code));
 const rng = (seed = 921) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 
 // Select a particular original treasure leaf, with NoDrop for the other three picks.
@@ -33,7 +34,7 @@ function drawsForCode(context: ChestContext, target: string): number[] | undefin
 }
 
 test('every removed miscellaneous item is unreachable even when its original chest branch is selected', () => {
-  assert.equal(removedMisc.length, 40);
+  assert.equal(removedMisc.length, 39);
   const contexts = LEVELS.flatMap(level => [0, 1, 2].map(diff => chestContext(level, diff)));
   for (const misc of removedMisc) {
     const context = contexts.find(context => drawsForCode(context, misc.code));
@@ -42,7 +43,7 @@ test('every removed miscellaneous item is unreachable even when its original che
     let index = 0;
     assert.deepEqual(rollChestCodes(context, () => draws[index++] ?? 0), [], misc.name);
     index = 0;
-    assert.deepEqual(rollChestLoot(context, () => draws[index++] ?? 0), [{ gold: 5 + context.level }, { potion: 0 }], misc.name);
+    assert.deepEqual(rollChestLoot(context, () => draws[index++] ?? 0), [{ gold: 5 + context.level }, { potion: potionIndex(`hp${potionTier(context.act, context.difficulty)}`) }], misc.name);
   }
   for (const code of ['hp1', 'mp1', 'rin', 'amu', 'jew', 'cm1', 'gld']) {
     const draws = drawsForCode(contexts[0], code)!; let index = 0;

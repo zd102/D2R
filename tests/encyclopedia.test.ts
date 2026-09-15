@@ -7,7 +7,7 @@ import { newHero, serializeSave } from '../src/model.ts';
 import { SPECIAL_LEVELS } from '../src/campaign.ts';
 
 test('encyclopedia covers every current item, rune, recipe, supply and all campaign monsters', () => {
-  assert.equal(ENCYCLOPEDIA_ITEMS.length, BASES.filter(isAvailableItem).length + SPECIAL_ITEMS.filter(isAvailableItem).length + AVAILABLE_RUNEWORDS.length + RUNE_ORDER.length + 5);
+  assert.equal(ENCYCLOPEDIA_ITEMS.length, BASES.filter(isAvailableItem).length + SPECIAL_ITEMS.filter(isAvailableItem).length + AVAILABLE_RUNEWORDS.length + RUNE_ORDER.length + 15);
   assert.equal(new Set(ENCYCLOPEDIA_ITEMS.map(item => item.id)).size, ENCYCLOPEDIA_ITEMS.length);
   assert.equal(ENCYCLOPEDIA_MONSTERS.length, Object.keys(MONSTERS).length + BOSSES.length);
   assert.equal(new Set(ENCYCLOPEDIA_MONSTERS.map(item => item.id)).size, ENCYCLOPEDIA_MONSTERS.length);

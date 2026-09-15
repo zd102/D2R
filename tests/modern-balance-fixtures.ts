@@ -1,3 +1,4 @@
+import { POTIONS, potionIndex, potionTier, useRecoveryPotion } from '../src/potions.ts';
 import * as THREE from 'three';
 import { newHero, gainXp, allocateAttribute, learnSkill, stats, skillLevel, activeEquipment } from '../src/model.ts';
 import { EXPERIENCE, skillById, type SkillId } from '../src/paladin.ts';
@@ -90,7 +91,8 @@ export function modernEncounter(level:number,difficulty:0|1|2,index:number,build
       }
       for(const i of [0,1] as const) {
         const key=i?'mana':'hp',max=i?s.maxMana:s.maxHp;
-        if(f.hero[key]<max*.55&&f.combat.regen[i]<(i?15:30)&&potions[i]<8){f.combat.regen[i]+=i?80:160;potions[i]++;}
+        const potion = potionIndex(`${i ? 'mp' : 'hp'}${potionTier(Math.floor(index / 5), difficulty)}`)!;
+        if(f.hero[key]<max*.55&&!f.hero.potionRecovery.some(effect => POTIONS[effect.index].kind === (i ? 'mana' : 'health'))&&potions[i]<8){f.hero.potions[potion]=1;if(!useRecoveryPotion(f.hero,potion,s.maxHp,s.maxMana))potions[i]++;}
       }
       f.tick(dt,true);
       for(const enemy of f.game.enemies)if(!enemy.dead){enemy.body.position.x+=enemy.body.velocity.x*dt;enemy.body.position.z+=enemy.body.velocity.z*dt;enemy.actor.group.position.set(enemy.body.position.x,0,enemy.body.position.z);}

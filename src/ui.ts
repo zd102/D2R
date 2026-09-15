@@ -1,4 +1,4 @@
-import { POTIONS } from './potions.ts';
+import { POTIONS, POTION_LIMIT, potionDescription } from './potions.ts';
 import { mercenaryPanel, type MercenaryPanelState } from './mercenary-ui';
 import { mercenaryUnlocked, mercenaryStats, equipMercenary, unequipMercenary, selectMercenaryAura } from './mercenary';
 import type { HeroState } from './model';
@@ -104,9 +104,7 @@ export class UI {
           <div class="action-row"><div class="skill-group">
             ${SKILL_SLOTS.map(key => `<button class="skill ${key}-skill" data-skill="${key}" ${tip('普通攻击')}><kbd>${keys[key]}</kbd>${icon('sword')}<span class="skill-name">普通攻击</span><span class="cooldown"></span></button>`).join('')}
           </div><span class="belt-divider"></span><div class="potion-group">
-            <button class="skill health-potion" data-potion="0" ${tip('生命药剂 · 1')}><kbd>1</kbd>${icon('flame')}<b id="health-potions">6</b></button>
-            <button class="skill mana-potion" data-potion="1" ${tip('法力药剂 · 2')}><kbd>2</kbd>${icon('droplets')}<b id="mana-potions">4</b></button>
-            ${POTIONS.slice(2).map((potion, i) => `<button class="skill utility-potion" data-potion="${i + 2}" ${tip(`${potion.name} · ${i + 3} · ${potion.description}`)}><kbd>${i + 3}</kbd>${icon(potion.icon)}<b id="utility-potions-${i + 2}">0</b></button>`).join('')}
+            ${[0, 1, 2, 3].map(slot => `<button class="skill potion-slot" data-potion-slot="${slot}" aria-label="药水快捷键 ${slot + 1}"><kbd>${slot + 1}</kbd><span class="potion-slot-name"></span><b>0</b></button>`).join('')}
           </div></div>
           <div class="paladin-status"><span id="active-aura-label">无灵气</span><span id="holy-shield-label"></span><span id="ammo-label" hidden></span><button data-action="run-mode" ${tip('切换跑步与行走')}><i data-lucide="footprints"></i></button><div class="stamina-track" ${tip('耐力')}><i id="stamina-fill"></i></div></div>
           <nav class="bottom-nav"><button data-panel="character" ${tip('角色 · C')}>${icon('user-round')}<span>角色</span><kbd class="nav-key" aria-hidden="true">C</kbd><b id="points-badge" hidden></b></button><button data-panel="skills" ${tip('技能 · T')}>${icon('book-open')}<span>技能</span><kbd class="nav-key" aria-hidden="true">T</kbd><b id="skill-points-badge" hidden></b></button><button data-panel="inventory" ${tip('背包 · I')}>${icon('backpack')}<span>背包</span><kbd class="nav-key" aria-hidden="true">I</kbd></button><button data-panel="quest" ${tip('任务 · J')}>${icon('scroll-text')}<span>任务</span><kbd class="nav-key" aria-hidden="true">J</kbd></button><button data-panel="map" ${tip('地图 · Tab')}>${icon('map')}<span>地图</span><kbd class="nav-key" aria-hidden="true">Tab</kbd></button><span class="gold-count">${icon('coins')}<b id="gold-value">0</b></span><button data-panel="pause" ${tip('暂停 · Esc')}>${icon('pause')}</button></nav>
@@ -268,6 +266,7 @@ export class UI {
       this.game.audio.unlock();
       if (element.dataset.panel) this.togglePanel(element.dataset.panel as Panel);
       if (element.dataset.skill) this.game.useSkill(element.dataset.skill as Skill);
+      if (element.dataset.potionSlot !== undefined) this.game.drink(this.game.hero.potionBindings[Number(element.dataset.potionSlot)]);
       if (element.dataset.potion) this.game.drink(Number(element.dataset.potion), this.panel === 'inventory');
       if (element.dataset.item) { this.game.audio.play('uiClick'); this.selectedItem = element.dataset.item; if (innerWidth <= 700 || innerHeight <= 580) this.characterScreen.inventoryPane = 'details'; this.renderPanel(); }
       if (element.dataset.equip) this.game.equip(element.dataset.equip);
@@ -457,7 +456,7 @@ export class UI {
     } else if (this.panel === 'pause') {
       content = settingsPanel(this.game);
     } else if (this.panel === 'shop') {
-      content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${POTIONS.map((potion, index) => `<div><div class="shop-item-icon">${icon(potion.icon)}</div><div><h3>${potion.name}</h3><small>持有 ${h.potions[index] ?? 0} · ${potion.description}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < vendorPrice(h, potion.price) || h.potions[index] >= 99 ? 'disabled' : ''}>${icon('coins')}${vendorPrice(h, potion.price)}</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
+      content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${POTIONS.map((potion, index) => potion.kind === 'rejuvenation' ? '' : `<div><div class="shop-item-icon">${icon(potion.icon)}</div><div><h3>${potion.name}</h3><small>持有 ${h.potions[index] ?? 0} · ${potionDescription(index, h.classId)}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < vendorPrice(h, potion.price) || h.potions[index] >= POTION_LIMIT ? 'disabled' : ''}>${icon('coins')}${vendorPrice(h, potion.price)}</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
     } else if (this.panel === 'base-shop') {
       content = progressionBaseShop(h);
     } else if (this.panel === 'death') {
@@ -540,13 +539,14 @@ export class UI {
     setText(document.getElementById('hero-level')!, `Lv. ${h.level}`);
     setText(document.getElementById('xp-value')!, h.level === 99 ? 'MAX' : `${Math.floor(h.xp / s.xpNeeded * 100)}%`);
     document.getElementById('xp-fill')!.style.width = `${h.level === 99 ? 100 : Math.min(100, h.xp / s.xpNeeded * 100)}%`;
-    setText(document.getElementById('health-potions')!, String(h.potions[0])); setText(document.getElementById('mana-potions')!, String(h.potions[1]));
-    POTIONS.slice(2).forEach((potion, i) => {
-      const count = h.potions[i + 2] ?? 0, label = document.getElementById(`utility-potions-${i + 2}`)!;
-      setText(label, String(count));
-      const button = label.parentElement as HTMLButtonElement;
+    document.querySelectorAll<HTMLButtonElement>('[data-potion-slot]').forEach(button => {
+      const slot = Number(button.dataset.potionSlot), index = h.potionBindings[slot], potion = POTIONS[index], count = h.potions[index] ?? 0;
+      setText(button.querySelector('b')!, count.toLocaleString());
+      setText(button.querySelector('.potion-slot-name')!, potion.name);
       button.disabled = count === 0;
-      button.setAttribute('aria-label', `${potion.name} · 剩余 ${count} · 快捷键 ${i + 3}`);
+      button.style.color = `#${potion.color.toString(16).padStart(6, '0')}`;
+      const label = `${potion.name} · 剩余 ${count} · 快捷键 ${slot + 1} · ${potionDescription(index, h.classId)}`;
+      button.setAttribute('aria-label', label); button.dataset.tip = label;
     });
     setText(document.getElementById('gold-value')!, h.gold.toLocaleString()); setText(document.getElementById('difficulty')!, game.inCamp ? '安全区域' : `${difficultyNames[difficulty(h)]} · Lv. ${levelTuning(game.level, difficulty(h)).level}`);
     const special = game.specialArea;

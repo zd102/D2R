@@ -1,5 +1,5 @@
 import { vendorPrice } from './model.ts';
-import { POTIONS, useUtilityPotion } from './potions.ts';
+import { POTIONS, POTION_LIMIT, potionDescription, useUtilityPotion, useRecoveryPotion } from './potions.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count';
 import { onlineStore, returnToMode } from './mode';
 import { OnlineSaveStore, OnlineSaveCoordinator } from './online-saves';
@@ -184,8 +184,8 @@ export class Game {
         const current = this.saves!.read(this.profile.id);
         if (current.revision === this.profile.revision && current.sharedRevision === this.profile.sharedRevision
           && current.resourcesRevision !== this.profile.resourcesRevision && !this.onlineSaveBusy
-          && this.hero.gold === this.profile.hero.gold && JSON.stringify(this.hero.runes) === JSON.stringify(this.profile.hero.runes)) {
-          this.hero.gold = current.hero.gold; this.hero.runes = [...current.hero.runes]; this.profile = current;
+          && this.hero.gold === this.profile.hero.gold && JSON.stringify(this.hero.runes) === JSON.stringify(this.profile.hero.runes) && JSON.stringify(this.hero.potions) === JSON.stringify(this.profile.hero.potions)) {
+          this.hero.gold = current.hero.gold; this.hero.runes = [...current.hero.runes]; this.hero.potions = [...current.hero.potions]; this.profile = current;
           this.ui.renderPanel(); return;
         }
         if (current.revision === this.profile.revision && current.sharedRevision === this.profile.sharedRevision && current.resourcesRevision === this.profile.resourcesRevision) { if (event.key === SHARED_STASH_KEY) this.ui.sharedStashScreen.refresh(); return; }
@@ -749,9 +749,7 @@ export class Game {
         this.heldSkill = this.repeatableSkill(id) ? { key, slot: skill, id } : undefined;
         this.skillRetry = .12; this.useSkill(skill); return;
       }
-      if (key === '1') this.drink(0);
-      if (key === '2') this.drink(1);
-      if (['3', '4', '5'].includes(key)) this.drink(Number(key) - 1);
+      if (['1', '2', '3', '4'].includes(key)) this.drink(this.hero.potionBindings[Number(key) - 1]);
       if (key === 'f') this.interact();
     });
     window.addEventListener('keyup', event => { const key = event.key.toLowerCase(); this.keys.delete(key); if (this.heldSkill?.key === key) this.heldSkill = undefined; });
@@ -938,7 +936,7 @@ export class Game {
     } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`);
     } else if (loot.gold) { this.hero.gold += loot.gold; this.ui.floatText(`+${loot.gold}`, this.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 'gold'); }
     else if (loot.potion !== undefined) {
-      if (!POTIONS[loot.potion] || this.hero.potions[loot.potion] >= 99) return;
+      if (!POTIONS[loot.potion] || this.hero.potions[loot.potion] >= POTION_LIMIT) return;
       this.hero.potions[loot.potion] = (this.hero.potions[loot.potion] ?? 0) + 1;
       if (loot.potion >= 2) this.ui.floatText(`+1 ${POTIONS[loot.potion].name}`, this.position.clone().setY(1.5), 'gold');
     }
@@ -958,24 +956,25 @@ export class Game {
   drink(index: number, fromInventory = false) {
     if ((this.paused && !(fromInventory && this.ui.panel === 'inventory')) || this.dead) return;
     if (!POTIONS[index] || this.saveConflict) return;
-    if (index >= 2) {
+    if (POTIONS[index].kind === 'utility') {
       if (!useUtilityPotion(this.hero, index, stats(this.hero).maxStamina)) { this.ui.toast('药剂已用尽'); return; }
       this.burst(this.position.clone().setY(1), POTIONS[index].color, 15); this.audio.play('potion');
       this.ui.toast(POTIONS[index].name, POTIONS[index].description); if (fromInventory) this.ui.renderPanel(); this.save(false); return;
     }
-    const s = stats(this.hero), key = index === 0 ? 'hp' : 'mana', max = index === 0 ? s.maxHp : s.maxMana;
-    if (this.hero[key] >= max) { this.ui.toast(index === 0 ? '生命值已满' : '法力值已满'); return; }
-    if (!this.hero.potions[index]) { this.ui.toast('药剂已用尽'); return; }
-    this.hero.potions[index]--; this.combat.regen[index] += index ? 80 : 160;
-    this.burst(this.position.clone().add(new THREE.Vector3(0, 1, 0)), index === 0 ? 0xe25c65 : 0x63c8ed, 15); this.audio.play('potion'); this.save(false);
+    const s = stats(this.hero), reason = useRecoveryPotion(this.hero, index, s.maxHp, s.maxMana);
+    if (reason) { this.ui.toast(reason); return; }
+    this.burst(this.position.clone().setY(1), POTIONS[index].color, 15); this.audio.play('potion');
+    this.ui.toast(POTIONS[index].name, potionDescription(index, this.hero.classId));
+    if (fromInventory) this.ui.renderPanel(); this.save(false);
   }
+
   drinkMercenary() {
     if (!this.profile || this.paused || this.dead || this.saveConflict) return false;
     const reason = mercenaryPotionReason(this.hero);
     if (reason) { this.ui.toast(reason); return false; }
     if (!feedMercenaryPotion(this.hero)) return false;
     if (this.mercenary.position) this.burst(this.mercenary.position.clone().setY(1), 0xe25c65, 15);
-    this.audio.play('potion'); this.ui.toast('米山使用了生命药剂', '持续恢复 160 点生命'); this.save(false); return true;
+    this.audio.play('potion'); this.ui.toast('米山使用了生命药水', '按所用药水档位持续恢复生命'); this.save(false); return true;
   }
   contextAction() {
     if (this.dead) return null;
@@ -1044,10 +1043,10 @@ export class Game {
   }
   buy(index: number) {
     const potion = POTIONS[index];
-    if (!potion || this.dead || this.saveConflict) return;
+    if (!potion || potion.kind === 'rejuvenation' || this.dead || this.saveConflict) return;
     const price = vendorPrice(this.hero, potion.price);
     if (this.hero.gold < price) { this.ui.toast('金币不足'); return; }
-    if (this.hero.potions[index] >= 99) return;
+    if (this.hero.potions[index] >= POTION_LIMIT) return;
     this.hero.gold -= price; this.hero.potions[index] = (this.hero.potions[index] ?? 0) + 1; this.audio.play('itemBottle'); this.ui.renderPanel(); this.save(false);
   }
   buyBase(id: string) {

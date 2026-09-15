@@ -19,7 +19,7 @@ async function open(hero, width) {
     localStorage.setItem('eclipse-ii-profile-v2:mercenary-test', JSON.stringify({ version: 2, id: 'mercenary-test', name: '米山测试', createdAt: 1, updatedAt: 1, revision: 1, hero }));
     sessionStorage.setItem('mercenary-fixture', '1');
   }, hero);
-  await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173');
+  await page.goto(`${process.env.BASE_URL || 'http://127.0.0.1:5173'}?mode=local`);
   await page.getByRole('button', { name: '进入旅程', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.inCamp && !window.eclipseState.paused);
   return page;
@@ -104,10 +104,10 @@ try {
     await page.evaluate(() => { const g = window.mercenaryVerification; g.hero.mercenary.hp = 100; g.hero.potions[0] = 0; });
     await page.keyboard.press('Shift+Digit1');
     assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.mercenary.hp), 100, 'Empty belt cannot heal the mercenary');
-    await page.evaluate(count => { const g = window.mercenaryVerification; g.hero.potions[0] = count; g.hero.hp = 20; g.combat.regen[0] = 0; }, potionCount - 1);
+    await page.evaluate(count => { const g = window.mercenaryVerification; g.hero.potions[0] = count; g.hero.hp = 20; g.hero.potionRecovery = []; }, potionCount - 1);
     await page.keyboard.press('Digit1'); await page.waitForFunction(() => window.mercenaryVerification.hero.hp > 20);
     assert.equal(await page.evaluate(() => window.mercenaryVerification.hero.mercenary.hp), 100, 'Plain 1 still heals only the player');
-    await page.evaluate(() => { const g = window.mercenaryVerification; g.combat.regen[0] = 0; g.hero.mercenary.aura = 'holyFreeze'; });
+    await page.evaluate(() => { const g = window.mercenaryVerification; g.hero.potionRecovery = []; g.hero.mercenary.aura = 'holyFreeze'; });
 
     await page.waitForFunction(() => !window.eclipseState.saveBusy);
     assert.equal(await page.evaluate(() => window.mercenaryVerification.enterLevel(0, 0)), true);

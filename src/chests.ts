@@ -1,4 +1,4 @@
-import { potionIndex } from './potions.ts';
+import { potionIndex, potionTier } from './potions.ts';
 import { playerNoDrop } from './player-count.ts';
 import { CHEST_TREASURES, CHEST_MISC, CHEST_RATIOS, type ChestTreasure } from './chest-data.ts';
 import { CATALOG_BASES } from './item-catalog-data.ts';
@@ -79,7 +79,11 @@ export function rollChestLoot(context: ChestContext, random = Math.random): Ches
     if (code === 'gld') return { gold: Math.max(1, Math.floor((context.level + integerRoll(context.level * 5, random)) * (1 + Math.max(0, context.goldFind ?? 0) / 100))) };
     if (/^r\d{2}$/.test(code)) return { rune: RUNE_ORDER[Number(code.slice(1)) - 1] };
     const potion = potionIndex(code);
-    if (potion !== undefined) return { potion };
+    if (potion !== undefined) {
+      // Original rejuvenation leaves are additionally thinned; supplies never guarantee purple potions.
+      if (code === 'rvs') { const roll = random(); return roll < .025 ? { potion: potionIndex('rvl')! } : roll < .125 ? { potion } : {}; }
+      return { potion };
+    }
     const equipment = /^(weap|armo)(\d+)$/.exec(code);
     if (equipment) {
       const pool = CATALOG_BASES.filter(base => availableBaseCodes.has(base.code) && base.weapon === (equipment[1] === 'weap') && !['rin', 'amu', 'jew', 'cm1', 'cm2', 'cm3'].includes(base.code) && Math.ceil(base.level / 3) * 3 === Number(equipment[2]));
@@ -95,8 +99,8 @@ export function rollChestLoot(context: ChestContext, random = Math.random): Ches
   const minimumGold = Math.ceil((5 + context.level) * (1 + Math.max(0, context.goldFind ?? 0) / 100));
   const gold = selected.reduce((sum, entry) => sum + ('gold' in entry ? entry.gold! : 0), 0);
   if (gold < minimumGold) supplies.push({ gold: minimumGold - gold });
-  if (!selected.some(entry => 'potion' in entry)) supplies.push({ potion: integerRoll(2, random) as 0 | 1 });
-  return [...selected.map(entry => 'base' in entry ? { item: chestItem(entry.base!, context.level, context.magicFind, random, context.difficulty) } : entry), ...supplies];
+  if (!selected.some(entry => 'potion' in entry)) supplies.push({ potion: potionIndex(`${integerRoll(2, random) ? 'mp' : 'hp'}${potionTier(context.act, context.difficulty)}`)! });
+  return [...selected.filter(entry => Object.keys(entry).length > 0).map(entry => 'base' in entry ? { item: chestItem(entry.base!, context.level, context.magicFind, random, context.difficulty) } : entry), ...supplies];
 }
 
 export function chestContext(level: Level, difficulty: number, magicFind = 0, goldFind = 0): ChestContext {

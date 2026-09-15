@@ -13,7 +13,7 @@ export type SavedProfile = {
   version: 2; id: string; name: string; createdAt: number; updatedAt: number;
   revision: number; hero: HeroState; sharedRevision?: number; resourcesRevision?: number;
 };
-export type SharedStash = { version: 1 | 2; revision: number; items: Item[]; checkpoints: Record<string, SavedProfile>; migrationSources?: string[]; resources?: import('./shared-resources.ts').SharedResources };
+export type SharedStash = { version: 1 | 2 | 3; revision: number; items: Item[]; checkpoints: Record<string, SavedProfile>; migrationSources?: string[]; resources?: import('./shared-resources.ts').SharedResources };
 export class SaveError extends Error {
   code: 'name' | 'missing' | 'corrupt' | 'conflict' | 'file' | 'shared';
   constructor(message: string, code: SaveError['code']) { super(message); this.code = code; }

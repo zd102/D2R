@@ -22,9 +22,7 @@ export const ENCYCLOPEDIA_ITEMS: EncyclopediaItem[] = [
   ...BASES.map((base, index) => ({ id: `base-${index}`, name: base.name, english: AFFIX_BASES[base.baseCode!]?.name ?? '', kind: 'base' as const, level: base.requiredLevel ?? 1, slot: base.slot, icon: equipmentIcon(base), base })).filter(entry => isAvailableItem(entry.base)),
   ...AVAILABLE_RUNEWORDS.map(word => ({ id: `word-${word.catalogId}`, name: word.name, english: CATALOG_RUNEWORDS.find(row => row.id === word.catalogId)!.key, kind: 'runeword' as const, level: Math.max(...word.runes.map(id => RUNES[id].level)), icon: 'scroll-text', word })),
   ...RUNE_ORDER.map(rune => ({ id: `rune-${rune}`, name: `${RUNES[rune].name}符文`, english: rune.toUpperCase(), kind: 'rune' as const, level: RUNES[rune].level, icon: 'gem', rune })),
-  ...POTIONS.slice(2).map((potion, index) => ({ id: `supply-${potion.code}`, name: potion.name, english: potion.english, kind: 'supply' as const, level: 1, icon: potion.icon, supply: index + 2 })),
-  { id: 'supply-life', name: '生命药剂', english: 'Healing Potion', kind: 'supply', level: 1, icon: 'heart-pulse', supply: 0 },
-  { id: 'supply-mana', name: '法力药剂', english: 'Mana Potion', kind: 'supply', level: 1, icon: 'droplets', supply: 1 },
+  ...POTIONS.map((potion, index) => ({ id: `supply-${potion.code}`, name: potion.name, english: potion.english, kind: 'supply' as const, level: 1, icon: potion.icon, supply: index })),
 ];
 export const ENCYCLOPEDIA_AREAS = [...LEVELS, ...Object.values(SPECIAL_LEVELS)];
 export const ENCYCLOPEDIA_MONSTERS: EncyclopediaMonster[] = [

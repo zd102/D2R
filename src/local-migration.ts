@@ -1,8 +1,9 @@
+import { emptyPotions } from './potions.ts';
 import { SaveStore, PROFILE_PREFIX, MIGRATION_KEY, type SavedProfile, type SharedStash } from './saves.ts';
 import { SAVE_KEY, parseSave, newHero, type HeroState } from './model.ts';
 import { placeItems, stashRows, type Item } from './items.ts';
 import { refreshSharedStorage, sharedRaw, commitOriginMigration, finishOriginMigration } from './shared-storage.ts';
-import { collectResources, resourceMember, type SharedResources } from './shared-resources.ts';
+import { collectResources, type SharedResources } from './shared-resources.ts';
 
 export type OriginSnapshot = { origin: string; capturedAt: number; entries: Record<string, string>; shared: string | null };
 export async function captureLocalOrigin(): Promise<OriginSnapshot> {
@@ -72,16 +73,18 @@ export function planOriginMerge(target: OriginSnapshot, sources: OriginSnapshot[
     if (!placeItems(hero.stash, stashRows(hero.stash))) throw new Error('无法排列迁移暂存物品。');
     profiles.push({ version: 2, id: id(), name: uniqueName('合并仓库余量'), createdAt: Date.now(), updatedAt: Date.now(), revision: 1, hero });
   }
-  const shared: SharedStash = { version: 2, revision: previous.revision + 1, items, checkpoints: {}, migrationSources: previous.migrationSources ?? [] };
-  const resources: SharedResources = { revision: 0, gold: 0, runes: [], members: [] };
+  const shared: SharedStash = { version: 3, revision: previous.revision + 1, items, checkpoints: {}, migrationSources: previous.migrationSources ?? [] };
+  const resources: SharedResources = { revision: 0, gold: 0, runes: [], members: [], potions: emptyPotions(), potionMembers: [] };
   for (const snapshot of [target, ...sources]) {
     const value = snapshotStore(snapshot).readShared().resources;
     if (!value) continue;
+    if (value.potions) resources.potions = resources.potions!.map((count, index) => count + value.potions![index]);
+    resources.potionMembers!.push(...(value.potionMembers ?? []));
     resources.gold += value.gold; resources.runes = resources.runes.concat(value.runes);
     resources.members.push(...value.members); resources.revision = Math.max(resources.revision, value.revision);
   }
   resources.members = [...new Set(resources.members)]; resources.revision++;
-  shared.resources = collectResources(resources, profiles.filter(profile => !resources.members.includes(resourceMember(profile))));
+  shared.resources = collectResources(resources, profiles);
   for (const profile of profiles) {
     profile.revision = (revisions.get(profile.id) ?? profile.revision) + 1; profile.sharedRevision = shared.revision;
     shared.checkpoints[profile.id] = profile;
