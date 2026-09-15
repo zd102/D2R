@@ -30,6 +30,7 @@ import { isPassive } from './paladin.ts';
 import { strongerAura } from './mercenary-auras.ts';
 import { ItemSpecialEffects, curseDuration } from './item-special-effects.ts';
 import { updateItemForm } from './item-form.ts';
+import { hammerRadiusAt, HAMMER_LIFETIME, HAMMER_START_RADIUS, HAMMER_PITCH } from './hammer-flight.ts';
 
 export type AttackSnapshot = { skillRanks?: Partial<Record<SkillId,number>>; stats: ReturnType<typeof stats>; level: number; difficulty: number; skills: Record<SkillId, number>; items: Item[]; origin: THREE.Vector3; mercenary?: boolean };
 export type ItemCastTarget = { point: THREE.Vector3; target?: Enemy };
@@ -176,8 +177,8 @@ export class PaladinCombat {
       // Fixed world -X launch appears upper-left in the isometric camera.
       // Increasing XZ angle then sweeps clockwise on screen, independent of aim.
       const phase = hammer ? Math.PI : Math.atan2(direction.z, direction.x);
-      if (hammer) mesh.position.x -= .7;
-      this.projectiles.push({ mesh, origin, direction, phase, age: 0, life: hammer ? 2.3 : 1.25, damage: (v.min + Math.random() * (v.max - v.min)) * concentration, healing: v.healing, kind: hammer ? 'hammer' : 'bolt', hit: new Set(), snapshot: this.snapshot(), speed: 14, pierce: 0, magicArrow: 0, explosion: 0 });
+      if (hammer) mesh.position.x -= HAMMER_START_RADIUS;
+      this.projectiles.push({ mesh, origin, direction, phase, age: 0, life: hammer ? HAMMER_LIFETIME : 1.25, damage: (v.min + Math.random() * (v.max - v.min)) * concentration, healing: v.healing, kind: hammer ? 'hammer' : 'bolt', hit: new Set(), snapshot: this.snapshot(), speed: 14, pierce: 0, magicArrow: 0, explosion: 0 });
       g.audio.play(castSound(id, v.type), { nativeKey: `cast:${id}` }); return true;
     }
     if (id === 'fistOfHeavens' && target) {
@@ -307,7 +308,7 @@ export class PaladinCombat {
         ? projectile.origin.clone().setY(.9) : projectile.mesh.position.clone();
       projectile.age += step;
       if (projectile.kind === 'hammer') {
-        const radius = .7 + projectile.age * 2.5, angle = projectile.age * 7 + projectile.phase;
+        const radius = hammerRadiusAt(projectile.age), angle = (radius - HAMMER_START_RADIUS) / HAMMER_PITCH + projectile.phase;
         projectile.mesh.position.set(projectile.origin.x + Math.cos(angle) * radius, .9, projectile.origin.z + Math.sin(angle) * radius); projectile.mesh.rotation.z += step * 15;
       } else projectile.mesh.position.addScaledVector(projectile.direction, step * projectile.speed);
       const next = projectile.mesh.position;

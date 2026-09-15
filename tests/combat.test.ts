@@ -241,6 +241,38 @@ test('hammer follows a fixed clockwise outward spiral regardless of aim, facing 
   for (const path of paths) assert.deepEqual(path, paths[0], 'aim and caster movement cannot rotate or drag the spiral');
 });
 
+test('hammer travels at steady path speed and equal cast intervals do not lock a volley into spokes', () => {
+  const { combat } = setup(); combat.castAction('blessedHammer');
+  const hammer = combat.projectiles[0], speeds: number[] = [];
+  for (let i = 0; i < 220; i++) {
+    const before = hammer.mesh.position.clone(); combat.updateProjectile(hammer, .01);
+    speeds.push(before.distanceTo(hammer.mesh.position) / .01);
+  }
+  assert.ok(Math.max(...speeds) / Math.min(...speeds) < 1.01, 'outer hammers must not accelerate with radius');
+  for (const frames of [15, 14, 13, 12, 11, 10, 9]) {
+    const pair = [setup(), setup()];
+    for (const fixture of pair) fixture.combat.castAction('blessedHammer');
+    const [older, younger] = pair.map(f => f.combat.projectiles[0]);
+    pair[0].combat.updateProjectile(older, .5 + frames / 25);
+    pair[1].combat.updateProjectile(younger, .5);
+    const gap = () => {
+      const a = older.mesh.position, b = younger.mesh.position;
+      return Math.atan2(a.x * b.z - a.z * b.x, a.x * b.x + a.z * b.z);
+    };
+    const before = gap();
+    pair[0].combat.updateProjectile(older, .2); pair[1].combat.updateProjectile(younger, .2);
+    assert.ok(Math.abs(Math.atan2(Math.sin(gap() - before), Math.cos(gap() - before))) > .05,
+      `angular separation evolves at the ${frames}-frame cast breakpoint`);
+  }
+  const paths = [30, 60, 120].map(fps => {
+    const fixture = setup(); fixture.combat.castAction('blessedHammer');
+    const p = fixture.combat.projectiles[0];
+    for (let i = 0; i < fps; i++) fixture.combat.updateProjectile(p, 1 / fps);
+    return p.mesh.position;
+  });
+  for (const position of paths) assert.ok(position.distanceTo(paths[0]) < 1e-9, 'flight is independent of frame rate');
+});
+
 test('hammer cannot home or pass through walls, including the launch offset', () => {
   const moved = setup(), movingTarget = moved.enemy('demon', 3); moved.game.target = movingTarget;
   moved.combat.castAction('blessedHammer'); movingTarget.actor.group.position.set(12, 0, 12);
