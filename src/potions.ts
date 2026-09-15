@@ -37,13 +37,13 @@ export function potionDescription(index: number, classId: ClassId) {
   return amount ? `${potion.kind === 'health' ? 6 : 3} 秒内恢复 ${amount} 点${potion.kind === 'health' ? '生命' : '法力'}；连续饮用延长恢复` : potion.description;
 }
 export function potionTier(act = 0, difficulty = 0) { return difficulty >= 2 ? 5 : difficulty === 1 ? (act < 2 ? 4 : 5) : Math.min(5, Math.max(1, act + 1)); }
-export function rollPotion(random = Math.random, act = 0, difficulty = 0): number {
+export function rollPotion(random = Math.random, act = 0, difficulty = 0, boss = false): number {
   const roll = random();
-  if (roll < .005) return 14;
-  if (roll < .025) return 13;
+  if (roll < (boss ? .1 : .005)) return 14;
+  if (roll < (boss ? .3 : .025)) return 13;
   if (roll >= .8) return roll < .87 ? 2 : roll < .94 ? 3 : 4;
   const tier = Math.max(1, potionTier(act, difficulty) - (random() < .2 ? 1 : 0));
-  return potionIndex(`${roll < .335 ? 'mp' : 'hp'}${tier}`)!;
+  return potionIndex(`${roll < (boss ? .5 : .335) ? 'mp' : 'hp'}${tier}`)!;
 }
 export type PotionRecovery = { index: number; remaining: number };
 export function useRecoveryPotion(hero: HeroState, index: number, maxHp: number, maxMana: number): string | null {

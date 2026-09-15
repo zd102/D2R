@@ -83,7 +83,7 @@ export function rollLoot(context: LootContext, random = Math.random) {
   }
   if (context.cow && random() < COW_BONUS.rune) runes.push(rollRune(level, difficulty, act, false, random));
   const gold = Math.round((10 + level * 2 + random() * 14) * (boss ? 4 : elite ? 2.4 : champion ? 1.6 : 1) * (1 + (context.goldFind ?? 0) / 100));
-  const potion = random() < playerDropChance(boss ? .8 : elite ? .65 : champion ? .5 : .30, rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? rollPotion(random, act, difficulty) : undefined;
+  const potion = random() < playerDropChance(boss ? .8 : elite ? .65 : champion ? .5 : .30, rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? rollPotion(random, act, difficulty, boss) : undefined;
   const treasureClass = profile?.maxTC[difficulty] ?? Math.min(87, Math.ceil((level + 3) / 3) * 3);
   const equipmentMagicFind = Math.max(0, context.magicFind ?? 0) + EQUIPMENT_MAGIC_FIND_BONUS[rank];
   if (flags.equipment) {

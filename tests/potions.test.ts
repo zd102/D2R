@@ -107,3 +107,18 @@ test('drop distribution keeps rejuvenation rare and all tiers attainable by area
     assert.equal(potion.tier, difficulty === 2 ? 5 : difficulty === 1 ? act < 2 ? 4 : 5 : act + 1);
   }
 });
+
+test('both level boss ranks drop rejuvenation more often without changing the total potion chance', () => {
+  for (const rank of ['miniboss', 'actBoss'] as const) {
+    let seed = 916; const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
+    const counts = Array(15).fill(0); let total = 0;
+    for (let i = 0; i < 10000; i++) {
+      const drop = rollLoot({ level: 40, act: 4, rank, difficulty: 0, players: 1 }, random);
+      if (drop.potion !== undefined) { total++; counts[drop.potion]++; }
+    }
+    assert.ok(total > 7700 && total < 8300, `${rank}: overall potion chance`);
+    assert.ok(counts[13] > 1400 && counts[13] < 1800, `${rank}: rejuvenation 16% per kill`);
+    assert.ok(counts[14] > 650 && counts[14] < 950, `${rank}: full rejuvenation 8% per kill`);
+    assert.ok(counts[2] + counts[3] + counts[4] > 1400 && counts[2] + counts[3] + counts[4] < 1800, `${rank}: utility share`);
+  }
+});
