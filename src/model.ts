@@ -31,6 +31,7 @@ export type HeroState = {
   strength: number; dexterity: number; vitality: number; energy: number;
   skillPoints: number; skills: Record<SkillId, number>; activeAura: SkillId | null;
   bindings: Record<SkillSlot, ActionId>; chargeBindings?: Partial<Record<SkillSlot, ChargeBinding>>;
+  alternateBindings?: Record<SkillSlot, ActionId>; alternateChargeBindings?: Partial<Record<SkillSlot, ChargeBinding>>;
   buffs: Partial<Record<SkillId, { remaining: number; rank: number; absorb?: number; stacks?: number }>>;
   hp: number; mana: number; stamina: number; running: boolean; potions: number[]; potionTimers: number[]; potionBindings: number[]; potionRecovery: PotionRecovery[]; potionsShared?: boolean;
   ammo: { arrows: number; bolts: number };
@@ -328,7 +329,18 @@ export function unequipItem(hero: HeroState, slot: Slot, container: ItemContaine
   if (container === 'stash' && hero.stash.length >= 300) return false;
   return unequipToItems(hero, hero[container], slot, container === 'stash' ? stashRows([...hero.stash, ...(hero.equipment[slot] ? [hero.equipment[slot]!] : [])]) : 4);
 }
-export function swapWeapons(hero: HeroState) { [hero.equipment.weapon, hero.alternate.weapon] = [hero.alternate.weapon, hero.equipment.weapon]; [hero.equipment.shield, hero.alternate.shield] = [hero.alternate.shield, hero.equipment.shield]; hero.weaponSet = hero.weaponSet ? 0 : 1; clampResources(hero); }
+export function swapWeapons(hero: HeroState) {
+  // Older saves start both sets from their existing layout. Keep the inactive
+  // layout separate so reconciliation cannot erase its equipment-granted skills.
+  const bindings = hero.alternateBindings ?? { ...hero.bindings };
+  const charges = hero.alternateChargeBindings ?? (hero.alternateBindings ? {} : structuredClone(hero.chargeBindings ?? {}));
+  hero.alternateBindings = hero.bindings; hero.bindings = bindings;
+  hero.alternateChargeBindings = hero.chargeBindings ?? {}; hero.chargeBindings = charges;
+  [hero.equipment.weapon, hero.alternate.weapon] = [hero.alternate.weapon, hero.equipment.weapon];
+  [hero.equipment.shield, hero.alternate.shield] = [hero.alternate.shield, hero.equipment.shield];
+  hero.weaponSet = hero.weaponSet ? 0 : 1;
+  clampResources(hero);
+}
 export function moveStorage(hero: HeroState, id: string, toStash: boolean) {
   return transferItem(hero, id, toStash ? 'stash' : 'inventory');
 }
@@ -374,7 +386,9 @@ export function respec(hero: HeroState) {
   const base = Object.fromEntries(Object.entries(CLASSES[hero.classId].attributes).map(([key, value]) => [key, value + bonus])) as Record<Attribute, number>;
   hero.points += Object.keys(base).reduce((sum, key) => sum + hero[key as Attribute] - base[key as Attribute], 0);
   Object.assign(hero, base); hero.skillPoints += Object.values(hero.skills).reduce((sum, rank) => sum + rank, 0); hero.skills = emptySkills(); hero.companions=[]; hero.activeAura = null; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.buffs = {};
-  for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) hero.bindings[key] = 'attack'; clampResources(hero); return true;
+  for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) hero.bindings[key] = 'attack';
+  hero.alternateBindings = { ...hero.bindings }; hero.chargeBindings = {}; hero.alternateChargeBindings = {};
+  clampResources(hero); return true;
 }
 export function grantQuestReward(hero: HeroState, event: 'shrine0' | 'shrine1' | 'shrine2' | 'boss') {
   const key = `${difficulty(hero)}:${event}`; if (hero.questRewards.includes(key)) return false; hero.questRewards.push(key);
@@ -589,6 +603,7 @@ export function parseSave(raw: string | null): HeroState | null {
     }
     parseMercenary(hero, h.mercenary, uniqueItem);
     for (const key of Object.keys(hero.bindings) as (keyof HeroState['bindings'])[]) { const id = h.bindings?.[key]; if (isSkill(id) && !isPassive(id) && skillLevel(hero, id) && !(key === 'attack' && isAura(id))) hero.bindings[key] = id; }
+    if (h.chargeBindings && typeof h.chargeBindings === 'object') hero.chargeBindings = {};
     for (const key of Object.keys(hero.bindings) as SkillSlot[]) { const charge = h.chargeBindings?.[key]; if (charge) { hero.bindings[key]='attack'; if(isSkill(charge.id) && Number.isInteger(charge.rank)) bindChargedSkill(hero, key, charge.id, charge.rank); } }
     for(const skill of Object.values(skillById)) if((skill.mode === 'buff'||['frenzy','feralRage','maul','berserk','concentrate','cloakOfShadows'].includes(skill.id)) && h.buffs?.[skill.id]) {
       const buff=h.buffs[skill.id]; hero.buffs[skill.id]={remaining:decimal(buff.remaining,0,0,3600),rank:integer(buff.rank,0,0,100), ...(buff.stacks!==undefined?{stacks:integer(buff.stacks,0,0,50)}:{}), ...(['cycloneArmor','boneArmor'].includes(skill.id)?{absorb:decimal(buff.absorb,skillValues(skill.id,integer(buff.rank,0,0,100),hero.skills).percent,0,100000)}:{})};
@@ -600,6 +615,18 @@ export function parseSave(raw: string | null): HeroState | null {
       const rank=integer(entry.rank,0,1,100),metal=entry.metal?uniqueItem(entry.metal):undefined;if(!rank||entry.id==='ironGolem'&&!metal)return [];
       return [{id:entry.id,rank,hp:decimal(entry.hp,1,0,1),life:decimal(entry.life,3600,0,3600),...(metal?{metal}:{}),...(typeof entry.monster==='string'?{monster:entry.monster.slice(0,80)}:{}),damage:decimal(entry.damage,10,0,100000),maxHp:decimal(entry.maxHp,100,1,10000000),...(entry.resistance?{resistance:Object.fromEntries((['physical','magic','fire','cold','lightning','poison'] as const).map(type=>[type,decimal(entry.resistance?.[type],0,-100,200)])) as Record<DamageType,number>}:{}),...(entry.shots!==undefined?{shots:integer(entry.shots,0,0,5)}:{})}];
     });
+    // Validate the inactive layout against its own weapons without touching
+    // resources, buffs, summons or the currently selected aura.
+    if (h.alternateBindings !== undefined) {
+      const alternate = { ...hero, equipment: { ...hero.equipment, ...hero.alternate }, bindings: { ...hero.bindings }, chargeBindings: {} } as HeroState;
+      for (const key of Object.keys(alternate.bindings) as SkillSlot[]) {
+        alternate.bindings[key] = 'attack';
+        const id = h.alternateBindings?.[key], charge = h.alternateChargeBindings?.[key];
+        if (charge) { if (isSkill(charge.id) && Number.isInteger(charge.rank)) bindChargedSkill(alternate, key, charge.id, charge.rank); }
+        else if (id === 'attack' || isSkill(id)) bindSkill(alternate, key, id);
+      }
+      hero.alternateBindings = alternate.bindings; hero.alternateChargeBindings = alternate.chargeBindings;
+    }
     const s = stats(hero); hero.hp = decimal(h.hp, s.maxHp, 1, s.maxHp); hero.mana = decimal(h.mana, s.maxMana, 0, s.maxMana); hero.stamina = decimal(h.stamina, s.maxStamina, 0, s.maxStamina); return hero;
   } catch { return null; }
 }

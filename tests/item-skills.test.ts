@@ -53,7 +53,9 @@ test('unusable sources and alternate weapons do not grant charges or retain hotk
   const h = newHero(); const item = charged('swap'); item.slot = 'weapon'; h.equipment.weapon = item;
   const charge = availableCharges(h)[0]; bindChargedSkill(h, 'dash', charge.id, charge.rank); swapWeapons(h);
   assert.equal(h.bindings.dash, 'attack'); assert.equal(availableCharges(h).length, 0);
-  swapWeapons(h); item.durability = 0; assert.equal(availableCharges(h).length, 0);
+  const restored = parseSave(serializeSave(h))!; swapWeapons(restored);
+  assert.equal(restored.bindings.dash, charge.id); assert.deepEqual(restored.chargeBindings?.dash, { id: charge.id, rank: charge.rank });
+  swapWeapons(h); assert.equal(h.bindings.dash, charge.id); item.durability = 0; assert.equal(availableCharges(h).length, 0);
   item.durability = 1; item.identified = false; assert.equal(availableCharges(h).length, 0);
 });
 test('oskill bonuses stack, respect native +3 cap, and never grant another class staffmod', () => {
