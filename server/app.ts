@@ -1,4 +1,4 @@
-import Fastify, { type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyRequest, type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Database } from './database.ts';
@@ -13,7 +13,8 @@ import { collectResources, withResources, updateResources } from '../src/shared-
 type User = { id: string; username: string; normalized: string; password_hash: string };
 type Session = { id: string; user_id: string; token_hash: string; expires_at: number; absolute_expires_at: number; writer_id: string | null; writer_epoch: number };
 type Character = { id: string; user_id: string; profile: string; deleted_at: number | null };
-type Options = { filename: string; now?: () => number; secureCookies?: boolean; origins?: string[]; rateLimit?: number };
+type Options = { filename: string; now?: () => number; secureCookies?: boolean; origins?: string[]; rateLimit?: number;
+  configure?: (app: FastifyInstance) => Promise<void> };
 const digest = (text: string) => createHash('sha256').update(text).digest('hex');
 const equal = (a: string, b: string) => { const left = Buffer.from(a), right = Buffer.from(b); return left.length === right.length && timingSafeEqual(left, right); };
 export const SESSION_TIMEOUT = 90_000;
@@ -280,5 +281,7 @@ export async function createApp(options: Options) {
   }), 5000);
   cleanup.unref();
   app.addHook('onClose', async () => { clearInterval(cleanup); db.close(); });
+  try { await options.configure?.(app); }
+  catch (error) { await app.close(); throw error; }
   return app;
 }

@@ -1,0 +1,25 @@
+[Unit]
+Description=D2R game and account server
+After=network.target
+
+[Service]
+Type=simple
+User=d2r-server
+Group=d2r-server
+WorkingDirectory=/opt/d2r-server/current
+EnvironmentFile=/etc/d2r-server/server.env
+Environment=D2R_DATABASE=/var/lib/d2r-server/online.sqlite
+ExecStart=/opt/d2r-server/current/runtime/node /opt/d2r-server/current/app/server.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StateDirectory=d2r-server
+StateDirectoryMode=0750
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

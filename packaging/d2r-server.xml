@@ -1,0 +1,15 @@
+<service>
+  <id>D2RServer</id>
+  <name>D2R Server</name>
+  <description>D2R game pages, accounts and persistent saves.</description>
+  <executable>%BASE%\runtime\node.exe</executable>
+  <arguments>--env-file="%ProgramData%\D2RServer\server.env" "%BASE%\app\server.mjs"</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+  <env name="D2R_DATABASE" value="%ProgramData%\D2RServer\data\online.sqlite" />
+  <startmode>Automatic</startmode>
+  <serviceaccount><username>NT AUTHORITY\LocalService</username></serviceaccount>
+  <onfailure action="restart" delay="5 sec" />
+  <stoptimeout>30 sec</stoptimeout>
+  <logpath>%ProgramData%\D2RServer\logs</logpath>
+  <log mode="roll-by-size"><sizeThreshold>10240</sizeThreshold><keepFiles>5</keepFiles></log>
+</service>

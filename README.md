@@ -1,5 +1,7 @@
 # 黯蚀 II · ECLIPSE
 
+服务端安装部署包（Windows 系统服务 / Linux systemd）：[下载 Release](https://github.com/zd102/D2R/releases/latest) · [安装与配置说明](docs/server-release.md)。
+
 底材现支持 D2R 原生词条、超强品质与无形生成，地面显示超强、无形和孔数；底材属性无需鉴定，制作符文之语与重载保留原值。数据、概率和获取范围见 [底材生成规则](docs/base-properties.md)。
 
 可在本地浏览器游玩的暗黑风格单人 ARPG，借鉴《暗黑破坏神 2》的等距视角、战斗与刷装备循环。五幕战役改编为五章、每章五关，包含普通、噩梦和地狱三个难度；不是原作引擎、地图及全部内容的复刻，没有使用暴雪原版素材。完整关卡、任务与推进规则见 [五幕战役](CAMPAIGN.md)。
