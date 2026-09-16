@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#141b24"/><stop offset=".6" stop-color="#222022"/><stop offset="1" stop-color="#090d12"/></linearGradient>
+    <radialGradient id="halo"><stop stop-color="#e9ad60" stop-opacity=".65"/><stop offset=".52" stop-color="#b66b37" stop-opacity=".25"/><stop offset="1" stop-color="#aa5522" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x2=".8" y2="1"><stop stop-color="#f5e5b9"/><stop offset=".5" stop-color="#cda56a"/><stop offset="1" stop-color="#906438"/></linearGradient>
+    <linearGradient id="blade"><stop stop-color="#575d68"/><stop offset=".47" stop-color="#d3d9d4"/><stop offset=".5" stop-color="#828a8c"/><stop offset="1" stop-color="#353e49"/></linearGradient>
+    <linearGradient id="fade" x2="0" y2="1"><stop stop-color="#090d12" stop-opacity="0"/><stop offset=".85" stop-color="#090d12"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  <path d="M0 105L250 365 0 290M600 80L350 365 600 350" fill="#73919c" opacity=".035"/>
+  <circle cx="300" cy="356" r="230" fill="url(#halo)"/>
+  <circle cx="300" cy="356" r="111" fill="none" stroke="#eeb878" stroke-width="8" filter="url(#blur)" opacity=".65"/>
+  <circle cx="300" cy="356" r="107" fill="#10161c" stroke="url(#gold)" stroke-width="2"/>
+  <circle cx="300" cy="356" r="124" fill="none" stroke="#b98e56" stroke-width=".7" opacity=".4"/>
+  <path d="M300 214V238M300 474V498M158 356H182M418 356H442" stroke="#b98e56" opacity=".6"/>
+  <g fill="#151a20" stroke="#44403a" stroke-width="1">
+    <path d="M35 578V396H52V343L70 308 88 343V396H105V470H122V428H151V578Z"/>
+    <path d="M450 578V433H477V465H494V379H510V321L530 280 550 321V379H566V578Z"/>
+    <path d="M141 577V476H157V415H170V379L182 352 194 379V415H207V577Z"/>
+    <path d="M389 577V457H405V393L419 365 433 393V457H445V577Z"/>
+  </g>
+  <g fill="#bc8c50" opacity=".5"><path d="M66 373Q70 358 74 373V391H66ZM526 349Q530 334 534 349V373H526ZM178 425Q182 413 186 425V442H178Z"/></g>
+  <path d="M0 561L48 544 92 556 164 525 208 547 265 530 318 554 366 536 409 548 480 521 541 549 600 533V800H0Z" fill="#0a1017"/>
+  <g stroke="url(#gold)" stroke-linejoin="round">
+    <path d="M284 448L260 486 245 571 300 599 355 571 340 486 316 448Z" fill="#1d222a" stroke-width="1.5"/>
+    <path d="M283 451L267 506 277 563 300 578 323 563 333 506 317 451" fill="#30343a"/>
+    <path d="M282 426L300 414 318 426 315 456 300 469 285 456Z" fill="#303640"/>
+    <path d="M300 416V457M287 440L297 444M313 440L303 444" fill="none"/>
+    <path d="M268 478L244 482 231 511 253 526 276 500ZM330 478L350 482 366 511 345 526 325 500Z" fill="#3b3a39"/>
+    <path d="M231 510L225 551 260 577 276 551 274 510 253 500Z" fill="#202831" stroke-width="2"/>
+    <path d="M251 513V559M237 534H264" fill="none" stroke-width="2"/>
+  </g>
+  <path d="M349 486L353 355 358 336 364 355 362 486Z" fill="url(#blade)"/>
+  <path d="M339 487L373 487M356 489V517" stroke="#bc965b" stroke-width="5"/>
+  <g fill="#d4a166"><circle cx="109" cy="487" r="1.5"/><circle cx="459" cy="380" r="1"/><circle cx="402" cy="519" r="2"/><circle cx="184" cy="303" r="1"/><circle cx="93" cy="568" r="1"/><circle cx="480" cy="481" r="1.5"/><circle cx="214" cy="498" r="1"/></g>
+  <rect y="552" width="600" height="248" fill="url(#fade)"/>
+  <rect x="22" y="22" width="556" height="756" fill="none" stroke="#9d7949" stroke-opacity=".45"/>
+  <path d="M22 62V22H62M538 22H578V62M22 738V778H62M538 778H578V738" fill="none" stroke="#cfac74" stroke-width="2"/>
+  <g text-anchor="middle">
+    <text x="300" y="65" fill="#b99a6d" font-family="Microsoft YaHei, sans-serif" font-size="11" letter-spacing="5">暗黑风格 · 单人 ARPG</text>
+    <text x="300" y="149" fill="url(#gold)" font-family="SimSun, serif" font-size="70" font-weight="bold" letter-spacing="6">黯蚀 II</text>
+    <text x="304" y="185" fill="#d9bf93" font-family="Georgia, serif" font-size="23" letter-spacing="11">ECLIPSE</text>
+    <path d="M183 209H279M321 209H417M300 204L305 209 300 214 295 209Z" fill="#b48e56" stroke="#b48e56" stroke-width=".7"/>
+    <text x="300" y="624" fill="#edddbf" font-family="SimSun, serif" font-size="27" letter-spacing="4">于黑暗之中，踏上征程</text>
+    <g font-family="Microsoft YaHei, sans-serif">
+      <g fill="#d6b27a" font-size="17"><text x="140" y="676">七大职业</text><text x="300" y="676">五幕战役</text><text x="460" y="676">符文之语</text></g>
+      <g fill="#85909b" font-size="11" letter-spacing="2"><text x="140" y="701">自由构筑</text><text x="300" y="701">三重难度</text><text x="460" y="701">探索与收集</text></g>
+      <path d="M220 656V701M380 656V701" stroke="#695337" stroke-width=".6"/>
+      <text x="300" y="750" fill="#b6a58a" font-size="12" letter-spacing="4">开启你的征程</text>
+    </g>
+  </g>
+</svg>
