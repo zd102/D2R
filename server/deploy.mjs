@@ -1,7 +1,7 @@
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { networkInterfaces } from 'node:os';
-import { access } from 'node:fs/promises';
+import { access, realpath } from 'node:fs/promises';
 import staticFiles from '@fastify/static';
 import { createApp } from './app.ts';
 import { entryOrigin } from '../scripts/local-entry-server.mjs';
@@ -19,7 +19,7 @@ export async function createDeployment({ root, filename, port, secureCookies = f
   } });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(await realpath(process.argv[1])).href) {
   const port = Number(process.env.D2R_PORT ?? 5173);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('D2R_PORT must be between 1 and 65535');
   if (!process.env.D2R_DATABASE) throw new Error('D2R_DATABASE must specify a persistent database path');
