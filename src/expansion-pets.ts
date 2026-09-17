@@ -52,7 +52,7 @@ export class ExpansionPets {
     this.pets.push(pet);g.burst(point.clone().setY(.6),0x9bd0a5,12);return true;
   }
   remove(pet:ExpansionPet){pet.hp=0;this.game.disposeObject(pet.actor.group);const index=this.pets.indexOf(pet);if(index>=0)this.pets.splice(index,1);}
-  corpse(point:THREE.Vector3,radius=4){return this.game.enemies.filter(e=>e.dead&&!e.redeemed&&!e.summoned&&!e.boss&&e.actor.group.position.distanceTo(point)<radius&&clearShot(this.game.world.grid,point,e.actor.group.position)).sort((a,b)=>a.actor.group.position.distanceToSquared(point)-b.actor.group.position.distanceToSquared(point))[0];}
+  corpse(point:THREE.Vector3,radius=4){return this.game.enemies.filter(e=>e.dead&&!e.redeemed&&(!e.summoned||e.corpseExplosionSource)&&!e.boss&&e.actor.group.position.distanceTo(point)<radius&&clearShot(this.game.world.grid,point,e.actor.group.position)).sort((a,b)=>a.actor.group.position.distanceToSquared(point)-b.actor.group.position.distanceToSquared(point))[0];}
   snapshot(pet:ExpansionPet):AttackSnapshot {
     const s=this.combat.snapshot();s.items=[];s.stats.mods=pet.metal?itemMods(pet.metal):{};s.stats.auras=[];
     s.origin=pet.actor.group.position.clone();return s;

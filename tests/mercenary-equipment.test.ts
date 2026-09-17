@@ -21,6 +21,20 @@ function fixture(t: TestContext) {
   t.after(() => f.game.mercenary.clear());
   return { ...f, target, equip, unique, damage, merc: f.game.mercenary as MercenaryCombat };
 }
+test('knockback gear preserves damage but cannot chain-push a target during jab or after reacquisition', t => {
+  const f = fixture(t), spear = makeItem(BASES.find(base => base.baseCode === 'spr')!);
+  spear.mods = { knockback: 1 }; f.equip(spear);
+  const start = f.target.actor.group.position.clone();
+  assert.ok(f.damage() > 0);
+  assert.ok(Math.abs(f.target.actor.group.position.distanceTo(start) - .8) < 1e-8);
+  for (let i = 0; i < 10; i++) { f.merc.target = undefined; f.merc.navigationTime = i * .19; assert.ok(f.damage() > 0); }
+  assert.ok(Math.abs(f.target.actor.group.position.distanceTo(start) - .8) < 1e-8);
+  f.merc.navigationTime = 2; f.damage();
+  assert.ok(Math.abs(f.target.actor.group.position.distanceTo(start) - 1.6) < 1e-8);
+  f.target.boss = true; f.merc.navigationTime = 4; f.damage();
+  assert.ok(Math.abs(f.target.actor.group.position.distanceTo(start) - 1.6) < 1e-8);
+});
+
 function runeword(code: string, runes: Parameters<typeof socketItem>[1][]) {
   const item = makeItem(BASES.find(base => base.baseCode === code)!); item.sockets = runes.length;
   for (const rune of runes) assert.ok(socketItem(item, rune, () => .5)); return item;

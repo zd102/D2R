@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newHero, stats, parseSave, serializeSave, createCorpse } from '../src/model.ts';
+import { newHero, stats, parseSave, serializeSave, applyDeathPenalty } from '../src/model.ts';
 import { POTIONS, potionIndex, potionAmount, rollPotion, useRecoveryPotion, tickRecoveryPotions, useUtilityPotion, tickPotionTimers } from '../src/potions.ts';
 import { rollChestLoot, chestContext } from '../src/chests.ts';
 import { rollLoot } from '../src/loot.ts';
@@ -35,7 +35,7 @@ test('old saves migrate and utility counts and durations survive a round trip', 
   migrated.potions[2] = 3; useUtilityPotion(migrated, 2, stats(migrated).maxStamina);
   const restored = parseSave(serializeSave(migrated))!;
   assert.equal(restored.potions[2], 2); assert.equal(restored.potionTimers[0], 30);
-  createCorpse(restored, 0, 0); assert.deepEqual(restored.potionTimers, [0, 0, 0]);
+  applyDeathPenalty(restored); assert.deepEqual(restored.potionTimers, [0, 0, 0]);
 });
 
 test('monster and original chest treasure rolls can produce all utility potions', () => {
@@ -81,7 +81,7 @@ test('recovery persists across saves, higher tiers take priority, full resources
   hero.hp = s.maxHp - 1; useRecoveryPotion(hero, hp5, s.maxHp, s.maxMana);
   tickRecoveryPotions(hero, 1, s.maxHp, s.maxMana); assert.equal(hero.potionRecovery.length, 0);
   const count = hero.potions[hp5]; assert.ok(useRecoveryPotion(hero, hp5, s.maxHp, s.maxMana)); assert.equal(hero.potions[hp5], count);
-  hero.hp = 1; useRecoveryPotion(hero, hp5, s.maxHp, s.maxMana); createCorpse(hero, 0, 0); assert.deepEqual(hero.potionRecovery, []);
+  hero.hp = 1; useRecoveryPotion(hero, hp5, s.maxHp, s.maxMana); applyDeathPenalty(hero); assert.deepEqual(hero.potionRecovery, []);
 });
 
 test('rejuvenation instantly restores percentages and never wastes a bottle at full resources', () => {

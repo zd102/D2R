@@ -33,7 +33,7 @@ test('item search combines localized and English names, rune recipes, categories
 });
 test('monster filtering uses encounter locations, rank and race including all five act bosses', () => {
   assert.equal(filterEncyclopediaMonsters('', 'actBoss').length, 5);
-  assert.equal(filterEncyclopediaMonsters('', 'miniboss').length, 20);
+  assert.equal(filterEncyclopediaMonsters('', 'miniboss').length, 22);
   assert.deepEqual(filterEncyclopediaMonsters('baal').map(item => item.name), ['巴尔']);
   assert.equal(filterEncyclopediaMonsters('巴尔', 'all', '0').length, 0);
   assert.equal(filterEncyclopediaMonsters('巴尔', 'actBoss', '4', 'demon').length, 1);
@@ -57,7 +57,9 @@ test('drop links respect actual difficulty, unique quality gates, special charms
   assert.ok(itemDropSources(soj, 1).some(source => source.area === 4 && source.kind === 'favored'));
   const annihilus = ENCYCLOPEDIA_ITEMS.find(item => item.id === 'unique-382')!;
   assert.deepEqual(itemDropSources(annihilus, 1), []);
-  assert.deepEqual(itemDropSources(annihilus, 2), [{ monsterId: 'diablo', area: 19, kind: 'event' }]);
+  assert.deepEqual(itemDropSources(annihilus, 2), [], 'Annihilus belongs to the secret Uber encounter');
+  const torch = ENCYCLOPEDIA_ITEMS.find(item => item.id === 'unique-401')!;
+  assert.deepEqual(itemDropSources(torch, 2), [], 'Torch belongs to the six-boss challenge, not campaign Baal');
   const ist = ENCYCLOPEDIA_ITEMS.find(item => item.rune === 'ist')!;
   assert.ok(itemDropSources(ist, 2).some(source => source.area === 3 && source.kind === 'countess'));
   const amn = ENCYCLOPEDIA_ITEMS.find(item => item.rune === 'amn')!;

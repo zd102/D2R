@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newHero, SAVE_KEY, serializeSave } from '../src/model.ts';
+import { newHero, SAVE_KEY, serializeSave, completeCampaignLevel, selectCampaignLevel, hasCompletedStory } from '../src/model.ts';
+import { LEVELS } from '../src/campaign.ts';
+import { CLASS_IDS } from '../src/classes.ts';
 import { SaveStore, SaveError, PROFILE_PREFIX, MIGRATION_KEY, CHARACTER_FILE_LIMIT, parseCharacterFile, parseProfile } from '../src/saves.ts';
 
 class MemoryStorage {
@@ -13,6 +15,42 @@ class MemoryStorage {
   setItem(key: string, value: string) { if (this.failWrites || key === this.failKey) throw new Error('Quota exceeded'); this.data.set(key, value); }
   removeItem(key: string) { this.data.delete(key); }
 }
+
+test('story creation requires a complete character and grants only all story stat rewards for every class', () => {
+  const store = new SaveStore(new MemoryStorage());
+  assert.throws(() => store.create('locked', 'paladin', true), SaveError);
+  const veteran = store.create('veteran');
+  veteran.hero.campaign.cleared = [25, 25, 24];
+  let saved = store.save(veteran.id, veteran.hero, veteran.revision);
+  assert.throws(() => store.create('partial', 'paladin', true), SaveError);
+  saved.hero.campaign.cleared[2] = 25;
+  saved = store.save(saved.id, saved.hero, saved.revision);
+  assert.equal(store.create('ordinary').hero.level, 1);
+  for (const classId of CLASS_IDS) {
+    const expected = newHero(classId);
+    for (const diff of [0, 1, 2]) for (const level of LEVELS) {
+      assert.ok(selectCampaignLevel(expected, level.index, diff));
+      expected.campaign.kills = level.quest.count;
+      expected.campaign.objects = Array.from({ length: level.quest.count }, (_, i) => i);
+      assert.ok(completeCampaignLevel(expected));
+    }
+    const profile = store.create(classId, classId, true), hero = profile.hero;
+    assert.ok(hasCompletedStory(hero));
+    for (const key of ['level', 'xp', 'skillPoints', 'points', 'strength', 'dexterity', 'vitality', 'energy', 'bonusLife', 'bonusResist', 'questRewards', 'cubeUnlocked', 'unlockedDifficulty'] as const) assert.deepEqual(hero[key], expected[key], key);
+    assert.equal(hero.level, 4); assert.equal(hero.skillPoints, 18); assert.equal(hero.points, 30);
+    assert.equal(hero.bonusLife, 60); assert.equal(hero.bonusResist, 15);
+    assert.equal(hero.gold, newHero(classId).gold); assert.deepEqual(hero.runes, []);
+    assert.equal(hero.inventory.length, newHero(classId).inventory.length);
+    const before = structuredClone(hero);
+    for (const diff of [0, 1, 2]) for (const level of LEVELS) {
+      selectCampaignLevel(hero, level.index, diff); assert.ok(completeCampaignLevel(hero));
+    }
+    for (const key of ['gold', 'skillPoints', 'points', 'level', 'bonusLife', 'bonusResist', 'questRewards'] as const) assert.deepEqual(hero[key], before[key], `replay ${key}`);
+    assert.ok(hasCompletedStory(store.read(profile.id).hero));
+  }
+  const isolated = new SaveStore(new MemoryStorage());
+  assert.throws(() => isolated.create('isolated', 'paladin', true), SaveError);
+});
 
 test('legacy migration preserves every field and the original backup, and runs once', () => {
   const storage = new MemoryStorage(), hero = newHero(); hero.level = 4; hero.gold = 789; hero.shrines = [0, 1]; hero.points = 9;

@@ -1,4 +1,8 @@
+import { PANDEMONIUM_BOSSES } from './pandemonium.ts';
+import { BOSSES } from './bestiary.ts';
+import { SPECIAL_LEVELS } from './campaign.ts';
 import { monsterTraits } from './monster-traits.ts';
+import { SUPER_UNIQUE_BUDGETS, superUniqueComparisonPool } from './super-uniques.ts';
 import { playerLifeFactor, playerDamageFactor, playerExperienceFactor } from './player-count.ts';
 import { xpForLevel, type DamageType } from './paladin.ts';
 import { AREA_LEVELS, levelTuning, type Level } from './campaign.ts';
@@ -52,9 +56,16 @@ export function monsterExperience(playerLevel: number, monsterLevel: number, ran
   const base = xpForLevel(Math.min(98, Math.max(1, Math.floor(monsterLevel))));
   return Math.max(1, Math.floor(base * rate * weight * firstClear * factor * playerExperienceFactor(context.players)));
 }
-export function monsterStats(definition: MonsterDef, area: Level, difficulty: number, boss = false, elite = false, players = 1) {
+export function monsterStats(definition: MonsterDef, area: Level, difficulty: number, boss = false, elite = false, players = 1): { level: number; maxHp: number; damage: number; defense: number; attackRating: number; resistances: Record<DamageType, number> } {
   difficulty = Math.max(0, Math.min(2, Math.floor(difficulty)));
   const power = DIFFICULTY_POWER[difficulty], traits = monsterTraits(definition);
+  if (area.special === 'pandemonium' && boss) {
+    const stage = PANDEMONIUM_BOSSES.find(entry => entry.definition.id === definition.id)!;
+    const base = monsterStats(BOSSES[19], SPECIAL_LEVELS.uberDiablo, difficulty, true, false, players);
+    return { ...base, maxHp: Math.round(base.maxHp * stage.life), damage: base.damage * stage.damage,
+      defense: Math.round(base.defense * 1.2), attackRating: Math.round(base.attackRating * 1.2),
+      resistances: { ...base.resistances, physical: 35, magic: 35 } };
+  }
   elite = elite && !boss;
   const tuning = levelTuning(area, difficulty), level = Math.min(99, tuning.level + (boss || elite ? 2 : 0));
   const offense = boss ? { damage: 1, attack: 1 } : fieldOffense(tuning.level, difficulty);
@@ -65,5 +76,19 @@ export function monsterStats(definition: MonsterDef, area: Level, difficulty: nu
   for (const type of Object.keys(traits.resistance ?? {}) as DamageType[]) resistances[type] = Math.min(85, traits.resistance![type]![difficulty]);
   if (uberDiablo) for (const type of ['fire', 'cold', 'lightning', 'poison'] as DamageType[]) resistances[type] = Math.max(resistances[type], 75);
   const damageFactor = playerDamageFactor(players, difficulty);
+  const unique = boss && !area.actBoss && area.special !== 'uberDiablo' ? SUPER_UNIQUE_BUDGETS[definition.id] : undefined;
+  if (unique) {
+    // Use 1-player field budgets, including their difficulty offense curve.
+    // Apply player scaling once, after rounding life, just like other ranks.
+    const peers = superUniqueComparisonPool(area, difficulty).map(peer => monsterStats(peer, area, difficulty, false, true));
+    if (peers.length) return {
+      level,
+      maxHp: Math.floor(Math.round(Math.max(...peers.map(p => p.maxHp)) * unique.life) * playerLifeFactor(players)),
+      damage: Math.max(...peers.map(p => p.damage)) * unique.damage * damageFactor,
+      defense: Math.round(Math.max(...peers.map(p => p.defense)) * unique.defense),
+      attackRating: Math.round(Math.max(...peers.map(p => p.attackRating)) * unique.accuracy * damageFactor),
+      resistances,
+    };
+  }
   return { level, maxHp: Math.floor(Math.floor(maxHp * power.life) * playerLifeFactor(players)), damage: traits.damage * power.damage * damageFactor * definition.damage * tuning.damage * offense.damage * (uberDiablo ? 1.7 : elite ? 1.25 + difficulty * .1 : 1), defense: Math.round(traits.defense * power.defense * tuning.defense * (uberDiablo ? 1.35 : boss ? 1.1 : elite ? 1.25 : 1)), attackRating: Math.round(baseMonsterAttackRating(definition, level, difficulty, players) * offense.attack * (uberDiablo ? 1.5 : boss ? 1.1 : elite ? 1.2 : 1)), resistances };
 }

@@ -33,6 +33,22 @@ function setup() {
   return { game, hero, combat, enemy };
 }
 
+test('bosses resist all shared knockback and ordinary targets cannot be knocked through walls', () => {
+  const f = setup();
+  for (const kind of ['demon', 'boss'] as const) {
+    const target = f.enemy(kind); target.boss = true;
+    assert.equal(f.combat.knockback(target, 1.5), false);
+    assert.equal(target.actor.group.position.z, 2);
+  }
+  const target = f.enemy();
+  f.game.world.canWalk = () => false;
+  assert.equal(f.combat.knockback(target, 1), false);
+  f.game.world.canWalk = () => true;
+  assert.equal(f.combat.knockback(target, 1), true);
+  assert.equal(target.actor.group.position.z, 3);
+  assert.equal(target.body.position.z, 3);
+});
+
 test('crushing blow uses monster spawn pp even after the selected setting changes', t => {
   t.mock.method(Math, 'random', () => 0);
   const { hero, combat, enemy } = setup();
@@ -313,10 +329,10 @@ test('fist of heavens has a 0.4 second delay and holy shield expires in game tim
   combat.castAction('fistOfHeavens'); const mana = hero.mana; combat.lock = 0; combat.castAction('fistOfHeavens'); assert.equal(hero.mana, mana); assert.equal(combat.fohDelay, .4);
   combat.fohDelay = 0; combat.castAction('holyShield'); assert.equal(hero.holyShield, 60); combat.update(1); assert.equal(hero.holyShield, 59);
 });
-test('lethal damage creates a persistent corpse and interrupts a zeal sequence', () => {
+test('lethal damage retains equipment without a corpse and interrupts a zeal sequence', () => {
   const { hero, combat, game } = setup(); const sword = hero.equipment.weapon;
   combat.zeal = { hits: 4, timer: .2, direction: new THREE.Vector3() }; combat.hurt(100000, 'magic');
-  assert.equal(game.dead, true); assert.equal(hero.equipment.weapon, null); assert.equal(hero.corpse?.equipment.weapon, sword); assert.equal(combat.zeal, null);
+  assert.equal(game.dead, true); assert.equal(hero.equipment.weapon, sword); assert.equal(hero.corpse, null); assert.equal(combat.zeal, null);
 });
 test('holy shield snapshots the cast level when skill equipment is swapped out', () => {
   const { hero, combat } = setup(); hero.equipment.weapon!.mods = { allSkills: 2 }; combat.castAction('holyShield');

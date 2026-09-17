@@ -43,8 +43,8 @@ export function bossDropLabel(levelIndex: number, difficulty: number) {
   const profile = BOSS_DROP_PROFILES[levelIndex];
   if (levelIndex === 3) return `专属符文：艾尔至${['拉尔', '艾欧', '伊司特'][difficulty]}`;
   if (levelIndex === 17) return `首通熔炉：${['艾尔至安姆', '索尔至乌姆', '海尔至古尔'][difficulty]}`;
-  if (difficulty === 2 && levelIndex === 19) return '毁灭护身符 0.5% · 暗金武器与防具';
-  if (difficulty === 2 && levelIndex === 24) return '地狱火炬 0.5% · 全阶暗金装备';
+  if (difficulty === 2 && levelIndex === 19) return '暗金武器与防具 · 毁灭请挑战超级迪亚波罗';
+  if (difficulty === 2 && levelIndex === 24) return '全阶暗金装备 · 火炬请挑战六魔神';
   return `暗金偏好：${profile.slots.map(slot => slot === 'weapon' ? '武器' : slotNames[slot]).join(' / ')}`;
 }
 const specialKeys = new Map(CATALOG_SPECIALS.map(item => [item.id, item.key]));

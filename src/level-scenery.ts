@@ -339,6 +339,8 @@ function buildAuthoredScenery(world: SceneHost) {
       dais(6.3);sigil(bx,bz,4,3);for(let i=0;i<3;i++){const a=Math.PI+i*Math.PI/2;const x=bx+Math.cos(a)*6,z=bz+Math.sin(a)*6;statue(x,z,(['axe','spear','sword'] as const)[i]);world.addCollider(x,z,1.6,1.6);}break;
     case 'cow':
       dais(7);ring(bx,.18,bz,5.2);for(const side of [-1,1]){fence(bx+side*6,bz-4,9);prop('tree',bx+side*9,bz+2,1.2);world.torch(bx+side*4,bz-5,.8,true);}for(const p of layout.route.slice(1,-1))ring(p.x,.11,p.z,2.2);break;
+    case 'pandemonium':
+      dais(7);sigil(bx,bz,5.5,6);pillars(8);for(let i=0;i<6;i++){const a=i*Math.PI/3;prop('obelisk',bx+Math.sin(a)*8,bz+Math.cos(a)*8,1.4);}break;
     case 'uberDiablo':
       dais(7);sigil(bx,bz,5.1,5);pillars(7);for(const side of [-1,1]){prop('spike',bx+side*6,bz-2,2);world.torch(bx+side*4,bz-4,1.2,true);}break;
     case 'worldstone':

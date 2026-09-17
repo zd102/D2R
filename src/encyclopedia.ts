@@ -27,7 +27,7 @@ export const ENCYCLOPEDIA_ITEMS: EncyclopediaItem[] = [
 export const ENCYCLOPEDIA_AREAS = [...LEVELS, ...Object.values(SPECIAL_LEVELS)];
 export const ENCYCLOPEDIA_MONSTERS: EncyclopediaMonster[] = [
   ...BOSSES.map((definition, index) => ({ id: definition.id, name: LEVELS[index].boss, definition, rank: LEVELS[index].actBoss ? 'actBoss' as const : 'miniboss' as const, areas: [index] })),
-  ...Object.values(MONSTERS).map(definition => ({ id: definition.id, name: definition.name, definition, rank: 'monster' as const, areas: definition.id === 'hellCow' ? [SPECIAL_LEVELS.cow.index] : ENCOUNTERS.flatMap((_pack, index) => encounterPool(index, 2).includes(definition.id) ? [index] : []) })),
+  ...Object.values(MONSTERS).map(definition => ({ id: definition.id, name: definition.name, definition, rank: ['pindleskin', 'nihlathak'].includes(definition.id) ? 'miniboss' as const : 'monster' as const, areas: ['pindleskin', 'nihlathak'].includes(definition.id) ? [SPECIAL_LEVELS.nihlathak.index] : definition.id === 'hellCow' ? [SPECIAL_LEVELS.cow.index] : ENCOUNTERS.flatMap((_pack, index) => encounterPool(index, 2).includes(definition.id) ? [index] : []) })),
 ];
 const itemsById = new Map(ENCYCLOPEDIA_ITEMS.map(entry => [entry.id, entry]));
 const monstersById = new Map(ENCYCLOPEDIA_MONSTERS.map(entry => [entry.id, entry]));
@@ -70,9 +70,7 @@ export function itemDropSources(entry: EncyclopediaItem, difficulty: number): It
     const area = LEVELS[profile.levelIndex], boss = BOSSES[area.index], level = monsterStats(boss, area, difficulty, true).level;
     let kind: ItemDropSource['kind'] | undefined;
     if (entry.special) {
-      if (entry.special.eventOnly) {
-        if (difficulty === 2 && (entry.id === 'unique-382' && area.index === 19 || entry.id === 'unique-401' && area.index === 24)) kind = 'event';
-      } else if ((entry.special.qualityLevel ?? entry.level) <= level && (entry.special.treasureClass ?? 0) <= profile.maxTC[difficulty]) {
+      if (!entry.special.eventOnly && (entry.special.qualityLevel ?? entry.level) <= level && (entry.special.treasureClass ?? 0) <= profile.maxTC[difficulty]) {
         kind = bossSpecialPool(profile, level, difficulty).includes(entry.special) ? 'favored' : 'regular';
       }
     } else if (entry.base) {

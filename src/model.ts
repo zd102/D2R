@@ -6,7 +6,7 @@ import { itemCharges, chargeGroups, consumeCharge, type ChargeBinding } from './
 import { refreshBaseStock, parseBaseStock, type BaseStock } from './progression-equipment.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count.ts';
 import { BASE_ATTRIBUTES, PALADIN_BALANCE, SKILLS, skillById, emptySkills, isSkill, isAura, skillValues, xpForLevel, EXPERIENCE, breakpointFrames, FCR, FHR, FBR, type SkillId, type ActionId, type Attribute, type DamageType } from './paladin.ts';
-import { transferItems, SLOTS, BASES, MOD_NAMES, RUNES, makeItem, addMods, itemMods, itemRequirements, packItems, placeItems, stashRows, socketItem, type Mods, type Modifier, type Slot, type Item, type RuneId } from './items.ts';
+import { isHellfireTorch, CHALLENGE_KEYS, transferItems, SLOTS, BASES, MOD_NAMES, RUNES, makeItem, addMods, itemMods, itemRequirements, packItems, placeItems, stashRows, socketItem, type Mods, type Modifier, type Slot, type Item, type RuneId } from './items.ts';
 import { levelMods } from './item-effects.ts';
 import { migrateCatalogItem } from './items.ts';
 import { catalogItemSetBonuses } from './item-catalog.ts';
@@ -349,7 +349,7 @@ export function transferItem(hero: HeroState, id: string, destination: ItemConta
   const source = (['inventory', 'stash', 'cube'] as const).find(key => hero[key].some(item => item.id === id));
   if (!source || source === destination || (source === 'cube' || destination === 'cube') && !hasCube(hero)) return false;
   const from = hero[source], to = hero[destination];
-  const changed = transferItems(from, to, id, source === 'stash' ? stashRows(from) : 4, destination === 'stash' ? stashRows(to) : 4, position, preview, source === 'cube' ? CUBE_COLUMNS : 10, destination === 'cube' ? CUBE_COLUMNS : 10);
+  const changed = transferItems(from, to, id, source === 'stash' ? stashRows(from) : 4, destination === 'stash' ? stashRows(to) : 4, position, preview, source === 'cube' ? CUBE_COLUMNS : 10, destination === 'cube' ? CUBE_COLUMNS : 10, source === 'inventory', destination === 'inventory');
   if (changed && !preview) clampResources(hero);
   return changed;
 }
@@ -403,6 +403,9 @@ export const CAMPAIGN_REWARDS: Record<number, { key: string; label: string }> = 
   22: { key: 'resistance', label: '所有抗性 +5' },
   23: { key: 'summit', label: '升级 1 级' },
 };
+export function nihlathakUnlocked(hero: HeroState, diff: number) {
+  return Number.isInteger(diff) && diff >= 0 && diff <= 2 && (hero.campaign.cleared[diff] >= 23 || hero.questRewards.includes(`${diff}:anya`));
+}
 export function campaignRewardClaimed(hero: HeroState, index: number, diff: number = difficulty(hero)) {
   const reward = CAMPAIGN_REWARDS[index];
   return !!reward && (hero.questRewards.includes(`${diff}:${reward.key}`)
@@ -416,6 +419,33 @@ function grantCampaignReward(hero: HeroState, index: number) {
   if (index === 11) for (const key of ['strength', 'dexterity', 'vitality', 'energy'] as const) hero[key] += 5;
   if (index === 22) hero.bonusResist += 5;
   if (index === 23) gainXp(hero, xpForLevel(hero.level));
+}
+/** All three story difficulties must be complete on the same character. */
+export function hasCompletedStory(hero: HeroState) {
+  return [0, 1, 2].every(diff => hero.campaign.cleared[diff] >= LEVELS.length);
+}
+
+/** Creation-only shortcut: claim character rewards without gold or combat loot. */
+export function completeStoryForNewHero(hero: HeroState) {
+  for (const diff of [0, 1, 2] as const) {
+    hero.difficultyLevel = diff;
+    for (const level of LEVELS) grantStoryStats(hero, level.index);
+  }
+  hero.campaign.cleared = [LEVELS.length, LEVELS.length, LEVELS.length];
+  hero.cubeUnlocked = true;
+  selectCampaignLevel(hero, 0, 0);
+}
+
+function grantStoryStats(hero: HeroState, index: number) {
+  const diff = difficulty(hero);
+  if (index === 0) grantQuestReward(hero, 'shrine0');
+  const reward = index === 10 ? 'life' : index === 12 ? 'attributes' : null;
+  if (reward && !hero.questRewards.includes(`${diff}:${reward}`) && !hero.questRewards.includes(`${diff}:shrine2`)) {
+    hero.questRewards.push(`${diff}:${reward}`);
+    if (reward === 'life') hero.bonusLife += 20;
+    if (reward === 'attributes') hero.points += 5;
+  }
+  grantCampaignReward(hero, index);
 }
 export function prepareCampaignReplay(hero: HeroState): boolean {
   const { campaign, difficultyLevel: diff } = hero, index = campaign.current;
@@ -448,6 +478,7 @@ export function activateQuestObject(hero: HeroState, index: number) {
   const quest = LEVELS[hero.campaign.current].quest;
   if (hero.bossDefeated || quest.kind !== 'interact' || !Number.isInteger(index) || index < 0 || index >= quest.count || hero.campaign.objects.includes(index)) return false;
   hero.campaign.objects.push(index);
+  if (hero.campaign.current === 22 && !hero.questRewards.includes(`${difficulty(hero)}:anya`)) hero.questRewards.push(`${difficulty(hero)}:anya`);
   if (hero.campaign.current === 6 && questComplete(hero.campaign)) hero.cubeUnlocked = true;
   return true;
 }
@@ -459,13 +490,7 @@ export function completeCampaignLevel(hero: HeroState) {
   if (index === campaign.cleared[diff]) {
     campaign.cleared[diff]++;
     hero.gold += 100 + index * 35 + diff * 250;
-    if (index === 0) grantQuestReward(hero, 'shrine0');
-    const reward = index === 10 ? 'life' : index === 12 ? 'attributes' : null;
-    if (reward && !hero.questRewards.includes(`${diff}:${reward}`) && !hero.questRewards.includes(`${diff}:shrine2`)) {
-      hero.questRewards.push(`${diff}:${reward}`);
-      if (reward === 'life') hero.bonusLife += 20;
-      if (reward === 'attributes') hero.points += 5;
-    }
+    grantStoryStats(hero, index);
   }
   refreshBaseStock(hero);
   grantCampaignReward(hero, index);
@@ -474,19 +499,16 @@ export function completeCampaignLevel(hero: HeroState) {
 }
 export function hitChance(attack: number, defense: number, attackerLevel: number, defenderLevel: number) { return Math.max(5, Math.min(95, 200 * attack / Math.max(1, attack + defense) * attackerLevel / Math.max(1, attackerLevel + defenderLevel))); }
 export function resistedDamage(amount: number, resistance: number, reduction = 0) { const resist = resistance - (resistance >= 100 ? reduction / 5 : reduction); return resist >= 100 ? 0 : Math.max(0, amount * (1 - Math.max(-100, resist) / 100)); }
-export function createCorpse(hero: HeroState, x: number, z: number) {
+export function applyDeathPenalty(hero: HeroState) {
   const loss = Math.min(hero.xp, Math.floor(xpForLevel(hero.level) * [0, .05, .1][difficulty(hero)])); hero.xp -= loss;
   const gold = Math.floor(hero.gold * Math.min(.2, hero.level / 100)); hero.gold -= gold;
-  if (!hero.corpse) hero.corpse = { equipment: hero.equipment, extras: [], x, z, xpLost: loss, gold };
-  else { hero.corpse.xpLost += loss; hero.corpse.gold += gold; for (const slot of SLOTS) { const item = hero.equipment[slot]; if (item) { if (hero.corpse.equipment[slot]) hero.corpse.extras.push(item); else hero.corpse.equipment[slot] = item; } } }
-  hero.equipment = emptyEquipment();
   hero.potionTimers = [0, 0, 0]; hero.potionRecovery = []; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.poison = 0; hero.curse = 0; hero.cold = 0;
 }
 export function recoverCorpse(hero: HeroState, inField = true) {
   const corpse = hero.corpse; if (!corpse) return false;
   const inventory = [...hero.inventory, ...corpse.extras], equipment = { ...hero.equipment };
   for (const slot of SLOTS) { const item = corpse.equipment[slot]; if (!item) continue; if (equipment[slot]) inventory.push(equipment[slot]!); equipment[slot] = item; }
-  if (!placeItems(inventory)) return false;
+  if (inventory.filter(isHellfireTorch).length > 1 || !placeItems(inventory)) return false;
   hero.equipment = equipment; hero.inventory = inventory; hero.gold += corpse.gold; if (inField) hero.xp += Math.floor(corpse.xpLost * .75); hero.corpse = null; clampResources(hero); return true;
 }
 const integer = (value: unknown, fallback: number, min: number, max: number) => typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.floor(value))) : fallback;
@@ -512,6 +534,7 @@ export function parseItem(value: unknown): Item | null {
   if (result.misc && item.event === 'wirts-leg' && [0, 1, 2].includes(item.eventDifficulty) && item.name === `维特之腿 · ${['普通', '噩梦', '地狱'][item.eventDifficulty]}`) {
     result.event = 'wirts-leg'; result.eventDifficulty = item.eventDifficulty;
   }
+  if (result.misc && CHALLENGE_KEYS.some(key => key.event === item.event && key.name === item.name)) result.event = item.event;
   if (['small', 'large', 'grand'].includes(item.charmSize) && result.charm) result.charmSize = item.charmSize;
   if (Array.isArray(item.affixes)) result.affixes = [...new Set<string>(item.affixes.filter((id: unknown) => typeof id === 'string' && !!affixById(id)))].slice(0, 6);
   if (item.catalogVersion === 1 || item.catalogVersion === 2) result.catalogVersion = item.catalogVersion;
@@ -589,10 +612,11 @@ export function parseSave(raw: string | null): HeroState | null {
       else { delete item.x; delete item.y; hero.stash.push(item); }
     }
     placeItems(hero.cube, CUBE_ROWS, CUBE_COLUMNS);
+    let torchSeen = false; hero.inventory = hero.inventory.filter(item => { if (!isHellfireTorch(item)) return true; if (!torchSeen) { torchSeen = true; return true; } hero.stash.push(item); return false; });
     if (!packItems(hero.inventory)) { const items = hero.inventory; hero.inventory = []; for (const item of items) { if (packItems([...hero.inventory, item])) hero.inventory.push(item); else hero.stash.push(item); } placeItems(hero.inventory); }
     hero.gold = integer(h.gold, 0, 0, Number.MAX_SAFE_INTEGER);
     hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)) : []; hero.identifyScrolls = integer(h.identifyScrolls, 0, 0, 99);
-    hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(shrine[0-2]|boss|life|attributes|resistance|jungle|summit)$/.test(key)))] : [];
+    hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(anya|shrine[0-2]|boss|life|attributes|resistance|jungle|summit)$/.test(key)))] : [];
     hero.respecUsed = Array.isArray(h.respecUsed) ? [...new Set<number>(h.respecUsed.filter((value: unknown) => value === 0 || value === 1 || value === 2))] : [];
     hero.bonusLife = integer(h.bonusLife, 0, 0, 60); hero.bonusResist = integer(h.bonusResist, 0, 0, 30); hero.holyShield = decimal(h.holyShield, 0, 0, 3600); hero.poison = decimal(h.poison, 0, 0, 120); hero.curse = decimal(h.curse, 0, 0, 120); hero.cold = decimal(h.cold, 0, 0, 120); hero.running = h.running !== false;
     hero.holyShieldLevel = integer(h.holyShieldLevel, 0, 0, 100);

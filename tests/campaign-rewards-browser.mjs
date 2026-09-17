@@ -19,22 +19,26 @@ try {
       localStorage.setItem('eclipse-ii-save-v1', save); sessionStorage.setItem('reward-fixture', '1');
     }
   }, serializeSave(hero));
-  await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173');
+  const url = new URL(process.env.BASE_URL || 'http://127.0.0.1:5173'); url.searchParams.set('mode', 'local');
+  await page.goto(url.href);
   await page.getByRole('button', { name: '进入旅程', exact: true }).click();
+  await page.waitForFunction(() => window.eclipseState?.profileId && !window.eclipseState.paused);
   await page.evaluate(() => cancelAnimationFrame(window.rewardGame.frameId));
   for (const diff of [0, 1, 2]) for (const [index, label] of [[5, '技能点 +2'], [11, '全属性 +5'], [16, '技能点 +2'], [22, '所有抗性 +5'], [23, '升级 1 级']]) {
     for (const replay of [false, true]) {
-      const before = await page.evaluate(({ index, diff }) => {
+      const before = await page.evaluate(async ({ index, diff }) => {
         const g = window.rewardGame; g.ui.closePanel();
         if (!g.enterLevel(index, diff)) throw new Error('Cannot enter reward level');
+        while (g.onlineOperation) await new Promise(resolve => setTimeout(resolve, 10));
         g.ui.openPanel('quest');
         return structuredClone(g.hero);
       }, { index, diff });
       await expect(page.locator('.quest-rewards')).toContainText(`${label} · ${replay ? '已领取' : '本难度限领一次'}`);
-      const after = await page.evaluate(() => {
+      const after = await page.evaluate(async () => {
         const g = window.rewardGame; g.ui.closePanel();
         const boss = g.enemies.find(enemy => enemy.boss); boss.xpScale = 0;
         g.combat.damage(boss, 1e9, 'magic', true); g.ui.openPanel('quest');
+        if (!await g.flushSave()) throw new Error('Reward save failed');
         return structuredClone(g.hero);
       });
       assert.equal(after.bossDefeated, true);
@@ -48,6 +52,7 @@ try {
   }
   await page.reload();
   await page.getByRole('button', { name: '进入旅程', exact: true }).click();
+  await page.waitForFunction(() => window.eclipseState?.profileId && !window.eclipseState.paused);
   await page.evaluate(() => cancelAnimationFrame(window.rewardGame.frameId));
   const loaded = await page.evaluate(() => window.rewardGame.hero);
   assert.equal(loaded.questRewards.length, 15); assert.equal(loaded.level, 4);

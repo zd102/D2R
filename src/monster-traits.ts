@@ -15,6 +15,8 @@ const trait = (description: string, damage = 1, defense = 1, accuracy = 1, coold
 // Species identities, adapted to this campaign's damage budget. These are not
 // original-game frame/stat tables. Resistances remain subject to the 85% cap.
 export const SPECIES_TRAITS: Record<string, MonsterTraits> = {
+  pindleskin: trait('神殿入口的复生战士首领；冲锋与火焰强化，高稀有度装备掉落。', 1.3, 1.2, 1.15, 1.1),
+  nihlathak: trait('冰冷吐息、召唤仆从与尸爆；逼近会传送，远离尸体或先消耗尸体。', 1.1, .9, 1, 1, { preferredRange: 6, resistance: { cold: [35, 55, 70] } }),
   fallen: trait('胆怯的轻型近战；同伴倒下会逃跑。地狱火抗高，适合先击杀巫师。', .8, .65, .8, 1.05, { awareness: .9, resistance: { fire: [0, 25, 80] } }),
   shaman: trait('脆弱的后排支援；优先复活沉沦魔，用火球掩护。', .95, .65, .8, 1.05, { preferredRange: 7, resistance: { fire: [20, 40, 80] } }),
   zombie: trait('行动与挥击缓慢，但一击较重；绕开抬手，比站着换血有效。', 1.35, .85, .9, 1.3, { awareness: .85, meleeWindup: .65, chill: [.5, .4, .25] }),
@@ -56,6 +58,26 @@ export const SPECIES_TRAITS: Record<string, MonsterTraits> = {
 };
 const DEFAULT_TRAITS = trait('根据距离选择招式，强招蓄力时可以侧移避开。');
 const BOSS_TRAITS: Record<string, MonsterTraits> = {
+  corpsefire: trait('厚实而缓慢的僵尸；近战附带幽灵一击，绕开沉重的挥击。', 1, 1, 1, 1.3, { meleeWindup: .7, resistance: { poison: [65, 75, 85] } }),
+  bloodRaven: trait('敏捷火箭射手；复活倒下的僵尸，追击时躲开箭路。', 1, 1, 1, .95, { preferredRange: 7 }),
+  griswold: trait('高生命与护甲的铁匠；伤害加深配合慢速重击，诅咒期间避免硬扛。', 1, 1, 1, 1.25, { meleeWindup: .75, chill: [.4, .3, .2] }),
+  countess: trait('火焰强化与火墙封路；高火抗、较高冰抗，离开火墙后反击。', 1, 1, 1, 1, { preferredRange: 6, resistance: { cold: [0, 35, 65] } }),
+  radament: trait('快速移动的高等木乃伊；复活骷髅、喷毒与骸骨弹，高冰毒抗。', 1, 1, 1, 1.1, { preferredRange: 7, resistance: { cold: [50, 65, 80], poison: [75, 85, 85] } }),
+  bloodwitch: trait('特别强壮的近战猎手；命中施加诅咒，利用其短射程拉开距离。', 1, 1, 1, .95, { meleeWindup: .45 }),
+  coldworm: trait('不能移动的厚壳虫后；毒池、幼体和死亡冰霜，避免站在巢穴附近。', 1, 1, 1, 1.15, { resistance: { poison: [75, 85, 85] } }),
+  summoner: trait('低护甲的元素施法者；火焰、冰冷和闪电轮换，接近后尽快击倒。', 1, 1, 1, 1, { preferredRange: 8 }),
+  szzark: trait('强壮且带诅咒的毒蜘蛛；毒爪接毒池，持续中毒可阻止其回血。', 1, 1, 1, 1.1, { regen: .002, resistance: { poison: [60, 75, 85] } }),
+  endugu: trait('抗元素的火焰巫医；复活剥皮者并喷火，绕到侧面打断火流。', 1, 1, 1, 1, { preferredRange: 4 }),
+  sarina: trait('高速近战猎手；狂乱附带幽灵一击，避免被连续追砍。', 1, 1, 1, .9, { meleeWindup: .35 }),
+  ismail: trait('快速且带诅咒的议会成员；召唤火蛇、近战与回血，高火抗。', 1, 1, 1, 1.05, { preferredRange: 5, regen: .004, resistance: { fire: [50, 65, 80] } }),
+  abyssVanguard: trait('深渊中的重型恶魔；喷火与震地交替，侧移躲开正面攻击。', 1, 1, 1, 1.1, { resistance: { fire: [35, 55, 70] } }),
+  izual: trait('极高生命的堕落天使；冰冷近战与新星，挥击缓慢但能承受长时间攻击。', 1, 1, 1, 1.25, { meleeWindup: .7, chill: [.25, .15, .1] }),
+  hephasto: trait('审判灵气压低抗性与防御；幽灵一击叠加铁锤重击，先引离怪群。', 1, 1, 1, 1.2, { meleeWindup: .8, chill: [.35, .25, .15] }),
+  deSeis: trait('狂热灵气强化身边守卫；远处施放诅咒与骸骨弹，优先切断其支援。', 1, 1, 1, 1.05, { preferredRange: 8, resistance: { cold: [40, 60, 75] } }),
+  shenk: trait('厚实的督军；治疗并激励附近恶魔，近身重击，先分离其随从。', 1, 1, 1, 1.15, { meleeWindup: .65, preferredRange: 5 }),
+  eldritch: trait('特别快速的近战首领；快速逼近与连续攻击，利用地形避免包围。', 1, 1, 1, .95),
+  frozenstein: trait('高冰抗的巨兽；冰冷重击配合法力燃烧，避免贴身消耗法力。', 1, 1, 1, 1.2, { meleeWindup: .65, chill: [.25, .1, 0], resistance: { cold: [60, 75, 85] } }),
+  talic: trait('高防御的先祖战士；以旋风斩穿过战场，横移避开预警路线。', 1, 1, 1, 1, { chill: [.3, .2, .1] }),
   andariel: trait('剧毒近战与扇形毒液；三个难度都怕火，毒抗能减轻持续压力。', 1, 1, 1, 1, { chill: [.25, .15, 0], resistance: { fire: [-50, -50, -50] } }),
   duriel: trait('常驻神圣冰冻，偏好连续戳刺，穿插击退重击；近身压力持续。', 1, 1, 1, 1, { chill: [.2, .2, .2] }),
   mephisto: trait('按距离轮换骷髅弹、闪电和冰毒法术；噩梦、地狱无法吸取生命。', 1, 1, 1, 1, { chill: [.25, .15, .1] }),

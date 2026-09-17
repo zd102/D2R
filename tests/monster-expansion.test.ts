@@ -28,6 +28,54 @@ function setup() {
   return { game, combat, hits, spawn, step };
 }
 
+test('super unique signatures provide cold melee, physical cursed strikes and ranged support', () => {
+  const { combat, spawn } = setup();
+  const izual = spawn(BOSSES[16]), spider = spawn(BOSSES[10]), smith = spawn(BOSSES[17]);
+  assert.ok(izual.definition!.attacks.includes('coldTouch'));
+  assert.equal(combat.attackSpec(izual, 'coldTouch').secondary?.[0], 'cold');
+  assert.equal(combat.attackSpec(spider, 'poisonStrike').type, 'physical');
+  assert.ok(smith.definition!.attacks.includes('strike'));
+  const seis = spawn(BOSSES[18]);
+  assert.ok(seis.definition!.attacks.includes('decrepify'));
+  assert.ok(monsterTraits(seis.definition).preferredRange! >= 7);
+  const shenk = spawn(BOSSES[20], 0, 3), minion = spawn(MONSTERS.imp, 1, 3);
+  minion.hp = 40;
+  assert.equal(combat.selectAttack(shenk, 3, true), 'rally');
+  combat.startCast(shenk, 'rally'); combat.resolve(shenk, combat.state(shenk).cast!);
+  assert.ok(minion.hp > 40 && combat.rallyBoost(minion));
+  shenk.dead = true; assert.equal(combat.rallyBoost(minion), false);
+  const talic = spawn(BOSSES[23]);
+  assert.equal(combat.selectAttack(talic, 6, true), 'whirlwind');
+});
+
+test('Nihlathak summons bounded corpse sources, uses cold breath and prioritizes consumable corpses', () => {
+  const { combat, spawn, game } = setup(), nihlathak = spawn(MONSTERS.nihlathak, 0, 6);
+  assert.equal(combat.attackSpec(nihlathak, 'inferno').type, 'cold');
+  assert.equal(combat.attackSpec(nihlathak, 'corpseExplosion').ignoreDefense, true);
+  assert.equal(combat.selectAttack(nihlathak, 2, true), 'bossTeleport');
+  assert.notEqual(combat.selectAttack(nihlathak, 6, true), 'bossTeleport');
+  for (let i = 0; i < 4; i++) combat.summon(nihlathak, 'summonMinions', game.position);
+  const minions = game.enemies.filter((e: Enemy) => e.owner === nihlathak.id);
+  assert.equal(minions.length, 2);
+  assert.ok(minions.every((e: Enemy) => e.summoned && e.corpseExplosionSource && e.definition?.id === 'minion'));
+  minions[0].dead = true;
+  assert.equal(combat.explosionTarget(nihlathak), minions[0]);
+  assert.equal(combat.selectAttack(nihlathak, 6, true), 'corpseExplosion');
+  combat.summon(nihlathak, 'summonMinions', game.position);
+  assert.equal(game.enemies.length, 3, 'unconsumed corpses count toward the summon cap');
+  combat.startCast(nihlathak, 'corpseExplosion');
+  assert.equal(minions[0].redeemed, true);
+  assert.equal(combat.explosionTarget(nihlathak), undefined);
+  combat.summon(nihlathak, 'summonMinions', game.position);
+  assert.equal(game.enemies.length, 4, 'consuming a corpse frees one slot');
+  combat.cancel(nihlathak); nihlathak.cooldown = 100;
+  minions[1].dead = true;
+  combat.update(.1);
+  assert.ok(game.enemies.includes(minions[1]), 'fresh corpse remains available');
+  combat.update(13);
+  assert.ok(!game.enemies.includes(minions[1]), 'unused corpse expires');
+});
+
 test('doll deaths warn before a spatial physical explosion; walls and distance protect heroes', () => {
   for (const escape of ['none', 'distance', 'wall', 'converted', 'summoned']) {
     const { combat, spawn, step, hits, game } = setup(), doll = spawn(MONSTERS.doll, 0, 1);
@@ -170,7 +218,7 @@ test('25 encounter pools reference 37 species and all 25 bosses have valid attac
   assert.equal(ENCOUNTERS.length, 25); assert.equal(BOSSES.length, 25); assert.ok(Object.keys(MONSTERS).length >= 35);
   const used = new Set<string>();
   for (const pool of ENCOUNTERS) { assert.ok(pool.length >= 3); for (const id of pool) { assert.ok(MONSTERS[id]); used.add(id); } }
-  assert.deepEqual(Object.keys(MONSTERS).filter(id => !used.has(id)), ['hellCow'], 'only the secret-area cow is outside campaign encounter pools');
+  assert.deepEqual(Object.keys(MONSTERS).filter(id => !used.has(id)), ['pindleskin', 'nihlathak', 'hellCow'], 'secret-area monsters stay outside campaign encounter pools');
   for (const definition of [...Object.values(MONSTERS), ...BOSSES]) { for (const id of definition.attacks) assert.ok(ATTACKS[id]); if (definition.revive) assert.ok(MONSTERS[definition.revive]); }
   assert.equal(isUndead({ definition: BOSSES[0], kind: 'boss' }), true); assert.equal(isUndead({ definition: BOSSES[4], kind: 'boss' }), false);
 });

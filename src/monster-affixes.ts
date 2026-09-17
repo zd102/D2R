@@ -57,6 +57,7 @@ export const SUPER_UNIQUE_AFFIXES: Record<string, readonly MonsterAffixId[]> = {
   radament: ['extraFast'], bloodwitch: ['extraStrong', 'cursed'], coldworm: ['coldEnchanted', 'magicResistant'], summoner: ['extraStrong', 'magicResistant'],
   szzark: ['extraStrong', 'cursed'], endugu: ['magicResistant', 'fireEnchanted'], sarina: ['extraFast', 'spectralHit'], ismail: ['extraFast', 'cursed'],
   abyssVanguard: ['extraStrong', 'fireEnchanted'], izual: ['coldEnchanted', 'stoneSkin'], hephasto: ['auraEnchanted', 'spectralHit', 'magicResistant'], deSeis: ['extraStrong', 'auraEnchanted'],
+  pindleskin: ['fireEnchanted'], nihlathak: ['coldEnchanted'],
   shenk: ['extraStrong'], eldritch: ['extraFast'], frozenstein: ['coldEnchanted', 'manaBurn'], talic: ['fireEnchanted'], hellCow: ['lightningEnchanted'],
 };
 export const SUPER_UNIQUE_AURAS: Partial<Record<string, MonsterAura>> = { hephasto: 'conviction', deSeis: 'fanaticism' };

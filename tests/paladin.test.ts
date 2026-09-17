@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newHero, stats, gainXp, skillLevel, learnSkill, learnReason, bindSkill, setAura, allocateAttribute, equipItem, unequipItem, activeEquipment, swapWeapons, moveStorage, identifyItem, insertRune, repairEquipment, grantQuestReward, respec, hitChance, resistedDamage, createCorpse, recoverCorpse, serializeSave, parseSave } from '../src/model.ts';
+import { newHero, stats, gainXp, skillLevel, learnSkill, learnReason, bindSkill, setAura, allocateAttribute, equipItem, unequipItem, activeEquipment, swapWeapons, moveStorage, identifyItem, insertRune, repairEquipment, grantQuestReward, respec, hitChance, resistedDamage, applyDeathPenalty, recoverCorpse, serializeSave, parseSave } from '../src/model.ts';
 import { BASE_ATTRIBUTES, EXPERIENCE, SKILLS, skillValues, xpForLevel } from '../src/paladin.ts';
 import { BASES, makeItem, specialItem, packItems, placeItems, socketItem, type Item } from '../src/items.ts';
 import { SaveStore, PROFILE_PREFIX, RULES_BACKUP_PREFIX } from '../src/saves.ts';
@@ -105,12 +105,18 @@ test('quest rewards are once per difficulty and respec preserves total earned po
   assert.equal(hero.bonusLife, 60); assert.equal(hero.bonusResist, 30);
   assert.equal(respec(hero), true); assert.equal(hero.points, 29 * 5 + 15); assert.equal(hero.skillPoints, 29 + 12); assert.equal(respec(hero), true); assert.equal(hero.points, 29 * 5 + 15); assert.equal(hero.skillPoints, 29 + 12); assert.equal(hero.vitality, 25);
 });
-test('death stores equipment once, loses difficulty XP without level loss, and corpse recovery restores 75 percent', () => {
-  const hero = heroAt(40); hero.difficultyLevel = 2; hero.xp = 500000; hero.gold = 1000; const sword = hero.equipment.weapon;
-  createCorpse(hero, 2, 3); const xpLost = hero.corpse!.xpLost;
-  assert.equal(hero.equipment.weapon, null); assert.equal(hero.corpse?.equipment.weapon, sword); assert.equal(hero.level, 40); assert.equal(hero.gold, 800);
-  const xp = hero.xp; assert.equal(recoverCorpse(hero), true); assert.equal(hero.equipment.weapon, sword); assert.equal(hero.xp, xp + Math.floor(xpLost * .75)); assert.equal(hero.gold, 1000); assert.equal(recoverCorpse(hero), false);
+test('death retains equipment without a corpse and still applies gold and difficulty XP penalties', () => {
+  const hero = heroAt(40); hero.difficultyLevel = 2; hero.xp = 500000; hero.gold = 1000;
+  const equipment = hero.equipment, alternate = hero.alternate;
+  applyDeathPenalty(hero);
+  assert.equal(hero.equipment, equipment); assert.equal(hero.alternate, alternate); assert.equal(hero.corpse, null);
+  assert.equal(hero.level, 40); assert.equal(hero.gold, 800); assert.ok(hero.xp < 500000);
+  applyDeathPenalty(hero);
+  assert.equal(hero.equipment, equipment); assert.equal(hero.corpse, null);
+  const loaded = parseSave(serializeSave(hero))!;
+  assert.deepEqual(loaded.equipment, equipment); assert.equal(recoverCorpse(loaded), false);
 });
+
 test('old three-attribute saves migrate to an unspent paladin without losing items or quest progress', () => {
   const legacy = { level: 8, xp: 267, gold: 1500, kills: 32, points: 2, strength: 20, vitality: 17, spirit: 14, hp: 200, mana: 120, equipment: { weapon: { id: 'old', name: '旧剑', slot: 'weapon', rarity: 'legendary', power: 35, level: 5, value: 200 }, armor: null, ring: null }, inventory: [], stage: 2, shrines: [0,1], bossDefeated: false };
   const hero = parseSave(JSON.stringify({ version: 1, hero: legacy }))!; assert.ok(hero);
@@ -118,7 +124,7 @@ test('old three-attribute saves migrate to an unspent paladin without losing ite
 });
 test('save roundtrip preserves fractional resources, bindings, rune words, alternate gear and corpses', () => {
   const hero = heroAt(40); learnSkill(hero, 'might'); setAura(hero, 'might'); bindSkill(hero, 'bolt', 'might'); hero.mana = 12.375;
-  hero.alternate.weapon = base('权杖'); hero.inventory.push(base('皮甲')); placeItems(hero.inventory); hero.runes = ['tal', 'eth']; createCorpse(hero, 4, 5);
+  hero.alternate.weapon = base('权杖'); hero.inventory.push(base('皮甲')); placeItems(hero.inventory); hero.runes = ['tal', 'eth']; applyDeathPenalty(hero);
   assert.deepEqual(parseSave(serializeSave(hero)), hero);
 });
 test('profile rules migration creates an exact pre-paladin backup before overwriting', () => {
@@ -128,9 +134,9 @@ test('profile rules migration creates an exact pre-paladin backup before overwri
   const loaded = store.read(profile.id); store.save(loaded.id, loaded.hero, loaded.revision); assert.equal(data.get(RULES_BACKUP_PREFIX + loaded.id), raw);
 });
 
-test('a second death preserves both equipment sets and corpse recovery cannot duplicate them', () => {
+test('legacy corpse recovery preserves equipment sets without duplication', () => {
   const hero = heroAt(20), first = hero.equipment.weapon!, second = base('短剑');
-  createCorpse(hero, 1, 2); hero.equipment.weapon = second; createCorpse(hero, 3, 4);
+  hero.corpse = { equipment: { ...hero.equipment }, extras: [second], x: 3, z: 4, xpLost: 0, gold: 0 }; hero.equipment.weapon = null;
   assert.equal(hero.equipment.weapon, null); assert.equal(hero.corpse?.equipment.weapon, first); assert.deepEqual(hero.corpse?.extras, [second]);
   const loaded = parseSave(serializeSave(hero))!; assert.equal(recoverCorpse(loaded), true); assert.equal(loaded.equipment.weapon?.id, first.id); assert.deepEqual(loaded.inventory.map(item => item.id), [second.id]); assert.equal(recoverCorpse(loaded), false);
 });

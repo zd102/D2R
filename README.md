@@ -1,5 +1,7 @@
 # 黯蚀 II · ECLIPSE
 
+玩家攻略：[全职业流派玩法攻略](docs/build-guide.md)，覆盖七职业 25 套玩法，包含技能加点、属性分配、过渡与进阶装备、操作循环及终局选择。
+
 服务端安装部署包（Windows 系统服务 / Linux systemd）：[下载 Release](https://github.com/zd102/D2R/releases/latest) · [安装与配置说明](docs/server-release.md)。
 
 底材现支持 D2R 原生词条、超强品质与无形生成，地面显示超强、无形和孔数；底材属性无需鉴定，制作符文之语与重载保留原值。数据、概率和获取范围见 [底材生成规则](docs/base-properties.md)。
@@ -197,3 +199,17 @@ Safari/WebKit 与 Chromium 的在线兼容回归使用 `npm run test:online-comp
 - `src/audio.ts`、`src/audio-bank.ts`：采样音库、空间混音、环境声、音量持久化与资源回收；原生素材导入见 [音效系统说明](docs/AUDIO.md)。
 
 渲染使用 [Three.js](https://threejs.org/docs/)，碰撞使用 [Cannon ES](https://github.com/pmndrs/cannon-es)，界面图标使用 Lucide。场景、角色和纹理随代码本地生成；音效使用随仓库提供的 CC0 采样与程序生成音色，也可优先读取从本机 D2R 导入的原生录音。运行时不依赖 CDN、外部图片或远程 API。
+
+### 魔神挑战与地狱火炬
+
+- 地狱女伯爵、召唤师、尼拉塞克分别有 8%、9%、10% 几率掉落恐惧、憎恨、毁灭之钥。钥匙独立于装备寻获率，暴躁外皮与召唤物不会掉落。
+- 解锁地狱后，在营地神秘传送阵消耗背包中的三种钥匙各一把，开启一次魔神挑战。扣除材料与存档一起提交，保存失败会恢复材料。
+- 按莉莉丝、超级都瑞尔、超级衣卒尔、超级墨菲斯托、混沌迪亚波罗、超级巴尔的顺序战斗。各自保留原型技能，都瑞尔携带神圣冰冻，墨菲斯托携带审判；生命为同难度同人数超级迪亚波罗的 1.25–2 倍，伤害为 1.15–1.4 倍。
+- 每位 Boss 有独立装备偏好、45%–70% 基础额外暗金抽取率、额外装备抽取与 +600% 装备寻获加成。第六位被击败后固定掉落一枚当前职业的地狱火炬，具有该职业技能 +3；其他属性按原有火炬词条随机。
+- 火炬在背包最多携带一枚，包括未鉴定火炬；个人仓库、共享仓库可以存放额外火炬。旧存档多余的背包火炬会移入个人仓库。
+- 本次远征支持回城补给后沿返程传送门继续。另开远征或退出游戏会结束本次挑战，未拾取奖励不会保留。
+- 神秘传送阵按目的地展示解锁条件、消耗品数量和奖励，支持桌面双列与手机单列。浏览器回归：`npm run test:pandemonium`。
+
+Boss 身份参考 [Pandemonium Event](https://diablo.fandom.com/wiki/Pandemonium_Event)；三钥匙直达六场顺序挑战与职业定向奖励为本项目规则。
+
+七职业毕业配装的实测结果、逐 Boss 数据及测试限制见 [终局 Boss 强度审计](docs/endgame-boss-audit.md)。复现命令：`npm run balance:endgame`；真实地图复测：`npm run test:endgame-browser`。

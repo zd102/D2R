@@ -48,10 +48,10 @@ export function moveSharedItem(hero: HeroState, shared: Item[], request: SharedT
   // A returned item must not duplicate equipment in another personal container.
   if (depositing && request.position) {
     const proposedFrom = structuredClone(from), proposedTo = structuredClone(to);
-    if (transferItems(proposedFrom, proposedTo, item.id, personalRows, SHARED_STASH_ROWS, request.position)
+    if (transferItems(proposedFrom, proposedTo, item.id, personalRows, SHARED_STASH_ROWS, request.position, false, 10, 10, request.container === 'inventory', false)
       && proposedFrom.some(returned => shared.some(other => other.id === returned.id) && personal.some(other => other?.id === returned.id))) throw new Error('角色已有相同标识的物品，无法重复交换');
   }
-  if (!transferItems(from, to, item.id, depositing ? personalRows : SHARED_STASH_ROWS, depositing ? SHARED_STASH_ROWS : personalRows, request.position)) throw new Error('目标空间不足或未完整覆盖交换物品');
+  if (!transferItems(from, to, item.id, depositing ? personalRows : SHARED_STASH_ROWS, depositing ? SHARED_STASH_ROWS : personalRows, request.position, false, 10, 10, depositing && request.container === 'inventory', !depositing && request.container === 'inventory')) throw new Error('目标空间不足或未完整覆盖交换物品');
   clampResources(hero);
 }
 export type SharedLock = <T>(operation: () => T) => Promise<T>;

@@ -2,7 +2,7 @@ import type { Game } from './game';
 import type { UI } from './ui';
 import { SaveError, NAME_LIMIT, CHARACTER_FILE_LIMIT, parseCharacterFile, type SavedProfile } from './saves';
 import { LEVELS } from './campaign';
-import { difficultyNames } from './model';
+import { difficultyNames, hasCompletedStory } from './model';
 import { CLASSES, CLASS_IDS, isClassId, type ClassId } from './classes';
 import { treeNames } from './paladin';
 
@@ -26,7 +26,8 @@ export class ProfileScreen {
   creatingClass: ClassId = 'paladin';
   classPreview() {
     const c = CLASSES[this.creatingClass];
-    return `<span>初始生命<b>${c.life}</b></span><span>初始法力<b>${c.mana}</b></span><span>起始等级<b>1</b></span>`;
+    const completed = this.ui.overlay.querySelector<HTMLInputElement>('[name="completeStory"]')?.checked;
+    return `<span>职业基础生命<b>${c.life}</b></span><span>职业基础法力<b>${c.mana}</b></span><span>起始等级<b>${completed ? 4 : 1}</b></span>`;
   }
   constructor(game: Game, ui: UI) {
     this.game = game; this.ui = ui;
@@ -77,7 +78,7 @@ export class ProfileScreen {
       try {
         if (ui.panel === 'new-profile') {
           const classId = new FormData(event.target).get('class');
-          const profile = await game.saves.create(name, isClassId(classId) ? classId : 'paladin'); this.selectedId = profile.id;
+          const profile = await game.saves.create(name, isClassId(classId) ? classId : 'paladin', new FormData(event.target).get('completeStory') === 'on'); this.selectedId = profile.id;
           ui.openPanel('profiles'); await game.startProfile(profile.id);
         } else if (ui.panel === 'rename-profile' && this.editing) {
           const profile = await game.saves.rename(this.editing.id, name, this.editing.revision);
@@ -93,6 +94,10 @@ export class ProfileScreen {
     });
     ui.overlay.addEventListener('change', event => {
       const input = event.target;
+      if (input instanceof HTMLInputElement && input.name === 'completeStory') {
+        const preview = ui.overlay.querySelector('.profile-class-preview');
+        if (preview) preview.innerHTML = this.classPreview();
+      }
       if (input instanceof HTMLInputElement && input.name === 'class' && isClassId(input.value)) {
         this.creatingClass = input.value; game.previewClass(input.value);
         const preview = ui.overlay.querySelector('.profile-class-preview');
@@ -190,7 +195,7 @@ export class ProfileScreen {
       const creating = ui.panel === 'new-profile'; title = creating ? '新建角色' : '重命名角色'; subtitle = creating ? 'A NEW OATH' : 'RENAME CHARACTER';
       const selectedClass = CLASSES[this.editing?.hero.classId ?? 'paladin'];
       body = `${creating ? '' : `<div class="profile-class">${icon(selectedClass.icon)}<div><h3>${selectedClass.name}</h3><span>${selectedClass.trees.map(tree => treeNames[tree]).join(' / ')}</span></div><b>Lv. ${this.editing?.hero.level ?? 1}</b></div>`}
-        <form id="profile-form">${creating ? `<fieldset class="class-picker"><legend>选择职业</legend>${CLASS_IDS.map(id => { const c=CLASSES[id]; return `<label class="class-option" style="--class-color:${c.color}"><input type="radio" name="class" value="${id}" ${id===this.creatingClass?'checked':''}/><span class="class-option-icon">${icon(c.icon)}</span><span><strong>${c.name}<small>${c.english}</small></strong><span>${c.trees.map(tree=>treeNames[tree]).join(' · ')}</span><small>${({necromancer:'亡者统帅 · 骷髅军团、诅咒与尸体爆炸',barbarian:'近战勇士 · 双持、旋风与战嗥',druid:'自然守护 · 变形、元素与动物召唤',assassin:'暗影猎手 · 陷阱、聚气武学与双爪',paladin:'近战守护 · 以灵气强化自身，适合稳步探索',amazon:'远程猎手 · 弓箭与标枪，兼顾机动和召唤',sorceress:'元素施法 · 冰火雷与传送，需要留意法力'})[id]}</small></span></label>`; }).join('')}</fieldset><div class="profile-class-preview" aria-live="polite" aria-atomic="true">${this.classPreview()}</div>` : ''}<label for="profile-name">角色名称</label><input id="profile-name" name="name" type="text" required maxlength="${NAME_LIMIT}" autocomplete="off" value="${escape(creating ? '' : this.editing?.name ?? '')}" aria-describedby="profile-error profile-name-hint" placeholder="为你的冒险者命名"/><small class="profile-name-hint" id="profile-name-hint">最多 ${NAME_LIMIT} 个字符 · ${creating ? '每位角色拥有独立的装备与进度' : '更改名称会保留装备与进度'}</small>${error}<button class="primary-button" type="submit">${icon(creating ? 'user-plus' : 'check')}${creating ? '创建并进入' : '保存名称'}</button></form><button class="text-button" data-profile-action="back">${icon('arrow-left')}返回角色选择</button>`;
+        <form id="profile-form">${creating ? `<fieldset class="class-picker"><legend>选择职业</legend>${CLASS_IDS.map(id => { const c=CLASSES[id]; return `<label class="class-option" style="--class-color:${c.color}"><input type="radio" name="class" value="${id}" ${id===this.creatingClass?'checked':''}/><span class="class-option-icon">${icon(c.icon)}</span><span><strong>${c.name}<small>${c.english}</small></strong><span>${c.trees.map(tree=>treeNames[tree]).join(' · ')}</span><small>${({necromancer:'亡者统帅 · 骷髅军团、诅咒与尸体爆炸',barbarian:'近战勇士 · 双持、旋风与战嗥',druid:'自然守护 · 变形、元素与动物召唤',assassin:'暗影猎手 · 陷阱、聚气武学与双爪',paladin:'近战守护 · 以灵气强化自身，适合稳步探索',amazon:'远程猎手 · 弓箭与标枪，兼顾机动和召唤',sorceress:'元素施法 · 冰火雷与传送，需要留意法力'})[id]}</small></span></label>`; }).join('')}</fieldset><div class="profile-class-preview" aria-live="polite" aria-atomic="true">${this.classPreview()}</div>` : ''}<label for="profile-name">角色名称</label><input id="profile-name" name="name" type="text" required maxlength="${NAME_LIMIT}" autocomplete="off" value="${escape(creating ? '' : this.editing?.name ?? '')}" aria-describedby="profile-error profile-name-hint" placeholder="为你的冒险者命名"/><small class="profile-name-hint" id="profile-name-hint">最多 ${NAME_LIMIT} 个字符 · ${creating ? '每位角色拥有独立的装备与进度' : '更改名称会保留装备与进度'}</small>${creating && this.profiles.some(profile => hasCompletedStory(profile.hero)) ? `<label class="profile-story-option"><input type="checkbox" name="completeStory" aria-describedby="profile-story-hint"/><span>通关剧情</span></label><small class="profile-name-hint" id="profile-story-hint">通关三个难度并获得全部角色数值奖励（含升级至 4 级），解锁方块；不发放金币、符文或装备掉落。</small>` : ''}${error}<button class="primary-button" type="submit">${icon(creating ? 'user-plus' : 'check')}${creating ? '创建并进入' : '保存名称'}</button></form><button class="text-button" data-profile-action="back">${icon('arrow-left')}返回角色选择</button>`;
     } else if (ui.panel === 'delete-profile') {
       title = '删除角色'; subtitle = 'DELETE CHARACTER';
       body = `<div class="profile-delete-mark">${icon('trash-2')}</div><h3 class="profile-delete-name">${escape(this.editing?.name ?? '')}</h3><p class="profile-delete-copy">此角色的等级、装备与远征进度将永久删除。</p>${error}<button class="primary-button danger-button" data-profile-action="confirm-delete">${icon('trash-2')}确认删除</button><button class="secondary-button" data-profile-action="back">保留角色</button>`;
