@@ -499,12 +499,9 @@ export function completeCampaignLevel(hero: HeroState) {
 }
 export function hitChance(attack: number, defense: number, attackerLevel: number, defenderLevel: number) { return Math.max(5, Math.min(95, 200 * attack / Math.max(1, attack + defense) * attackerLevel / Math.max(1, attackerLevel + defenderLevel))); }
 export function resistedDamage(amount: number, resistance: number, reduction = 0) { const resist = resistance - (resistance >= 100 ? reduction / 5 : reduction); return resist >= 100 ? 0 : Math.max(0, amount * (1 - Math.max(-100, resist) / 100)); }
-export function createCorpse(hero: HeroState, x: number, z: number) {
+export function applyDeathPenalty(hero: HeroState) {
   const loss = Math.min(hero.xp, Math.floor(xpForLevel(hero.level) * [0, .05, .1][difficulty(hero)])); hero.xp -= loss;
   const gold = Math.floor(hero.gold * Math.min(.2, hero.level / 100)); hero.gold -= gold;
-  if (!hero.corpse) hero.corpse = { equipment: hero.equipment, extras: [], x, z, xpLost: loss, gold };
-  else { hero.corpse.xpLost += loss; hero.corpse.gold += gold; for (const slot of SLOTS) { const item = hero.equipment[slot]; if (item) { if (hero.corpse.equipment[slot]) hero.corpse.extras.push(item); else hero.corpse.equipment[slot] = item; } } }
-  hero.equipment = emptyEquipment();
   hero.potionTimers = [0, 0, 0]; hero.potionRecovery = []; hero.holyShield = 0; hero.holyShieldLevel = 0; hero.poison = 0; hero.curse = 0; hero.cold = 0;
 }
 export function recoverCorpse(hero: HeroState, inField = true) {

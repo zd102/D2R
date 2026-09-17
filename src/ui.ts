@@ -493,7 +493,7 @@ export class UI {
     } else if (this.panel === 'base-shop') {
       content = progressionBaseShop(h);
     } else if (this.panel === 'death') {
-      content = `<div class="end-mark death-mark">${icon('skull')}</div><p class="end-story">灰烬尚温，誓约未尽。</p><div class="end-stats"><span>等级 <b>${h.level}</b></span><span>击杀 <b>${h.kills}</b></span></div><p class="death-cost">遗体保留装备 · 遗失 ${h.corpse?.gold ?? 0} 金币</p><button class="primary-button" data-action="revive">${icon('rotate-ccw')}在传送阵重生</button>`;
+      content = `<div class="end-mark death-mark">${icon('skull')}</div><p class="end-story">灰烬尚温，誓约未尽。</p><div class="end-stats"><span>等级 <b>${h.level}</b></span><span>击杀 <b>${h.kills}</b></span></div><p class="death-cost">装备已保留 · 金币与经验按难度扣除</p><button class="primary-button" data-action="revive">${icon('rotate-ccw')}在传送阵重生</button>`;
     }
     this.overlay.innerHTML = panelFrame(this.panel, panelTitle, content);
     const characterName = this.overlay.querySelector('.character-banner h3');

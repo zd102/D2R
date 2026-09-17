@@ -11,7 +11,7 @@ import { playerLifeFactor } from './player-count.ts';
 import * as THREE from 'three';
 import { castSound, impactSound, weaponSound } from './audio-bank.ts';
 import type { Game, Enemy, Skill } from './game';
-import { stats, equippedAuras, skillLevel, setAura, hitChance, resistedDamage, difficulty, createCorpse, clampResources } from './model.ts';
+import { stats, equippedAuras, skillLevel, setAura, hitChance, resistedDamage, difficulty, applyDeathPenalty, clampResources } from './model.ts';
 import { skillValues, isAura, tierValue, PALADIN_BALANCE, type ActionId, type DamageType } from './paladin.ts';
 import { makeRing, gridWalkable } from './world.ts';
 import { heroAction, playHeroAction } from './hero-models.ts';
@@ -420,7 +420,7 @@ export class PaladinCombat {
     if (!self && !missile && source && type === 'physical') { const curse=this.itemCurses.get(source); const reflected=(curse?.kind==='ironMaiden'?damage*skillValues('ironMaiden',curse.rank??1).percent/100:0) + (h.buffs.spiritOfBarbs?skillValues('spiritOfBarbs',h.buffs.spiritOfBarbs.rank).percent:0); if(reflected) this.damage(source,reflected,'physical'); }
     if (!self && !missile && source && type === 'physical' && s.mods.reflectDamage) this.damage(source, s.mods.reflectDamage, 'physical');
     if (!self && !missile && source && type === 'physical' && s.mods.lightningReflect) this.damage(source, s.mods.lightningReflect, 'lightning');
-    if (h.hp <= 0 && !g.dead) { this.classes.clear(); this.triggerItems('death-skill'); h.hp = 0; g.audio.play('death', { nativeKey: `death:${h.classId}` }); createCorpse(h, g.position.x, g.position.z); h.buffs={}; updateItemForm(g.actor, h.buffs, g.time); g.dead = true; g.releaseInput(); this.zeal = null; g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
+    if (h.hp <= 0 && !g.dead) { this.classes.clear(); this.triggerItems('death-skill'); h.hp = 0; g.audio.play('death', { nativeKey: `death:${h.classId}` }); applyDeathPenalty(h); h.buffs={}; updateItemForm(g.actor, h.buffs, g.time); g.dead = true; g.monsterCombat?.resetBossesAfterDeath(); g.releaseInput(); this.zeal = null; g.actor.group.rotation.z = Math.PI / 2; g.ui.openPanel('death'); g.save(false); }
     return true;
   }
   update(dt: number) {

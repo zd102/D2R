@@ -195,6 +195,34 @@ export class MonsterCombat {
     const state = this.states.get(enemy.id); if (state?.cast) { this.game.disposeObject(state.cast.mesh); state.cast = undefined; enemy.cooldown = Math.max(enemy.cooldown, .6); }
     for (const hazard of this.hazards) if (hazard.source === enemy && hazard.spec.shape === 'line') hazard.life = 0;
   }
+  resetBossesAfterDeath() {
+    const g = this.game;
+    const bosses = g.enemies.filter(e => e.boss && !e.dead && e.spawn && (e.engaged || e.active || e.hp < e.maxHp));
+    const sources = new Set(bosses);
+    // Remove the encounter's summons without granting kill rewards or death effects.
+    for (const enemy of g.enemies) if (enemy.owner !== undefined && [...sources].some(owner => owner.id === enemy.owner)) sources.add(enemy);
+    for (const enemy of sources) {
+      this.cancel(enemy); this.states.delete(enemy.id);
+      if (!bosses.includes(enemy)) {
+        g.world.physics.removeBody(enemy.body); g.disposeObject(enemy.actor.group);
+        g.enemies.splice(g.enemies.indexOf(enemy), 1); continue;
+      }
+      enemy.hp = enemy.maxHp; enemy.active = false; enemy.engaged = false;
+      enemy.path = []; enemy.rethink = 0; enemy.cooldown = 1; enemy.attackTime = 0;
+      enemy.stunned = enemy.coldTime = enemy.converted = enemy.bleed = 0;
+      enemy.blind = enemy.flee = 0; enemy.preventHeal = false;
+      enemy.poison = enemy.slow = enemy.bleedSnapshot = undefined;
+      enemy.actor.group.position.set(enemy.spawn!.x, 0, enemy.spawn!.z);
+      enemy.body.position.set(enemy.spawn!.x, enemy.body.position.y, enemy.spawn!.z);
+      enemy.body.velocity.set(0, 0, 0); enemy.body.aabbNeedsUpdate = true;
+    }
+    for (const collection of [this.missiles, this.hazards, this.triggeredCasts, this.meleeCasts]) {
+      for (let i = collection.length - 1; i >= 0; i--) if (sources.has(collection[i].source)) {
+        const effect = collection[i]; g.disposeObject('mesh' in effect ? effect.mesh : effect.cast.mesh); collection.splice(i, 1);
+      }
+    }
+    this.prisons = this.prisons.filter(prison => !sources.has(prison.source));
+  }
   onDeath(enemy: Enemy) {
     const death = monsterTraits(enemy.definition).death;
     if (death && enemy.converted <= 0 && !enemy.summoned) {
@@ -482,7 +510,7 @@ export class MonsterCombat {
     if (state.lifetime !== undefined) { state.lifetime -= dt; if (state.lifetime <= 0 || g.enemies.find(e => e.id === enemy.owner)?.dead) { enemy.redeemed = true; g.killEnemy(enemy); return; } }
     const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < ai.sightRange && this.lineOfSight(p,targetPoint), engageRange = ai.engageRange * traits.awareness;
     if (g.started && unlocked && visible && (distance < engageRange || enemy.active)) {
-      enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = ai.memory;
+      enemy.engaged = true; enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = ai.memory;
       if (!state.alerted) {
         state.alerted = true;
         for (const ally of g.enemies) {

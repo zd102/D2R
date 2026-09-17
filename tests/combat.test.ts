@@ -329,10 +329,10 @@ test('fist of heavens has a 0.4 second delay and holy shield expires in game tim
   combat.castAction('fistOfHeavens'); const mana = hero.mana; combat.lock = 0; combat.castAction('fistOfHeavens'); assert.equal(hero.mana, mana); assert.equal(combat.fohDelay, .4);
   combat.fohDelay = 0; combat.castAction('holyShield'); assert.equal(hero.holyShield, 60); combat.update(1); assert.equal(hero.holyShield, 59);
 });
-test('lethal damage creates a persistent corpse and interrupts a zeal sequence', () => {
+test('lethal damage retains equipment without a corpse and interrupts a zeal sequence', () => {
   const { hero, combat, game } = setup(); const sword = hero.equipment.weapon;
   combat.zeal = { hits: 4, timer: .2, direction: new THREE.Vector3() }; combat.hurt(100000, 'magic');
-  assert.equal(game.dead, true); assert.equal(hero.equipment.weapon, null); assert.equal(hero.corpse?.equipment.weapon, sword); assert.equal(combat.zeal, null);
+  assert.equal(game.dead, true); assert.equal(hero.equipment.weapon, sword); assert.equal(hero.corpse, null); assert.equal(combat.zeal, null);
 });
 test('holy shield snapshots the cast level when skill equipment is swapped out', () => {
   const { hero, combat } = setup(); hero.equipment.weapon!.mods = { allSkills: 2 }; combat.castAction('holyShield');

@@ -47,7 +47,7 @@ import { MonsterBatches } from './monster-batches';
 import { RenderBudget } from './render-budget';
 import { createImpact, createLightning, disposeVisual, updateVisual, ProjectileVisualPool } from './visual-effects';
 
-export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; champion?: ChampionVariant; superUnique?: boolean; affixes?: MonsterAffix[]; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; corpseExplosionSource?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; bleedSnapshot?: AttackSnapshot; poison?: { dps: number; remaining: number; snapshot?: AttackSnapshot }; slow?: { percent: number; remaining: number } };
+export type Enemy = { spawn?: { x: number; z: number }; engaged?: boolean; playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; champion?: ChampionVariant; superUnique?: boolean; affixes?: MonsterAffix[]; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; corpseExplosionSource?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; bleedSnapshot?: AttackSnapshot; poison?: { dps: number; remaining: number; snapshot?: AttackSnapshot }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 type PointerGesture = { id: number; button: number; x: number; y: number; started: number; dragging: boolean; stationary: boolean; mode: 'move' | 'attack' | 'interact' | 'cast' };
@@ -566,7 +566,7 @@ export class Game {
     }
     actor.group.position.set(x, 0, z); this.world.scene.add(actor.group);
     const affixName = affixes.map(affix => affix.name).join(' · ');
-    const enemy: Enemy = { playerCount: this.hero.playerCount, id: this.nextId++, name: boss ? affixName ? `超级暗金 · ${this.specialArea === 'nihlathak' ? definition.name : this.level.boss} · ${affixName}` : this.level.boss : elite ? `精英 · ${definition.name} · ${affixName}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, superUnique, affixes: affixes.length ? affixes : undefined, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
+    const enemy: Enemy = { spawn: { x, z }, playerCount: this.hero.playerCount, id: this.nextId++, name: boss ? affixName ? `超级暗金 · ${this.specialArea === 'nihlathak' ? definition.name : this.level.boss} · ${affixName}` : this.level.boss : elite ? `精英 · ${definition.name} · ${affixName}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, superUnique, affixes: affixes.length ? affixes : undefined, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
     this.enemies.push(enemy); this.monsterBatches.add(actor, `${definition.id}:${boss}`); return enemy;
   }
   begin() { if (!this.profile) return; this.started = true; this.audio.unlock(); }
@@ -1123,6 +1123,7 @@ export class Game {
     }
   }
   revive() {
+    this.monsterCombat.resetBossesAfterDeath();
     this.monsterCombat.clearHeroDebuffs();
     this.dead = false; this.hero.hp = stats(this.hero).maxHp; this.hero.mana = stats(this.hero).maxMana; this.hero.stamina = stats(this.hero).maxStamina;
     const spawn = this.inCamp ? CAMP.spawn : this.world.layout.spawn;
