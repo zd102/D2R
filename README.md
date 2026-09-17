@@ -1,5 +1,7 @@
 # 黯蚀 II · ECLIPSE
 
+玩家攻略：[全职业流派玩法攻略](docs/build-guide.md)，覆盖七职业 25 套玩法，包含技能加点、属性分配、过渡与进阶装备、操作循环及终局选择。
+
 服务端安装部署包（Windows 系统服务 / Linux systemd）：[下载 Release](https://github.com/zd102/D2R/releases/latest) · [安装与配置说明](docs/server-release.md)。
 
 底材现支持 D2R 原生词条、超强品质与无形生成，地面显示超强、无形和孔数；底材属性无需鉴定，制作符文之语与重载保留原值。数据、概率和获取范围见 [底材生成规则](docs/base-properties.md)。
