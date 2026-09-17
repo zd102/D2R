@@ -286,6 +286,7 @@ export class UI {
       if (element.dataset.buy) this.game.buy(Number(element.dataset.buy));
       if (element.dataset.loot) this.game.pickup(Number(element.dataset.loot));
       if (element.dataset.chest !== undefined) this.game.openChest(Number(element.dataset.chest));
+      if (element.dataset.templeEntry !== undefined) this.game.enterNihlathak(Number(element.dataset.templeEntry));
       if (element.dataset.cowEntry) this.game.enterCowLevel(element.dataset.cowEntry);
       if (element.dataset.uberEntry) this.game.enterUberDiablo(element.dataset.uberEntry);
       switch (element.dataset.action) {
@@ -467,7 +468,7 @@ export class UI {
       content = this.sharedStashScreen.render();
     } else if (this.panel === 'mystery-portal') {
       const legs = this.game.cowLegs, soj = this.game.hero.inventory.find(item => item.catalogId === 'unique-122' || item.name === '乔丹之石');
-      content = `<div class="quest-rewards"><span>${icon('sparkles')}维特之腿</span></div><div class="shop-items">${legs.map(leg => `<div><div class="shop-item-icon gold-text">${icon('sword')}</div><div><h3>${leg.name}</h3></div><button class="primary-button" data-cow-entry="${escapeHtml(leg.id)}">${icon('circle')}开启</button></div>`).join('') || '<p class="quest-story">未携带维特之腿</p>'}</div><div class="quest-rewards"><span>${icon('flame')}乔丹之石</span></div>${this.game.hero.campaign.cleared[2] >= 25 ? `<div class="shop-items"><div><div class="shop-item-icon red-text">${icon('gem')}</div><div><h3>超级迪亚波罗</h3></div><button class="primary-button" data-uber-entry="${escapeHtml(soj?.id ?? '')}" ${soj ? '' : 'disabled'}>${icon('flame')}开启</button></div></div>` : ''}`;
+      content = `<div class="quest-rewards"><span>${icon('church')}尼拉塞克神殿</span></div><p class="quest-story">对应难度救下安雅后永久开启。入口暴躁外皮拥有额外掉落稀有度与暗金掉落率。</p><div class="shop-items">${[0,1,2].map(diff => `<div><div><h3>${['普通','噩梦','地狱'][diff]} · 尼拉塞克神殿</h3></div><button class="primary-button" data-temple-entry="${diff}" ${this.game.templeDifficulties.includes(diff as 0 | 1 | 2) ? '' : 'disabled'}>${this.game.templeDifficulties.includes(diff as 0 | 1 | 2) ? '进入' : '尚未救下安雅'}</button></div>`).join('')}</div><div class="quest-rewards"><span>${icon('sparkles')}维特之腿</span></div><div class="shop-items">${legs.map(leg => `<div><div class="shop-item-icon gold-text">${icon('sword')}</div><div><h3>${leg.name}</h3></div><button class="primary-button" data-cow-entry="${escapeHtml(leg.id)}">${icon('circle')}开启</button></div>`).join('') || '<p class="quest-story">未携带维特之腿</p>'}</div><div class="quest-rewards"><span>${icon('flame')}乔丹之石</span></div>${this.game.hero.campaign.cleared[2] >= 25 ? `<div class="shop-items"><div><div class="shop-item-icon red-text">${icon('gem')}</div><div><h3>超级迪亚波罗</h3></div><button class="primary-button" data-uber-entry="${escapeHtml(soj?.id ?? '')}" ${soj ? '' : 'disabled'}>${icon('flame')}开启</button></div></div>` : ''}`;
     } else if (this.panel === 'campaign') {
       content = this.campaignScreen.render();
     } else if (this.panel === 'inventory') {
@@ -594,7 +595,7 @@ export class UI {
     setText(document.querySelector('.quest-track strong')!, game.level.quest.name);
     setText(document.querySelector('.area-caption>span:last-of-type')!, game.areaName);
     setText(document.querySelector('.area-caption>small')!, game.inCamp ? CAMP.english : game.level.english);
-    setText(document.getElementById('quest-step')!, special === 'cow' ? `剩余地狱奶牛 ${game.enemies.filter(enemy => !enemy.dead && !enemy.boss).length}` : special ? '唯一首领' : `${game.level.quest.action} ${questProgress(h.campaign)} / ${game.level.quest.count}`);
+    setText(document.getElementById('quest-step')!, special === 'nihlathak' ? `击杀暴躁外皮 ${Number(game.enemies.some(enemy => enemy.definition?.id === 'pindleskin' && enemy.dead))} / 1` : special === 'cow' ? `剩余地狱奶牛 ${game.enemies.filter(enemy => !enemy.dead && !enemy.boss).length}` : special ? '唯一首领' : `${game.level.quest.action} ${questProgress(h.campaign)} / ${game.level.quest.count}`);
     const questFinal = document.querySelector('.quest-final')!; setText(questFinal, h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `${special || questComplete(h.campaign) ? '击败' : '完成任务后挑战'}${game.level.boss}`); questFinal.classList.toggle('complete', h.bossDefeated);
     const badge = document.getElementById('points-badge')!; badge.hidden = !h.points; setText(badge, String(h.points));
     const skillBadge = document.getElementById('skill-points-badge')!; skillBadge.hidden = !h.skillPoints; setText(skillBadge, String(h.skillPoints));
@@ -636,7 +637,7 @@ export class UI {
     const action = game.contextAction(), context = document.getElementById('context-action')!;
     context.hidden = !action || game.paused || game.dead; if (action) setText(context.querySelector('span')!, action.name);
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
-    bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); bar.querySelector('span')!.title = boss.name; setText(bar.querySelector('small')!, questComplete(h.campaign) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
+    bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); bar.querySelector('span')!.title = boss.name; setText(bar.querySelector('small')!, (special || questComplete(h.campaign)) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
     const aliveKeys = new Set<string>();
     const updateOverhead = (key: string, actor: THREE.Group, resources: { name: string; value: number; max: number; kind: string }[]) => {
       const point = game.project(actor.position.clone().add(new THREE.Vector3(0, Number(actor.userData.labelHeight ?? 2.4), 0)));

@@ -19,6 +19,7 @@ type Shape = 'melee' | 'bolt' | 'fan' | 'nova' | 'pool' | 'line' | 'wall' | 'sum
 export type AttackSpec = { name: string; shape: Shape; type: DamageType; range: number; windup: number; cooldown: number; damage: number; radius: number; count?: number; speed?: number; duration?: number; status?: 'curse' | 'mana' | 'stun' | 'bloodMana' | 'defense' | 'decrepify'; move?: boolean; color?: number; secondary?: [DamageType, number]; knockback?: number; triggered?: boolean; afterDeath?: boolean; ignoreDefense?: boolean; manaDrain?: number };
 const attack = (name: string, shape: Shape, type: DamageType, range: number, windup: number, cooldown: number, damage: number, radius: number, extra: Partial<AttackSpec> = {}): AttackSpec => ({ name, shape, type, range, windup, cooldown, damage, radius, ...extra });
 export const ATTACKS: Record<AttackId, AttackSpec> = {
+  corpseExplosion: attack('尸体爆炸', 'pool', 'fire', 12, 1.1, 4, 1.2, 3.5, { duration: .3, secondary: ['physical', 1.2] }),
   rally: attack('督战与治疗', 'support', 'magic', 8, .9, 9, 0, 7),
   meteor: attack('陨火', 'pool', 'fire', 11, 1.5, 7, .7, 1.8, { duration: 1.5 }),
   strike: attack('重击', 'melee', 'physical', 1.8, .38, 1.4, 1, 2.1),
@@ -229,11 +230,15 @@ export class MonsterCombat {
     if (id === 'clone') return !state.cloned && enemy.hp <= enemy.maxHp * .5;
     return true;
   }
+  explosionTarget(enemy: Enemy) {
+    return this.game.enemies.find(corpse => corpse.dead && !corpse.boss && !corpse.redeemed && !corpse.summoned && corpse.actor.group.position.distanceTo(enemy.actor.group.position) < 12 && this.lineOfSight(enemy.actor.group.position, corpse.actor.group.position));
+  }
   selectAttack(enemy: Enemy, distance: number, visible: boolean): AttackId | undefined {
     const state = this.state(enemy), attacks = enemy.definition?.attacks ?? ['strike'];
     const available = attacks.filter(id => {
       const spec = this.attackSpec(enemy, id);
       if ((state.abilities[id] ?? 0) > 0) return false;
+      if (id === 'corpseExplosion' && !this.explosionTarget(enemy)) return false;
       if (spec.shape === 'revive') return this.canSummon(enemy, id);
       if (spec.shape === 'support') return visible && this.supportTargets(enemy).some(ally => !this.rallyBoost(ally) || ally.hp < ally.maxHp * .65 && !ally.poison && !ally.preventHeal);
       if (enemy.definition?.id === 'imp' && id === 'bossTeleport' && (distance > 3.8 || enemy.summoned)) return false;
@@ -243,6 +248,7 @@ export class MonsterCombat {
       return spec.shape !== 'summon' || this.canSummon(enemy, id);
     });
     // Support and phase abilities must not wait for an unrelated melee attack.
+    if (available.includes('corpseExplosion')) return 'corpseExplosion';
     if (available.includes('revive')) return 'revive';
     if (available.includes('clone')) return 'clone';
     if (available.includes('rally')) return 'rally';
@@ -324,7 +330,8 @@ export class MonsterCombat {
   startCast(enemy: Enemy, id: AttackId, override?: AttackSpec) {
     const summon=this.game.combat.specialItems?.taunts.has(enemy) ? undefined : this.game.combat.classes?.target(enemy);
     const spec = override ?? this.attackSpec(enemy, id), origin = enemy.actor.group.position.clone(), target = (summon?.actor.group.position??this.game.position).clone();
-    const corpse = id === 'revive' ? this.revivalTarget(enemy) : undefined;
+    const corpse = id === 'revive' ? this.revivalTarget(enemy) : id === 'corpseExplosion' ? this.explosionTarget(enemy) : undefined;
+    if (id === 'corpseExplosion') { if (!corpse) return; target.copy(corpse.actor.group.position); corpse.redeemed = true; }
     if (id === 'revive') { if (!corpse) return; target.copy(corpse.actor.group.position); }
     if (id === 'brood' || id === 'rally') target.copy(origin);
     if (spec.shape === 'wall') {

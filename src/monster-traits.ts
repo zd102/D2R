@@ -15,6 +15,8 @@ const trait = (description: string, damage = 1, defense = 1, accuracy = 1, coold
 // Species identities, adapted to this campaign's damage budget. These are not
 // original-game frame/stat tables. Resistances remain subject to the 85% cap.
 export const SPECIES_TRAITS: Record<string, MonsterTraits> = {
+  pindleskin: trait('神殿入口的复生战士首领；冲锋与火焰强化，高稀有度装备掉落。', 1.3, 1.2, 1.15, 1.1),
+  nihlathak: trait('神殿深处的施法者；传送、寒冰法术与尸爆，远离尸体或先消耗尸体。', 1.1, .9, 1, 1, { preferredRange: 8 }),
   fallen: trait('胆怯的轻型近战；同伴倒下会逃跑。地狱火抗高，适合先击杀巫师。', .8, .65, .8, 1.05, { awareness: .9, resistance: { fire: [0, 25, 80] } }),
   shaman: trait('脆弱的后排支援；优先复活沉沦魔，用火球掩护。', .95, .65, .8, 1.05, { preferredRange: 7, resistance: { fire: [20, 40, 80] } }),
   zombie: trait('行动与挥击缓慢，但一击较重；绕开抬手，比站着换血有效。', 1.35, .85, .9, 1.3, { awareness: .85, meleeWindup: .65, chill: [.5, .4, .25] }),

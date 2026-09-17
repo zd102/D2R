@@ -79,10 +79,12 @@
 
 场景为本项目生成的 3D 关卡，使用分章材质、洞穴、废墟、神殿、悬空栈道、丛林、熔岩和雪地地形，以及不同路线和任务支路，不是暴雪原始地图或素材。各关现按 37 类普通怪物配置 3–4 类敌人，包含 27 种体型；五位大首领及二十位小首领均有专用模型配置和技能组合。投射物、范围攻击和首领强招具有预警及碰撞，详见 [怪物与战利品扩充](EXPANSION.md)。
 
-为适配每章五关，原作多步骤寻物与合成被合并为简短交互：第二章法杖复原、第三章克林姆遗物不另建合成任务链。原作第四幕的三个主线任务被扩展为五段，深渊先锋是新增守关首领，混沌避难所拆成外环与核心两关。先祖试炼简化为三座雕像与一名代表首领；第五幕没有另设尼拉塞克支线。任务物的先后位置也经过调整，以保证每关最后都由首领守关。
+为适配每章五关，原作多步骤寻物与合成被合并为简短交互：第二章法杖复原、第三章克林姆遗物不另建合成任务链。原作第四幕的三个主线任务被扩展为五段，深渊先锋是新增守关首领，混沌避难所拆成外环与核心两关。先祖试炼简化为三座雕像与一名代表首领；第五幕救下安雅后，神秘传送阵永久解锁对应难度的尼拉塞克神殿支线：入口击杀超级暗金暴躁外皮，再挑战深处的超级暗金尼拉塞克。暴躁外皮有两次额外装备掉落与 +400 掉落 MF（提高稀有、套装和暗金概率，仍受物品等级与底材限制）。任务物的先后位置也经过调整，以保证每关最后都由首领守关。
 
 参考暴雪 Arreat Summit 的 [第一幕](https://classic.battle.net/diablo2exp/quests/act1.shtml)、[第二幕](https://classic.battle.net/diablo2exp/quests/act2.shtml)、[第三幕](https://classic.battle.net/diablo2exp/quests/act3.shtml)、[第四幕](https://classic.battle.net/diablo2exp/quests/act4.shtml)、[第五幕](https://classic.battle.net/diablo2exp/quests/act5.shtml)任务资料，以及 [第一幕首领](https://classic.battle.net/diablo2exp/monsters/act1-superuniques.shtml)、[第二幕首领](https://classic.battle.net/diablo2exp/monsters/act2-superuniques.shtml)、[第三幕首领](https://classic.battle.net/diablo2exp/monsters/act3-superuniques.shtml)、[第五幕首领](https://classic.battle.net/diablo2exp/monsters/act5-superuniques.shtml)名单。
 
 ## 验证
 
 `npm test` 覆盖 75 次连续通关、难度门槛、重玩奖励幂等、任务交互校验、存档迁移与最终寻路落点。`node tests/campaign-browser.mjs` 检查全部 25 个场景、每个任务物和首领的可达性、选关和重载、桌面与手机布局、画布像素和动画。`node tests/campaign.mjs` 使用隔离存档进行真实移动与战斗，完成击杀任务、交互任务、五位章节首领，以及普通和噩梦的最后一关解锁流程。
+
+尼拉塞克支线参考 [D2R 暴躁外皮资料](https://diablo2.io/monsters/pindleskin-t4321.html)。本项目将入口庭院与尼拉塞克所在深层大厅合并为一关；额外装备次数与 MF 是本项目适配数值。

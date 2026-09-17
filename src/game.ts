@@ -13,7 +13,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GameWorld, createActor, animateActor, makeRing, gridWalkable, COLORS, type Actor } from './world';
-import { castingSkillLevel, newHero, stats, skillLevel, gainXp, equipItem, equipReason, sellItem, allocateAttribute, swapWeapons, difficulty, recoverCorpse, selectCampaignLevel, completeCampaignLevel, activateQuestObject, recordQuestKill, type HeroState, type Item, type Slot } from './model';
+import { nihlathakUnlocked, castingSkillLevel, newHero, stats, skillLevel, gainXp, equipItem, equipReason, sellItem, allocateAttribute, swapWeapons, difficulty, recoverCorpse, selectCampaignLevel, completeCampaignLevel, activateQuestObject, recordQuestKill, type HeroState, type Item, type Slot } from './model';
 import { clearShot } from './ranged';
 import { ACTS, LEVELS, SPECIAL_LEVELS, levelTuning, questComplete, canEnterLevel, type SpecialArea } from './campaign';
 import { encounterPlan, cowEncounterPlan } from './encounter-plan';
@@ -494,6 +494,16 @@ export class Game {
   }
   spawnEnemies() {
     if (this.inCamp) return;
+    if (this.specialArea === 'nihlathak') {
+      const { spawn, boss, route } = this.world.layout;
+      const direction = new THREE.Vector3(boss.x - spawn.x, 0, boss.z - spawn.z).normalize();
+      this.spawnEnemy(spawn.x + direction.x * 7, spawn.z + direction.z * 7, 'boss', MONSTERS.pindleskin);
+      for (const point of [route[1], boss]) for (let i = 0; i < 5; i++) {
+        const site = this.world.path(spawn, { x: point.x + Math.cos(i * 2.4) * 4, z: point.z + Math.sin(i * 2.4) * 4 }).at(-1);
+        if (site) this.spawnEnemy(site.x, site.z, 'demon', MONSTERS[point === boss ? 'minion' : 'reanimated']);
+      }
+      return;
+    }
     if (this.specialArea === 'cow') { this.spawnCowEnemies(); return; }
     if (this.specialArea === 'uberDiablo') { const { boss } = this.world.layout; this.spawnEnemy(boss.x, boss.z, 'boss', BOSSES[19]); return; }
     const layout = this.world.layout, plan = encounterPlan(this.level, layout, difficulty(this.hero));
@@ -556,7 +566,7 @@ export class Game {
     }
     actor.group.position.set(x, 0, z); this.world.scene.add(actor.group);
     const affixName = affixes.map(affix => affix.name).join(' · ');
-    const enemy: Enemy = { playerCount: this.hero.playerCount, id: this.nextId++, name: boss ? affixName ? `超级暗金 · ${this.level.boss} · ${affixName}` : this.level.boss : elite ? `精英 · ${definition.name} · ${affixName}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, superUnique, affixes: affixes.length ? affixes : undefined, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
+    const enemy: Enemy = { playerCount: this.hero.playerCount, id: this.nextId++, name: boss ? affixName ? `超级暗金 · ${this.specialArea === 'nihlathak' ? definition.name : this.level.boss} · ${affixName}` : this.level.boss : elite ? `精英 · ${definition.name} · ${affixName}` : definition.name, actor, definition, body: this.world.body(x, z, boss ? .85 : elite ? .44 : .37), ...tuning, hp: tuning.maxHp, cooldown: 1, attackTime: 0, path: [], rethink: 0, dead: false, boss, elite, superUnique, affixes: affixes.length ? affixes : undefined, active: false, kind: boss ? 'boss' : definition.race === 'undead' ? 'skeleton' : 'demon', stunned: 0, coldTime: 0, converted: 0, bleed: 0, redeemed: false };
     this.enemies.push(enemy); this.monsterBatches.add(actor, `${definition.id}:${boss}`); return enemy;
   }
   begin() { if (!this.profile) return; this.started = true; this.audio.unlock(); }
@@ -887,7 +897,12 @@ export class Game {
     const wasReady = !this.specialArea && questComplete(this.hero.campaign);
     if (!enemy.boss && !this.specialArea) recordQuestKill(this.hero);
     if (!this.specialArea && !wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.audio.play('quest'); this.save(false); }
-    if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level, mercenaryKill ? rewardMods : undefined);
+    if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level, mercenaryKill ? rewardMods : undefined, false, enemy.definition?.id === 'pindleskin');
+    if (enemy.definition?.id === 'pindleskin') {
+      const { boss } = this.world.layout;
+      this.spawnEnemy(boss.x, boss.z, 'boss', MONSTERS.nihlathak);
+      this.ui.toast('击杀暴躁外皮 · 任务已完成', '尼拉塞克已在神殿深处现身'); this.audio.play('quest'); return;
+    }
     if (enemy.boss) {
       if (this.specialArea) {
         if (this.specialArea === 'cow') refreshBaseStock(this.hero);
@@ -900,10 +915,10 @@ export class Game {
       this.save(false);
     }
   }
-  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level, mercenaryMods?: Mods, corpseSearch=false) {
+  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level, mercenaryMods?: Mods, corpseSearch=false, pindleskin=false) {
     const mods = stats(this.hero).mods, diff = difficulty(this.hero);
     mods.magicFind = (mods.magicFind ?? 0) + (mercenaryMods?.magicFind ?? 0); mods.goldFind = (mods.goldFind ?? 0) + (mercenaryMods?.goldFind ?? 0);
-    const drop = rollLoot({ players: corpseSearch?1:this.hero.playerCount, level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !corpseSearch && !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
+    const drop = rollLoot({ pindleskin, players: corpseSearch?1:this.hero.playerCount, level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !corpseSearch && !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
     this.addLoot({ id: this.nextId++, x: position.x + .4, z: position.z + .2, gold: drop.gold, mesh: new THREE.Group() });
     drop.items.forEach((item, i) => this.addLoot({ id: this.nextId++, x: position.x - .6 + i * .8, z: position.z + .6, item, mesh: new THREE.Group() }));
     drop.runes.forEach((rune, i) => this.addLoot({ id: this.nextId++, x: position.x + .8, z: position.z - .5 - i * .6, rune, mesh: new THREE.Group() }));
@@ -1138,6 +1153,11 @@ export class Game {
       this.loadArea(false); this.ui.toast(this.level.name, `第 ${this.level.act + 1} 章 · 第 ${this.level.step + 1} 关`);
     }, () => { this.hero = previous; });
   }
+  get templeDifficulties() { return ([0, 1, 2] as const).filter(diff => nihlathakUnlocked(this.hero, diff)); }
+  enterNihlathak(diff: number) {
+    if (!this.inCamp || !this.profile || this.dead || this.saveConflict || this.specialArea || !nihlathakUnlocked(this.hero, diff)) return false;
+    return this.enterSpecialArea('nihlathak', diff as 0 | 1 | 2);
+  }
   get cowLegs() { return this.hero.inventory.filter(isWirtsLeg); }
   get canUseUberDiablo() { return this.hero.campaign.cleared[2] >= 25 && this.hero.inventory.some(isStoneOfJordan); }
   enterCowLevel(legId: string) {
@@ -1150,13 +1170,13 @@ export class Game {
     const soj = this.hero.inventory.find(item => item.id === sojId); if (!soj || !isStoneOfJordan(soj)) return false;
     return this.enterSpecialArea('uberDiablo', 2, soj);
   }
-  enterSpecialArea(area: SpecialArea, diff: 0 | 1 | 2, catalyst: Item) {
+  enterSpecialArea(area: SpecialArea, diff: 0 | 1 | 2, catalyst?: Item) {
     const previousHero = structuredClone(this.hero), previousArea = this.specialArea;
-    const index = this.hero.inventory.indexOf(catalyst); if (index < 0) return false;
-    this.hero.inventory.splice(index, 1); placeItems(this.hero.inventory); this.hero.difficultyLevel = diff; this.hero.bossDefeated = false; this.specialArea = area;
+    if (area === 'nihlathak' && !nihlathakUnlocked(this.hero, diff) || area !== 'nihlathak' && !catalyst) return false;
+    if (catalyst) { const index = this.hero.inventory.indexOf(catalyst); if (index < 0) return false; this.hero.inventory.splice(index, 1); placeItems(this.hero.inventory); } this.hero.difficultyLevel = diff; this.hero.bossDefeated = false; this.specialArea = area;
     return this.commitSave(() => {
       this.clearCampReturn();
-      this.loadArea(false); this.ui.toast(this.level.name, area === 'cow' ? ` ${['普通', '噩梦', '地狱'][diff]}难度` : '毕业挑战');
+      this.loadArea(false); this.ui.toast(this.level.name, area !== 'uberDiablo' ? ` ${['普通', '噩梦', '地狱'][diff]}难度` : '毕业挑战');
     }, () => { this.hero = previousHero; this.specialArea = previousArea; });
   }
   burst(origin: THREE.Vector3, color: number, count: number) {

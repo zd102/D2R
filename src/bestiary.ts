@@ -1,12 +1,14 @@
 import type { DamageType } from './paladin.ts';
 
 export type BodyPlan = 'fallen' | 'shaman' | 'zombie' | 'skeleton' | 'archer' | 'mage' | 'goat' | 'ghost' | 'mummy' | 'beetle' | 'maggot' | 'viper' | 'spider' | 'flayer' | 'council' | 'knight' | 'mauler' | 'venom' | 'imp' | 'succubus' | 'frozen' | 'lord' | 'cow' | 'andariel' | 'duriel' | 'mephisto' | 'diablo' | 'baal';
-export type AttackId = 'rally' | 'meteor' | 'mephistoLightning' | 'poisonStrike' | 'smite' | 'chargedBolt' | 'mephistoOrb' | 'poisonNova' | 'coldTouch' | 'bonePrison' | 'bossTeleport' | 'baalCurse' | 'decrepify' | 'strike' | 'frenzy' | 'arrow' | 'fireArrow' | 'fireball' | 'poisonSpit' | 'lightning' | 'revive' | 'charge' | 'stomp' | 'inferno' | 'curse' | 'hydra' | 'poisonFan' | 'poisonPool' | 'coldNova' | 'jab' | 'skull' | 'blizzard' | 'firestorm' | 'redLightning' | 'fireNova' | 'coldWave' | 'manaRift' | 'tentacles' | 'clone' | 'whirlwind' | 'manaTouch' | 'fireWall' | 'brood';
+export type AttackId = 'corpseExplosion' | 'rally' | 'meteor' | 'mephistoLightning' | 'poisonStrike' | 'smite' | 'chargedBolt' | 'mephistoOrb' | 'poisonNova' | 'coldTouch' | 'bonePrison' | 'bossTeleport' | 'baalCurse' | 'decrepify' | 'strike' | 'frenzy' | 'arrow' | 'fireArrow' | 'fireball' | 'poisonSpit' | 'lightning' | 'revive' | 'charge' | 'stomp' | 'inferno' | 'curse' | 'hydra' | 'poisonFan' | 'poisonPool' | 'coldNova' | 'jab' | 'skull' | 'blizzard' | 'firestorm' | 'redLightning' | 'fireNova' | 'coldWave' | 'manaRift' | 'tentacles' | 'clone' | 'whirlwind' | 'manaTouch' | 'fireWall' | 'brood';
 export type MonsterDef = { id: string; name: string; model: BodyPlan; race: 'undead' | 'demon' | 'beast'; color: number; hp: number; hpByDifficulty?: readonly [number, number, number]; damage: number; speed: number; scale: number; attacks: AttackId[]; resist?: Partial<Record<DamageType, number>>; revive?: string; retaliation?: boolean };
 function monster(id: string, name: string, model: BodyPlan, race: MonsterDef['race'], color: number, attacks: AttackId[], hp = 20, speed = 2.1, extra: Partial<MonsterDef> = {}): MonsterDef {
   return { id, name, model, race, color, hp, damage: 3, speed, scale: 1, attacks, ...extra };
 }
 export const MONSTERS: Record<string, MonsterDef> = Object.fromEntries([
+  monster('pindleskin', '暴躁外皮', 'skeleton', 'undead', 0xbba080, ['charge', 'strike'], 110, 2.2, { scale: 1.35 }),
+  monster('nihlathak', '尼拉塞克', 'mage', 'demon', 0x889ead, ['blizzard', 'bossTeleport', 'corpseExplosion'], 160, 1.7, { scale: 1.3 }),
   monster('fallen', '沉沦魔', 'fallen', 'demon', 0xa64532, ['strike'], 15, 2.7, { scale: .8 }),
   monster('shaman', '沉沦巫师', 'shaman', 'demon', 0xbb653c, ['fireball', 'revive'], 19, 1.7, { revive: 'fallen' }),
   monster('zombie', '饥饿死者', 'zombie', 'undead', 0x728364, ['strike'], 29, 1.35),

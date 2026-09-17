@@ -7,7 +7,7 @@ import { applyAffixes, CHARM_BASES, type CharmSize } from './affixes.ts';
 import { RUNE_TREASURES } from './item-catalog-data.ts';
 import { bossDropProfile, rollBossSpecial } from './boss-loot.ts';
 
-export type LootContext = { players?: number; level: number; act: number; difficulty: number; rank: DropRank; levelIndex?: number; firstClear?: boolean; countess?: boolean; magicFind?: number; goldFind?: number; cow?: boolean; uberDiablo?: boolean };
+export type LootContext = { pindleskin?: boolean; players?: number; level: number; act: number; difficulty: number; rank: DropRank; levelIndex?: number; firstClear?: boolean; countess?: boolean; magicFind?: number; goldFind?: number; cow?: boolean; uberDiablo?: boolean };
 // Independent equipment picks; boss special pools and charms remain additional rewards.
 const EXTRA_EQUIPMENT_CHANCES: Record<DropRank, readonly number[]> = {
   monster: [], champion: [.12], elite: [.30, .15], miniboss: [.55, .35], actBoss: [.55, .30],
@@ -85,7 +85,8 @@ export function rollLoot(context: LootContext, random = Math.random) {
   const gold = Math.round((10 + level * 2 + random() * 14) * (boss ? 4 : elite ? 2.4 : champion ? 1.6 : 1) * (1 + (context.goldFind ?? 0) / 100));
   const potion = random() < playerDropChance(boss ? .8 : elite ? .65 : champion ? .5 : .30, rank === 'champion' || rank === 'elite' || rank === 'miniboss' ? 1 : context.players) ? rollPotion(random, act, difficulty, boss) : undefined;
   const treasureClass = profile?.maxTC[difficulty] ?? Math.min(87, Math.ceil((level + 3) / 3) * 3);
-  const equipmentMagicFind = Math.max(0, context.magicFind ?? 0) + EQUIPMENT_MAGIC_FIND_BONUS[rank];
+  const equipmentMagicFind = Math.max(0, context.magicFind ?? 0) + EQUIPMENT_MAGIC_FIND_BONUS[rank] + (context.pindleskin ? 400 : 0);
+  if (context.pindleskin) for (let i = 0; i < 2; i++) items.push(rollItem(level, random(), false, equipmentMagicFind, random, treasureClass, difficulty));
   if (flags.equipment) {
     const quality = random();
     items.push(rollItem(level, quality, rank === 'actBoss' && !!context.firstClear, equipmentMagicFind, random, treasureClass, difficulty));

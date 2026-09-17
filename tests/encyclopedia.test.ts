@@ -33,7 +33,7 @@ test('item search combines localized and English names, rune recipes, categories
 });
 test('monster filtering uses encounter locations, rank and race including all five act bosses', () => {
   assert.equal(filterEncyclopediaMonsters('', 'actBoss').length, 5);
-  assert.equal(filterEncyclopediaMonsters('', 'miniboss').length, 20);
+  assert.equal(filterEncyclopediaMonsters('', 'miniboss').length, 22);
   assert.deepEqual(filterEncyclopediaMonsters('baal').map(item => item.name), ['巴尔']);
   assert.equal(filterEncyclopediaMonsters('巴尔', 'all', '0').length, 0);
   assert.equal(filterEncyclopediaMonsters('巴尔', 'actBoss', '4', 'demon').length, 1);

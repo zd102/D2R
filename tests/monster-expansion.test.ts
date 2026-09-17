@@ -170,7 +170,7 @@ test('25 encounter pools reference 37 species and all 25 bosses have valid attac
   assert.equal(ENCOUNTERS.length, 25); assert.equal(BOSSES.length, 25); assert.ok(Object.keys(MONSTERS).length >= 35);
   const used = new Set<string>();
   for (const pool of ENCOUNTERS) { assert.ok(pool.length >= 3); for (const id of pool) { assert.ok(MONSTERS[id]); used.add(id); } }
-  assert.deepEqual(Object.keys(MONSTERS).filter(id => !used.has(id)), ['hellCow'], 'only the secret-area cow is outside campaign encounter pools');
+  assert.deepEqual(Object.keys(MONSTERS).filter(id => !used.has(id)), ['pindleskin', 'nihlathak', 'hellCow'], 'secret-area monsters stay outside campaign encounter pools');
   for (const definition of [...Object.values(MONSTERS), ...BOSSES]) { for (const id of definition.attacks) assert.ok(ATTACKS[id]); if (definition.revive) assert.ok(MONSTERS[definition.revive]); }
   assert.equal(isUndead({ definition: BOSSES[0], kind: 'boss' }), true); assert.equal(isUndead({ definition: BOSSES[4], kind: 'boss' }), false);
 });

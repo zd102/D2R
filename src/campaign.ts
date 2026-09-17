@@ -3,7 +3,7 @@ import { campaignLayout, specialLayout, MAP_BOUND } from './level-layouts.ts';
 
 export type CampaignState = { version: 1; current: number; cleared: [number, number, number]; kills: number; objects: number[] };
 export type QuestProp = 'grave' | 'cage' | 'chest' | 'altar' | 'forge' | 'ice' | 'seal' | 'siege';
-export type SpecialArea = 'cow' | 'uberDiablo';
+export type SpecialArea = 'cow' | 'uberDiablo' | 'nihlathak';
 export type Level = {
   id: string; index: number; act: number; step: number; name: string; english: string;
   terrain: 'cave' | 'field' | 'ruins' | 'temple' | 'arcane' | 'lava' | 'snow';
@@ -67,6 +67,11 @@ export const SPECIAL_LEVELS: Record<SpecialArea, Level> = {
     quest: { name: '末日显现', description: '此地只容得下一位恐惧之王。', action: '击败超级迪亚波罗', kind: 'kill', count: 0, prop: 'seal' },
     enemies: ['diablo', 'diablo'], boss: '超级迪亚波罗', bossType: 'fire', actBoss: false, level: 99, special: 'uberDiablo',
   },
+  nihlathak: {
+    id: 'nihlathaks-temple', index: 27, act: 4, step: 2, name: '尼拉塞克神殿', english: "NIHLATHAK'S TEMPLE", terrain: 'temple',
+    quest: { name: '哈洛加斯的背叛', description: '击杀入口的暴躁外皮，深入神殿追击尼拉塞克。', action: '击杀暴躁外皮', kind: 'kill', count: 1, prop: 'seal' },
+    enemies: ['reanimated', 'minion'], boss: '尼拉塞克', bossType: 'cold', actBoss: false, level: 38, special: 'nihlathak',
+  },
 };
 export const newCampaign = (): CampaignState => ({ version: 1, current: 0, cleared: [0, 0, 0], kills: 0, objects: [] });
 export const unlockedCampaignDifficulty = (campaign: CampaignState) => campaign.cleared[0] < 25 ? 0 : campaign.cleared[1] < 25 ? 1 : 2;
@@ -97,7 +102,7 @@ export function levelTuning(level: Level, difficulty: number) {
     return { level: areaLevel, hp: [15, 70, 350][difficulty], damage: [4.6, 11, 23][difficulty], defense: 6 + areaLevel * 3.5, packs: 30 };
   }
   if (level.special === 'uberDiablo') return { level: 99, hp: 1, damage: 26, defense: 1800, packs: 0 };
-  const areaLevel = AREA_LEVELS[difficulty][level.index];
+  const areaLevel = AREA_LEVELS[difficulty][level.special === 'nihlathak' ? 22 : level.index];
   // Fixed area budgets: the next difficulty begins at the previous cow budget.
   // Interpolate by area level so increasing map levels never hide a strength reset.
   const progress = (areaLevel - AREA_LEVELS[difficulty][0]) / (AREA_LEVELS[difficulty][24] - AREA_LEVELS[difficulty][0]);

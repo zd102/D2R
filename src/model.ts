@@ -403,6 +403,9 @@ export const CAMPAIGN_REWARDS: Record<number, { key: string; label: string }> = 
   22: { key: 'resistance', label: '所有抗性 +5' },
   23: { key: 'summit', label: '升级 1 级' },
 };
+export function nihlathakUnlocked(hero: HeroState, diff: number) {
+  return Number.isInteger(diff) && diff >= 0 && diff <= 2 && (hero.campaign.cleared[diff] >= 23 || hero.questRewards.includes(`${diff}:anya`));
+}
 export function campaignRewardClaimed(hero: HeroState, index: number, diff: number = difficulty(hero)) {
   const reward = CAMPAIGN_REWARDS[index];
   return !!reward && (hero.questRewards.includes(`${diff}:${reward.key}`)
@@ -475,6 +478,7 @@ export function activateQuestObject(hero: HeroState, index: number) {
   const quest = LEVELS[hero.campaign.current].quest;
   if (hero.bossDefeated || quest.kind !== 'interact' || !Number.isInteger(index) || index < 0 || index >= quest.count || hero.campaign.objects.includes(index)) return false;
   hero.campaign.objects.push(index);
+  if (hero.campaign.current === 22 && !hero.questRewards.includes(`${difficulty(hero)}:anya`)) hero.questRewards.push(`${difficulty(hero)}:anya`);
   if (hero.campaign.current === 6 && questComplete(hero.campaign)) hero.cubeUnlocked = true;
   return true;
 }
@@ -613,7 +617,7 @@ export function parseSave(raw: string | null): HeroState | null {
     if (!packItems(hero.inventory)) { const items = hero.inventory; hero.inventory = []; for (const item of items) { if (packItems([...hero.inventory, item])) hero.inventory.push(item); else hero.stash.push(item); } placeItems(hero.inventory); }
     hero.gold = integer(h.gold, 0, 0, Number.MAX_SAFE_INTEGER);
     hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)) : []; hero.identifyScrolls = integer(h.identifyScrolls, 0, 0, 99);
-    hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(shrine[0-2]|boss|life|attributes|resistance|jungle|summit)$/.test(key)))] : [];
+    hero.questRewards = Array.isArray(h.questRewards) ? [...new Set<string>(h.questRewards.filter((key: unknown) => typeof key === 'string' && /^[0-2]:(anya|shrine[0-2]|boss|life|attributes|resistance|jungle|summit)$/.test(key)))] : [];
     hero.respecUsed = Array.isArray(h.respecUsed) ? [...new Set<number>(h.respecUsed.filter((value: unknown) => value === 0 || value === 1 || value === 2))] : [];
     hero.bonusLife = integer(h.bonusLife, 0, 0, 60); hero.bonusResist = integer(h.bonusResist, 0, 0, 30); hero.holyShield = decimal(h.holyShield, 0, 0, 3600); hero.poison = decimal(h.poison, 0, 0, 120); hero.curse = decimal(h.curse, 0, 0, 120); hero.cold = decimal(h.cold, 0, 0, 120); hero.running = h.running !== false;
     hero.holyShieldLevel = integer(h.holyShieldLevel, 0, 0, 100);
