@@ -35,6 +35,7 @@ export class MercenaryCombat {
   scanTimer = 0;
   navigationTime = 0;
   unreachable = new WeakMap<Enemy, number>();
+  knockbackReady = new WeakMap<Enemy, number>();
   constructor(game: Game) { this.game = game; }
   get position() { return this.ally?.actor.group.position; }
   clear() {
@@ -42,6 +43,7 @@ export class MercenaryCombat {
     if (this.ring) this.game.disposeObject(this.ring);
     this.ally = undefined; this.ring = undefined; this.path = []; this.strikes = 0; this.timer = this.pulseTimer = 0;
     this.target = undefined; this.scanTimer = this.rethink = this.navigationTime = 0; this.unreachable = new WeakMap();
+    this.knockbackReady = new WeakMap();
     setMercenaryDistance(this.game.hero, Infinity);
   }
   sync() {
@@ -181,7 +183,9 @@ export class MercenaryCombat {
       if (mods.blindTarget) enemy.blind = Math.max(enemy.blind ?? 0, mods.blindTarget);
       if (Math.random() * 100 < (mods.flee ?? 0)) enemy.flee = 2;
     }
-    if (mods.knockback && !enemy.boss) { const direction = enemy.actor.group.position.clone().sub(this.position!).normalize(), end = enemy.actor.group.position.clone().addScaledVector(direction, .8); if (g.world.canWalk(enemy.actor.group.position, end)) enemy.body.position.set(end.x, .5, end.z); }
+    // Jab's rapid hits must not repeatedly push the same target out of reach.
+    if (mods.knockback && this.navigationTime >= (this.knockbackReady.get(enemy) ?? 0)
+      && c.knockback(enemy, .8, this.position!)) this.knockbackReady.set(enemy, this.navigationTime + 2);
     if (!enemy.dead) c.triggerItems('hit-skill', enemy, snapshot.items, true);
   }
   hurt(amount: number, type: DamageType = 'physical', source?: Enemy, missile = false, spec?: AttackSpec) {

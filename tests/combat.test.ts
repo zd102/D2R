@@ -33,6 +33,22 @@ function setup() {
   return { game, hero, combat, enemy };
 }
 
+test('bosses resist all shared knockback and ordinary targets cannot be knocked through walls', () => {
+  const f = setup();
+  for (const kind of ['demon', 'boss'] as const) {
+    const target = f.enemy(kind); target.boss = true;
+    assert.equal(f.combat.knockback(target, 1.5), false);
+    assert.equal(target.actor.group.position.z, 2);
+  }
+  const target = f.enemy();
+  f.game.world.canWalk = () => false;
+  assert.equal(f.combat.knockback(target, 1), false);
+  f.game.world.canWalk = () => true;
+  assert.equal(f.combat.knockback(target, 1), true);
+  assert.equal(target.actor.group.position.z, 3);
+  assert.equal(target.body.position.z, 3);
+});
+
 test('crushing blow uses monster spawn pp even after the selected setting changes', t => {
   t.mock.method(Math, 'random', () => 0);
   const { hero, combat, enemy } = setup();

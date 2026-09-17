@@ -297,9 +297,12 @@ export class PaladinCombat {
     return true;
   }
   knockback(enemy: Enemy, distance: number, origin = this.game.position) {
-    if (enemy.boss || enemy.dead) return;
+    if (enemy.boss || enemy.kind === 'boss' || enemy.dead) return false;
     const p = enemy.actor.group.position, next = p.clone().addScaledVector(p.clone().sub(origin).normalize(), distance);
-    if (gridWalkable(this.game.world.grid, next)) { enemy.body.position.set(next.x, .5, next.z); p.copy(next); }
+    if (gridWalkable(this.game.world.grid, next) && (!this.game.world.canWalk || this.game.world.canWalk(p, next))) {
+      enemy.body.position.set(next.x, .5, next.z); enemy.body.velocity.set(0, 0, 0); p.copy(next); return true;
+    }
+    return false;
   }
   explode(projectile: Projectile, point: THREE.Vector3) {
     const g = this.game, s = projectile.snapshot.stats, rank = projectile.explosion;

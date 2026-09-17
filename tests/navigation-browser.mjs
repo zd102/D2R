@@ -76,6 +76,13 @@ try {
   assert.ok(cancelled.cooldown > 0 && cancelled.cooldown < zealDuration, 'clicking to move keeps only one attack-speed interval');
   assert.ok((await advance(20)).some(sample => sample.speed > 1), 'clicking to move leaves the hero able to depart');
 
+  // The remaining cases exercise unobstructed navigation. The melee fixture
+  // must not remain in the lane now that walking cannot shove monsters aside.
+  await page.evaluate(() => {
+    const g = window.navigationGame;
+    for (const enemy of g.enemies) { enemy.dead = true; g.world.physics.removeBody(enemy.body); }
+  });
+
   await page.evaluate(() => {
     const g = window.navigationGame;
     g.moveTo(g.position.clone().set(3.3, 0, 8.3));

@@ -41,6 +41,7 @@ import { nativeAudioManifest } from './audio-native';
 import { UI } from './ui';
 import { keyboardSkills, movementInput, MOVEMENT_MODE_KEY, parseMovementMode, emptyCooldowns, type MovementMode, type SkillSlot } from './controls';
 import { followPath } from './navigation';
+import { blockedMovement } from './actor-collision';
 import { FrameClock } from './frame-clock';
 import { MonsterBatches } from './monster-batches';
 import { RenderBudget } from './render-budget';
@@ -1212,6 +1213,7 @@ export class Game {
     const speed = locked || this.monsterCombat.imprisoned(this.position) ? 0 : (this.hero.running && this.hero.stamina > 0 ? 7.8 : 4.5) * s.runSpeed * this.monsterCombat.heroSpeed();
     if (navigating) { const velocity = followPath(this.position, this.path, speed, dt, (from, to) => this.world.canWalk(from, to)); vx = velocity.x; vz = velocity.z; }
     else { vx *= speed; vz *= speed; }
+    ({ x: vx, z: vz } = blockedMovement(this.body, { x: vx, z: vz }, this.enemies, dt));
     this.combat.moving = !!(vx || vz); this.combat.running = this.combat.moving && this.hero.running && this.hero.stamina > 0;
     this.body.velocity.set(vx, 0, vz);
     if (vx || vz) {
