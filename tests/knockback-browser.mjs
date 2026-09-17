@@ -30,6 +30,9 @@ try {
       for (let z = -g.world.gridOffsetZ + 2; z < g.world.gridOffsetZ - 2 && !lane; z++)
         for (let x = -g.world.gridOffset + 2; x < g.world.gridOffset - 8; x++) {
           spawn.set(x, 0, z);
+          // Navigation permits sliding along walls at the player's radius;
+          // this fixture also needs full clearance for the larger boss body.
+          if (g.world.obstacles.some(o => Math.hypot(Math.max(0, Math.abs(spawn.x - o.x) - o.w / 2), Math.max(0, Math.abs(spawn.z - o.z) - o.d / 2)) < 1.2)) continue;
           if (g.world.canWalk(spawn, spawn.clone().addScaledVector(direction, 6))
             && clearObstacles(g.world.obstacles, spawn, spawn.clone().addScaledVector(direction, 6), 1.2)) { lane = true; break; }
         }
