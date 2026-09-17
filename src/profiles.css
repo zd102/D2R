@@ -187,3 +187,6 @@
 .class-option span>small { font-size:11px; color:#818e88; }
 
 #class-state-label { max-width:min(60vw,540px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#bcd3ad; }
+
+#profile-form .profile-story-option{display:flex;align-items:center;gap:10px;margin-top:16px;cursor:pointer}
+#profile-form .profile-story-option input{width:18px;height:18px;margin:0;accent-color:#c5b77d}

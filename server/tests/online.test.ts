@@ -49,6 +49,29 @@ async function fixture(t: test.TestContext, filename = ':memory:') {
   return { app, a, b, create, advance: (ms: number) => { time += ms; } };
 }
 
+test('story creation checks the current account and ignores deleted characters', async t => {
+  const { a, b, create } = await fixture(t);
+  const skip = (c: typeof a, name: string) => c.request('/characters', 'POST', { name, classId: 'sorceress', completeStory: true, operationId: randomUUID() });
+  assert.equal((await skip(a, 'locked')).statusCode, 403);
+  let veteran = await create('veteran');
+  for (const cleared of [[25, 25, 24], [25, 25, 25]]) {
+    veteran.hero.campaign.cleared = cleared;
+    const response = await a.request(`/characters/${veteran.id}/save`, 'PUT', { hero: veteran.hero, expectedRevision: veteran.revision, expectedStashRevision: 0, expectedResourcesRevision: veteran.resourcesRevision, operationId: randomUUID() });
+    assert.equal(response.statusCode, 200, response.body); veteran = response.json();
+    if (cleared[2] === 24) assert.equal((await skip(a, 'partial')).statusCode, 403);
+  }
+  assert.equal((await skip(b, 'other-account')).statusCode, 403);
+  const response = await skip(a, 'completed'); assert.equal(response.statusCode, 200, response.body);
+  const created = response.json();
+  assert.deepEqual(created.hero.campaign.cleared, [25, 25, 25]);
+  assert.equal(created.hero.level, 4); assert.equal(created.hero.skillPoints, 18);
+  assert.equal(created.hero.bonusLife, 60); assert.equal(created.hero.bonusResist, 15);
+  assert.equal(created.hero.gold, veteran.hero.gold); assert.deepEqual(created.hero.runes, veteran.hero.runes);
+  assert.equal((await a.request(`/characters/${created.id}`)).json().hero.questRewards.length, 24);
+  for (const profile of [created, veteran]) assert.equal((await a.request(`/characters/${profile.id}`, 'DELETE', { expectedRevision: profile.revision, operationId: randomUUID() })).statusCode, 200);
+  assert.equal((await skip(a, 'deleted')).statusCode, 403);
+});
+
 test('four restored classes retain skills, offhand weapons and companions through authenticated saves',async t=>{
   const {a}=await fixture(t);
   for(const classId of ['necromancer','barbarian','druid','assassin'] as const){

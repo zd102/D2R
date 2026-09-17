@@ -1,4 +1,4 @@
-import { newHero, parseSave, SAVE_KEY, type HeroState } from './model.ts';
+import { hasCompletedStory, completeStoryForNewHero, newHero, parseSave, SAVE_KEY, type HeroState } from './model.ts';
 import { isClassId, type ClassId } from './classes.ts';
 import { parseSharedItems, moveSharedItem, type SharedLock, type SharedTransfer } from './shared-stash.ts';
 import { sharedRaw, commitSharedRaw, sharedTransaction } from './shared-storage.ts';
@@ -95,9 +95,13 @@ export class SaveStore {
     }
     return normalized;
   }
-  create(name: string, classId: ClassId = 'paladin'): SavedProfile {
+  create(name: string, classId: ClassId = 'paladin', completeStory = false): SavedProfile {
     if(!isClassId(classId)) throw new SaveError('不支持的职业。', 'file');
+    if (completeStory && !this.list().some(profile => hasCompletedStory(profile.hero))) {
+      throw new SaveError('需要当前模式下已有角色通关普通、噩梦和地狱的全部剧情关卡。', 'file');
+    }
     const hero = newHero(classId);
+    if (completeStory) completeStoryForNewHero(hero);
     if (this.readShared().resources?.potionMembers?.length) hero.potions.fill(0);
     return this.createProfile(name, hero);
   }

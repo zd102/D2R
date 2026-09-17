@@ -35,7 +35,7 @@ export class OnlineSaveStore {
     this.profiles = [profile, ...this.profiles.filter(p => p.id !== profile.id)]; return profile;
   }
   private mutation<T>(path: string, method: string, data: object) { return this.client.reliable<T>(path, method, { ...data, operationId: onlineId() }); }
-  async create(name: string, classId: ClassId = 'paladin') { return this.accept(await this.mutation<SavedProfile>('/characters', 'POST', { name, classId })); }
+  async create(name: string, classId: ClassId = 'paladin', completeStory = false) { return this.accept(await this.mutation<SavedProfile>('/characters', 'POST', { name, classId, completeStory })); }
   async rename(id: string, name: string, expectedRevision: number) { return this.accept(await this.mutation<SavedProfile>(`/characters/${id}`, 'PATCH', { name, expectedRevision })); }
   async delete(id: string, expectedRevision: number) {
     await this.mutation(`/characters/${id}`, 'DELETE', { expectedRevision }); this.profiles = this.profiles.filter(p => p.id !== id);

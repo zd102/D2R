@@ -417,6 +417,33 @@ function grantCampaignReward(hero: HeroState, index: number) {
   if (index === 22) hero.bonusResist += 5;
   if (index === 23) gainXp(hero, xpForLevel(hero.level));
 }
+/** All three story difficulties must be complete on the same character. */
+export function hasCompletedStory(hero: HeroState) {
+  return [0, 1, 2].every(diff => hero.campaign.cleared[diff] >= LEVELS.length);
+}
+
+/** Creation-only shortcut: claim character rewards without gold or combat loot. */
+export function completeStoryForNewHero(hero: HeroState) {
+  for (const diff of [0, 1, 2] as const) {
+    hero.difficultyLevel = diff;
+    for (const level of LEVELS) grantStoryStats(hero, level.index);
+  }
+  hero.campaign.cleared = [LEVELS.length, LEVELS.length, LEVELS.length];
+  hero.cubeUnlocked = true;
+  selectCampaignLevel(hero, 0, 0);
+}
+
+function grantStoryStats(hero: HeroState, index: number) {
+  const diff = difficulty(hero);
+  if (index === 0) grantQuestReward(hero, 'shrine0');
+  const reward = index === 10 ? 'life' : index === 12 ? 'attributes' : null;
+  if (reward && !hero.questRewards.includes(`${diff}:${reward}`) && !hero.questRewards.includes(`${diff}:shrine2`)) {
+    hero.questRewards.push(`${diff}:${reward}`);
+    if (reward === 'life') hero.bonusLife += 20;
+    if (reward === 'attributes') hero.points += 5;
+  }
+  grantCampaignReward(hero, index);
+}
 export function prepareCampaignReplay(hero: HeroState): boolean {
   const { campaign, difficultyLevel: diff } = hero, index = campaign.current;
   if (!canEnterLevel(campaign, index, diff) || index >= campaign.cleared[diff]) return false;
@@ -459,13 +486,7 @@ export function completeCampaignLevel(hero: HeroState) {
   if (index === campaign.cleared[diff]) {
     campaign.cleared[diff]++;
     hero.gold += 100 + index * 35 + diff * 250;
-    if (index === 0) grantQuestReward(hero, 'shrine0');
-    const reward = index === 10 ? 'life' : index === 12 ? 'attributes' : null;
-    if (reward && !hero.questRewards.includes(`${diff}:${reward}`) && !hero.questRewards.includes(`${diff}:shrine2`)) {
-      hero.questRewards.push(`${diff}:${reward}`);
-      if (reward === 'life') hero.bonusLife += 20;
-      if (reward === 'attributes') hero.points += 5;
-    }
+    grantStoryStats(hero, index);
   }
   refreshBaseStock(hero);
   grantCampaignReward(hero, index);

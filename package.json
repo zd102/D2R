@@ -35,6 +35,7 @@
     "test:boss-performance": "node tests/boss-performance-browser.mjs",
     "test:monster-batches": "node tests/monster-batches-browser.mjs",
     "test:campaign-rewards": "node tests/campaign-rewards-browser.mjs",
+    "test:story-creation": "node tests/story-creation-browser.mjs",
     "test:player-count": "node tests/player-count-browser.mjs",
     "test:visuals": "node tests/visuals-browser.mjs",
     "test:models": "node tests/models-browser.mjs",

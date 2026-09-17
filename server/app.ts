@@ -4,7 +4,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import { Database } from './database.ts';
 import { ApiError, check, record, string, integer, validateHero, importProfile, heroItems, uniqueItems, validateStash } from './validation.ts';
 import { hashPassword, verifyPassword } from './password.ts';
-import { newHero } from '../src/model.ts';
+import { newHero, hasCompletedStory, completeStoryForNewHero } from '../src/model.ts';
 import { isClassId } from '../src/classes.ts';
 import { normalizeName, parseProfile, SaveError, CHARACTER_FILE_FORMAT, type SavedProfile, type SharedStash } from '../src/save-format.ts';
 import { moveSharedItem, type SharedTransfer } from '../src/shared-stash.ts';
@@ -218,6 +218,12 @@ export async function createApp(options: Options) {
     const source = imported ? importProfile(data.content) : undefined;
     check(imported || isClassId(data.classId), 'INVALID_CLASS', '请选择支持的职业。');
     const name = checkName(userId, data.name ?? source?.name), hero = source?.hero ?? newHero(data.classId as Parameters<typeof newHero>[0]);
+    if (!imported && data.completeStory === true) {
+      const eligible = db.all<Character>('SELECT * FROM characters WHERE user_id=? AND deleted_at IS NULL', userId)
+        .some(row => { const profile = parseProfile(row.profile); return profile && hasCompletedStory(profile.hero); });
+      check(eligible, 'STORY_LOCKED', '需要当前账号已有角色通关普通、噩梦和地狱的全部剧情关卡。', 403);
+      completeStoryForNewHero(hero);
+    }
     heroItems(hero).forEach(item => { item.id = randomUUID(); });
     const stash = readStash(userId);
     if (!imported && stash.resources?.potionMembers?.length) hero.potions.fill(0);
