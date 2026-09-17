@@ -19,7 +19,8 @@ type Shape = 'melee' | 'bolt' | 'fan' | 'nova' | 'pool' | 'line' | 'wall' | 'sum
 export type AttackSpec = { name: string; shape: Shape; type: DamageType; range: number; windup: number; cooldown: number; damage: number; radius: number; count?: number; speed?: number; duration?: number; status?: 'curse' | 'mana' | 'stun' | 'bloodMana' | 'defense' | 'decrepify'; move?: boolean; color?: number; secondary?: [DamageType, number]; knockback?: number; triggered?: boolean; afterDeath?: boolean; ignoreDefense?: boolean; manaDrain?: number };
 const attack = (name: string, shape: Shape, type: DamageType, range: number, windup: number, cooldown: number, damage: number, radius: number, extra: Partial<AttackSpec> = {}): AttackSpec => ({ name, shape, type, range, windup, cooldown, damage, radius, ...extra });
 export const ATTACKS: Record<AttackId, AttackSpec> = {
-  corpseExplosion: attack('尸体爆炸', 'pool', 'fire', 12, 1.1, 4, 1.2, 3.5, { duration: .3, secondary: ['physical', 1.2] }),
+  summonMinions: attack('召唤毁灭仆从', 'summon', 'magic', 10, 1.2, 9, 0, 1.2),
+  corpseExplosion: attack('尸体爆炸', 'pool', 'fire', 12, 1.1, 4, 1.2, 3.5, { duration: .3, secondary: ['physical', 1.2], ignoreDefense: true }),
   rally: attack('督战与治疗', 'support', 'magic', 8, .9, 9, 0, 7),
   meteor: attack('陨火', 'pool', 'fire', 11, 1.5, 7, .7, 1.8, { duration: 1.5 }),
   strike: attack('重击', 'melee', 'physical', 1.8, .38, 1.4, 1, 2.1),
@@ -73,7 +74,7 @@ export const DIFFICULTY_AI = [
 ] as const;
 export const NORMAL_DIFFICULTY_AI = DIFFICULTY_AI[0];
 type Cast = { id: AttackId; spec: AttackSpec; left: number; origin: THREE.Vector3; target: THREE.Vector3; summon?: CombatAlly; corpse?: Enemy; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> };
-type State = { cast?: Cast; sequence: number; retaliation: number; summons: number; cloned: boolean; frenzy: number; lifetime?: number; abilities: Partial<Record<AttackId, number>>; lastAttack?: AttackId; lastSeen?: THREE.Vector3; memory: number; alerted: boolean; retreat: number; retreatCooldown: number; teleportCooldown?: number; heals?: number; auraTick?: number; phase?: { from: THREE.Vector3; to: THREE.Vector3; progress: number } };
+type State = { cast?: Cast; sequence: number; retaliation: number; summons: number; cloned: boolean; frenzy: number; lifetime?: number; abilities: Partial<Record<AttackId, number>>; lastAttack?: AttackId; lastSeen?: THREE.Vector3; memory: number; alerted: boolean; retreat: number; retreatCooldown: number; teleportCooldown?: number; heals?: number; auraTick?: number; corpseLife?: number; phase?: { from: THREE.Vector3; to: THREE.Vector3; progress: number } };
 type Missile = { source: Enemy; mesh: THREE.Mesh; velocity: THREE.Vector3; spec: AttackSpec; life: number; volley: { hit: boolean; summons?: Set<CombatAlly> } };
 type Hazard = { source: Enemy; mesh: THREE.Mesh; spec: AttackSpec; origin: THREE.Vector3; target: THREE.Vector3; life: number; tick: number; hit: boolean; moving: boolean };
 export function segmentDistance(point: { x: number; z: number }, from: { x: number; z: number }, to: { x: number; z: number }) {
@@ -89,6 +90,7 @@ export function monsterAttackSpec(definition: MonsterDef | undefined, id: Attack
     name: species === 'frozen' ? '寒冰吐息' : '腐败毒息', type: species === 'frozen' ? 'cold' : 'poison', range: 5, cooldown: 4,
   });
   if (id === 'poisonSpit' && species === 'iceCrawler') Object.assign(spec, { name: '寒冰喷吐', type: 'cold' });
+  if (id === 'inferno' && species === 'nihlathak') Object.assign(spec, { name: '极地风暴', type: 'cold', range: 7, cooldown: 4 });
   if (id === 'bossTeleport' && species === 'imp') Object.assign(spec, { name: '闪烁逃脱', windup: .55, cooldown: 7 });
   if (id === 'charge' && ['viper', 'reanimated', 'iceCrawler'].includes(species ?? '')) spec.knockback = 1;
   if (id === 'strike' && ['spider', 'mummy'].includes(species ?? '')) spec.secondary = ['poison', .25];
@@ -226,12 +228,13 @@ export class MonsterCombat {
   canSummon(enemy: Enemy, id: AttackId) {
     const state = this.state(enemy), living = this.game.enemies.filter(e => !e.dead && e.summoned);
     if (living.length >= 8 || living.filter(e => e.owner === enemy.id).length >= (id === 'clone' ? 1 : 2)) return false;
+    if (id === 'summonMinions' && this.game.enemies.filter(e => e.owner === enemy.id && (!e.dead || !e.redeemed)).length >= 2) return false;
     if (id === 'revive') return !!this.revivalTarget(enemy);
     if (id === 'clone') return !state.cloned && enemy.hp <= enemy.maxHp * .5;
     return true;
   }
   explosionTarget(enemy: Enemy) {
-    return this.game.enemies.find(corpse => corpse.dead && !corpse.boss && !corpse.redeemed && !corpse.summoned && corpse.actor.group.position.distanceTo(enemy.actor.group.position) < 12 && this.lineOfSight(enemy.actor.group.position, corpse.actor.group.position));
+    return this.game.enemies.find(corpse => corpse.dead && !corpse.boss && !corpse.redeemed && (!corpse.summoned || corpse.corpseExplosionSource && corpse.owner === enemy.id) && corpse.actor.group.position.distanceTo(enemy.actor.group.position) < 12 && this.lineOfSight(enemy.actor.group.position, corpse.actor.group.position));
   }
   selectAttack(enemy: Enemy, distance: number, visible: boolean): AttackId | undefined {
     const state = this.state(enemy), attacks = enemy.definition?.attacks ?? ['strike'];
@@ -241,7 +244,7 @@ export class MonsterCombat {
       if (id === 'corpseExplosion' && !this.explosionTarget(enemy)) return false;
       if (spec.shape === 'revive') return this.canSummon(enemy, id);
       if (spec.shape === 'support') return visible && this.supportTargets(enemy).some(ally => !this.rallyBoost(ally) || ally.hp < ally.maxHp * .65 && !ally.poison && !ally.preventHeal);
-      if (enemy.definition?.id === 'imp' && id === 'bossTeleport' && (distance > 3.8 || enemy.summoned)) return false;
+      if (['imp', 'nihlathak'].includes(enemy.definition?.id ?? '') && id === 'bossTeleport' && (distance > 3.8 || enemy.summoned)) return false;
       if (!visible || distance > spec.range) return false;
       if (spec.move && distance < 3.5) return false;
       if (spec.shape === 'nova' && distance > spec.range * .7) return false;
@@ -252,7 +255,7 @@ export class MonsterCombat {
     if (available.includes('revive')) return 'revive';
     if (available.includes('clone')) return 'clone';
     if (available.includes('rally')) return 'rally';
-    if (enemy.definition?.id === 'imp' && available.includes('bossTeleport')) return 'bossTeleport';
+    if (['imp', 'nihlathak'].includes(enemy.definition?.id ?? '') && available.includes('bossTeleport')) return 'bossTeleport';
     if (enemy.definition?.id === 'duriel' && distance < 2.6) {
       // Weighted, reproducible rotation: three jabs, two smites and one strike.
       const preferred: AttackId = ['jab', 'smite', 'jab', 'strike', 'jab', 'smite'][state.sequence % 6] as AttackId;
@@ -426,6 +429,7 @@ export class MonsterCombat {
   }
   summon(enemy: Enemy, id: AttackId, target: THREE.Vector3, selectedCorpse?: Enemy) {
     const g = this.game, state = this.state(enemy);
+    if (id === 'summonMinions' && !this.canSummon(enemy, id)) return;
     if (g.enemies.filter(e => !e.dead && e.summoned).length >= 8 || g.enemies.filter(e => !e.dead && e.owner === enemy.id).length >= (id === 'clone' ? 1 : 2)) return;
     let definition = MONSTERS.viper, name = '腐化触须', position = target.clone(), corpse: Enemy | undefined;
     if (id === 'revive') {
@@ -437,13 +441,14 @@ export class MonsterCombat {
       if (state.cloned || enemy.hp > enemy.maxHp * .5) return;
       definition = { ...enemy.definition!, attacks: ['coldWave', 'skull'], scale: enemy.definition!.scale * .85 }; name = '巴尔的幻象'; position.copy(enemy.actor.group.position).add(new THREE.Vector3(2, 0, 0));
     } else if (id === 'hydra') { definition = { ...MONSTERS.viper, color: 0xd6935d, attacks: ['fireball'] }; name = '多头火蛇'; }
+    else if (id === 'summonMinions') { definition = MONSTERS.minion; name = '尼拉塞克的仆从'; position.copy(enemy.actor.group.position); }
     else if (id === 'brood') { definition = { ...(enemy.definition?.id === 'spawner' ? MONSTERS.spawner : MONSTERS.maggot), attacks: ['strike'], scale: .55, speed: 2.5 }; name = enemy.definition?.id === 'spawner' ? '血肉幼兽' : '沙虫幼体'; position.copy(enemy.actor.group.position); }
     else definition = { ...definition, attacks: ['strike'] };
     const candidates = id === 'revive' ? [position] : Array.from({ length: 8 }, (_, i) => position.clone().add(new THREE.Vector3(Math.sin(i * Math.PI / 4) * 2, 0, Math.cos(i * Math.PI / 4) * 2)));
     const point = candidates.find(p => this.walkable(p) && this.lineOfSight(enemy.actor.group.position, p)); if (!point) return;
     if (corpse) { corpse.redeemed = true; corpse.actor.group.visible = false; }
     if (id === 'clone') state.cloned = true;
-    const add = g.spawnEnemy(point.x, point.z, 'demon', definition); add.name = name; add.summoned = true; add.owner = enemy.id; add.active = true;
+    const add = g.spawnEnemy(point.x, point.z, 'demon', definition); add.name = name; add.summoned = true; add.owner = enemy.id; add.active = true; add.corpseExplosionSource = id === 'summonMinions';
     add.maxHp = add.hp = enemy.maxHp * (id === 'clone' ? .18 : .12); add.damage = enemy.damage * .4;
     if (enemy.boss) add.attackRating = Math.round(baseMonsterAttackRating(definition, add.level, g.hero.difficultyLevel, add.playerCount ?? g.hero.playerCount));
     if (id === 'hydra' || id === 'tentacles') add.speed = 0;
@@ -474,7 +479,7 @@ export class MonsterCombat {
     const traits = monsterTraits(enemy.definition);
     const regen = traits.regen || (enemy.definition?.model === 'council' ? .01 : 0);
     if (enemy.active && enemy.converted <= 0 && !enemy.summoned && !enemy.preventHeal && !enemy.poison && regen) enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * regen * dt);
-    if (state.lifetime !== undefined) { state.lifetime -= dt; if (state.lifetime <= 0 || g.enemies.find(e => e.id === enemy.owner)?.dead) { g.killEnemy(enemy); return; } }
+    if (state.lifetime !== undefined) { state.lifetime -= dt; if (state.lifetime <= 0 || g.enemies.find(e => e.id === enemy.owner)?.dead) { enemy.redeemed = true; g.killEnemy(enemy); return; } }
     const unlocked = !enemy.boss || !!g.specialArea || questComplete(g.hero.campaign), visible = distance < ai.sightRange && this.lineOfSight(p,targetPoint), engageRange = ai.engageRange * traits.awareness;
     if (g.started && unlocked && visible && (distance < engageRange || enemy.active)) {
       enemy.active = true; state.lastSeen = targetPoint.clone(); state.memory = ai.memory;
@@ -630,7 +635,14 @@ export class MonsterCombat {
     }
     for (let i = g.enemies.length - 1; i >= 0; i--) {
       const enemy = g.enemies[i];
-      if (enemy.dead && enemy.summoned) { this.states.delete(enemy.id); g.disposeObject(enemy.actor.group); g.enemies.splice(i, 1); }
+      if (enemy.dead && enemy.summoned) {
+        const state = this.state(enemy);
+        if (enemy.corpseExplosionSource && !enemy.redeemed && g.enemies.some(owner => owner.id === enemy.owner && !owner.dead)) {
+          state.corpseLife = (state.corpseLife ?? 12) - dt;
+          if (state.corpseLife > 0) continue;
+        }
+        enemy.redeemed = true; this.states.delete(enemy.id); g.disposeObject(enemy.actor.group); g.enemies.splice(i, 1);
+      }
     }
   }
 }

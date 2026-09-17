@@ -109,7 +109,7 @@ export class ExpansionCombat {
       if(id==='corpseExplosion')this.explodeCorpse(corpse!,v,snap);
       else if(id==='poisonExplosion')this.field(id,center,{...v,duration:3},snap);
       else if(id==='grimWard')this.field(id,center,v,snap);
-      else if(Math.random()*100<v.percent){
+      else if(!corpse!.summoned&&Math.random()*100<v.percent){
         if(id==='findItem')g.dropLoot?.(center,corpse!.elite?'elite':corpse!.champion?'champion':'monster',corpse!.level,undefined,true);
         else {const roll=Math.random(),kind=roll<.6?'health':roll<.9?'mana':'rejuvenation';const options=POTIONS.map((p,index)=>({...p,index})).filter(p=>p.kind===kind);const potion=options[Math.min(options.length-1,Math.floor(h.difficultyLevel*1.5+h.level/30))];if(potion&&h.potions[potion.index]<POTION_LIMIT){h.potions[potion.index]++;g.ui.floatText(`+1 ${potion.name}`,origin.clone().setY(2),'gold');}}
       }

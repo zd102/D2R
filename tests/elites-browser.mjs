@@ -13,7 +13,7 @@ import { enterGame, openCampaign, savedProfile } from './browser-helpers.mjs';
 const output = process.env.OUTPUT_DIR || '.verification/elites-check';
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
-const base = process.env.BASE_URL || 'http://127.0.0.1:5173', errors = [];
+const base = process.env.BASE_URL || 'http://127.0.0.1:5173/?mode=local', errors = [];
 const state = page => page.evaluate(() => window.eclipseState);
 const hero = newHero(); hero.level = 90; hero.vitality = 3000; hero.campaign.cleared = [25, 25, 25]; hero.unlockedDifficulty = 2;
 hero.hp = stats(hero).maxHp; hero.equipment.weapon.mods = { attackRating: 10000 }; hero.equipment.weapon.minDamage = hero.equipment.weapon.maxDamage = 10000;
@@ -66,7 +66,8 @@ async function defeatElite(page, id) {
 }
 try {
   const page = await start({ width: 1440, height: 960 });
-  for (const difficulty of [0, 1, 2]) {
+  // Allow retrying interactions after the complete 75-area matrix has passed.
+  for (const difficulty of process.env.ELITE_INTERACTIONS_ONLY === '1' ? [] : [0, 1, 2]) {
     for (const area of LEVELS) {
       await choose(page, area.index, difficulty);
       const s = await state(page), elites = s.enemies.filter(enemy => enemy.elite);
@@ -104,6 +105,7 @@ try {
   assert.notEqual(await page.locator('#game-canvas').evaluate(canvas => canvas.toDataURL()), canvasBefore);
   await defeatElite(page, id);
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: '返回营地', exact: true }).click();
+  await page.waitForFunction(() => window.eclipseState.inCamp && !window.eclipseState.saveBusy);
   assert.equal((await state(page)).enemies.length, 0);
   await choose(page, 0, 0); assert.equal((await state(page)).enemies.filter(enemy => enemy.elite).length, 1);
 
@@ -113,7 +115,12 @@ try {
     await choose(page, 0, difficulty);
     const fresh = await state(page), runesBefore = (await savedProfile(page)).hero.runes.length;
     assert.equal(fresh.loot.length, 0); assert.equal(fresh.enemies.filter(enemy => enemy.elite).length, eliteCount(LEVELS[0], difficulty));
-    await defeatElite(page, await approachElite(page));
+    const eliteId = await approachElite(page);
+    // Guarantee the target's rune roll, without flooding the approach with loot
+    // or changing map generation/pack rolls through a globally tiny RNG value.
+    await page.evaluate(() => { Math.random = () => .01; });
+    await defeatElite(page, eliteId);
+    await page.evaluate(() => { Math.random = () => .1; });
     const after = await state(page), saved = (await savedProfile(page)).hero;
     assert.ok(after.loot.some(drop => drop.item), 'Repeated elite kills still drop equipment');
     assert.ok(after.loot.some(drop => drop.rune) || saved.runes.length > runesBefore, 'Repeated elite kills still drop runes');

@@ -47,7 +47,7 @@ import { MonsterBatches } from './monster-batches';
 import { RenderBudget } from './render-budget';
 import { createImpact, createLightning, disposeVisual, updateVisual, ProjectileVisualPool } from './visual-effects';
 
-export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; champion?: ChampionVariant; superUnique?: boolean; affixes?: MonsterAffix[]; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; bleedSnapshot?: AttackSnapshot; poison?: { dps: number; remaining: number; snapshot?: AttackSnapshot }; slow?: { percent: number; remaining: number } };
+export type Enemy = { playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; champion?: ChampionVariant; superUnique?: boolean; affixes?: MonsterAffix[]; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; corpseExplosionSource?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; bleedSnapshot?: AttackSnapshot; poison?: { dps: number; remaining: number; snapshot?: AttackSnapshot }; slow?: { percent: number; remaining: number } };
 export type Loot = { id: number; x: number; z: number; item?: Item; gold?: number; potion?: number; rune?: RuneId; mesh: THREE.Group };
 type Effect = { mesh: THREE.Object3D; life: number; duration: number; type: 'ring' | 'burst' | 'slash' | 'beam'; velocity?: THREE.Vector3 };
 type PointerGesture = { id: number; button: number; x: number; y: number; started: number; dragging: boolean; stationary: boolean; mode: 'move' | 'attack' | 'interact' | 'cast' };
@@ -872,7 +872,14 @@ export class Game {
   killEnemy(enemy: Enemy, rewardMods?: Mods, mercenaryKill = false, rewardItems?: Item[]) {
     if (enemy.dead) return;
     enemy.dead = true; this.monsterCombat.cancel(enemy); this.monsterCombat.onDeath(enemy); this.world.physics.removeBody(enemy.body);
-    if (enemy.summoned) { enemy.redeemed = true; enemy.actor.group.visible = false; if (this.target === enemy) { this.target = undefined; this.path = []; } return; }
+    if (enemy.summoned) {
+      // Nihlathak's minions leave consumable corpses, but never XP or loot.
+      enemy.redeemed ||= !enemy.corpseExplosionSource || !!((rewardMods ?? stats(this.hero).mods).restInPeace);
+      enemy.actor.group.visible = !enemy.redeemed;
+      enemy.actor.group.rotation.z = -Math.PI / 2; enemy.actor.group.position.y = .2;
+      if (this.target === enemy) { this.target = undefined; this.path = []; }
+      return;
+    }
     this.audio.play(deathSound(enemy.definition?.model, enemy.boss), { position: enemy.actor.group.position, nativeKey: `monsterDeath:${enemy.definition?.model}` });
     this.hero.kills++;
     const playerStats = stats(this.hero); if (rewardMods) playerStats.mods = rewardMods;

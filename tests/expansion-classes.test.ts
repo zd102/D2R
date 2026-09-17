@@ -93,6 +93,24 @@ test('Frenzy uses both hands and ramps attack speed; Whirlwind advances along it
 test('Find Item can produce additional loot without awarding kills or experience and cannot repeat',t=>{
   t.mock.method(Math,'random',()=>0);const f=fixture('barbarian'),corpse=f.enemy(2);corpse.dead=true;f.game.aim.set(0,0,2);let drops=0;f.game.dropLoot=()=>drops++;const xp=f.hero.xp,kills=f.hero.kills;assert.ok(f.cast('findItem'));assert.equal(drops,1);assert.equal(f.cast('findItem'),false);assert.equal(f.hero.xp,xp);assert.equal(f.hero.kills,kills);
 });
+
+test('Nihlathak minion corpses can be denied by corpse skills without farming items or potions', t => {
+  t.mock.method(Math, 'random', () => 0);
+  for (const id of ['findItem', 'findPotion', 'corpseExplosion'] as const) {
+    const f = fixture(id === 'corpseExplosion' ? 'necromancer' : 'barbarian'), corpse = f.enemy(2);
+    corpse.dead = true; corpse.summoned = true; corpse.corpseExplosionSource = true;
+    f.game.aim.set(0, 0, 2);
+    let drops = 0; f.game.dropLoot = () => drops++;
+    const potions = [...f.hero.potions];
+    assert.equal(f.combat.expansion.pets.corpse(f.game.aim), corpse);
+    assert.ok(f.cast(id)); assert.equal(corpse.redeemed, true);
+    assert.equal(drops, 0); assert.deepEqual(f.hero.potions, potions);
+    assert.equal(f.cast(id), false);
+  }
+  const f = fixture('necromancer'), ordinarySummon = f.enemy(2);
+  ordinarySummon.dead = ordinarySummon.summoned = true;
+  assert.equal(f.combat.expansion.pets.corpse(f.game.aim, 10), undefined);
+});
 test('martial finishers spend one layer from each charge, misses cannot build charges',t=>{
   t.mock.method(Math,'random',()=>.2);const f=fixture('assassin'),target=f.enemy(2);f.game.target=target;for(let i=0;i<3;i++)assert.ok(f.cast('tigerStrike'));assert.equal(f.combat.expansion.charges.tigerStrike?.stacks,3);assert.ok(f.cast('dragonClaw')===false);assert.ok(f.cast('dragonTail'));assert.equal(f.combat.expansion.charges.tigerStrike?.stacks,2);
   t.mock.restoreAll();t.mock.method(Math,'random',()=>.999);assert.ok(f.cast('cobraStrike'));assert.equal(f.combat.expansion.charges.cobraStrike,undefined);
