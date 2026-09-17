@@ -1,3 +1,6 @@
+import { PANDEMONIUM_BOSSES } from './pandemonium.ts';
+import { BOSSES } from './bestiary.ts';
+import { SPECIAL_LEVELS } from './campaign.ts';
 import { monsterTraits } from './monster-traits.ts';
 import { SUPER_UNIQUE_BUDGETS, superUniqueComparisonPool } from './super-uniques.ts';
 import { playerLifeFactor, playerDamageFactor, playerExperienceFactor } from './player-count.ts';
@@ -56,6 +59,13 @@ export function monsterExperience(playerLevel: number, monsterLevel: number, ran
 export function monsterStats(definition: MonsterDef, area: Level, difficulty: number, boss = false, elite = false, players = 1): { level: number; maxHp: number; damage: number; defense: number; attackRating: number; resistances: Record<DamageType, number> } {
   difficulty = Math.max(0, Math.min(2, Math.floor(difficulty)));
   const power = DIFFICULTY_POWER[difficulty], traits = monsterTraits(definition);
+  if (area.special === 'pandemonium' && boss) {
+    const stage = PANDEMONIUM_BOSSES.find(entry => entry.definition.id === definition.id)!;
+    const base = monsterStats(BOSSES[19], SPECIAL_LEVELS.uberDiablo, difficulty, true, false, players);
+    return { ...base, maxHp: Math.round(base.maxHp * stage.life), damage: base.damage * stage.damage,
+      defense: Math.round(base.defense * 1.2), attackRating: Math.round(base.attackRating * 1.2),
+      resistances: { ...base.resistances, physical: 35, magic: 35 } };
+  }
   elite = elite && !boss;
   const tuning = levelTuning(area, difficulty), level = Math.min(99, tuning.level + (boss || elite ? 2 : 0));
   const offense = boss ? { damage: 1, attack: 1 } : fieldOffense(tuning.level, difficulty);

@@ -1,6 +1,6 @@
 import { itemCharges } from './item-charges.ts';
 import { skillName } from './paladin.ts';
-import { MOD_NAMES, itemMods, rangedBase, type Item, type Modifier, type Mods } from './items.ts';
+import { CHALLENGE_KEYS, isHellfireTorch, MOD_NAMES, itemMods, rangedBase, type Item, type Modifier, type Mods } from './items.ts';
 import { affixRanges, poisonDamage } from './affixes.ts';
 import { unappliedItemEffects, itemTriggers, catalogModifierRanges, otherClassItemEffects } from './item-catalog.ts';
 import { catalogSkill } from './item-effects.ts';
@@ -10,6 +10,9 @@ const numeric = (value: number) => String(Math.round(value * 1000) / 1000);
 const interval = (min: number, max: number) => min === max ? numeric(min) : `${numeric(min)} - ${numeric(max)}`;
 export function itemModifierLines(item: Item) {
   const mods = itemMods(item), ranges = { ...catalogModifierRanges(item), ...affixRanges(item) }, lines: { text: string; range?: string }[] = [];
+  const key = CHALLENGE_KEYS.find(key => key.event === item.event);
+  if (key) lines.push({ text: `地狱${key.boss}掉落 · 神秘传送阵消耗三种钥匙各一把，开启魔神挑战` });
+  if (isHellfireTorch(item)) lines.push({ text: '背包限携带一枚 · 六魔神挑战固定掉落本职业火炬' });
   if (item.ethereal) lines.push({ text: '无形（无法修复）' });
   for (const mod of item.staffMods ?? []) if (!catalogSkill(String(mod.skill))) {
     const skill = BASE_STAFF_SKILLS.find(skill => skill.id === mod.skill);

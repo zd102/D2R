@@ -1,3 +1,5 @@
+import { PANDEMONIUM_BOSSES } from './pandemonium';
+import { CHALLENGE_KEYS, createClassTorch, isHellfireTorch } from './items';
 import { expansionMode } from './expansion-skills.ts';
 import { vendorPrice } from './model.ts';
 import { POTIONS, POTION_LIMIT, potionDescription, useUtilityPotion, useRecoveryPotion } from './potions.ts';
@@ -311,6 +313,7 @@ export class Game {
     document.getElementById('hero-profile-name')!.title = profile.name;
     this.ui.toast(profile.name, `等级 ${this.hero.level} · ${CAMP.name}`);
   }
+  challengeStage = 0;
   get level() { return this.specialArea ? SPECIAL_LEVELS[this.specialArea] : LEVELS[this.hero.campaign.current]; }
   get inCamp() { return this.world.isCamp; }
   get areaName() { return this.inCamp ? CAMP.name : this.level.name; }
@@ -505,6 +508,7 @@ export class Game {
       return;
     }
     if (this.specialArea === 'cow') { this.spawnCowEnemies(); return; }
+    if (this.specialArea === 'pandemonium') { this.spawnChallengeBoss(); return; }
     if (this.specialArea === 'uberDiablo') { const { boss } = this.world.layout; this.spawnEnemy(boss.x, boss.z, 'boss', BOSSES[19]); return; }
     const layout = this.world.layout, plan = encounterPlan(this.level, layout, difficulty(this.hero));
     plan.packs.forEach(({ x, z, species }, pack) => {
@@ -553,9 +557,18 @@ export class Game {
     }
     this.spawnEnemy(layout.boss.x, layout.boss.z, 'boss', MONSTERS.hellCow);
   }
+  spawnChallengeBoss() {
+    const entry = PANDEMONIUM_BOSSES[this.challengeStage]; if (!entry) return;
+    const { boss } = this.world.layout;
+    const enemy = this.spawnEnemy(boss.x, boss.z, 'boss', entry.definition);
+    enemy.name = `${this.challengeStage + 1}/6 · ${entry.name}`;
+    enemy.cooldown = 3;
+    if (this.challengeStage === 1 || this.challengeStage === 3) enemy.affixes = [{ id: 'auraEnchanted', name: this.challengeStage === 1 ? '神圣冰冻' : '审判', description: '魔神灵气', aura: this.challengeStage === 1 ? 'holyFreeze' : 'conviction' }];
+    this.ui.toast(enemy.name, `独立掉落：${entry.reward} · 额外稀有度 +600%`);
+  }
   spawnEnemy(x: number, z: number, kind: 'skeleton' | 'demon' | 'boss', definition = kind === 'boss' ? this.specialArea === 'uberDiablo' ? BOSSES[19] : this.specialArea === 'cow' ? MONSTERS.hellCow : BOSSES[this.level.index] : MONSTERS[kind === 'skeleton' ? 'skeleton' : ENCOUNTERS[this.level.index][0]], elite = false) {
     const boss = kind === 'boss'; elite = elite && !boss;
-    const superUnique = boss && !this.level.actBoss && this.specialArea !== 'uberDiablo';
+    const superUnique = boss && !this.level.actBoss && this.specialArea !== 'uberDiablo' && this.specialArea !== 'pandemonium';
     const affixes = elite || superUnique ? rollMonsterAffixes(difficulty(this.hero), Math.random, definition.speed > 0, definition, superUnique ? SUPER_UNIQUE_AFFIXES[definition.id] ?? ['extraStrong'] : [], SUPER_UNIQUE_AURAS[definition.id]) : [];
     const baseTuning = monsterStats(definition, this.level, difficulty(this.hero), boss, elite, this.hero.playerCount);
     const tuning = applyMonsterAffixes({ ...baseTuning, speed: definition.speed * (elite ? 1.1 : 1) }, affixes);
@@ -904,13 +917,19 @@ export class Game {
     const wasReady = !this.specialArea && questComplete(this.hero.campaign);
     if (!enemy.boss && !this.specialArea) recordQuestKill(this.hero);
     if (!this.specialArea && !wasReady && questComplete(this.hero.campaign)) { this.ui.toast('任务已完成', `${this.level.boss}已现身`); this.audio.play('quest'); this.save(false); }
-    if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level, mercenaryKill ? rewardMods : undefined, false, enemy.definition?.id === 'pindleskin');
+    if (enemy.lootScale === undefined || Math.random() < enemy.lootScale) this.dropLoot(enemy.actor.group.position, rank, enemy.level, mercenaryKill ? rewardMods : undefined, false, enemy.definition?.id === 'pindleskin', enemy.boss && ['countess', 'summoner', 'nihlathak'].includes(enemy.definition?.id ?? ''));
     if (enemy.definition?.id === 'pindleskin') {
       const { boss } = this.world.layout;
       this.spawnEnemy(boss.x, boss.z, 'boss', MONSTERS.nihlathak);
       this.ui.toast('击杀暴躁外皮 · 任务已完成', '尼拉塞克已在神殿深处现身'); this.audio.play('quest'); return;
     }
     if (enemy.boss) {
+      if (this.specialArea === 'pandemonium') {
+        this.challengeStage++;
+        if (this.challengeStage < PANDEMONIUM_BOSSES.length) { this.spawnChallengeBoss(); return; }
+        const p = enemy.actor.group.position;
+        this.addLoot({ id: this.nextId++, x: p.x, z: p.z, item: createClassTorch(this.hero.classId), mesh: new THREE.Group() });
+      }
       if (this.specialArea) {
         if (this.specialArea === 'cow') refreshBaseStock(this.hero);
         this.hero.bossDefeated = true; this.world.setExitActive(true); this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`); this.save(false); return;
@@ -922,10 +941,10 @@ export class Game {
       this.save(false);
     }
   }
-  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level, mercenaryMods?: Mods, corpseSearch=false, pindleskin=false) {
+  dropLoot(position: THREE.Vector3, rank: DropRank = 'monster', areaLevel: number = levelTuning(this.level, difficulty(this.hero)).level, mercenaryMods?: Mods, corpseSearch=false, pindleskin=false, keyEligible=false) {
     const mods = stats(this.hero).mods, diff = difficulty(this.hero);
     mods.magicFind = (mods.magicFind ?? 0) + (mercenaryMods?.magicFind ?? 0); mods.goldFind = (mods.goldFind ?? 0) + (mercenaryMods?.goldFind ?? 0);
-    const drop = rollLoot({ pindleskin, players: corpseSearch?1:this.hero.playerCount, level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !corpseSearch && !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
+    const drop = rollLoot({ pindleskin, keyEligible: keyEligible && !corpseSearch, challengeStage: this.specialArea === 'pandemonium' && !corpseSearch && rank === 'miniboss' ? this.challengeStage : undefined, players: corpseSearch?1:this.hero.playerCount, level: areaLevel, act: this.level.act, difficulty: diff, rank, levelIndex: this.level.index, firstClear: !corpseSearch && !this.specialArea && this.hero.campaign.cleared[diff] <= this.level.index, magicFind: mods.magicFind, goldFind: mods.goldFind, cow: this.specialArea === 'cow', uberDiablo: this.specialArea === 'uberDiablo' && rank === 'miniboss' });
     this.addLoot({ id: this.nextId++, x: position.x + .4, z: position.z + .2, gold: drop.gold, mesh: new THREE.Group() });
     drop.items.forEach((item, i) => this.addLoot({ id: this.nextId++, x: position.x - .6 + i * .8, z: position.z + .6, item, mesh: new THREE.Group() }));
     drop.runes.forEach((rune, i) => this.addLoot({ id: this.nextId++, x: position.x + .8, z: position.z - .5 - i * .6, rune, mesh: new THREE.Group() }));
@@ -945,6 +964,7 @@ export class Game {
     if (this.paused || this.dead) return;
     const loot = this.loot.find(l => l.id === id); if (!loot) return;
     this.begin(); this.target = undefined; this.heldAttack = false; this.pendingPickup = undefined; this.pendingChest = undefined; this.pendingPortal = false; this.path = [];
+    if (loot.item && isHellfireTorch(loot.item) && this.hero.inventory.some(isHellfireTorch)) { this.ui.toast('背包只能携带一枚地狱火炬'); return; }
     if (loot.item && isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast(loot.item.identified === false ? '背包中已有同类唯一物品' : '背包中已有毁灭'); return; }
     if (loot.item && !packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
     if (Math.hypot(this.position.x - loot.x, this.position.z - loot.z) > 3) {
@@ -958,6 +978,7 @@ export class Game {
   collectLoot(loot: Loot) {
     if (this.paused || this.dead || !this.loot.includes(loot)) return;
     if (loot.item) {
+      if (isHellfireTorch(loot.item) && this.hero.inventory.some(isHellfireTorch)) { this.ui.toast('背包只能携带一枚地狱火炬'); return; }
       if (isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast(loot.item.identified === false ? '背包中已有同类唯一物品' : '背包中已有毁灭'); return; }
       if (!packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
       this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.identified === false ? `未鉴定 · ${groundItemName(loot.item)}` : loot.item.name, '已收入背包');
@@ -1178,12 +1199,22 @@ export class Game {
     const soj = this.hero.inventory.find(item => item.id === sojId); if (!soj || !isStoneOfJordan(soj)) return false;
     return this.enterSpecialArea('uberDiablo', 2, soj);
   }
+  enterPandemonium() {
+    if (!this.inCamp || !this.profile || this.dead || this.saveConflict || this.specialArea || this.hero.campaign.cleared[1] < 25) return false;
+    return this.enterSpecialArea('pandemonium', 2);
+  }
   enterSpecialArea(area: SpecialArea, diff: 0 | 1 | 2, catalyst?: Item) {
     const previousHero = structuredClone(this.hero), previousArea = this.specialArea;
-    if (area === 'nihlathak' && !nihlathakUnlocked(this.hero, diff) || area !== 'nihlathak' && !catalyst) return false;
+    if (area === 'pandemonium' && (!this.inCamp || diff !== 2 || this.hero.campaign.cleared[1] < 25)) return false;
+    const keys = area === 'pandemonium' ? CHALLENGE_KEYS.map(key => this.hero.inventory.find(item => item.event === key.event)) : [];
+    if (keys.some(key => !key)) return false;
+    if (area === 'nihlathak' && !nihlathakUnlocked(this.hero, diff) || area !== 'nihlathak' && area !== 'pandemonium' && !catalyst) return false;
+    for (const key of keys) this.hero.inventory.splice(this.hero.inventory.indexOf(key!), 1);
+    if (keys.length) placeItems(this.hero.inventory);
     if (catalyst) { const index = this.hero.inventory.indexOf(catalyst); if (index < 0) return false; this.hero.inventory.splice(index, 1); placeItems(this.hero.inventory); } this.hero.difficultyLevel = diff; this.hero.bossDefeated = false; this.specialArea = area;
     return this.commitSave(() => {
       this.clearCampReturn();
+      if (area === 'pandemonium') this.challengeStage = 0;
       this.loadArea(false); this.ui.toast(this.level.name, area !== 'uberDiablo' ? ` ${['普通', '噩梦', '地狱'][diff]}难度` : '毕业挑战');
     }, () => { this.hero = previousHero; this.specialArea = previousArea; });
   }

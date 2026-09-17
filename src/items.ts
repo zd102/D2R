@@ -1,7 +1,7 @@
 import { playerDropChance } from './player-count.ts';
 import { EXPANSION_MOD_NAMES, EXTRA_RUNES, EXTRA_BASES, EXTRA_RUNEWORDS, EXTRA_UNIQUES } from './item-expansion.ts';
 import { AFFIX_MOD_NAMES, applyAffixes, type CharmSize } from './affixes.ts';
-import { expandBases, expandSpecials, expandRunewords, catalogMods, rollCatalogMods } from './item-catalog.ts';
+import { expandBases, expandSpecials, expandRunewords, catalogItemMods, catalogMods, rollCatalogMods } from './item-catalog.ts';
 import { EFFECT_MOD_NAMES } from './item-effects.ts';
 import { CATALOG_BASES, CATALOG_SPECIALS, CATALOG_RUNEWORDS, LEGACY_CURATED_SPECIALS } from './item-catalog-current.ts';
 import { RANGED_BASES } from './ranged-data.ts';
@@ -59,7 +59,7 @@ export type Item = { id: string; name: string; slot: Slot; rarity: Rarity; power
   requiredLevel?: number; requiredStrength?: number; requiredDexterity?: number; mods?: Mods; durability?: number; maxDurability?: number;
   sockets?: number; runes?: RuneId[]; identified?: boolean; width?: number; height?: number; x?: number; y?: number; setId?: string; charm?: boolean;
   chargesUsed?: Record<string, number>; affixes?: string[]; charmSize?: CharmSize; catalogVersion?: number; catalogRolls?: number[]; quantity?: number;
-  baseCode?: string; catalogId?: string; requiredClass?: string; jewel?: boolean; misc?: boolean; event?: 'wirts-leg'; eventDifficulty?: 0 | 1 | 2; socketedJewels?: { name: string; mods: Mods; catalogId?: string; catalogVersion?: number; catalogRolls?: number[] }[];
+  baseCode?: string; catalogId?: string; requiredClass?: string; jewel?: boolean; misc?: boolean; event?: 'wirts-leg' | 'key-terror' | 'key-hate' | 'key-destruction'; eventDifficulty?: 0 | 1 | 2; socketedJewels?: { name: string; mods: Mods; catalogId?: string; catalogVersion?: number; catalogRolls?: number[] }[];
 };
 export type WeaponType = 'sword' | 'axe' | 'mace' | 'hammer' | 'scepter' | 'polearm' | 'spear' | 'bow' | 'crossbow' | 'dagger' | 'wand' | 'staff' | 'orb' | 'claw' | 'throwing' | 'javelin';
 export type ItemBase = { name: string; slot: Slot; level: number; power: number; strength?: number; dexterity?: number; min?: number; max?: number; block?: number; smiteMin?: number; smiteMax?: number; speed?: number; twoHanded?: boolean; sockets?: number; weaponType?: WeaponType;
@@ -129,6 +129,22 @@ export function createWirtsLeg(difficulty: 0 | 1 | 2): Item {
 }
 export const isWirtsLeg = (item: Item | undefined): item is Item & { event: 'wirts-leg'; eventDifficulty: 0 | 1 | 2 } => !!item && item.event === 'wirts-leg' && item.eventDifficulty !== undefined;
 export const isAnnihilus = (item: Item | undefined) => !!item && (item.catalogId === 'unique-382' || item.name === '毁灭');
+export const isHellfireTorch = (item: Item | undefined) => !!item && (item.catalogId === 'unique-401' || item.charm === true && item.name === '地狱火炬');
+export const CHALLENGE_KEYS = [
+  { event: 'key-terror', name: '恐惧之钥', boss: '女伯爵', levelIndex: 3, chance: .08 },
+  { event: 'key-hate', name: '憎恨之钥', boss: '召唤师', levelIndex: 8, chance: .09 },
+  { event: 'key-destruction', name: '毁灭之钥', boss: '尼拉塞克', levelIndex: 27, chance: .10 },
+] as const;
+export function createChallengeKey(event: typeof CHALLENGE_KEYS[number]['event']): Item {
+  const key = CHALLENGE_KEYS.find(key => key.event === event)!;
+  return { id: itemId(), name: key.name, base: '魔神钥匙', slot: 'amulet', rarity: 'unique', power: 0, level: 1, value: 0, mods: {}, identified: true, width: 1, height: 1, misc: true, event };
+}
+export function createClassTorch(classId: string, random = Math.random): Item {
+  const item = specialItem('unique-401', random);
+  const index = ['amazon', 'sorceress', 'necromancer', 'paladin', 'barbarian', 'druid', 'assassin'].indexOf(classId);
+  item.catalogRolls![0] = (Math.max(0, index) + .5) / 7;
+  item.mods = catalogItemMods(item); return item;
+}
 export const isStoneOfJordan = (item: Item | undefined) => !!item && (item.catalogId === 'unique-122' || item.name === '乔丹之石');
 export const footprint = (item: Item): [number, number] => [item.width ?? (['ring', 'ring2', 'amulet'].includes(item.slot) ? 1 : 2), item.height ?? (item.slot === 'weapon' || item.slot === 'armor' || item.slot === 'shield' ? 3 : ['ring', 'ring2', 'amulet', 'belt'].includes(item.slot) ? 1 : 2)];
 export function makeItem(base: ItemBase, id: string = itemId()): Item {
@@ -237,7 +253,7 @@ export function moveItem(items: Item[], id: string, x: number, y: number, rows =
 }
 export const PERSONAL_STASH_ROWS = 30;
 export function stashRows(_items: Item[]) { return PERSONAL_STASH_ROWS; }
-export function transferItems(from: Item[], to: Item[], id: string, sourceRows: number, rows: number, position?: { x: number; y: number }, preview = false, sourceColumns = 10, columns = 10) {
+export function transferItems(from: Item[], to: Item[], id: string, sourceRows: number, rows: number, position?: { x: number; y: number }, preview = false, sourceColumns = 10, columns = 10, uniqueSource = false, uniqueTarget = false) {
   const item = from.find(item => item.id === id); if (!item || from === to) return false;
   if (new Set([...from, ...to].map(item => item.id)).size !== from.length + to.length) return false;
   const moved = { ...item }; delete moved.x; delete moved.y;
@@ -263,6 +279,7 @@ export function transferItems(from: Item[], to: Item[], id: string, sourceRows: 
     }
   }
   const nextTarget = [...targetLayout, moved];
+  if (uniqueSource && sourceLayout.filter(isHellfireTorch).length > 1 || uniqueTarget && nextTarget.filter(isHellfireTorch).length > 1) return false;
   const nextSourcePositions = packItems(sourceLayout, sourceRows, sourceColumns), positions = packItems(nextTarget, rows, columns);
   if (!nextSourcePositions || !positions) return false;
   if (position && (positions.get(id)!.x !== position.x || positions.get(id)!.y !== position.y)) return false;

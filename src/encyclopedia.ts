@@ -70,9 +70,7 @@ export function itemDropSources(entry: EncyclopediaItem, difficulty: number): It
     const area = LEVELS[profile.levelIndex], boss = BOSSES[area.index], level = monsterStats(boss, area, difficulty, true).level;
     let kind: ItemDropSource['kind'] | undefined;
     if (entry.special) {
-      if (entry.special.eventOnly) {
-        if (difficulty === 2 && (entry.id === 'unique-382' && area.index === 19 || entry.id === 'unique-401' && area.index === 24)) kind = 'event';
-      } else if ((entry.special.qualityLevel ?? entry.level) <= level && (entry.special.treasureClass ?? 0) <= profile.maxTC[difficulty]) {
+      if (!entry.special.eventOnly && (entry.special.qualityLevel ?? entry.level) <= level && (entry.special.treasureClass ?? 0) <= profile.maxTC[difficulty]) {
         kind = bossSpecialPool(profile, level, difficulty).includes(entry.special) ? 'favored' : 'regular';
       }
     } else if (entry.base) {

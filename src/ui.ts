@@ -1,3 +1,5 @@
+import { CHALLENGE_KEYS } from './items';
+import { PANDEMONIUM_BOSSES } from './pandemonium';
 import { POTIONS, POTION_LIMIT, potionDescription } from './potions.ts';
 import { mercenaryPanel, type MercenaryPanelState } from './mercenary-ui';
 import { mercenaryUnlocked, mercenaryStats, equipMercenary, unequipMercenary, selectMercenaryAura } from './mercenary';
@@ -288,6 +290,7 @@ export class UI {
       if (element.dataset.chest !== undefined) this.game.openChest(Number(element.dataset.chest));
       if (element.dataset.templeEntry !== undefined) this.game.enterNihlathak(Number(element.dataset.templeEntry));
       if (element.dataset.cowEntry) this.game.enterCowLevel(element.dataset.cowEntry);
+      if (element.hasAttribute('data-pandemonium-entry')) this.game.enterPandemonium();
       if (element.dataset.uberEntry) this.game.enterUberDiablo(element.dataset.uberEntry);
       switch (element.dataset.action) {
         case 'close': this.closePanel(); break;
@@ -468,7 +471,16 @@ export class UI {
       content = this.sharedStashScreen.render();
     } else if (this.panel === 'mystery-portal') {
       const legs = this.game.cowLegs, soj = this.game.hero.inventory.find(item => item.catalogId === 'unique-122' || item.name === '乔丹之石');
-      content = `<div class="quest-rewards"><span>${icon('church')}尼拉塞克神殿</span></div><p class="quest-story">对应难度救下安雅后永久开启。入口暴躁外皮拥有额外掉落稀有度与暗金掉落率。</p><div class="shop-items">${[0,1,2].map(diff => `<div><div><h3>${['普通','噩梦','地狱'][diff]} · 尼拉塞克神殿</h3></div><button class="primary-button" data-temple-entry="${diff}" ${this.game.templeDifficulties.includes(diff as 0 | 1 | 2) ? '' : 'disabled'}>${this.game.templeDifficulties.includes(diff as 0 | 1 | 2) ? '进入' : '尚未救下安雅'}</button></div>`).join('')}</div><div class="quest-rewards"><span>${icon('sparkles')}维特之腿</span></div><div class="shop-items">${legs.map(leg => `<div><div class="shop-item-icon gold-text">${icon('sword')}</div><div><h3>${leg.name}</h3></div><button class="primary-button" data-cow-entry="${escapeHtml(leg.id)}">${icon('circle')}开启</button></div>`).join('') || '<p class="quest-story">未携带维特之腿</p>'}</div><div class="quest-rewards"><span>${icon('flame')}乔丹之石</span></div>${this.game.hero.campaign.cleared[2] >= 25 ? `<div class="shop-items"><div><div class="shop-item-icon red-text">${icon('gem')}</div><div><h3>超级迪亚波罗</h3></div><button class="primary-button" data-uber-entry="${escapeHtml(soj?.id ?? '')}" ${soj ? '' : 'disabled'}>${icon('flame')}开启</button></div></div>` : ''}`;
+      const keys = CHALLENGE_KEYS.map(key => ({ ...key, count: this.game.hero.inventory.filter(item => item.event === key.event).length }));
+      const ready = keys.every(key => key.count > 0) && this.game.hero.campaign.cleared[1] >= 25;
+      content = `<div class="portal-intro">选择远征目的地<span>消耗品仅从背包扣除 · 开启后立即传送</span></div><div class="portal-destinations">
+        <section class="portal-card portal-challenge"><header><span>${icon('flame')}终局试炼 · 地狱</span><h3>魔神挑战</h3></header><p>六位魔神依次登场，强度均高于超级迪亚波罗。全部击败，固定掉落本职业地狱火炬。</p>
+        <div class="portal-keys">${keys.map(key => `<span class="${key.count ? 'ready' : ''}"><b>${key.name} ${key.count}/1</b><small>地狱${key.boss} · ${Math.round(key.chance * 100)}%</small></span>`).join('')}</div>
+        <details><summary>六 Boss 顺序与独立奖励</summary><ol>${PANDEMONIUM_BOSSES.map(entry => `<li><b>${entry.name}</b><span>${entry.reward} · 独立暗金池 ${Math.round(entry.loot.uniqueChance * 100)}%</span></li>`).join('')}</ol><p>每位额外一次装备掉落，装备寻获加成 +600%。背包限带一枚火炬，可存入仓库后拾取新火炬。</p></details>
+        <p class="portal-note">本次远征可回城补给；离开远征或退出游戏需重新消耗钥匙开启。</p><button class="primary-button" data-pandemonium-entry ${ready ? '' : 'disabled'}>${ready ? '消耗三种钥匙各 1 把 · 开启挑战' : this.game.hero.campaign.cleared[1] < 25 ? '需解锁地狱难度' : '背包中缺少钥匙'}</button></section>
+        <section class="portal-card"><header><span>${icon('church')}常驻远征</span><h3>尼拉塞克神殿</h3></header><p>对应难度救下安雅后永久开启。暴躁外皮拥有额外稀有度；地狱尼拉塞克可掉落毁灭之钥。</p><div class="portal-actions">${[0,1,2].map(diff => `<button class="primary-button" data-temple-entry="${diff}" ${this.game.templeDifficulties.includes(diff as 0 | 1 | 2) ? '' : 'disabled'}>${['普通','噩梦','地狱'][diff]} · ${this.game.templeDifficulties.includes(diff as 0 | 1 | 2) ? '进入' : '未救安雅'}</button>`).join('')}</div></section>
+        <section class="portal-card"><header><span>${icon('sparkles')}材料远征</span><h3>隐藏奶牛关</h3></header><p>消耗对应难度维特之腿，挑战奶牛军团，收集符文与带孔底材。</p><div class="portal-actions">${legs.map(leg => `<button class="primary-button" data-cow-entry="${escapeHtml(leg.id)}">消耗 ${escapeHtml(leg.name)} · 开启</button>`).join('') || '<button class="primary-button" disabled>背包中缺少维特之腿</button>'}</div></section>
+        <section class="portal-card"><header><span>${icon('gem')}终局挑战 · 地狱</span><h3>超级迪亚波罗</h3></header><p>通关地狱后，消耗乔丹之石挑战恐惧之王，固定掉落毁灭护身符。</p><button class="primary-button" data-uber-entry="${escapeHtml(soj?.id ?? '')}" ${soj && this.game.hero.campaign.cleared[2] >= 25 ? '' : 'disabled'}>${this.game.hero.campaign.cleared[2] < 25 ? '需通关地狱' : soj ? '消耗乔丹之石 · 开启' : '背包中缺少乔丹之石'}</button></section></div>`;
     } else if (this.panel === 'campaign') {
       content = this.campaignScreen.render();
     } else if (this.panel === 'inventory') {

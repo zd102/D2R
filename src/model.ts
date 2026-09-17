@@ -6,7 +6,7 @@ import { itemCharges, chargeGroups, consumeCharge, type ChargeBinding } from './
 import { refreshBaseStock, parseBaseStock, type BaseStock } from './progression-equipment.ts';
 import { parsePlayerCount, type PlayerCount } from './player-count.ts';
 import { BASE_ATTRIBUTES, PALADIN_BALANCE, SKILLS, skillById, emptySkills, isSkill, isAura, skillValues, xpForLevel, EXPERIENCE, breakpointFrames, FCR, FHR, FBR, type SkillId, type ActionId, type Attribute, type DamageType } from './paladin.ts';
-import { transferItems, SLOTS, BASES, MOD_NAMES, RUNES, makeItem, addMods, itemMods, itemRequirements, packItems, placeItems, stashRows, socketItem, type Mods, type Modifier, type Slot, type Item, type RuneId } from './items.ts';
+import { isHellfireTorch, CHALLENGE_KEYS, transferItems, SLOTS, BASES, MOD_NAMES, RUNES, makeItem, addMods, itemMods, itemRequirements, packItems, placeItems, stashRows, socketItem, type Mods, type Modifier, type Slot, type Item, type RuneId } from './items.ts';
 import { levelMods } from './item-effects.ts';
 import { migrateCatalogItem } from './items.ts';
 import { catalogItemSetBonuses } from './item-catalog.ts';
@@ -349,7 +349,7 @@ export function transferItem(hero: HeroState, id: string, destination: ItemConta
   const source = (['inventory', 'stash', 'cube'] as const).find(key => hero[key].some(item => item.id === id));
   if (!source || source === destination || (source === 'cube' || destination === 'cube') && !hasCube(hero)) return false;
   const from = hero[source], to = hero[destination];
-  const changed = transferItems(from, to, id, source === 'stash' ? stashRows(from) : 4, destination === 'stash' ? stashRows(to) : 4, position, preview, source === 'cube' ? CUBE_COLUMNS : 10, destination === 'cube' ? CUBE_COLUMNS : 10);
+  const changed = transferItems(from, to, id, source === 'stash' ? stashRows(from) : 4, destination === 'stash' ? stashRows(to) : 4, position, preview, source === 'cube' ? CUBE_COLUMNS : 10, destination === 'cube' ? CUBE_COLUMNS : 10, source === 'inventory', destination === 'inventory');
   if (changed && !preview) clampResources(hero);
   return changed;
 }
@@ -508,7 +508,7 @@ export function recoverCorpse(hero: HeroState, inField = true) {
   const corpse = hero.corpse; if (!corpse) return false;
   const inventory = [...hero.inventory, ...corpse.extras], equipment = { ...hero.equipment };
   for (const slot of SLOTS) { const item = corpse.equipment[slot]; if (!item) continue; if (equipment[slot]) inventory.push(equipment[slot]!); equipment[slot] = item; }
-  if (!placeItems(inventory)) return false;
+  if (inventory.filter(isHellfireTorch).length > 1 || !placeItems(inventory)) return false;
   hero.equipment = equipment; hero.inventory = inventory; hero.gold += corpse.gold; if (inField) hero.xp += Math.floor(corpse.xpLost * .75); hero.corpse = null; clampResources(hero); return true;
 }
 const integer = (value: unknown, fallback: number, min: number, max: number) => typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.floor(value))) : fallback;
@@ -534,6 +534,7 @@ export function parseItem(value: unknown): Item | null {
   if (result.misc && item.event === 'wirts-leg' && [0, 1, 2].includes(item.eventDifficulty) && item.name === `维特之腿 · ${['普通', '噩梦', '地狱'][item.eventDifficulty]}`) {
     result.event = 'wirts-leg'; result.eventDifficulty = item.eventDifficulty;
   }
+  if (result.misc && CHALLENGE_KEYS.some(key => key.event === item.event && key.name === item.name)) result.event = item.event;
   if (['small', 'large', 'grand'].includes(item.charmSize) && result.charm) result.charmSize = item.charmSize;
   if (Array.isArray(item.affixes)) result.affixes = [...new Set<string>(item.affixes.filter((id: unknown) => typeof id === 'string' && !!affixById(id)))].slice(0, 6);
   if (item.catalogVersion === 1 || item.catalogVersion === 2) result.catalogVersion = item.catalogVersion;
@@ -611,6 +612,7 @@ export function parseSave(raw: string | null): HeroState | null {
       else { delete item.x; delete item.y; hero.stash.push(item); }
     }
     placeItems(hero.cube, CUBE_ROWS, CUBE_COLUMNS);
+    let torchSeen = false; hero.inventory = hero.inventory.filter(item => { if (!isHellfireTorch(item)) return true; if (!torchSeen) { torchSeen = true; return true; } hero.stash.push(item); return false; });
     if (!packItems(hero.inventory)) { const items = hero.inventory; hero.inventory = []; for (const item of items) { if (packItems([...hero.inventory, item])) hero.inventory.push(item); else hero.stash.push(item); } placeItems(hero.inventory); }
     hero.gold = integer(h.gold, 0, 0, Number.MAX_SAFE_INTEGER);
     hero.runes = Array.isArray(h.runes) ? h.runes.filter((rune: unknown): rune is RuneId => typeof rune === 'string' && Object.hasOwn(RUNES, rune)) : []; hero.identifyScrolls = integer(h.identifyScrolls, 0, 0, 99);

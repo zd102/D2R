@@ -198,6 +198,8 @@ export class EncyclopediaScreen {
     }
     if (entry.kind !== 'runeword' && entry.kind !== 'supply') {
       const sources = itemDropSources(entry, this.difficulty);
+      if (entry.id === 'unique-401') body += '<p class="encyclopedia-muted">神秘传送阵 · 魔神挑战：六位 Boss 全部击败后固定掉落本职业火炬，背包限带一枚。</p>';
+      if (entry.id === 'unique-382') body += '<p class="encyclopedia-muted">神秘传送阵 · 超级迪亚波罗：消耗乔丹之石开启，击败后固定掉落毁灭。</p>';
       const sourceNames = { regular: '可掉落', favored: '额外暗金池', event: '专属护符 · 0.5%', countess: '专用符文池', forge: '熔炉首通 · 1/11' };
       body += `<div class="encyclopedia-section-heading"><h4>首领来源</h4>${this.difficultyControl()}</div><div class="encyclopedia-sources">${sources.map(source => this.link(source.monsterId, LEVELS[source.area].boss, 'monsters', `${LEVELS[source.area].name} · ${sourceNames[source.kind]}`)).join('') || `<p class="encyclopedia-muted">${difficultyNames[this.difficulty]}暂无首领掉落来源</p>`}</div>`;
     }
@@ -224,7 +226,6 @@ export class EncyclopediaScreen {
       body += `<div class="encyclopedia-section-heading"><h4>特殊掉落</h4><span>0 MF</span></div><p class="encyclopedia-muted">${bossDropLabel(this.area, this.difficulty)}</p>`;
       body += statsList([['额外暗金判定', percent(profile.uniqueChance)], ['额外符文判定', this.area === 3 ? '3 次独立 75%' : percent(profile.runeChance)], ['宝藏等级上限', profile.maxTC[this.difficulty]]]);
       if (entry.rank === 'actBoss') body += `<p class="encyclopedia-muted">首通奖励：第一件暗金与一枚符文保底</p>`;
-      if (this.difficulty === 2 && [19, 24].includes(this.area)) { const charm = encyclopediaItem(this.area === 19 ? 'unique-382' : 'unique-401')!; body += this.link(charm.id, charm.name, 'items', '专属护符 · 0.5%'); }
       body += `<details class="encyclopedia-related-group"><summary>额外暗金池 · ${pool.length}</summary>${pool.map(item => this.link(item.catalogId!, item.name, 'items', `需求等级 ${item.level} · ${item.base}`)).join('')}</details>`;
     }
     return body;
