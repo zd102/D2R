@@ -19,6 +19,8 @@
     "test:online-compat": "node tests/online-compat-browser.mjs",
     "balance:report": "node scripts/balance-report.ts",
     "balance:classes": "node scripts/class-audit.mjs",
+    "balance:endgame": "node scripts/endgame-audit.mjs",
+    "test:endgame-browser": "node tests/endgame-audit-browser.mjs",
     "balance:class-variants": "node scripts/class-audit-variants.mjs",
     "items:report": "node scripts/item-attribute-report.ts",
     "test:item-skills": "node tests/item-skills-browser.mjs",

@@ -209,3 +209,5 @@ Safari/WebKit 与 Chromium 的在线兼容回归使用 `npm run test:online-comp
 - 神秘传送阵按目的地展示解锁条件、消耗品数量和奖励，支持桌面双列与手机单列。浏览器回归：`npm run test:pandemonium`。
 
 Boss 身份参考 [Pandemonium Event](https://diablo.fandom.com/wiki/Pandemonium_Event)；三钥匙直达六场顺序挑战与职业定向奖励为本项目规则。
+
+七职业毕业配装的实测结果、逐 Boss 数据及测试限制见 [终局 Boss 强度审计](docs/endgame-boss-audit.md)。复现命令：`npm run balance:endgame`；真实地图复测：`npm run test:endgame-browser`。

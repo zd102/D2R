@@ -3,7 +3,7 @@ import * as CANNON from 'cannon-es';
 import { PaladinCombat } from '../src/combat.ts';
 import { MonsterCombat } from '../src/monster-combat.ts';
 import { MercenaryCombat } from '../src/mercenary-combat.ts';
-import { stats, skillLevel } from '../src/model.ts';
+import { stats, skillLevel, swapWeapons } from '../src/model.ts';
 import { skillValues } from '../src/paladin.ts';
 import { expansionMode } from '../src/expansion-skills.ts';
 import { classSkillMode } from '../src/class-skills.ts';
@@ -12,7 +12,7 @@ import { BOSSES, ENCOUNTERS, MONSTERS } from '../src/bestiary.ts';
 import { LEVELS } from '../src/campaign.ts';
 import { POTIONS, potionIndex, potionTier, useRecoveryPotion } from '../src/potions.ts';
 import { BASES, makeItem, RUNEWORDS, socketItem } from '../src/items.ts';
-import { activeMercenaryEquipment, mercenaryStats } from '../src/mercenary.ts';
+import { activeMercenaryEquipment, mercenaryStats, feedMercenaryPotion } from '../src/mercenary.ts';
 import { applyMonsterAffixes, rollMonsterAffixes, SUPER_UNIQUE_AFFIXES, SUPER_UNIQUE_AURAS } from '../src/monster-affixes.ts';
 import { auditHero } from './class-audit-builds.mjs';
 
@@ -22,18 +22,18 @@ const round=n=>Math.round(n*10)/10;
 
 // An openly documented arena, not an accelerated damage formula: actual cast
 // costs/cadence, missiles, monster AI, summons, curses, durability and potion queues.
-export function auditEncounter(build,stage,{kind='pack',seed=239,poor=false,mercenary=false,coldStart=false,stationary=false,affixes=false,mosaic=false,combatGear=false,white=false,charged=false,seconds:limit=kind==='pack'?90:180,hero:providedHero}={}){
-  const {hero:built,primary}=auditHero(build,stage,{poor,mosaic,combatGear,white}),h=providedHero?structuredClone(providedHero):built,area=LEVELS[stage.index];
+export function auditEncounter(build,stage,{kind='pack',seed=239,poor=false,mercenary=false,coldStart=false,stationary=false,affixes=false,mosaic=false,combatGear=false,white=false,charged=false,seconds:limit=kind==='pack'?90:180,hero:providedHero, encounters, cta=false, rejuvs=0, mercPotions=0}={}){
+  const {hero:built,primary}=auditHero(build,stage,{poor,mosaic,combatGear,white}),h=providedHero?structuredClone(providedHero):built; let area=encounters?.[0]?.area??LEVELS[stage.index];
   h.campaign.kills=area.quest.count;h.campaign.objects=Array.from({length:area.quest.count},(_,i)=>i);
   const random=Math.random;Math.random=rng(seed);const scene=new THREE.Scene(),enemies=[],casts={},potions=[0,0];let nextId=1,phase='prepare',firstKill=null,minLife=1,incoming=0,blockedCasts=0,damageDealt=0;
   const dispose=object=>{object.traverse(node=>{if(node.isMesh||node.isPoints||node.isLine){node.geometry?.dispose();for(const m of Array.isArray(node.material)?node.material:[node.material])m?.dispose();}});object.removeFromParent();};
-  const game={hero:h,enemies,world:{scene,grid:{width:513,height:513,isWalkableAt:(x,z)=>x>=0&&z>=0&&x<513&&z<513},path:(_from,to)=>[to.clone()],canWalk:()=>true},time:0,started:true,paused:false,dead:false,inCamp:false,invincible:0,position:new THREE.Vector3(),aim:new THREE.Vector3(0,0,6),actor:actor('hero'),body:new CANNON.Body({mass:1}),path:[],effects:[],loot:[],attackTime:0,cooldowns:{attack:0,cleave:0,ward:0,nova:0,dash:0,bolt:0},audio:{play(){}},ui:{floatText(){},toast(){},flashDamage(){},openPanel(){}},burst(){},beam(){},save(){},begin(){},releaseInput(){},disposeObject:dispose,dropLoot(){},
+  const game={hero:h,enemies,get level(){return area;},get specialArea(){return area.special;},world:{scene,grid:{width:513,height:513,isWalkableAt:(x,z)=>x>=0&&z>=0&&x<513&&z<513},path:(_from,to)=>[to.clone()],canWalk:()=>true},time:0,started:true,paused:false,dead:false,inCamp:false,invincible:0,position:new THREE.Vector3(),aim:new THREE.Vector3(0,0,6),actor:actor('hero'),body:new CANNON.Body({mass:1}),path:[],effects:[],loot:[],attackTime:0,cooldowns:{attack:0,cleave:0,ward:0,nova:0,dash:0,bolt:0},audio:{play(){}},ui:{floatText(){},toast(){},flashDamage(){},openPanel(){}},burst(){},beam(){},save(){},begin(){},releaseInput(){},disposeObject:dispose,dropLoot(){},
     nearestEnemy(range){return enemies.filter(e=>game.combat.hostile(e)&&e.actor.group.position.distanceTo(game.position)<range).sort((a,b)=>a.actor.group.position.distanceToSquared(game.position)-b.actor.group.position.distanceToSquared(game.position))[0];},
     killEnemy(e,rewardMods,mercenaryKill=false){if(e.dead)return;e.dead=true;e.hp=0;game.monsterCombat.cancel(e);game.monsterCombat.onDeath(e);if(e.summoned)e.redeemed=true;const s=stats(h),mods=rewardMods??s.mods;if(!mercenaryKill){h.mana=Math.min(s.maxMana,h.mana+(mods.manaOnKill??0));h.hp=Math.min(s.maxHp,h.hp+(mods.lifeOnKill??0)+(e.definition.race==='demon'?mods.lifeOnDemonKill??0:0));}if(phase==='fight'&&firstKill===null&&!e.summoned)firstKill=game.time;},
   };
   const spawn=(x,z,kind='skeleton',definition,boss=false,elite=false)=>{
     definition??=MONSTERS[kind]??MONSTERS.skeleton;const a=actor(definition.id),body=new CANNON.Body({mass:1}),tuning=monsterStats(definition,area,stage.difficulty,boss,elite,1);a.group.position.set(x,0,z);body.position.set(x,.5,z);scene.add(a.group);
-    const superUnique=boss&&!area.actBoss;
+    const superUnique=boss&&!area.actBoss&&!area.special;
     const rolled=affixes&&(elite||superUnique)?rollMonsterAffixes(stage.difficulty,rng(seed+71),definition.speed>0,definition,superUnique?SUPER_UNIQUE_AFFIXES[definition.id]??['extraStrong']:[],SUPER_UNIQUE_AURAS[definition.id]):[];
     const adjusted=applyMonsterAffixes({...tuning,speed:definition.speed*(elite?1.1:1)},rolled);
     const e={id:nextId++,playerCount:1,name:definition.name,definition,actor:a,body,...(affixes?adjusted:tuning),hp:tuning.maxHp,boss,elite,affixes:rolled,dead:false,active:true,kind:boss?'boss':definition.race==='undead'?'skeleton':'demon',speed:affixes?adjusted.speed:definition.speed,cooldown:1,attackTime:0,path:[],rethink:0,stunned:0,coldTime:0,converted:0,bleed:0,redeemed:false};enemies.push(e);return e;
@@ -55,6 +55,7 @@ export function auditEncounter(build,stage,{kind='pack',seed=239,poor=false,merc
   // recorded separately. No corpses appear during a boss encounter for free.
   let preparationMana=0;
   try{
+    if(cta && h.classId !== 'barbarian'){swapWeapons(h);for(const id of ['battleCommand','battleOrders']){if(!skillLevel(h,id))throw Error(`CTA missing ${id}`);preparationMana+=skillValues(id,skillLevel(h,id),h.skills).cost;prep(id);}swapWeapons(h);}
     if(!coldStart){
       for(const id of buffs){preparationMana+=skillValues(id,skillLevel(h,id),h.skills).cost;prep(id);}
       for(const id of pets)if(skillLevel(h,id)){
@@ -72,13 +73,19 @@ export function auditEncounter(build,stage,{kind='pack',seed=239,poor=false,merc
     // Travelling/resting restores resources before an encounter, for every build.
     const prepared=stats(h);h.hp=prepared.maxHp;h.mana=prepared.maxMana;h.stamina=prepared.maxStamina;h.potionRecovery=[];c.actionCooldowns={};c.lock=0;
     for(const corpse of enemies.filter(e=>e.dead)){dispose(corpse.actor.group);enemies.splice(enemies.indexOf(corpse),1);}
-    if(mercenary&&stage.difficulty>=1){
+    if(mercenary&&stage.difficulty>=1&&!h.mercenary){
       const weapon=makeItem(BASES.find(b=>b.baseCode===(stage.level>=70?'7s8':'9vo')));const recipe=RUNEWORDS.find(w=>w.name==='眼光');weapon.sockets=4;for(const rune of recipe.runes)socketItem(weapon,rune,()=>.5);
       h.mercenary={status:'alive',hp:1,aura:'might',equipment:{weapon,armor:{...structuredClone(h.equipment.armor),id:'audit-merc-armor'},helm:{...structuredClone(h.equipment.helm),id:'audit-merc-helm'}},cold:0,poison:0};h.mercenary.hp=mercenaryStats(h).maxHp;game.mercenary.sync();if(activeMercenaryEquipment(h).length!==3)throw Error('Unusable audit mercenary gear');
     }
-    const targets=kind==='boss'?[spawn(0,5,'boss',BOSSES[stage.index],true)]:Array.from({length:6},(_,i)=>spawn((i%3-1)*2.2,4+Math.floor(i/3)*3,'skeleton',MONSTERS[ENCOUNTERS[stage.index][i%ENCOUNTERS[stage.index].length]],false,i===0&&stage.level>=26));
-    const totalHp=targets.reduce((a,e)=>a+e.maxHp,0);game.time=0;phase='fight';Math.random=rng(seed);c.itemRandom=rng(seed+1);
-    while(game.time<limit&&!game.dead&&targets.some(e=>!e.dead)){
+    if(h.mercenary){h.mercenary.hp=mercenaryStats(h).maxHp;game.mercenary.sync();}
+    const spawnEncounter = entry => { area=entry.area; const e=spawn(0,5,'boss',entry.definition,true);if(area.special==='pandemonium')e.cooldown=3;if(entry.aura)e.affixes=[{id:'auraEnchanted',name:entry.aura,description:'Boss aura',aura:entry.aura}];return e; };
+    const targets=encounters?[spawnEncounter(encounters[0])]:kind==='boss'?[spawn(0,5,'boss',BOSSES[stage.index],true)]:Array.from({length:6},(_,i)=>spawn((i%3-1)*2.2,4+Math.floor(i/3)*3,'skeleton',MONSTERS[ENCOUNTERS[stage.index][i%ENCOUNTERS[stage.index].length]],false,i===0&&stage.level>=26));
+    game.time=0;phase='fight';Math.random=rng(seed);c.itemRandom=rng(seed+1);
+    const rounds=[];let roundStart=0,roundPotions=[0,0],rejuvsUsed=0,mercPotionsUsed=0,roundRejuvs=0,roundMercPotions=0,roundIncoming=0;
+    const initialStats=stats(h);
+    const recordRound=()=>{const e=targets.at(-1);rounds.push({id:encounters[rounds.length].id,won:e.dead,seconds:round(game.time-roundStart),remaining:round(Math.max(0,e.hp)/e.maxHp*100),hp:e.maxHp,hpPotions:potions[0]-roundPotions[0],manaPotions:potions[1]-roundPotions[1],rejuvs:rejuvsUsed-roundRejuvs,mercPotions:mercPotionsUsed-roundMercPotions,incoming:Math.round(incoming-roundIncoming),heroLife:round(h.hp/stats(h).maxHp*100),mercenaryAlive:h.mercenary?.status==='alive'});roundStart=game.time;roundPotions=[...potions];roundRejuvs=rejuvsUsed;roundMercPotions=mercPotionsUsed;roundIncoming=incoming;};
+    while(game.time-roundStart<limit&&!game.dead&&(targets.some(e=>!e.dead)||encounters&&targets.length<encounters.length)){
+      if(encounters&&targets.at(-1).dead){recordRound();targets.push(spawnEncounter(encounters[targets.length]));}
       const living=enemies.filter(e=>c.hostile(e)),target=living.sort((a,b)=>a.actor.group.position.distanceToSquared(game.position)-b.actor.group.position.distanceToSquared(game.position))[0];
       if(!target){tick();continue;}game.target=target;game.aim.copy(target.actor.group.position).setY(0);
       const s=stats(h),delta=target.actor.group.position.clone().sub(game.position).setY(0),distance=delta.length();
@@ -91,7 +98,7 @@ export function auditEncounter(build,stage,{kind='pack',seed=239,poor=false,merc
       c.moving=false;c.running=false;
       if(!stationary&&!c.movementLocked&&(distance>reach+.2||!melee&&game.time%3>=2)){
         const direction=distance>reach?delta.normalize():distance<reach*.5?delta.normalize().negate():new THREE.Vector3(delta.z,0,-delta.x).normalize();
-        game.position.addScaledVector(direction,dt*3*s.runSpeed);game.body.position.set(game.position.x,.5,game.position.z);c.moving=true;c.running=false;
+        game.position.addScaledVector(direction,dt*(encounters?(m.imprisoned(game.position)?0:4.5*m.heroSpeed()):3)*s.runSpeed);game.body.position.set(game.position.x,.5,game.position.z);c.moving=true;c.running=false;
       }else if(c.lock<=0&&!c.expansion.locked&&!c.zeal&&!c.classes.sequence&&(game.time%3<2||stationary)){
         let acted=false;
         for(const id of buffs){const expired=id==='holyShield'?h.holyShield<=0:!h.buffs[id]||(h.buffs[id].remaining<1&&!['boneArmor','cycloneArmor'].includes(id));if(expired&&cast(id)){acted=true;break;}}
@@ -119,15 +126,18 @@ export function auditEncounter(build,stage,{kind='pack',seed=239,poor=false,merc
         if(!acted&&build.aoe&&living.length>1&&skillLevel(h,build.aoe)&&c.readyIn(build.aoe)<=0)acted=cast(build.aoe);
         if(!acted)cast(primary);
       }
+      if(h.hp<s.maxHp*.35&&rejuvsUsed<rejuvs){const index=potionIndex('rvl');h.potions[index]=1;if(!useRecoveryPotion(h,index,s.maxHp,s.maxMana))rejuvsUsed++;}
+      if(h.mercenary?.status==='alive'&&h.mercenary.hp<mercenaryStats(h).maxHp*.5&&mercPotionsUsed<mercPotions&&!h.mercenary.potionHealing){const index=potionIndex('hp5');h.potions[index]=1;if(feedMercenaryPotion(h))mercPotionsUsed++;}
       for(let i=0;i<2;i++){
         const key=i?'mana':'hp',maximum=i?s.maxMana:s.maxHp,potion=potionIndex(`${i?'mp':'hp'}${potionTier(area.act,stage.difficulty)}`);
         if(h[key]<maximum*.55&&!h.potionRecovery.some(e=>POTIONS[e.index].kind===(i?'mana':'health'))&&potions[i]<8){h.potions[potion]=1;if(!useRecoveryPotion(h,potion,s.maxHp,s.maxMana))potions[i]++;}
       }
       tick();minLife=Math.min(minLife,h.hp/stats(h).maxHp);
     }
+    if(encounters)recordRound();
     const clearTime=game.time;
     if(affixes&&targets.every(e=>e.dead))for(let t=0;t<1&&!game.dead;t+=dt)tick();
-    const won=!game.dead&&targets.every(e=>e.dead),remaining=targets.reduce((a,e)=>a+Math.max(0,e.hp),0)/totalHp;
-    return {build:build.id,stage:stage.id,kind,seed,poor,mercenary,coldStart,stationary,affixes,mosaic,combatGear,white,charged,won,dead:game.dead,seconds:round(clearTime),remaining:round(remaining*100),minLife:round(minLife*100),firstKill:firstKill===null?null:round(firstKill),hpPotions:potions[0],manaPotions:potions[1],incoming:Math.round(incoming),damage:Math.round(damageDealt),casts,blockedCasts,preparedPets:pets.length,preparationMana:round(preparationMana),survivingPets:c.expansion.pets.pets.length,mercenaryAlive:h.mercenary?.status==='alive',broken:Object.values(h.equipment).filter(i=>i?.durability===0).map(i=>i.name)};
+    const won=!game.dead&&targets.every(e=>e.dead)&&(!encounters||targets.length===encounters.length),remaining=targets.reduce((a,e)=>a+Math.max(0,e.hp),0)/targets.reduce((sum,e)=>sum+e.maxHp,0);
+    return {rounds,initialStats:{life:initialStats.maxHp,mana:initialStats.maxMana,resists:initialStats.resistances,block:initialStats.block},rejuvsUsed,mercPotionsUsed,build:build.id,stage:stage.id,kind,seed,poor,mercenary,coldStart,stationary,affixes,mosaic,combatGear,white,charged,won,dead:game.dead,seconds:round(clearTime),remaining:round(remaining*100),minLife:round(minLife*100),firstKill:firstKill===null?null:round(firstKill),hpPotions:potions[0],manaPotions:potions[1],incoming:Math.round(incoming),damage:Math.round(damageDealt),casts,blockedCasts,preparedPets:pets.length,preparationMana:round(preparationMana),survivingPets:c.expansion.pets.pets.length,mercenaryAlive:h.mercenary?.status==='alive',broken:Object.values(h.equipment).filter(i=>i?.durability===0).map(i=>i.name)};
   }finally{c.classes.clear();game.mercenary.clear();for(const object of [...scene.children])dispose(object);Math.random=random;}
 }
