@@ -47,6 +47,39 @@ async function fits(page) {
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await enter(context);
+  // Native touch sequences must activate once per tap with no browser zoom.
+  await page.evaluate(() => {
+    const game = window.mobileGame;
+    window.originalTouchUseSkill = game.useSkill;
+    window.touchSkillCalls = [];
+    game.useSkill = skill => window.touchSkillCalls.push(skill);
+    window.skillTouchEnds = [];
+    document.addEventListener('touchend', event => {
+      if (event.target.closest?.('.skill-group')) window.skillTouchEnds.push(event.defaultPrevented);
+    });
+  });
+  const skill = page.locator('.skill-group button[data-skill=cleave]');
+  for (let i = 0; i < 6; i++) await skill.tap();
+  assert.deepEqual(await page.evaluate(() => window.touchSkillCalls), Array(6).fill('cleave'));
+  assert.deepEqual(await page.evaluate(() => window.skillTouchEnds), Array(6).fill(true));
+  assert.equal(await page.evaluate(() => visualViewport.scale), 1);
+  const skillTouch = await context.newCDPSession(page);
+  const skillRect = await skill.boundingBox();
+  const skillPoint = { x: skillRect.x + skillRect.width / 2, y: skillRect.y + skillRect.height / 2, id: 8 };
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [skillPoint] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...skillPoint, x: skillPoint.x - 40 }] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [skillPoint] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [skillPoint] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+  assert.equal(await page.evaluate(() => window.touchSkillCalls.length), 6, 'dragging and cancellation do not cast');
+  await skill.click();
+  await skill.focus(); await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(() => window.touchSkillCalls.length), 8, 'mouse and keyboard still activate');
+  await page.locator('.attack-skill').tap();
+  assert.deepEqual(await page.evaluate(() => window.touchSkillCalls.slice(8)), ['attack'], 'primary attack does not cast twice');
+  assert.equal(await page.evaluate(() => window.mobileGame.heldAttack), false);
+  await page.evaluate(() => { window.mobileGame.useSkill = window.originalTouchUseSkill; });
   for (const [width, height] of [[390, 844], [320, 568], [360, 640], [430, 932], [568, 320], [667, 375], [844, 390], [932, 430]]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => { const g = window.mobileGame; g.ui.closePanel(); g.ui.update(0); g.renderer.render(g.world.scene, g.camera); });
