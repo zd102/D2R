@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { newHero, serializeSave } from '../src/model.ts';
 import { BASES, makeItem } from '../src/items.ts';
 import { LAST_PROFILE_KEY, PROFILE_PREFIX } from '../src/saves.ts';
-import { enterGame, savedProfile } from './browser-helpers.mjs';
+import { enterGame, savedProfile, inventoryItems } from './browser-helpers.mjs';
 
 const output = process.env.OUTPUT_DIR || '.verification';
 await mkdir(output, { recursive: true });
@@ -36,6 +36,32 @@ async function dragTo(page, id, x, y, grabX = .5, grabY = .5) {
 async function position(page, container, id) { const item = (await savedProfile(page)).hero[container].find(item => item.id === id); return { x: item.x, y: item.y }; }
 
 try {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    const phone = await browser.newPage({ viewport, isMobile: true, hasTouch: true });
+    const fixture = structuredClone(hero);
+    fixture.inventory = [{ ...makeItem(BASES.find(item => item.slot === 'ring'), 'direct-ring'), x: 0, y: 0 }];
+    await open(phone, fixture);
+    const touch = await phone.context().newCDPSession(phone);
+    await phone.locator('[data-item="direct-ring"]').tap();
+    await expect(phone.locator('.item-details h3')).toHaveText(fixture.inventory[0].name);
+    for (const [x, y] of [[0, 1], [7, 1]]) {
+      await inventoryItems(phone);
+      const source = phone.locator('[data-item="direct-ring"]');
+      await source.scrollIntoViewIfNeeded();
+      const rect = await source.boundingBox(), cells = await grid(phone);
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: rect.x + cells.cell / 2, y: rect.y + cells.row / 2, id: 9 }] });
+      // Move immediately: users should not need a stationary hold before dragging.
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cells.x + (x + .5) * cells.cell, y: cells.y + (y + .5) * cells.row, id: 9 }] });
+      await expect(phone.locator('.item-drag-ghost')).toBeVisible();
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      assert.deepEqual(await position(phone, 'inventory', 'direct-ring'), { x, y }, `${viewport.width}: immediate touch drag saves its new position`);
+      await expect(phone.locator('.item-drag-ghost')).toHaveCount(0);
+    }
+    await phone.reload(); await enterGame(phone);
+    assert.deepEqual(await position(phone, 'inventory', 'direct-ring'), { x: 7, y: 1 });
+    await phone.close();
+  }
+  console.log('Immediate vertical/horizontal touch drag, tap selection and persistence passed in portrait and landscape');
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }); await open(page);
   await page.locator('[data-item="blocker"]').click(); assert.equal(await page.locator('.item-details h3').textContent(), hero.inventory[1].name, 'Click still selects details');
   await dragTo(page, 'drag-sword', 7, 1, 1.5, 2.5);
@@ -126,14 +152,14 @@ try {
   const tallHero = structuredClone(hero); tallHero.stash.push({ ...makeItem(BASES.find(item => item.slot === 'ring'), 'deep-ring'), x: 9, y: 29 });
   await open(tall, tallHero); await tall.locator('[data-bag-view="stash"]').tap();
   const scrollTouch = await tall.context().newCDPSession(tall), beforeScroll = await savedProfile(tall);
-  const swipeItem = await tall.locator('[data-item="drag-armor"]').boundingBox();
-  const sx = swipeItem.x + swipeItem.width / 2, sy = swipeItem.y + swipeItem.height - 5;
+  const swipeGrid = await grid(tall);
+  const sx = swipeGrid.x + 5.5 * swipeGrid.cell, sy = swipeGrid.y + 2.5 * swipeGrid.row;
   await scrollTouch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sx, y: sy, id: 5 }] });
   for (const dy of [15, 35, 60, 90]) await scrollTouch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sx, y: sy - dy, id: 5 }] });
   await scrollTouch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await tall.waitForFunction(() => document.querySelector('.inventory-grid-scroll').scrollTop > 25);
-  await tall.waitForTimeout(400); // A canceled hold must not turn into a delayed pickup.
-  assert.deepEqual(await savedProfile(tall), beforeScroll, 'swiping from an item scrolls without moving or saving it');
+  await tall.waitForTimeout(400); // Empty-space scrolling must not trigger a delayed pickup.
+  assert.deepEqual(await savedProfile(tall), beforeScroll, 'swiping empty grid space scrolls without moving or saving items');
   await expect(tall.locator('.item-drag-ghost')).toHaveCount(0);
   await tall.locator('[data-item="drag-armor"]').scrollIntoViewIfNeeded();
   const touch = await tall.context().newCDPSession(tall), origin = await tall.locator('[data-item="drag-armor"]').boundingBox();

@@ -36,7 +36,7 @@ export class InventoryDrag {
       if (this.drag && this.drag.pointerId !== event.pointerId) this.cancel();
     }, true);
     ui.overlay.addEventListener('pointerdown', event => this.pointerDown(event));
-    // Native scrolling remains available until a stationary hold picks up the item.
+    // Item gestures belong to dragging; empty grid space remains scrollable.
     ui.overlay.addEventListener('touchmove', event => {
       if (this.drag?.active && this.drag.pointerId !== null && event.cancelable) event.preventDefault();
     }, { passive: false });
@@ -103,9 +103,8 @@ export class InventoryDrag {
     const drag = this.drag; if (!drag || event.pointerId !== drag.pointerId) return;
     if (event.pointerType === 'mouse' && !(event.buttons & 1)) { this.cancel(); return; }
     if (drag.touchPending) {
-      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 8) { this.cancel(); this.suppressClick = true; }
-      else { drag.clientX = event.clientX; drag.clientY = event.clientY; }
-      return;
+      drag.clientX = event.clientX; drag.clientY = event.clientY;
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 8) return;
     }
     if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
     event.preventDefault();
@@ -114,6 +113,8 @@ export class InventoryDrag {
   }
 
   private startPointerDrag() {
+    clearTimeout(this.holdTimer); this.holdTimer = undefined;
+    if (this.drag?.touchPending) this.drag.touchPending = false;
     this.activate(); this.ui.hideTooltip(); this.ui.overlay.setPointerCapture(this.drag!.pointerId!);
     this.lastFrame = performance.now(); this.frame = requestAnimationFrame(now => this.autoScroll(now));
   }

@@ -145,9 +145,9 @@
   #overlay .panel-description, #overlay .panel-emblem, #overlay .panel-close kbd { display: none; }
   #overlay .panel-header > button { min-width: 44px; min-height: 44px; width: 44px; padding: 8px; }
   #overlay .panel-body { padding: 10px; overscroll-behavior: contain; scroll-padding: 8px; }
-  #overlay :is(.bag-item, [data-equipment-slot]) { touch-action: pan-y; -webkit-touch-callout: none; }
+  #overlay :is(.bag-item, [data-equipment-slot]) { touch-action: none; -webkit-touch-callout: none; }
   #overlay :is(.inventory-grid-scroll, .shared-grid-scroll) { touch-action: pan-y; overscroll-behavior: contain; }
-  #overlay .bag-column::before, #overlay .shared-grid-scroll::before { content: '滑动滚动 · 长按物品后拖动'; display: block; flex: none; font-size: 10px; line-height: 18px; color: #b8a887; }
+  #overlay .bag-column::before, #overlay .shared-grid-scroll::before { content: '拖动物品调整位置 · 滑动空白处滚动'; display: block; flex: none; font-size: 10px; line-height: 18px; color: #b8a887; }
   #overlay :is(.primary-button, .secondary-button, .text-button, .compact-tabs button, .character-tabs button,
     .inventory-primary-tabs button, .inventory-pane-tabs button, .rune-pane-tabs button,
     .shared-mobile-tabs button, .shared-tabs button, .campaign-toolbar button, .recipe-pagination button,
