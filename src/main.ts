@@ -20,8 +20,10 @@ import { CAMP } from './camp';
 import { stats } from './model';
 import { refreshSharedStorage } from './shared-storage';
 import { initializeMode, onlineStore } from './mode';
+import { protectBrowserBehavior } from './browser-behavior';
 
 try {
+  protectBrowserBehavior(document.getElementById('app')!);
   await initializeMode();
   if (!onlineStore) await refreshSharedStorage();
   const game = new Game();

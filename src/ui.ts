@@ -25,7 +25,8 @@ import { EncyclopediaScreen } from './encyclopedia-ui';
 import { heroStatuses, statusTime } from './status-effects';
 import { panelFrame, rememberDialogFocus, navigateDialogTabs } from './ui-components';
 import { settingsPanel } from './settings-ui';
-import { bindTouchSkills, phoneUI } from './mobile-ui';
+import { phoneUI } from './mobile-ui';
+import { resetBrowserTouches } from './browser-behavior';
 import { itemDetails } from './item-details-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
@@ -373,8 +374,7 @@ export class UI {
       });
       for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) attack.addEventListener(type, event => { if (attackPointer === event.pointerId) release(); });
     }
-    const resetSkillTouches = bindTouchSkills(document.querySelector<HTMLElement>('.skill-group')!);
-    const releaseTouch = () => { reset(); resetSkillTouches(); for (const release of resetAttacks) release(); };
+    const releaseTouch = () => { reset(); resetBrowserTouches(); for (const release of resetAttacks) release(); };
     window.addEventListener('resize', releaseTouch);
     window.addEventListener('blur', releaseTouch);
     document.addEventListener('visibilitychange', () => { if (document.hidden) releaseTouch(); });

@@ -80,6 +80,14 @@ try {
   assert.deepEqual(await page.evaluate(() => window.touchSkillCalls.slice(8)), ['attack'], 'primary attack does not cast twice');
   assert.equal(await page.evaluate(() => window.mobileGame.heldAttack), false);
   await page.evaluate(() => { window.mobileGame.useSkill = window.originalTouchUseSkill; });
+  await page.evaluate(() => {
+    window.originalTouchDrink = window.mobileGame.drink;
+    window.touchDrinks = [];
+    window.mobileGame.drink = potion => window.touchDrinks.push(potion);
+  });
+  for (let i = 0; i < 6; i++) await page.locator('.potion-group [data-potion-slot="0"]').tap();
+  assert.equal(await page.evaluate(() => window.touchDrinks.length), 6, 'global protection activates potions once per tap');
+  await page.evaluate(() => { window.mobileGame.drink = window.originalTouchDrink; });
   for (const [width, height] of [[390, 844], [320, 568], [360, 640], [430, 932], [568, 320], [667, 375], [844, 390], [932, 430]]) {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => { const g = window.mobileGame; g.ui.closePanel(); g.ui.update(0); g.renderer.render(g.world.scene, g.camera); });
