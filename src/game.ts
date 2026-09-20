@@ -981,8 +981,8 @@ export class Game {
       if (isHellfireTorch(loot.item) && this.hero.inventory.some(isHellfireTorch)) { this.ui.toast('背包只能携带一枚地狱火炬'); return; }
       if (isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast(loot.item.identified === false ? '背包中已有同类唯一物品' : '背包中已有毁灭'); return; }
       if (!packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
-      this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.identified === false ? `未鉴定 · ${groundItemName(loot.item)}` : loot.item.name, '已收入背包');
-    } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`);
+      this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.identified === false ? `未鉴定 · ${groundItemName(loot.item)}` : loot.item.name, '已收入背包', true);
+    } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`, '', true);
     } else if (loot.gold) { this.hero.gold += loot.gold; this.ui.floatText(`+${loot.gold}`, this.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 'gold'); }
     else if (loot.potion !== undefined) {
       if (!POTIONS[loot.potion] || this.hero.potions[loot.potion] >= POTION_LIMIT) return;
@@ -1008,12 +1008,12 @@ export class Game {
     if (POTIONS[index].kind === 'utility') {
       if (!useUtilityPotion(this.hero, index, stats(this.hero).maxStamina)) { this.ui.toast('药剂已用尽'); return; }
       this.burst(this.position.clone().setY(1), POTIONS[index].color, 15); this.audio.play('potion');
-      this.ui.toast(POTIONS[index].name, POTIONS[index].description); if (fromInventory) this.ui.renderPanel(); this.save(false); return;
+      this.ui.toast(POTIONS[index].name, POTIONS[index].description, true); if (fromInventory) this.ui.renderPanel(); this.save(false); return;
     }
     const s = stats(this.hero), reason = useRecoveryPotion(this.hero, index, s.maxHp, s.maxMana);
     if (reason) { this.ui.toast(reason); return; }
     this.burst(this.position.clone().setY(1), POTIONS[index].color, 15); this.audio.play('potion');
-    this.ui.toast(POTIONS[index].name, potionDescription(index, this.hero.classId));
+    this.ui.toast(POTIONS[index].name, potionDescription(index, this.hero.classId), true);
     if (fromInventory) this.ui.renderPanel(); this.save(false);
   }
 
@@ -1023,7 +1023,7 @@ export class Game {
     if (reason) { this.ui.toast(reason); return false; }
     if (!feedMercenaryPotion(this.hero)) return false;
     if (this.mercenary.position) this.burst(this.mercenary.position.clone().setY(1), 0xe25c65, 15);
-    this.audio.play('potion'); this.ui.toast('米山使用了生命药水', '按所用药水档位持续恢复生命'); this.save(false); return true;
+    this.audio.play('potion'); this.ui.toast('米山使用了生命药水', '按所用药水档位持续恢复生命', true); this.save(false); return true;
   }
   contextAction() {
     if (this.dead) return null;

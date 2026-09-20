@@ -98,6 +98,25 @@ try {
     await expect(page.locator('.panel-pause')).toBeVisible();
     await page.locator('.panel-close').tap();
     await reachable(page, '.hud .skill, #joystick, .hud .bottom-nav button, .hud .paladin-status button, .top-tools button');
+    await page.evaluate(() => {
+      const ui = window.mobileGame.ui;
+      ui.toastContainer.replaceChildren();
+      ui.toast('Routine pickup', 'Stored in bag', true);
+    });
+    await expect(page.locator('#toasts .toast')).toHaveCount(0);
+    await page.evaluate(() => {
+      const ui = window.mobileGame.ui;
+      ui.toast('Quest complete', 'Portal available');
+      ui.toast('Inventory full', 'Free some space before picking up items');
+    });
+    await expect(page.locator('#toasts .toast')).toHaveCount(1);
+    const notice = await page.locator('#toasts .toast').boundingBox();
+    assert.ok(notice.y >= 0 && notice.y + notice.height <= 52 && notice.height <= 44, 'phone notices stay in the top title area');
+    await expect(page.locator('.topbar .identity')).toBeHidden();
+    await reachable(page, '.hud .skill, #joystick, .top-tools button');
+    await page.screenshot({ path: `${output}/notice-${width}x${height}.png` });
+    await expect(page.locator('#toasts .toast')).toHaveCount(0, { timeout: 3000 });
+    await expect(page.locator('.topbar .identity')).toBeVisible();
     assert.ok(await page.locator('.resource .orb small').evaluateAll(nodes => nodes.every(node => {
       const r = node.getBoundingClientRect(), orb = node.closest('.orb').getBoundingClientRect();
       return r.top >= orb.top && r.bottom <= orb.bottom && r.left >= orb.left && r.right <= orb.right;

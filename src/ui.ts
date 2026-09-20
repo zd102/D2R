@@ -235,7 +235,10 @@ export class UI {
       const recipe = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-runeword]') : null;
       if (recipe) { this.tooltipDismissedKey = undefined; showTooltip(recipe); }
       const status = phoneUI() && event.target instanceof Element ? event.target.closest<HTMLElement>('.status-chip') : null;
-      if (status) showTooltip(status);
+      if (status) {
+        showTooltip(status);
+        this.tooltipHideTimer = setTimeout(() => this.hideTooltip(), 2200);
+      }
     });
     document.addEventListener('pointerdown', event => {
       this.tooltipTouch = event.pointerType === 'touch';
@@ -514,13 +517,16 @@ export class UI {
     this.refreshIcons();
     if (this.panel === 'map') this.drawMap(document.getElementById('large-map') as HTMLCanvasElement, true);
   }
-  toast(title: string, subtitle = '') {
+  toast(title: string, subtitle = '', routine = false) {
+    const phone = phoneUI();
+    if (phone && routine) return;
     const existing = [...this.toastContainer.children].find(el => el.firstElementChild?.textContent === title); if (existing) return;
+    if (phone) this.toastContainer.replaceChildren();
     const toast = document.createElement('div'); toast.className = 'toast';
     const strong = document.createElement('strong'); strong.textContent = title; toast.append(strong);
     if (subtitle) { const sub = document.createElement('span'); sub.textContent = subtitle; toast.append(sub); }
     this.toastContainer.append(toast); if (this.toastContainer.children.length > 3) this.toastContainer.firstElementChild?.remove();
-    setTimeout(() => toast.remove(), 3400);
+    setTimeout(() => toast.remove(), phone ? 2400 : 3400);
   }
   floatText(text: string, position: THREE.Vector3, kind: string) {
     const element = document.createElement('span'); element.className = `float ${kind}`; element.textContent = text;
