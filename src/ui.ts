@@ -589,8 +589,8 @@ export class UI {
     if (this.tooltipTarget && !this.tooltipTarget.isConnected) this.hideTooltip();
     this.timer += dt;
     const hp = Math.ceil(h.hp), mana = Math.floor(h.mana);
-    document.getElementById('health-fill')!.style.height = `${h.hp / s.maxHp * 100}%`;
-    document.getElementById('mana-fill')!.style.height = `${h.mana / s.maxMana * 100}%`;
+    document.getElementById('health-fill')!.style.setProperty('--resource-fill', `${Math.max(0, Math.min(1, h.hp / s.maxHp)) * 100}%`);
+    document.getElementById('mana-fill')!.style.setProperty('--resource-fill', `${Math.max(0, Math.min(1, h.mana / s.maxMana)) * 100}%`);
     setMarkup(document.getElementById('health-value')!, `${hp}<small>/ ${s.maxHp}</small>`);
     setMarkup(document.getElementById('mana-value')!, `${mana}<small>/ ${s.maxMana}</small>`);
     setText(document.getElementById('health-percent')!, `${Math.ceil(h.hp / s.maxHp * 100)}%`);

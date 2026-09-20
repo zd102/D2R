@@ -44,6 +44,36 @@ async function fits(page) {
   assert.ok(metrics.x >= 0 && metrics.y >= 0 && metrics.right <= metrics.width + 1 && metrics.bottom <= metrics.height + 1 && metrics.overflow <= 1 && metrics.vertical <= 1, JSON.stringify(metrics));
   await reachable(page, '.panel-header > button');
 }
+async function resourceProgress(page, horizontal) {
+  for (const fraction of [0, .25, .5, 1]) {
+    await page.evaluate(async fraction => {
+      const { stats } = await import('/src/model.ts');
+      const game = window.mobileGame, maximum = stats(game.hero);
+      game.hero.hp = maximum.maxHp * fraction;
+      game.hero.mana = maximum.maxMana * (1 - fraction);
+      game.ui.update(0);
+    }, fraction);
+    await expect.poll(() => page.locator('.resource .orb-fill').evaluateAll((nodes, { fraction, horizontal }) => nodes.every((node, index) => {
+      const fill = node.getBoundingClientRect(), parent = node.parentElement, track = parent.getBoundingClientRect();
+      // Compact desktop HUDs scale the entire resource, including its border.
+      const scaleX = track.width / parent.offsetWidth, scaleY = track.height / parent.offsetHeight;
+      const expected = index === 0 ? fraction : 1 - fraction;
+      return Math.abs(fill.width - parent.clientWidth * scaleX * (horizontal ? expected : 1)) < .5
+        && Math.abs(fill.height - parent.clientHeight * scaleY * (horizontal ? 1 : expected)) < .5
+        && Math.abs(fill.left - track.left - parent.clientLeft * scaleX) < .5
+        && Math.abs(fill.bottom - track.top - (parent.clientTop + parent.clientHeight) * scaleY) < .5
+        && (!horizontal || getComputedStyle(node, '::before').display === 'none');
+    }), { fraction, horizontal })).toBe(true).catch(async error => {
+      console.error(await page.locator('.resource .orb-fill').evaluateAll(nodes => nodes.map(node => ({ fill: node.getBoundingClientRect().toJSON(), track: node.parentElement.getBoundingClientRect().toJSON(), css: node.style.cssText, width: node.parentElement.clientWidth, height: node.parentElement.clientHeight }))));
+      throw error;
+    });
+  }
+  await page.evaluate(async () => {
+    const { stats } = await import('/src/model.ts');
+    const game = window.mobileGame, maximum = stats(game.hero);
+    game.hero.hp = maximum.maxHp; game.hero.mana = maximum.maxMana; game.ui.update(0);
+  });
+}
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await enter(context);
@@ -90,6 +120,7 @@ try {
   await page.evaluate(() => { window.mobileGame.drink = window.originalTouchDrink; });
   for (const [width, height] of [[390, 844], [320, 568], [360, 640], [430, 932], [568, 320], [667, 375], [844, 390], [932, 430]]) {
     await page.setViewportSize({ width, height });
+    await resourceProgress(page, true);
     await page.evaluate(() => { const g = window.mobileGame; g.ui.closePanel(); g.ui.update(0); g.renderer.render(g.world.scene, g.camera); });
     await page.locator('.bottom-nav [data-panel="mercenary"]').tap();
     await expect(page.locator('.panel-mercenary')).toBeVisible();
@@ -256,6 +287,7 @@ try {
   const pc = await enter(desktop);
   for (const [width, height] of [[1440, 900], [1024, 768], [844, 390], [390, 844]]) {
     await pc.setViewportSize({ width, height });
+    await resourceProgress(pc, false);
     for (const panel of [null, 'inventory', 'skills', 'pause']) {
       await pc.evaluate(panel => panel ? window.mobileGame.ui.openPanel(panel) : window.mobileGame.ui.closePanel(), panel);
       const difference = await pc.evaluate(() => {
