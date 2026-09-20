@@ -29,6 +29,7 @@ import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat, type AttackSnapshot } from './combat';
 import { MercenaryCombat } from './mercenary-combat';
 import { mercenaryUnlocked, hireMercenary, mercenaryStats, feedMercenaryPotion, mercenaryPotionReason } from './mercenary';
+import { socketMerchantUnlocked, buySocketing } from './socket-merchant';
 import { BOSSES, ENCOUNTERS, MONSTERS, encounterPool, monsterTactic, type MonsterDef } from './bestiary';
 import { createMonsterActor } from './monster-models';
 import { MonsterCombat } from './monster-combat';
@@ -75,6 +76,7 @@ export class Game {
   ui: UI;
   mercenary = new MercenaryCombat(this);
   mercenaryVendor?: Actor;
+  socketVendor?: Actor;
   combat: PaladinCombat;
   monsterCombat = new MonsterCombat(this);
   enemies: Enemy[] = [];
@@ -97,7 +99,7 @@ export class Game {
   target?: Enemy;
   pendingPickup?: number;
   pendingPortal = false;
-  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' | 'mercenaryMerchant' | 'returnPortal' = 'portal';
+  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' | 'mercenaryMerchant' | 'socketMerchant' | 'returnPortal' = 'portal';
   campReturn?: CampReturn;
   pendingMysteryCorpse = false;
   pendingChest?: number;
@@ -328,6 +330,8 @@ export class Game {
     this.mercenary.clear();
     if (this.mercenaryVendor) this.disposeObject(this.mercenaryVendor.group);
     this.mercenaryVendor = undefined;
+    if (this.socketVendor) this.disposeObject(this.socketVendor.group);
+    this.socketVendor = undefined;
     if (!suspending) { this.combat?.classes.clear(); this.projectileVisuals.clear(); }
     this.world.scene.remove(this.actor.group, this.marker, this.selection, this.playerRing);
     if(this.actor.group.userData.classId!==this.hero.classId) {
@@ -357,6 +361,12 @@ export class Game {
       this.mercenaryVendor.group.position.set(CAMP.mercenaryMerchant.x, 0, CAMP.mercenaryMerchant.z);
       this.mercenaryVendor.group.rotation.y = -Math.PI / 2;
       this.world.scene.add(this.mercenaryVendor.group);
+    }
+    if (inCamp && socketMerchantUnlocked(this.hero)) {
+      this.socketVendor = createActor('hero', 'barbarian');
+      this.socketVendor.group.name = 'socket-merchant-body';
+      this.socketVendor.group.position.set(CAMP.socketMerchant.x, 0, CAMP.socketMerchant.z);
+      this.world.scene.add(this.socketVendor.group);
     }
     this.cooldowns = resume?.cooldowns ?? emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
     this.ui.hoveredEnemy = undefined; this.ui.floats.forEach(float => float.element.remove()); this.ui.floats = [];
@@ -425,6 +435,23 @@ export class Game {
     this.begin(); this.pendingCampTarget = 'baseMerchant';
     if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) this.ui.openPanel('base-shop');
     else { this.moveTo(new THREE.Vector3(CAMP.baseMerchant.x, 0, CAMP.baseMerchant.z)); this.pendingPortal = this.path.length > 0; }
+  }
+  get atSocketMerchant() {
+    return this.inCamp && !!this.profile && !this.dead && !this.saveConflict && socketMerchantUnlocked(this.hero) && Math.hypot(this.position.x - CAMP.socketMerchant.x, this.position.z - CAMP.socketMerchant.z) < 3.5;
+  }
+  useSocketMerchant() {
+    if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict || !socketMerchantUnlocked(this.hero)) return;
+    this.begin(); this.pendingCampTarget = 'socketMerchant';
+    if (this.atSocketMerchant) this.ui.openPanel('socket-shop');
+    else { this.moveTo(new THREE.Vector3(CAMP.socketMerchant.x, 0, CAMP.socketMerchant.z)); this.pendingPortal = this.path.length > 0; }
+  }
+  buySocketing(id: string) {
+    if (!this.atSocketMerchant || this.onlineOperation || this.ui.panel !== 'socket-shop') return;
+    const previous = structuredClone(this.hero), item = buySocketing(this.hero, id);
+    if (!item) { this.ui.toast('无法打孔', '请检查装备与金币'); return; }
+    return this.commitSave(() => {
+      this.audio.play('equip'); this.ui.toast(item.name, `打孔完成 · ${item.sockets} 孔`); this.ui.renderPanel();
+    }, () => { this.hero = previous; this.ui.renderPanel(); });
   }
   get atMercenaryMerchant() {
     return this.inCamp && !!this.profile && !this.dead && !this.saveConflict && mercenaryUnlocked(this.hero) && Math.hypot(this.position.x - CAMP.mercenaryMerchant.x, this.position.z - CAMP.mercenaryMerchant.z) < 3.5;
@@ -1035,6 +1062,7 @@ export class Game {
       if (Math.hypot(this.position.x - CAMP.mysteryPortal.x, this.position.z - CAMP.mysteryPortal.z) < 3.5) return { name: '神秘传送阵', kind: 'mystery-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) return { name: '底材商人', kind: 'base-shop', id: 0 };
       if (this.atMercenaryMerchant) return { name: '佣兵商人', kind: 'mercenary-shop', id: 0 };
+      if (this.atSocketMerchant) return { name: '打孔商人', kind: 'socket-shop', id: 0 };
       if (Math.hypot(this.position.x - CAMP.supply.x, this.position.z - CAMP.supply.z) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
       return null;
     }
@@ -1055,6 +1083,7 @@ export class Game {
     this.begin(); const action = this.contextAction(); if (!action) return;
     if (action.kind === 'corpse') { if (recoverCorpse(this.hero, !this.inCamp)) { this.ui.toast('装备已取回'); this.save(false); } else this.ui.toast('背包空间不足'); return; }
     if (action.kind === 'base-shop') { this.ui.openPanel('base-shop'); return; }
+    if (action.kind === 'socket-shop') { this.ui.openPanel('socket-shop'); return; }
     if (action.kind === 'shop') { this.ui.openPanel('shop'); return; }
     if (action.kind === 'camp-portal') { this.ui.openPanel('campaign'); return; }
     if (action.kind === 'return-portal') { this.resumeCampReturn(); return; }
@@ -1288,7 +1317,7 @@ export class Game {
     this.position.set(this.body.position.x, this.combat.expansion.jumpHeight, this.body.position.z);
     const campTarget = CAMP[this.pendingCampTarget];
     if (this.pendingPortal && this.pendingCampTarget === 'returnPortal' && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.pendingPortal = false; this.resumeCampReturn(); return; }
-    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'mercenaryMerchant' ? 'mercenary-shop' : this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
+    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'socketMerchant' ? 'socket-shop' : this.pendingCampTarget === 'mercenaryMerchant' ? 'mercenary-shop' : this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
     if (this.pendingMysteryCorpse) {
       const corpse = this.world.mysteryCorpse;
       if (!corpse || corpse.opened || !this.path.length && Math.hypot(this.position.x - corpse.x, this.position.z - corpse.z) > 3.2) this.pendingMysteryCorpse = false;

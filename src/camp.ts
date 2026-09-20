@@ -5,7 +5,7 @@ export const CAMP = {
   spawn: { x: 0, z: 11 },
   // Arrival plaza: travel to the north/west, services around the south/east.
   portal: { x: -4, z: 8 }, mysteryPortal: { x: -11, z: 7 }, returnPortal: { x: 3, z: 4 },
-  supply: { x: 7, z: 11 }, baseMerchant: { x: -7, z: 14 }, mercenaryMerchant: { x: -6, z: -2 }, stash: { x: 1, z: 16 },
+  supply: { x: 7, z: 11 }, baseMerchant: { x: -7, z: 14 }, mercenaryMerchant: { x: -6, z: -2 }, socketMerchant: { x: 7, z: 16 }, stash: { x: 1, z: 16 },
 };
 
 export function prepareCampArrival(hero: HeroState) {
