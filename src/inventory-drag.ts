@@ -18,7 +18,7 @@ type Drag = {
   ghost?: HTMLElement; hintBox?: HTMLElement; preview?: HTMLElement; swapPreview?: HTMLElement; dock?: HTMLElement;
   slotTarget?: HTMLButtonElement; equipCheck?: { slot: Slot; valid: boolean; reason: string };
   storageTarget?: HTMLElement; autoPlace: boolean; swapped: number; hint: string;
-  touchPending?: boolean; moved?: boolean;
+  touchPending?: boolean; touchId?: number; moved?: boolean;
 };
 
 export class InventoryDrag {
@@ -36,19 +36,34 @@ export class InventoryDrag {
       if (this.drag && this.drag.pointerId !== event.pointerId) this.cancel();
     }, true);
     ui.overlay.addEventListener('pointerdown', event => this.pointerDown(event));
-    // Item gestures belong to dragging; empty grid space remains scrollable.
-    ui.overlay.addEventListener('touchmove', event => {
-      if (this.drag?.active && this.drag.pointerId !== null && event.cancelable) event.preventDefault();
-    }, { passive: false });
+    ui.overlay.addEventListener('touchstart', event => {
+      if (event.touches.length !== 1) { this.cancel(); return; }
+      if (this.drag?.touchPending) this.drag.touchId = event.changedTouches[0].identifier;
+    }, { passive: true });
+    // Keep touch ownership through a long press. Browsers can cancel the pointer
+    // stream when pan-y is allowed, even while touch events are still available.
+    window.addEventListener('touchmove', event => this.touchMove(event), { capture: true, passive: false });
+    window.addEventListener('touchend', event => {
+      const drag = this.drag;
+      const touch = Array.from(event.changedTouches).find(touch => touch.identifier === drag?.touchId);
+      if (!drag || !touch) return;
+      if (drag.active) {
+        if (event.cancelable) event.preventDefault();
+        this.updatePointer(touch.clientX, touch.clientY); this.finish();
+      } else this.cancel();
+    }, { capture: true, passive: false });
+    window.addEventListener('touchcancel', event => {
+      if (Array.from(event.changedTouches).some(touch => touch.identifier === this.drag?.touchId)) this.cancel();
+    }, true);
     window.addEventListener('pointermove', event => this.pointerMove(event), { capture: true, passive: false });
     window.addEventListener('pointerup', event => {
-      if (event.pointerId !== this.drag?.pointerId) return;
+      if (event.pointerId !== this.drag?.pointerId || this.drag.touchId !== undefined) return;
       if (this.drag.active) { event.preventDefault(); this.updatePointer(event.clientX, event.clientY); this.finish(); }
       else this.cancel();
     }, true);
-    window.addEventListener('pointercancel', event => { if (event.pointerId === this.drag?.pointerId) this.cancel(); }, true);
+    window.addEventListener('pointercancel', event => { if (event.pointerId === this.drag?.pointerId && this.drag.touchId === undefined) this.cancel(); }, true);
     // Touch starts with implicit capture on the item; handing it to the overlay is not a cancellation.
-    ui.overlay.addEventListener('lostpointercapture', event => { if (event.target === ui.overlay && event.pointerId === this.drag?.pointerId) this.cancel(); });
+    ui.overlay.addEventListener('lostpointercapture', event => { if (event.target === ui.overlay && event.pointerId === this.drag?.pointerId && this.drag.touchId === undefined) this.cancel(); });
     ui.overlay.addEventListener('dragstart', event => { if ((event.target as Element).closest('.bag-item,[data-equipment-slot]')) event.preventDefault(); });
     ui.overlay.addEventListener('contextmenu', event => { if (this.drag) event.preventDefault(); });
     ui.overlay.addEventListener('scroll', () => {
@@ -101,10 +116,11 @@ export class InventoryDrag {
 
   private pointerMove(event: PointerEvent) {
     const drag = this.drag; if (!drag || event.pointerId !== drag.pointerId) return;
+    if (drag.touchId !== undefined) return;
     if (event.pointerType === 'mouse' && !(event.buttons & 1)) { this.cancel(); return; }
     if (drag.touchPending) {
-      drag.clientX = event.clientX; drag.clientY = event.clientY;
-      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 8) return;
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 8) { this.cancel(); this.suppressClick = true; }
+      return;
     }
     if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
     event.preventDefault();
@@ -112,10 +128,28 @@ export class InventoryDrag {
     this.updatePointer(event.clientX, event.clientY);
   }
 
+  private touchMove(event: TouchEvent) {
+    const drag = this.drag;
+    const touch = Array.from(event.changedTouches).find(touch => touch.identifier === drag?.touchId);
+    if (!drag || !touch) return;
+    if (drag.touchPending) {
+      if (Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) > 8) {
+        this.cancel(); this.suppressClick = true;
+      } else { drag.clientX = touch.clientX; drag.clientY = touch.clientY; }
+      return; // A swipe keeps native scrolling, including over a full warehouse.
+    }
+    if (drag.active) {
+      if (!event.cancelable) { this.cancel(); return; }
+      event.preventDefault();
+      this.updatePointer(touch.clientX, touch.clientY);
+    }
+  }
+
   private startPointerDrag() {
     clearTimeout(this.holdTimer); this.holdTimer = undefined;
     if (this.drag?.touchPending) this.drag.touchPending = false;
-    this.activate(); this.ui.hideTooltip(); this.ui.overlay.setPointerCapture(this.drag!.pointerId!);
+    this.activate(); this.ui.hideTooltip();
+    if (this.drag!.touchId === undefined) this.ui.overlay.setPointerCapture(this.drag!.pointerId!);
     this.lastFrame = performance.now(); this.frame = requestAnimationFrame(now => this.autoScroll(now));
   }
 

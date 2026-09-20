@@ -103,17 +103,14 @@ try {
     await openShared();
     if (touch) {
       await pane('shared', 'shared');
-      const original = await state();
-      const { x, y } = await page.locator('[data-container="shared"]').evaluate(el => {
-        const rect = el.getBoundingClientRect();
-        return { x: rect.x + el.clientWidth * .85, y: rect.y + el.clientHeight / Number(el.dataset.rows) * 2.5 };
-      });
+      const original = await state(), source = await page.locator('[data-shared-item="shared-large"]').boundingBox();
+      const x = source.x + source.width / 2, y = source.y + source.height - 4;
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 9 }] });
       for (const dy of [15, 35, 60, 90]) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - dy, id: 9 }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForFunction(() => document.querySelector('[data-container="shared"]').closest('.shared-grid-scroll').scrollTop > 25);
       await page.waitForTimeout(400);
-      assert.deepEqual(await state(), original, 'shared stash empty-space swipe scrolls without moving items or changing revisions');
+      assert.deepEqual(await state(), original, 'shared stash item swipe scrolls without moving items or changing revisions');
       await expect(page.locator('.item-drag-ghost')).toHaveCount(0);
     }
     before = await state(); await dropRegion('shared', 'shared-large', 3, 0, false); assert.deepEqual(await state(), before);
