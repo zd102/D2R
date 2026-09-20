@@ -1,3 +1,4 @@
+import { gamblingUnlocked, gamblingStock, gamblingPrice } from './gambling';
 import { CHALLENGE_KEYS } from './items';
 import { socketMerchantUnlocked, socketMerchantPrice, socketMerchantReason, socketQuestRange } from './socket-merchant';
 import { PANDEMONIUM_BOSSES } from './pandemonium';
@@ -32,7 +33,7 @@ import { itemDetails } from './item-details-ui';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
-type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'base-shop' | 'socket-shop' | 'mercenary' | 'mercenary-shop' | 'death' | 'campaign' | 'shared-stash' | 'mystery-portal' | ProfilePanel;
+type Panel = 'inventory' | 'character' | 'skills' | 'map' | 'quest' | 'pause' | 'shop' | 'base-shop' | 'socket-shop' | 'gambling-shop' | 'mercenary' | 'mercenary-shop' | 'death' | 'campaign' | 'shared-stash' | 'mystery-portal' | ProfilePanel;
 const icons = { KeyRound, Package, Search, FilterX, ChevronLeft, Undo2, Upload, Download, FileJson, FolderOpen, Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Swords, Sword, Flame, Wind, Zap, Footprints, Backpack, UserRound, Users, UserPlus, Pencil, ArrowLeft, Map: MapIcon, ScrollText, Settings, Pause, Volume2, VolumeX, Maximize, Save, X, ChevronRight, Plus, Coins, Shield, Gem, Heart, Skull, Check, RotateCcw, Play, Trash2, ArrowUp, Droplets, Sparkles, Compass, Crosshair };
 const icon = (name: string, cls = '') => `<i data-lucide="${name}" class="${cls}"></i>`;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -59,6 +60,14 @@ function socketShop(hero: HeroState) {
     const result = range ? range[0] === range[1] ? `${range[0]} 孔` : '1～2 孔（各 50%）' : '';
     return `<div><div class="shop-item-icon gold-text">${itemIcon(item)}</div><div><h3>${escapeHtml(groundItemName(item))}</h3><small>${escapeHtml(reason || `打孔结果：${result} · 物品等级 ${item.level}`)}</small></div><button class="secondary-button" data-buy-socket="${escapeHtml(item.id)}" ${reason || hero.gold < price ? 'disabled' : ''}>${reason ? '不可打孔' : `${hero.gold < price ? '金币不足' : '打孔'} · ${price.toLocaleString()} 金币`}</button></div>`;
   }).join('') || '<p class="quest-story">背包为空，请放入需要打孔的装备。</p>'}</div><div class="inventory-gold">${hero.gold.toLocaleString()}<small>金币</small></div>`;
+}
+
+function gamblingShop(game: Game) {
+  const hero = game.hero;
+  return `<p class="quest-story">安雅 · 购买前仅展示底材，购买后揭晓属性并自动鉴定，可重复购买同类物品。</p><p class="quest-story">魔法 89.85% · 稀有 10% · 套装 0.1% · 暗金 0.05%。无符合等级的套装或暗金时会降级。物品等级随角色等级浮动（−5～+4），有机会升级为扩展或精英底材；不受难度与魔法寻获影响。</p><button class="secondary-button" data-action="refresh-gambling">免费刷新货单</button><div class="shop-items">${game.gambleStock.map(code => {
+    const base = BASES.find(base => base.baseCode === code)!, price = gamblingPrice(hero, base);
+    return `<div><div class="shop-item-icon gold-text">${icon(base.slot === 'weapon' ? 'sword' : 'gem')}</div><div><h3>${escapeHtml(base.name)}</h3><small>属性未知 · ${price.toLocaleString()} 金币</small></div><button class="secondary-button" data-buy-gamble="${code}" ${hero.gold < price ? 'disabled' : ''}>${hero.gold < price ? '金币不足' : '赌博'}</button></div>`;
+  }).join('')}</div><div class="inventory-gold">${hero.gold.toLocaleString()}<small>金币</small></div>`;
 }
 
 export class UI {
@@ -293,6 +302,7 @@ export class UI {
       if (element.dataset.salvage) this.game.salvage(element.dataset.salvage);
       if (element.dataset.allocate) this.game.allocate(element.dataset.allocate as Attribute, Number(element.dataset.count ?? 1));
       if (element.dataset.buyBase) this.game.buyBase(element.dataset.buyBase);
+      if (element.dataset.buyGamble) this.game.buyGamble(element.dataset.buyGamble);
       if (element.dataset.buySocket) this.game.buySocketing(element.dataset.buySocket);
       if (element.dataset.mercenaryTab === 'equipment' || element.dataset.mercenaryTab === 'auras') { this.mercenaryView.tab = element.dataset.mercenaryTab; this.renderPanel(); }
       if (element.dataset.mercenaryItem) { this.mercenaryView.itemId = element.dataset.mercenaryItem; this.renderPanel(); if (innerWidth <= 700) this.overlay.querySelector('.mercenary-inspector')?.scrollIntoView({ block: 'nearest' }); }
@@ -319,6 +329,8 @@ export class UI {
         case 'return-portal': this.game.useReturnPortal(); break;
         case 'mystery-portal': this.game.useMysteryPortal(); break;
         case 'base-merchant': this.game.useBaseMerchant(); break;
+        case 'gambling-merchant': this.game.useGamblingMerchant(); break;
+        case 'refresh-gambling': this.game.refreshGamblingStock(); break;
         case 'socket-merchant': this.game.useSocketMerchant(); break;
         case 'mercenary-merchant': this.game.useMercenaryMerchant(); break;
         case 'hire-mercenary': this.game.hireMercenary(); break;
@@ -416,6 +428,10 @@ export class UI {
     if (this.game.dead && panel !== 'death' && panel !== 'save-conflict') return;
     if (panel === 'base-shop' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.baseMerchant.x, this.game.position.z - CAMP.baseMerchant.z) >= 3.5)) return;
     if (panel === 'mercenary-shop' && !this.game.atMercenaryMerchant) return;
+    if (panel === 'gambling-shop') {
+      if (!this.game.atGamblingMerchant) return;
+      if (!this.game.gambleStock.length) this.game.gambleStock = gamblingStock(this.game.hero);
+    }
     if (panel === 'socket-shop' && !this.game.atSocketMerchant) return;
     if (panel === 'shared-stash' && (!this.game.inCamp || Math.hypot(this.game.position.x - CAMP.stash.x, this.game.position.z - CAMP.stash.z) >= 3.5)) return;
     if (!this.panel) {
@@ -468,6 +484,7 @@ export class UI {
     const h = this.game.hero, s = stats(h);
     const titles: Record<Exclude<Panel, ProfilePanel>, [string, string]> = {
       'base-shop': ['底材商人', 'BASE MERCHANT'],
+      'gambling-shop': ['赌博商人', 'ANYA · GAMBLING'],
       'socket-shop': ['打孔商人', 'LARZUK · SOCKETING'],
       'mercenary': ['佣兵 · 米山', 'DESERT MERCENARY'],
       'mercenary-shop': ['佣兵商人', 'MERCENARY CAPTAIN'],
@@ -521,6 +538,8 @@ export class UI {
       content = `<div class="shop-intro">${icon('compass')}<p>归途的灯火，总为旅者而亮。</p></div><button class="secondary-button" data-action="restore">${icon('heart')}圣泉祝福 · 恢复状态</button><div class="shop-items">${POTIONS.map((potion, index) => potion.kind === 'rejuvenation' ? '' : `<div><div class="shop-item-icon">${icon(potion.icon)}</div><div><h3>${potion.name}</h3><small>持有 ${h.potions[index] ?? 0} · ${potionDescription(index, h.classId)}</small></div><button class="secondary-button" data-buy="${index}" ${h.gold < vendorPrice(h, potion.price) || h.potions[index] >= POTION_LIMIT ? 'disabled' : ''}>${icon('coins')}${vendorPrice(h, potion.price)}</button></div>`).join('')}</div><div class="inventory-gold">${icon('coins')}${h.gold.toLocaleString()}<small>金币</small></div>`;
     } else if (this.panel === 'base-shop') {
       content = progressionBaseShop(h);
+    } else if (this.panel === 'gambling-shop') {
+      content = gamblingShop(this.game);
     } else if (this.panel === 'socket-shop') {
       content = socketShop(h);
     } else if (this.panel === 'death') {
@@ -569,6 +588,7 @@ export class UI {
       dot(CAMP.mysteryPortal.x, CAMP.mysteryPortal.z, '#c48bea', large ? 6 : 4, true);
       if (this.game.campReturn) dot(CAMP.returnPortal.x, CAMP.returnPortal.z, '#8cf5cf', large ? 6 : 4, true);
       dot(CAMP.baseMerchant.x, CAMP.baseMerchant.z, '#d6c492', large ? 5 : 3);
+      if (gamblingUnlocked(this.game.hero)) dot(CAMP.gamblingMerchant.x, CAMP.gamblingMerchant.z, '#d2b6e7', large ? 5 : 3);
       if (socketMerchantUnlocked(this.game.hero)) dot(CAMP.socketMerchant.x, CAMP.socketMerchant.z, '#e7ad65', large ? 5 : 3);
       if (mercenaryUnlocked(this.game.hero)) dot(CAMP.mercenaryMerchant.x, CAMP.mercenaryMerchant.z, '#a6d6ae', large ? 5 : 3);
       dot(CAMP.supply.x, CAMP.supply.z, '#d6c492', large ? 5 : 3);
@@ -713,6 +733,14 @@ export class UI {
         if (p.visible && p.x > 40 && p.x < innerWidth - 40 && p.y > 50 && p.y < innerHeight - 110) {
           const key = 'socket-merchant'; aliveKeys.add(key); let label = this.labelNodes.get(key);
           if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = key; setMarkup(label, `${icon('hammer')}打孔商人`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
+          label.hidden = game.paused; label.style.transform = `translate(${p.x}px,${p.y}px) translate(-50%, -100%)`;
+        }
+      }
+      if (gamblingUnlocked(h)) {
+        const p = game.project(new THREE.Vector3(CAMP.gamblingMerchant.x, 2.8, CAMP.gamblingMerchant.z));
+        if (p.visible && p.x > 40 && p.x < innerWidth - 40 && p.y > 50 && p.y < innerHeight - 110) {
+          const key = 'gambling-merchant'; aliveKeys.add(key); let label = this.labelNodes.get(key);
+          if (!label) { label = document.createElement('button'); label.className = 'camp-portal-label'; label.dataset.action = key; setMarkup(label, `${icon('coins')}赌博商人`); this.labels.append(label); this.labelNodes.set(key, label); this.refreshIcons(); }
           label.hidden = game.paused; label.style.transform = `translate(${p.x}px,${p.y}px) translate(-50%, -100%)`;
         }
       }
