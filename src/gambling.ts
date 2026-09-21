@@ -47,7 +47,7 @@ export const gamblingPrice = (hero: HeroState, base: ItemBase) => vendorPrice(he
 
 // https://classic.battle.net/diablo2exp/basics/gambling.shtml
 export function gamblingRarity(roll: number): 'unique' | 'set' | 'rare' | 'magic' {
-  return roll < .0005 ? 'unique' : roll < .0015 ? 'set' : roll < .1015 ? 'rare' : 'magic';
+  return roll < .0005 ? 'unique' : roll < .0015 ? 'set' : roll < .2015 ? 'rare' : 'magic';
 }
 export function gamblingBase(base: ItemBase, level: number, random = Math.random): ItemBase {
   const family = GAMBLING_FAMILIES.find(family => family[0] === base)!;

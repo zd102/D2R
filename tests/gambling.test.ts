@@ -32,7 +32,7 @@ test('quality thresholds and exceptional/elite upgrades follow gambling rules', 
   assert.equal(gamblingBaseTier('ci3'), '精英');
   assert.equal(gamblingBaseTier('rin'), '普通');
   assert.equal(gamblingBaseTier(undefined), undefined);
-  for (const [roll, rarity] of [[0, 'unique'], [.0004999, 'unique'], [.0005, 'set'], [.0014999, 'set'], [.0015, 'rare'], [.1014999, 'rare'], [.1015, 'magic'], [.99999, 'magic']] as const) assert.equal(gamblingRarity(roll), rarity);
+  for (const [roll, rarity] of [[0, 'unique'], [.0004999, 'unique'], [.0005, 'set'], [.0014999, 'set'], [.0015, 'rare'], [.1015, 'rare'], [.2014999, 'rare'], [.2015, 'magic'], [.99999, 'magic']] as const) assert.equal(gamblingRarity(roll), rarity);
   assert.equal(gamblingBase(base('cap'), 99, () => 0).baseCode, 'uap');
   assert.equal(gamblingBase(base('cap'), 99, rolls(.99, 0)).baseCode, 'xap');
   assert.equal(gamblingBase(base('cap'), 5, () => 0).baseCode, 'cap');

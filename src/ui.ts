@@ -64,7 +64,7 @@ function socketShop(hero: HeroState) {
 
 function gamblingShop(game: Game) {
   const hero = game.hero;
-  return `<div class="gambling-toolbar"><button class="secondary-button" data-action="refresh-gambling">免费刷新货单</button><span>${hero.gold.toLocaleString()} 金币</span><details class="gambling-rules"><summary>赌博规则</summary><p>购买后揭晓属性并自动鉴定，可重复购买。魔法 89.85% · 稀有 10% · 套装 0.1% · 暗金 0.05%；无符合等级的套装或暗金时会降级。物品等级随角色等级浮动（−5～+4），普通底材有机会升级为拓展或精英；不受难度与魔法寻获影响。</p></details></div><div class="shop-items">${game.gambleStock.map(code => {
+  return `<div class="gambling-toolbar"><button class="secondary-button" data-action="refresh-gambling">免费刷新货单</button><span>${hero.gold.toLocaleString()} 金币</span><details class="gambling-rules"><summary>赌博规则</summary><p>购买后揭晓属性并自动鉴定，可重复购买。魔法 79.85% · 稀有 20% · 套装 0.1% · 暗金 0.05%；无符合等级的套装或暗金时会降级。物品等级随角色等级浮动（−5～+4），普通底材有机会升级为拓展或精英；不受难度与魔法寻获影响。</p></details></div><div class="shop-items">${game.gambleStock.map(code => {
     const base = BASES.find(base => base.baseCode === code)!, price = gamblingPrice(hero, base);
     return `<div><h3>${escapeHtml(base.name)}</h3><small class="gambling-base-tier">底材 · ${gamblingBaseTier(code)}</small><button class="secondary-button" data-buy-gamble="${code}" aria-label="赌博${escapeHtml(base.name)} · ${price.toLocaleString()}金币" ${hero.gold < price ? 'disabled' : ''}>${price.toLocaleString()} 金</button></div>`;
   }).join('')}</div>`;
