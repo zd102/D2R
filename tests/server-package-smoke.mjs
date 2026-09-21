@@ -6,6 +6,37 @@ import { once } from 'node:events';
 import { chromium } from '@playwright/test';
 import { savedProfile } from './browser-helpers.mjs';
 
+async function observeAudio(page) {
+  await page.addInitScript(() => {
+    window.nativeAudioPlayed = [];
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      if (this.buffer) window.nativeAudioPlayed.push(JSON.stringify({
+        length: this.buffer.length, channels: this.buffer.numberOfChannels,
+        samples: Array.from(this.buffer.getChannelData(0).slice(0, 32)), rate: this.playbackRate.value,
+      }));
+      return start.apply(this, args);
+    };
+  });
+}
+
+async function verifyNativePlayback(page) {
+  const expected = await page.evaluate(async () => {
+    const response = await fetch('/audio/local/manifest.json');
+    if (!response.ok) throw new Error('Packaged native audio manifest is missing');
+    const manifest = await response.json(), file = manifest.sounds['ambient:camp'][0];
+    const context = new AudioContext();
+    try {
+      const response = await fetch(`/audio/${file}`);
+      if (!response.ok) throw new Error(`Packaged native recording is missing: ${file}`);
+      const buffer = await context.decodeAudioData(await response.arrayBuffer());
+      return JSON.stringify({ length: buffer.length, channels: buffer.numberOfChannels,
+        samples: Array.from(buffer.getChannelData(0).slice(0, 32)), rate: 1 });
+    } finally { await context.close(); }
+  });
+  await page.waitForFunction(expected => window.nativeAudioPlayed.includes(expected), expected, { timeout: 30000 });
+}
+
 async function enterCamp(page, name = '发布包验证') {
   await page.getByRole('dialog', { name: '选择角色', exact: true }).waitFor();
   if (await page.getByRole('option').count()) {
@@ -63,10 +94,12 @@ try {
     ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
   console.log('Browser launched');
   const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+  await observeAudio(page);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(`${base}/?mode=local`);
   await enterCamp(page);
+  await verifyNativePlayback(page);
   await page.waitForFunction(() => window.eclipseState?.drawCalls > 0);
   await page.getByRole('button', { name: '保存旅程', exact: true }).click();
   assert.ok((await savedProfile(page)).hero);
@@ -75,6 +108,7 @@ try {
   console.log('Local game save/reload passed');
   await page.close();
   const online = await browser.newPage({ viewport: { width: 800, height: 600 } });
+  await observeAudio(online);
   await online.bringToFront();
   online.on('pageerror', error => errors.push(error.message));
   online.on('response', async response => {
@@ -98,6 +132,8 @@ try {
   }
   if (account) await online.getByRole('option', { name: /服务端验证/ }).waitFor();
   await enterCamp(online, '服务端验证');
+  await verifyNativePlayback(online);
+  console.log('Native D2R recordings play in local and online release modes');
   assert.equal(await online.evaluate(() => window.eclipseState.mode), 'online');
   await online.getByRole('button', { name: '保存旅程', exact: true }).click();
   await online.waitForFunction(() => !window.eclipseState.saveBusy);

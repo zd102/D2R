@@ -1,7 +1,7 @@
 """Import HD-first D2R sounds from local CASC storage or extracted Data files.
 
 Uses a caller-supplied CascLib 3.x DLL. Never modifies the game installation.
-Original audio and the generated manifest stay in gitignored public/audio/local.
+Release audio and its manifest are tracked in public/audio/local; extra imports stay ignored.
 """
 import argparse
 import csv

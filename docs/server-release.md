@@ -67,6 +67,8 @@ New-NetFirewallRule -DisplayName 'D2R Server LAN' -Direction Inbound -Protocol T
 
 ## CI 与后续发布
 
+发布安装包直接包含 `public/audio/local/manifest.json` 引用的 D2R 原版音效，无需在服务器另行导入。当前随包提供的是经典原版录音；未覆盖的事件仍使用后备音效。构建和打包会核对每个原版文件的大小与 SHA-256，缺失或损坏时终止发布，避免悄悄退回默认音效。已有安装需更新到包含此修复的新安装包。
+
 `main` 推送、Pull Request 和手动触发运行双平台测试、构建、打包及真实服务安装/升级检查；通过后的包可在 Actions artifacts 下载。推送与 `package.json` 版本一致的 `v版本号` 标签（例如 `v1.2.0`），两平台成功后自动创建 Release，附带安装包、本文档和 SHA-256 清单。失败不会发布只有一端产物的 Release。
 
 本地验证：`npm ci`、`npm test`、`npm run test:server`、`npm run build`、`npm run package:server`、`npm run test:package`。浏览器测试需要 `npx playwright install chromium`；也可指定 `BROWSER_CHANNEL=msedge` 使用本机 Edge。打包目录默认 `release/package`，必须是尚不存在的目录，避免覆盖既有产物。
