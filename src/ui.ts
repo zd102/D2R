@@ -303,6 +303,8 @@ export class UI {
       if (element.dataset.allocate) this.game.allocate(element.dataset.allocate as Attribute, Number(element.dataset.count ?? 1));
       if (element.dataset.buyBase) this.game.buyBase(element.dataset.buyBase);
       if (element.dataset.buyGamble) this.game.buyGamble(element.dataset.buyGamble);
+      if (element.dataset.gamblingStore) this.game.manageGamblingItem(element.dataset.gamblingStore, 'store');
+      if (element.dataset.gamblingSell) this.game.manageGamblingItem(element.dataset.gamblingSell, 'sell');
       if (element.dataset.buySocket) this.game.buySocketing(element.dataset.buySocket);
       if (element.dataset.mercenaryTab === 'equipment' || element.dataset.mercenaryTab === 'auras') { this.mercenaryView.tab = element.dataset.mercenaryTab; this.renderPanel(); }
       if (element.dataset.mercenaryItem) { this.mercenaryView.itemId = element.dataset.mercenaryItem; this.renderPanel(); if (innerWidth <= 700) this.overlay.querySelector('.mercenary-inspector')?.scrollIntoView({ block: 'nearest' }); }
@@ -539,7 +541,7 @@ export class UI {
     } else if (this.panel === 'base-shop') {
       content = progressionBaseShop(h);
     } else if (this.panel === 'gambling-shop') {
-      content = gamblingShop(this.game);
+      content = `<div class="gambling-layout"><section class="gambling-goods" aria-label="赌博商品">${gamblingShop(this.game)}</section>${this.characterScreen.gamblingInventory()}</div>`;
     } else if (this.panel === 'socket-shop') {
       content = socketShop(h);
     } else if (this.panel === 'death') {

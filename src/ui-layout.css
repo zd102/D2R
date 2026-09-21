@@ -389,3 +389,18 @@
   }
   #overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items > div { padding: 8px; }
 }
+.panel.panel-gambling-shop { width: 1380px; }
+.gambling-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.gambling-goods, .gambling-inventory { min-width: 0; }
+.gambling-inventory { padding: 14px; border: 1px solid var(--ui-border); background: #10191780; }
+.gambling-inventory > h3 { color: var(--ui-text); }
+.gambling-bag-hint { font-size: 12px; margin: 8px 0 14px; }
+#overlay .gambling-inventory .diablo-grid { width: 100%; min-width: 0; max-width: none; aspect-ratio: 10 / 4; }
+.gambling-inventory .item-details { width: 100%; min-width: 0; max-width: none; align-items: stretch; padding: 12px 0 0; border-left: 0; }
+.gambling-inventory .item-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; padding: 0; border: 0; }
+.gambling-inventory .item-actions > button { flex: 1; min-height: 44px; white-space: normal; }
+.gambling-inventory .item-detail-scroll { overflow: visible; }
+@media (max-width: 1000px) {
+  .gambling-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .gambling-inventory { order: -1; }
+}

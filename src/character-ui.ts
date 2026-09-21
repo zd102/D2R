@@ -85,7 +85,7 @@ export class CharacterScreen {
       if (changed) game.save(false); if (changed || render) { ui.renderPanel(); if (data.selectSkill && innerWidth < 700) ui.overlay.querySelector('.skill-inspector')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
     });
     ui.overlay.addEventListener('change', event => {
-      if (!['inventory', 'character', 'skills'].includes(ui.panel ?? '')) return;
+      if (!['inventory', 'character', 'skills', 'gambling-shop'].includes(ui.panel ?? '')) return;
       const select = event.target as HTMLSelectElement;
       if (select.dataset.potionBinding !== undefined && !game.saveConflict) {
         const slot = Number(select.dataset.potionBinding), index = Number(select.value);
@@ -184,6 +184,20 @@ export class CharacterScreen {
       }).join('')}</div>`).join('')}</div>
     </section>`;
   }
+  inventoryGrid(container: ItemContainer) {
+    const h = this.game.hero;
+    const items = h[container], rows = container === 'stash' ? stashRows(items) : 4, columns = container === 'cube' ? CUBE_COLUMNS : 10;
+    const positions = packItems(items, rows, columns), occupied = items.reduce((sum, item) => { const [w, height] = footprint(item); return sum + w * height; }, 0);
+    const name = container === 'cube' ? '赫拉迪克方块' : container === 'stash' ? '私人仓库' : '随身物品';
+    return `<section class="inventory-container" data-storage-section="${container}"><div class="section-label inventory-section-heading"><span>${container === 'cube' ? icon('box') : ''}${name}</span><span>${occupied} / ${rows * columns} 格</span></div><div class="diablo-grid" data-container="${container}" data-rows="${rows}" data-columns="${columns}" style="--rows:${rows};--columns:${columns}" aria-label="${name}">${items.map((item, i) => {
+      const p = positions?.get(item.id) ?? { x: i % columns, y: Math.floor(i / columns), width: 1, height: 1 };
+      return `<button draggable="false" aria-roledescription="可移动装备" aria-keyshortcuts="Space Enter ArrowLeft ArrowRight ArrowUp ArrowDown Escape" class="bag-item ${item.rarity} ${item.id === this.ui.selectedItem ? 'selected' : ''}" style="grid-column:${p.x + 1}/span ${p.width};grid-row:${p.y + 1}/span ${p.height}" data-item="${escape(item.id)}" ${tip(item.identified === false ? `未鉴定 ${item.base ?? item.name}` : item.name)}>${itemVisual(item)}${item.identified === false ? '<b class="unidentified-mark">?</b>' : ''}${item.sockets ? `<small>${filledSockets(item)}/${item.sockets}</small>` : ''}</button>`;
+    }).join('')}</div>${container === 'cube' ? '<p class="cube-storage-note">方块内护符不生效</p>' : ''}</section>`;
+  }
+  gamblingInventory() {
+    const h = this.game.hero, selected = h.inventory.find(item => item.id === this.ui.selectedItem);
+    return `<aside class="gambling-inventory" aria-label="赌博背包"><h3>背包</h3><p class="gambling-bag-hint">选中物品可出售或存入私人仓库，按住拖动可调整位置。</p>${this.inventoryGrid('inventory')}<span class="inventory-move-status" role="status" aria-live="polite" aria-atomic="true"></span><div class="item-details">${selected ? `<div class="item-actions"><button class="secondary-button" data-gambling-store="${escape(selected.id)}">${icon('archive')}存入私人仓库</button><button class="secondary-button" data-gambling-sell="${escape(selected.id)}">${icon('coins')}出售 · ${selected.value}</button></div>${itemDetails(h, selected, { showRanges: this.showRanges })}` : '<div class="empty-detail">选择背包物品查看属性、出售或存入仓库</div>'}</div></aside>`;
+  }
   inventory() {
     const h = this.game.hero;
     const selected = [...h.inventory, ...h.stash, ...h.cube, ...Object.values(h.equipment)].find(item => item?.id === this.ui.selectedItem);
@@ -193,16 +207,8 @@ export class CharacterScreen {
     const repair = repairCost(h);
     const sharedScope = this.game.online ? '同一账号共享金币和符文' : '本地所有角色共享金币和符文';
     const tabs = `<div class="character-tabs bag-tabs inventory-primary-tabs" role="tablist" aria-label="物品容器">${(['inventory', 'stash', 'runes'] as const).map(view => `<button role="tab" aria-selected="${this.view === view}" data-bag-view="${view}">${icon(view === 'inventory' ? 'backpack' : view === 'stash' ? 'archive' : 'gem')}${({ inventory: '背包', stash: '私人仓库', runes: '符文' })[view]}</button>`).join('')}</div>`;
-    const drawGrid = (container: ItemContainer) => {
-      const items = h[container], rows = container === 'stash' ? stashRows(items) : 4, columns = container === 'cube' ? CUBE_COLUMNS : 10;
-      const positions = packItems(items, rows, columns), occupied = items.reduce((sum, item) => { const [w, height] = footprint(item); return sum + w * height; }, 0);
-      const name = container === 'cube' ? '赫拉迪克方块' : container === 'stash' ? '私人仓库' : '随身物品';
-      return `<section class="inventory-container" data-storage-section="${container}"><div class="section-label inventory-section-heading"><span>${container === 'cube' ? icon('box') : ''}${name}</span><span>${occupied} / ${rows * columns} 格</span></div><div class="diablo-grid" data-container="${container}" data-rows="${rows}" data-columns="${columns}" style="--rows:${rows};--columns:${columns}" aria-label="${name}">${items.map((item, i) => {
-        const p = positions?.get(item.id) ?? { x: i % columns, y: Math.floor(i / columns), width: 1, height: 1 };
-        return `<button draggable="false" aria-roledescription="可移动装备" aria-keyshortcuts="Space Enter ArrowLeft ArrowRight ArrowUp ArrowDown Escape" class="bag-item ${item.rarity} ${item.id === this.ui.selectedItem ? 'selected' : ''}" style="grid-column:${p.x + 1}/span ${p.width};grid-row:${p.y + 1}/span ${p.height}" data-item="${escape(item.id)}" ${tip(item.identified === false ? `未鉴定 ${item.base ?? item.name}` : item.name)}>${itemVisual(item)}${item.identified === false ? '<b class="unidentified-mark">?</b>' : ''}${item.sockets ? `<small>${filledSockets(item)}/${item.sockets}</small>` : ''}</button>`;
-      }).join('')}</div>${container === 'cube' ? '<p class="cube-storage-note">方块内护符不生效</p>' : ''}</section>`;
-    };
-    const grid = this.view === 'runes' ? this.runes() : `<div class="inventory-grid-scroll ${this.view === 'inventory' ? 'inventory-bag-scroll' : ''}"><div class="inventory-containers">${drawGrid(this.view)}${this.view === 'inventory' && hasCube(h) ? drawGrid('cube') : ''}</div>${this.view === 'inventory' ? this.inventoryPotions() : ''}</div><span class="inventory-move-status" role="status" aria-live="polite" aria-atomic="true"></span>`;
+
+    const grid = this.view === 'runes' ? this.runes() : `<div class="inventory-grid-scroll ${this.view === 'inventory' ? 'inventory-bag-scroll' : ''}"><div class="inventory-containers">${this.inventoryGrid(this.view)}${this.view === 'inventory' && hasCube(h) ? this.inventoryGrid('cube') : ''}</div>${this.view === 'inventory' ? this.inventoryPotions() : ''}</div><span class="inventory-move-status" role="status" aria-live="polite" aria-atomic="true"></span>`;
     let details = `<div class="empty-detail">${icon('shield-check')}<span>选择一件物品</span><small>点击查看属性、装备或存取<br>按住物品拖动即可整理位置</small></div>`;
     if (selected) {
       const identified = selected.identified !== false, reason = inCube && selected.charm ? '方块中的护符不生效，取回背包后生效' : equipReason(h, selected), slot = equippedSlot;

@@ -1,4 +1,5 @@
 import { gamblingUnlocked, gamblingStock, buyGamble } from './gambling';
+import { moveStorage } from './model';
 import { PANDEMONIUM_BOSSES } from './pandemonium';
 import { CHALLENGE_KEYS, createClassTorch, isHellfireTorch } from './items';
 import { expansionMode } from './expansion-skills.ts';
@@ -486,6 +487,15 @@ export class Game {
   refreshGamblingStock() {
     if (!this.atGamblingMerchant || this.onlineOperation || this.ui.panel !== 'gambling-shop') return;
     this.gambleStock = gamblingStock(this.hero); this.ui.renderPanel();
+  }
+  manageGamblingItem(id: string, action: 'sell' | 'store') {
+    if (!this.atGamblingMerchant || this.onlineOperation || this.ui.panel !== 'gambling-shop' || !this.hero.inventory.some(item => item.id === id)) return;
+    const previous = structuredClone(this.hero);
+    const changed = action === 'sell' ? sellItem(this.hero, id) : moveStorage(this.hero, id, true);
+    if (!changed) { this.ui.toast(action === 'store' ? '私人仓库空间不足' : '无法出售此物品'); return; }
+    return this.commitSave(() => {
+      this.ui.selectedItem = undefined; this.ui.renderPanel();
+    }, () => { this.hero = previous; this.ui.renderPanel(); });
   }
   get atMercenaryMerchant() {
     return this.inCamp && !!this.profile && !this.dead && !this.saveConflict && mercenaryUnlocked(this.hero) && Math.hypot(this.position.x - CAMP.mercenaryMerchant.x, this.position.z - CAMP.mercenaryMerchant.z) < 3.5;
