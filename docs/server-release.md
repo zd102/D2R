@@ -1,11 +1,11 @@
 # D2R 服务端安装包
 
-## v1.1.0 更新内容
+## v1.2.0 更新内容
 
-- 新增钥匙开启的六 Boss 挑战与职业火炬奖励，调整神秘传送门目的地顺序。
-- 支持符合条件的账号创建已通关剧情的角色；各难度救出安雅后解锁尼拉塞克神殿。
-- 修复怪物移动推挤，限制佣兵连续击退；死亡保留已装备物品，并重置交战中的 Boss。
-- 调整超级暗金怪物平衡与特色战斗行为，补充终局 Boss 构筑审计及七职业、25 种构筑指南。
+- 修复移动端双击缩放、背包长按拖拽与触摸滚动冲突，优化生命/法力条和战斗通知显示。
+- 普通难度通关后解锁拉苏克付费打孔与安雅赌博商店；赌博稀有品质概率提升至 20%。
+- 赌博商店支持直接管理背包，商品卡片展示基础等级；背包支持 Ctrl + 右键快速出售。
+- 调整营地商人位置与商店商品布局，优化高清音效导入并保留原始录音。
 
 从 [GitHub Releases](https://github.com/zd102/D2R/releases/latest) 下载对应平台的安装包。程序内置 Node.js 和生产依赖，安装时无需 npm、Git 或下载运行环境。仅提供 x64；Windows 10 / Server 2019 及以上，Linux 需要 systemd、glibc 2.28+（推荐 Ubuntu 22.04/24.04）。
 
@@ -16,7 +16,7 @@
 静默部署：
 
 ```powershell
-Start-Process .\D2R-Server-1.1.0-windows-x64-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait
+Start-Process .\D2R-Server-1.2.0-windows-x64-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait
 Get-Service D2RServer
 ```
 
@@ -34,7 +34,7 @@ Get-Service D2RServer
 
 ```bash
 mkdir d2r-server
-tar -xzf D2R-Server-1.1.0-linux-x64.tar.gz -C d2r-server
+tar -xzf D2R-Server-1.2.0-linux-x64.tar.gz -C d2r-server
 cd d2r-server
 sudo bash install.sh
 systemctl status d2r-server
@@ -67,6 +67,6 @@ New-NetFirewallRule -DisplayName 'D2R Server LAN' -Direction Inbound -Protocol T
 
 ## CI 与后续发布
 
-`main` 推送、Pull Request 和手动触发运行双平台测试、构建、打包及真实服务安装/升级检查；通过后的包可在 Actions artifacts 下载。推送与 `package.json` 版本一致的 `v版本号` 标签（例如 `v1.1.0`），两平台成功后自动创建 Release，附带安装包、本文档和 SHA-256 清单。失败不会发布只有一端产物的 Release。
+`main` 推送、Pull Request 和手动触发运行双平台测试、构建、打包及真实服务安装/升级检查；通过后的包可在 Actions artifacts 下载。推送与 `package.json` 版本一致的 `v版本号` 标签（例如 `v1.2.0`），两平台成功后自动创建 Release，附带安装包、本文档和 SHA-256 清单。失败不会发布只有一端产物的 Release。
 
 本地验证：`npm ci`、`npm test`、`npm run test:server`、`npm run build`、`npm run package:server`、`npm run test:package`。浏览器测试需要 `npx playwright install chromium`；也可指定 `BROWSER_CHANNEL=msedge` 使用本机 Edge。打包目录默认 `release/package`，必须是尚不存在的目录，避免覆盖既有产物。
