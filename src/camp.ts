@@ -3,9 +3,11 @@ import type { HeroState } from './model.ts';
 export const CAMP = {
   id: 'camp', name: '罗格营地', english: 'ROGUE ENCAMPMENT',
   spawn: { x: 0, z: 11 },
-  // Arrival plaza: travel to the north/west, services around the south/east.
-  portal: { x: -4, z: 8 }, mysteryPortal: { x: -11, z: 7 }, returnPortal: { x: 3, z: 4 },
-  supply: { x: 7, z: 11 }, baseMerchant: { x: -7, z: 14 }, mercenaryMerchant: { x: -6, z: -2 }, socketMerchant: { x: 7, z: 16 }, gamblingMerchant: { x: 8, z: 18 }, stash: { x: 1, z: 16 },
+  // Keep the arrival plaza open, with services spaced around its perimeter.
+  portal: { x: -4, z: 8 }, mysteryPortal: { x: -11, z: 7 }, returnPortal: { x: 0, z: 2 },
+  supply: { x: 9, z: 8 }, baseMerchant: { x: -8, z: 15 },
+  mercenaryMerchant: { x: -6, z: -2 }, gamblingMerchant: { x: 6, z: 3 },
+  socketMerchant: { x: 8, z: 16 }, stash: { x: 0, z: 16 },
 };
 
 export function prepareCampArrival(hero: HeroState) {

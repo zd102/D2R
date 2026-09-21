@@ -46,6 +46,17 @@ try {
     assert.ok(objective.route.length, 'Merchant is reachable');
     await page.evaluate(() => window.gamblingVerification.ui.openPanel('gambling-shop'));
     await expect(page.locator('.panel-gambling-shop')).toHaveCount(0);
+    if (width < 700) {
+      // Spread-out camp services can start outside the phone's narrow viewport.
+      await page.evaluate(() => {
+        const game = window.gamblingVerification;
+        game.moveTo(game.gamblingVendor.group.position.clone().add({ x: 0, y: 0, z: 4 }));
+      });
+      await page.waitForFunction(() => {
+        const game = window.gamblingVerification;
+        return game.position.distanceTo(game.gamblingVendor.group.position) < 4.5;
+      });
+    }
     const label = page.getByRole('button', { name: '赌博商人', exact: true });
     if (width < 700) await label.tap(); else await label.click();
     await expect(page.locator('.panel-gambling-shop')).toBeVisible({ timeout: 15000 });
