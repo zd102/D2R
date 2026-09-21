@@ -24,6 +24,7 @@ type Drag = {
 export class InventoryDrag {
   private ui: UI;
   private drag?: Drag;
+  get isDragging() { return !!this.drag; }
   private frame = 0;
   private lastFrame = 0;
   private suppressClick = false;
