@@ -6,7 +6,9 @@
 
 ## 本机原生音效
 
-有本机资源包时优先播放原生录音，不对它叠加合成音色或随机变调。缺失项使用仓库随附的 CC0 拟音与程序生成的音效。当前导入器读取 D2R 的 `sounds.txt`，选择经典音效行，不跟随 HD Redirect；经典行中为空的怪物使用相近种类的声音，例如冰川恶兽使用雪人。
+有本机资源包时优先播放原生录音，不叠加合成音色、随机变调或程序混响；保留录音声道，仍应用游戏音量、方位和总线限幅。导入器默认读取 D2R 的 `sounds.txt`，跟随 `Redirect`（名称或 Index），展开 `Group Size`，优先提取 `hd/global/sfx/` 高清资源；缺失时回退经典录音，再由播放器回退 CC0 拟音与程序音效。每个事件最多保留 8 个变体。
+
+七个职业均配置受伤与死亡映射。若安装包提供 `skills.txt`，额外按稳定技能 ID 导入死灵法师、野蛮人、德鲁伊、刺客及装备技能的 `stsound`。只有明确的施法音效才接入，不把命中声当成施法声。怪物映射仍有近似，例如冰川恶兽使用雪人。
 
 Windows x64 安装 Python 3，并准备兼容当前游戏版本的 CascLib 3.x DLL 后运行：
 
@@ -14,7 +16,15 @@ Windows x64 安装 Python 3，并准备兼容当前游戏版本的 CascLib 3.x D
 python scripts/import-d2-audio.py --game 'F:\D4\Diablo II Resurrected' --casc-dll 'C:\Tools\CascLib.dll'
 ```
 
-导入器仅从游戏安装目录读取选定文件，将音频及包含来源、大小和 SHA-256 的清单写入 `public/audio/local/`。该目录被 Git 忽略。重新运行可更新原生素材；不会清理其他文件或修改游戏安装。已有 Vite 服务会发现新增清单；浏览器刷新后启用。其他检出目录不需要这些文件也能运行。
+也可以读取已提取的 `Data` 目录，不需要 CascLib：
+
+```powershell
+python scripts/import-d2-audio.py --extracted 'D:\D2R-extracted\Data'
+```
+
+该目录需要 `global/excel/sounds.txt` 和对应的 `hd/global/sfx/` 音频；`global/sfx/` 提供经典回退，`global/excel/skills.txt` 提供扩展职业映射。需要旧版音色时加 `--quality classic`。导入结果输出高清／经典事件数量和缺失列表，清单的 `coverage`、`missing` 和 `files` 可核对实际来源与 SHA-256；无法导入任何音频时不会覆盖已有清单。高清来源只表示使用了高清素材，不代表完整复刻 D2R 的混音、环境事件、循环技能或 7.1 输出。
+
+导入器仅从游戏安装目录读取选定文件，将音频及包含来源、大小和 SHA-256 的清单写入 `public/audio/local/`。该目录被 Git 忽略。重新运行可更新原生素材；不会清理其他文件或修改游戏安装。已有 Vite 服务会发现新增清单；浏览器刷新后启用。其他检出目录不需要这些文件也能运行，但只会播放替代音效。Git 拉取不会恢复本机音效包。资源清单在构建时发现，生产部署需在导入后重新构建，并一并部署生成的音频文件。
 
 注意：Vite 构建会将本机 `public/audio/local/` 一并复制到 `dist/`。含原版素材的本机构建不作为可自由再发布的素材包；分享代码和 CC0 版本时应在没有本机原版素材的独立检出目录构建。游戏购买与本机提取并不自动赋予重新发布原始资源的授权。
 
@@ -22,9 +32,12 @@ python scripts/import-d2-audio.py --game 'F:\D4\Diablo II Resurrected' --casc-dl
 
 ## 素材与验证
 
+- 高清重定向与分组字段参考 [D2R 数据表说明](https://locbones.github.io/D2R_DataGuide/#soundstxt)；实际录音以本机安装数据为准。
 - [Kenney RPG Audio](https://kenney.nl/assets/rpg-audio) 与 [Impact Sounds](https://kenney.nl/assets/impact-sounds)：CC0，原始许可位于各素材目录的 `License.txt`。只包含实际使用的 72 个 OGG 文件。
 - [CascLib](https://github.com/ladislav-zezula/CascLib)：CASC 读取库；本次验证使用 [D2RExtractor](https://github.com/levinium/D2RExtractor) 提供的兼容 DLL，工具本身不纳入仓库。
 - [OpenDiablo2](https://github.com/OpenDiablo2/OpenDiablo2)：读取玩家本机游戏资产的参考项目。
 - [暴雪 Legal FAQ](https://www.blizzard.com/en-us/legal/28d5ebbf-c245-4408-8ba9-043dd5f056bf/legal-faq)：素材使用说明，不能将社区下载链接视为再发布许可。
 
 `npm test` 检查事件分类、空间衰减、素材完整性、后备波形与循环边界。`npm run test:audio` 在实际浏览器检查音频解码、事件触发、原版优先、静音持久化、环境切换、并发限制与资源回收。无本机原版资源时同一套验证自动检查后备音库。
+
+导入器回归：`python -B tests/audio-import.test.py`。使用合成夹具检查高清重定向、分组、经典回退、循环引用、路径检查、扩展职业映射与空导入保护；浏览器回归另用双声道 WAV 夹具检查原速、声道和不叠加混响，不依赖本机原版素材。
