@@ -343,3 +343,49 @@
 .portal-intro{font-size:17px;color:#ead4aa;margin-bottom:16px}.portal-intro span{display:block;font-size:12px;color:#a5a4a0;margin-top:6px}
 .portal-destinations{display:grid;gap:14px}.portal-card{padding:18px;border:1px solid #65543e;border-radius:10px;background:linear-gradient(120deg,#282522,#171b21);min-width:0}.portal-card header>span{font-size:12px;color:#c5aa7b;display:flex;align-items:center;gap:7px}.portal-card h3{font-size:20px;margin:8px 0}.portal-card p{font-size:13px;line-height:1.7;color:#bbb9b2}.portal-challenge{border-color:#a35d47;background:linear-gradient(125deg,#392423,#1c1c24)}.portal-card .primary-button{white-space:normal;min-height:40px}.portal-actions{display:flex;flex-wrap:wrap;gap:8px}.portal-keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}.portal-keys>span{padding:10px;border:1px solid #775044;border-radius:6px;color:#e29a86}.portal-keys .ready{border-color:#527860;color:#a9d0ac}.portal-keys b,.portal-keys small{display:block;font-size:12px}.portal-keys small{margin-top:5px;color:#aca9a4}.portal-card details{font-size:13px;color:#c7b99e;margin:12px 0}.portal-card summary{cursor:pointer;padding:6px 0}.portal-card li{margin:8px 0}.portal-card li span{display:block;color:#aba9a4;margin-top:3px}.portal-card .portal-note{font-size:12px;color:#a99b88}
 @media(max-width:480px){.portal-card{padding:12px}.portal-keys{grid-template-columns:1fr}.portal-keys>span{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}.portal-keys small{margin:0}.portal-actions>button{flex:1 1 100%}.portal-card>.primary-button{width:100%}}
+.panel:is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) { width: 1080px; }
+
+/* Merchant goods share one wrapping display; only the outer panel may scroll
+   on small screens or when the socket merchant receives a full backpack. */
+#overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  overflow: visible;
+  max-height: none;
+}
+#overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items > div {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  background: #10191780;
+}
+#overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items h3 {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+#overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items small {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: auto 0 0;
+  white-space: normal;
+}
+#overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items > p {
+  grid-column: 1 / -1;
+}
+@media (max-width: 700px) {
+  #overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  #overlay :is(.panel-shop, .panel-socket-shop, .panel-gambling-shop) .shop-items > div { padding: 8px; }
+}
