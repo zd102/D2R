@@ -44,11 +44,83 @@ async function fits(page) {
   assert.ok(metrics.x >= 0 && metrics.y >= 0 && metrics.right <= metrics.width + 1 && metrics.bottom <= metrics.height + 1 && metrics.overflow <= 1 && metrics.vertical <= 1, JSON.stringify(metrics));
   await reachable(page, '.panel-header > button');
 }
+async function resourceProgress(page, horizontal) {
+  for (const fraction of [0, .25, .5, 1]) {
+    await page.evaluate(async fraction => {
+      const { stats } = await import('/src/model.ts');
+      const game = window.mobileGame, maximum = stats(game.hero);
+      game.hero.hp = maximum.maxHp * fraction;
+      game.hero.mana = maximum.maxMana * (1 - fraction);
+      game.ui.update(0);
+    }, fraction);
+    await expect.poll(() => page.locator('.resource .orb-fill').evaluateAll((nodes, { fraction, horizontal }) => nodes.every((node, index) => {
+      const fill = node.getBoundingClientRect(), parent = node.parentElement, track = parent.getBoundingClientRect();
+      // Compact desktop HUDs scale the entire resource, including its border.
+      const scaleX = track.width / parent.offsetWidth, scaleY = track.height / parent.offsetHeight;
+      const expected = index === 0 ? fraction : 1 - fraction;
+      return Math.abs(fill.width - parent.clientWidth * scaleX * (horizontal ? expected : 1)) < .5
+        && Math.abs(fill.height - parent.clientHeight * scaleY * (horizontal ? 1 : expected)) < .5
+        && Math.abs(fill.left - track.left - parent.clientLeft * scaleX) < .5
+        && Math.abs(fill.bottom - track.top - (parent.clientTop + parent.clientHeight) * scaleY) < .5
+        && (!horizontal || getComputedStyle(node, '::before').display === 'none');
+    }), { fraction, horizontal })).toBe(true).catch(async error => {
+      console.error(await page.locator('.resource .orb-fill').evaluateAll(nodes => nodes.map(node => ({ fill: node.getBoundingClientRect().toJSON(), track: node.parentElement.getBoundingClientRect().toJSON(), css: node.style.cssText, width: node.parentElement.clientWidth, height: node.parentElement.clientHeight }))));
+      throw error;
+    });
+  }
+  await page.evaluate(async () => {
+    const { stats } = await import('/src/model.ts');
+    const game = window.mobileGame, maximum = stats(game.hero);
+    game.hero.hp = maximum.maxHp; game.hero.mana = maximum.maxMana; game.ui.update(0);
+  });
+}
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await enter(context);
+  // Native touch sequences must activate once per tap with no browser zoom.
+  await page.evaluate(() => {
+    const game = window.mobileGame;
+    window.originalTouchUseSkill = game.useSkill;
+    window.touchSkillCalls = [];
+    game.useSkill = skill => window.touchSkillCalls.push(skill);
+    window.skillTouchEnds = [];
+    document.addEventListener('touchend', event => {
+      if (event.target.closest?.('.skill-group')) window.skillTouchEnds.push(event.defaultPrevented);
+    });
+  });
+  const skill = page.locator('.skill-group button[data-skill=cleave]');
+  for (let i = 0; i < 6; i++) await skill.tap();
+  assert.deepEqual(await page.evaluate(() => window.touchSkillCalls), Array(6).fill('cleave'));
+  assert.deepEqual(await page.evaluate(() => window.skillTouchEnds), Array(6).fill(true));
+  assert.equal(await page.evaluate(() => visualViewport.scale), 1);
+  const skillTouch = await context.newCDPSession(page);
+  const skillRect = await skill.boundingBox();
+  const skillPoint = { x: skillRect.x + skillRect.width / 2, y: skillRect.y + skillRect.height / 2, id: 8 };
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [skillPoint] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...skillPoint, x: skillPoint.x - 40 }] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [skillPoint] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [skillPoint] });
+  await skillTouch.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+  assert.equal(await page.evaluate(() => window.touchSkillCalls.length), 6, 'dragging and cancellation do not cast');
+  await skill.click();
+  await skill.focus(); await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(() => window.touchSkillCalls.length), 8, 'mouse and keyboard still activate');
+  await page.locator('.attack-skill').tap();
+  assert.deepEqual(await page.evaluate(() => window.touchSkillCalls.slice(8)), ['attack'], 'primary attack does not cast twice');
+  assert.equal(await page.evaluate(() => window.mobileGame.heldAttack), false);
+  await page.evaluate(() => { window.mobileGame.useSkill = window.originalTouchUseSkill; });
+  await page.evaluate(() => {
+    window.originalTouchDrink = window.mobileGame.drink;
+    window.touchDrinks = [];
+    window.mobileGame.drink = potion => window.touchDrinks.push(potion);
+  });
+  for (let i = 0; i < 6; i++) await page.locator('.potion-group [data-potion-slot="0"]').tap();
+  assert.equal(await page.evaluate(() => window.touchDrinks.length), 6, 'global protection activates potions once per tap');
+  await page.evaluate(() => { window.mobileGame.drink = window.originalTouchDrink; });
   for (const [width, height] of [[390, 844], [320, 568], [360, 640], [430, 932], [568, 320], [667, 375], [844, 390], [932, 430]]) {
     await page.setViewportSize({ width, height });
+    await resourceProgress(page, true);
     await page.evaluate(() => { const g = window.mobileGame; g.ui.closePanel(); g.ui.update(0); g.renderer.render(g.world.scene, g.camera); });
     await page.locator('.bottom-nav [data-panel="mercenary"]').tap();
     await expect(page.locator('.panel-mercenary')).toBeVisible();
@@ -57,6 +129,25 @@ try {
     await expect(page.locator('.panel-pause')).toBeVisible();
     await page.locator('.panel-close').tap();
     await reachable(page, '.hud .skill, #joystick, .hud .bottom-nav button, .hud .paladin-status button, .top-tools button');
+    await page.evaluate(() => {
+      const ui = window.mobileGame.ui;
+      ui.toastContainer.replaceChildren();
+      ui.toast('Routine pickup', 'Stored in bag', true);
+    });
+    await expect(page.locator('#toasts .toast')).toHaveCount(0);
+    await page.evaluate(() => {
+      const ui = window.mobileGame.ui;
+      ui.toast('Quest complete', 'Portal available');
+      ui.toast('Inventory full', 'Free some space before picking up items');
+    });
+    await expect(page.locator('#toasts .toast')).toHaveCount(1);
+    const notice = await page.locator('#toasts .toast').boundingBox();
+    assert.ok(notice.y >= 0 && notice.y + notice.height <= 52 && notice.height <= 44, 'phone notices stay in the top title area');
+    await expect(page.locator('.topbar .identity')).toBeHidden();
+    await reachable(page, '.hud .skill, #joystick, .top-tools button');
+    await page.screenshot({ path: `${output}/notice-${width}x${height}.png` });
+    await expect(page.locator('#toasts .toast')).toHaveCount(0, { timeout: 3000 });
+    await expect(page.locator('.topbar .identity')).toBeVisible();
     assert.ok(await page.locator('.resource .orb small').evaluateAll(nodes => nodes.every(node => {
       const r = node.getBoundingClientRect(), orb = node.closest('.orb').getBoundingClientRect();
       return r.top >= orb.top && r.bottom <= orb.bottom && r.left >= orb.left && r.right <= orb.right;
@@ -196,6 +287,7 @@ try {
   const pc = await enter(desktop);
   for (const [width, height] of [[1440, 900], [1024, 768], [844, 390], [390, 844]]) {
     await pc.setViewportSize({ width, height });
+    await resourceProgress(pc, false);
     for (const panel of [null, 'inventory', 'skills', 'pause']) {
       await pc.evaluate(panel => panel ? window.mobileGame.ui.openPanel(panel) : window.mobileGame.ui.closePanel(), panel);
       const difference = await pc.evaluate(() => {

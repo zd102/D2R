@@ -191,7 +191,7 @@ export class GameWorld {
     const timber = mat(0x64675b), redCanvas = mat(0x923f4b), blueCanvas = mat(0x4b7885);
     for (let z = -13; z <= 18; z++) for (let x = -15; x <= 15; x++) {
       this.floorCells.push({ x, z });
-      const facilities = [CAMP.portal, CAMP.mysteryPortal, CAMP.returnPortal, CAMP.supply, CAMP.baseMerchant, CAMP.mercenaryMerchant, CAMP.stash];
+      const facilities = [CAMP.portal, CAMP.mysteryPortal, CAMP.returnPortal, CAMP.supply, CAMP.baseMerchant, CAMP.mercenaryMerchant, CAMP.socketMerchant, CAMP.gamblingMerchant, CAMP.stash];
       const onPath = facilities.some(p => {
         const dx = p.x - CAMP.spawn.x, dz = p.z - CAMP.spawn.z;
         const t = Math.max(0, Math.min(1, ((x - CAMP.spawn.x) * dx + (z - CAMP.spawn.z) * dz) / (dx * dx + dz * dz)));

@@ -110,7 +110,7 @@ try {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForFunction(() => document.querySelector('[data-container="shared"]').closest('.shared-grid-scroll').scrollTop > 25);
       await page.waitForTimeout(400);
-      assert.deepEqual(await state(), original, 'shared stash swipe scrolls without moving items or changing revisions');
+      assert.deepEqual(await state(), original, 'shared stash item swipe scrolls without moving items or changing revisions');
       await expect(page.locator('.item-drag-ghost')).toHaveCount(0);
     }
     before = await state(); await dropRegion('shared', 'shared-large', 3, 0, false); assert.deepEqual(await state(), before);

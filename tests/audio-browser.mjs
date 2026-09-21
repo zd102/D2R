@@ -12,7 +12,8 @@ try {
     const response = await route.fetch();
     await route.fulfill({ response, body: (await response.text()).replace('const game = new Game();', 'const game = new Game(); window.audioTestGame = game;') });
   });
-  await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173');
+  const url = new URL(process.env.BASE_URL || 'http://127.0.0.1:5173'); url.searchParams.set('mode', 'local');
+  await page.goto(url.href);
   await expect(page.getByRole('dialog', { name: '选择角色', exact: true })).toBeVisible();
   assert.equal(await page.evaluate(() => !!window.audioTestGame.audio.context), false, 'no audio context before gesture');
   await page.getByRole('button', { name: '新建角色', exact: true }).click();
@@ -117,6 +118,31 @@ try {
     audio.unlock(); await audio.context.resume(); await audio.preload(); const plays = audio.play('potion'), failed = audio.diagnostics().failedFiles; audio.dispose(); return { plays, failed };
   });
   assert.equal(report.failure.plays, true); assert.deepEqual(report.failure.failed, ['local/unavailable.flac']);
+  // Exercise native playback even on machines without the original pack.
+  // A stereo WAV fixture has different left/right samples to detect downmixing.
+  const wav = Buffer.alloc(44 + 4800 * 4);
+  wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(2, 22);
+  wav.writeUInt32LE(48000, 24); wav.writeUInt32LE(192000, 28); wav.writeUInt16LE(4, 32); wav.writeUInt16LE(16, 34);
+  wav.write('data', 36); wav.writeUInt32LE(wav.length - 44, 40);
+  for (let i = 0; i < 4800; i++) { wav.writeInt16LE(Math.round(Math.sin(i / 20) * 2000), 44 + i * 4); wav.writeInt16LE(Math.round(Math.cos(i / 30) * 1000), 46 + i * 4); }
+  await page.route('**/audio/local/hd/fixture.wav', route => route.fulfill({ contentType: 'audio/wav', body: wav }));
+  report.nativeFixture = await page.evaluate(async () => {
+    const { GameAudio } = await import('/src/audio.ts');
+    const audio = new GameAudio({ sounds: { potion: ['local/hd/fixture.wav'], 'cast:fixture': ['local/unavailable.flac'] } });
+    audio.unlock(); await audio.context.resume(); await audio.preload(); audio.volume = .35;
+    const sources = [], sends = [], start = AudioBufferSourceNode.prototype.start, connect = GainNode.prototype.connect;
+    AudioBufferSourceNode.prototype.start = function (...args) { sources.push({ rate: this.playbackRate.value, channels: this.buffer.numberOfChannels, distinct: this.buffer.getChannelData(0)[0] !== this.buffer.getChannelData(1)?.[0] }); return start.apply(this, args); };
+    GainNode.prototype.connect = function (...args) { if (args[0] instanceof GainNode) sends.push(this.gain.value); return connect.apply(this, args); };
+    try {
+      audio.play('potion', { nativeKey: 'cast:fixture' });
+      // The event send connects to a channel gain, whereas layer gain connects
+      // to the event envelope. Verify zero added reverb and single native layer.
+      return { sources, sends };
+    } finally { AudioBufferSourceNode.prototype.start = start; GainNode.prototype.connect = connect; audio.dispose(); }
+  });
+  assert.deepEqual(report.nativeFixture.sources, [{ rate: 1, channels: 2, distinct: true }]);
+  assert.deepEqual(report.nativeFixture.sends, [0, 1], 'native sound bypasses synthetic reverb, including generic native fallback');
   assert.deepEqual(errors, []);
   await writeFile(`${output}/report.json`, JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ native: report.native, loaded: report.loaded, fallback: report.fallback.played, mute: report.mute, result: 'passed' }, null, 2));

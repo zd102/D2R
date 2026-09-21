@@ -26,7 +26,7 @@ async function loadCamp(page, creating = false) {
   assert.equal(s.area.id, 'camp'); assert.equal(s.area.name, CAMP.name); assert.equal(s.enemies.length, 0);
   assert.equal(s.enemyProjectiles, 0); assert.equal(s.enemyHazards, 0); assert.equal(s.loot.length, 0);
   assert.deepEqual(s.position, CAMP.spawn);
-  assert.deepEqual(s.objectives.map(p => p.kind), ['camp-portal', 'supply', 'base-merchant', ...(s.campaign.cleared.some(count => count >= 5) ? ['mercenary-merchant'] : [])]);
+  assert.deepEqual(s.objectives.map(p => p.kind), ['camp-portal', 'supply', 'base-merchant', ...(s.campaign.cleared.some(count => count >= 5) ? ['mercenary-merchant'] : []), ...(s.campaign.cleared[0] >= 25 ? ['gambling-merchant', 'socket-merchant'] : [])]);
   for (const p of s.objectives) assert.ok(p.route.length, 'Camp facilities are reachable');
   await pause(page);
   await page.keyboard.press('Escape');
@@ -92,15 +92,15 @@ try {
   assert.ok((await state(page)).enemies.length > 0);
   await pause(page);
   const before = await state(page);
-  await page.evaluate(prefix => {
-    window.campOriginalSetItem = Storage.prototype.setItem;
-    Storage.prototype.setItem = function(key, value) { if (key.startsWith(prefix)) throw new DOMException('Full', 'QuotaExceededError'); return window.campOriginalSetItem.call(this, key, value); };
-  }, PROFILE_PREFIX);
+  await page.evaluate(() => {
+    window.campOriginalPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function(...args) { if (this.name === 'shared') throw new DOMException('Full', 'QuotaExceededError'); return window.campOriginalPut.apply(this, args); };
+  });
   await page.getByRole('button', { name: '返回营地', exact: true }).click();
   await page.getByText('无法保存', { exact: true }).waitFor();
   assert.equal((await state(page)).inCamp, false); assert.deepEqual((await state(page)).campaign, before.campaign);
   assert.deepEqual((await state(page)).enemies, before.enemies);
-  await page.evaluate(() => { Storage.prototype.setItem = window.campOriginalSetItem; });
+  await page.evaluate(() => { IDBObjectStore.prototype.put = window.campOriginalPut; });
   await page.getByRole('button', { name: '返回营地', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState.inCamp && !window.eclipseState.paused);
   assert.deepEqual((await state(page)).campaign, before.campaign);
@@ -119,16 +119,20 @@ try {
   for (const index of [8, 9]) await expect(veteran.locator(`[data-enter-level="${index}"]`)).toBeDisabled();
   await expect(veteran.locator('[data-campaign-difficulty="2"]')).toBeDisabled();
   await veteran.locator('[data-enter-level="6"]').click();
+  await veteran.waitForFunction(() => !window.eclipseState.inCamp && !window.eclipseState.saveBusy);
   const replay = await state(veteran); assert.equal(replay.inCamp, false); assert.equal(replay.bossDefeated, false); assert.equal(replay.area.questReady, true);
   assert.equal(replay.enemies.filter(enemy => enemy.boss).length, 1);
   await returnToCamp(veteran); await portal(veteran); await veteran.locator('[data-enter-level="7"]').click();
+  await veteran.waitForFunction(() => !window.eclipseState.inCamp && !window.eclipseState.saveBusy);
   assert.equal((await state(veteran)).campaign.current, 7); assert.equal((await state(veteran)).area.questReady, false);
   await veteran.reload(); await loadCamp(veteran); assert.equal((await state(veteran)).campaign.current, 7);
   await veteran.close();
   const partial = newHero(); partial.campaign.kills = 4;
   const resumed = await newPage(partial); await portal(resumed); await resumed.locator('[data-enter-level="0"]').click();
+  await resumed.waitForFunction(() => !window.eclipseState.inCamp && !window.eclipseState.saveBusy);
   assert.equal((await state(resumed)).campaign.kills, 4);
   await returnToCamp(resumed); await portal(resumed); await resumed.locator('[data-enter-level="0"]').click();
+  await resumed.waitForFunction(() => !window.eclipseState.inCamp && !window.eclipseState.saveBusy);
   assert.equal((await state(resumed)).campaign.kills, 4); await resumed.close();
   console.log('Existing saves, independent difficulty unlocks, cleared replay and partial quest resumption passed');
 
@@ -137,6 +141,7 @@ try {
     await canvasCheck(mobile); await mobile.screenshot({ path: `${output}/camp-${viewport.width}.png` });
     await portal(mobile, true); await mobile.screenshot({ path: `${output}/portal-${viewport.width}.png` });
     await mobile.locator('[data-enter-level="0"]').tap();
+    await mobile.waitForFunction(() => !window.eclipseState.inCamp && !window.eclipseState.saveBusy);
     assert.equal((await state(mobile)).inCamp, false);
     await returnToCamp(mobile); assert.equal((await state(mobile)).enemies.length, 0);
     await mobile.close();

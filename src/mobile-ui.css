@@ -62,6 +62,8 @@
   .hud .resource.mana { top: calc(var(--touch-top) + 76px); }
   .hud .orb-frame { width: 100%; height: 22px; border: 1px solid #967343; border-radius: 5px; padding: 2px; background: #100c09d9; }
   .hud .orb { border-radius: 2px; width: 100%; height: 100%; box-shadow: none; }
+  .hud .orb-fill { left: 0; width: var(--resource-fill, 100%); height: 100%; transition: width .3s; }
+  .hud .orb-fill::before { display: none; }
   .hud .orb > span { inset: 0; transform: none; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4px; font: 11px/16px Georgia, serif; }
   .hud .health .orb > span::before { content: '生命'; font: 10px sans-serif; }
   .hud .mana .orb > span::before { content: '法力'; font: 10px sans-serif; }
@@ -126,8 +128,17 @@
     white-space: normal; text-align: center; z-index: 7;
   }
   #context-action kbd { display: none; }
-  #toasts { top: 36%; bottom: auto; left: 50%; transform: translateX(-50%); width: min(260px, 76vw); pointer-events: none; }
-  #toasts .toast { padding: 8px 10px; }
+  /* Temporarily use the title area, leaving the world and touch controls clear. */
+  #app:has(#toasts .toast) .topbar .identity { visibility: hidden; }
+  #toasts {
+    top: var(--touch-top); bottom: auto; left: var(--touch-left); transform: none;
+    width: calc(100% - var(--touch-left) - var(--touch-right) - 106px);
+    pointer-events: none;
+  }
+  #toasts .toast { margin: 0; padding: 4px 8px; max-height: 44px; overflow: hidden; animation: none; text-align: left; }
+  #toasts .toast strong, #toasts .toast span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 18px; }
+  #toasts .toast strong { font-size: 12px; }
+  #toasts .toast span { font-size: 11px; }
   #toasts .toast:not(:last-child) { display: none; }
 
   /* Dialog headers stay fixed; each workspace owns its scrolling. */
@@ -204,7 +215,7 @@
   #party-status { top: calc(var(--touch-top) + 54px); gap: 3px; }
   #boss-bar { top: calc(var(--touch-top) + 60px); width: 200px; }
   #context-action { bottom: calc(var(--touch-controls-bottom) + 60px); max-width: 210px; }
-  #toasts { top: 30%; width: 210px; }
+  #toasts { width: 132px; }
   #overlay .panel-header { min-height: 50px; padding-block: 2px; }
   #overlay .panel-header small { display: none; }
   #overlay .panel-body { padding: 8px 10px; }

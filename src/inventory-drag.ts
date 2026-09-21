@@ -10,7 +10,7 @@ const containerNames: Record<Container, string> = { inventory: '背包', stash: 
 const isContainer = (value?: string): value is Container => value === 'inventory' || value === 'stash' || value === 'shared' || value === 'cube';
 type Drag = {
   source: HTMLButtonElement; grid?: HTMLElement; items: Item[]; item: Item; rows: number; columns: number; sourceSlot?: Slot;
-  container: Container; panel: 'inventory' | 'shared-stash';
+  container: Container; panel: 'inventory' | 'shared-stash' | 'gambling-shop';
   sourceContainer: Container; sourceGrid?: HTMLElement;
   origin: ItemPosition; x: number; y: number; active: boolean; inside: boolean; valid: boolean;
   pointerId: number | null; startX: number; startY: number; clientX: number; clientY: number;
@@ -18,12 +18,13 @@ type Drag = {
   ghost?: HTMLElement; hintBox?: HTMLElement; preview?: HTMLElement; swapPreview?: HTMLElement; dock?: HTMLElement;
   slotTarget?: HTMLButtonElement; equipCheck?: { slot: Slot; valid: boolean; reason: string };
   storageTarget?: HTMLElement; autoPlace: boolean; swapped: number; hint: string;
-  touchPending?: boolean; moved?: boolean;
+  touchPending?: boolean; touchId?: number; moved?: boolean;
 };
 
 export class InventoryDrag {
   private ui: UI;
   private drag?: Drag;
+  get isDragging() { return !!this.drag; }
   private frame = 0;
   private lastFrame = 0;
   private suppressClick = false;
@@ -36,19 +37,34 @@ export class InventoryDrag {
       if (this.drag && this.drag.pointerId !== event.pointerId) this.cancel();
     }, true);
     ui.overlay.addEventListener('pointerdown', event => this.pointerDown(event));
-    // Native scrolling remains available until a stationary hold picks up the item.
-    ui.overlay.addEventListener('touchmove', event => {
-      if (this.drag?.active && this.drag.pointerId !== null && event.cancelable) event.preventDefault();
-    }, { passive: false });
+    ui.overlay.addEventListener('touchstart', event => {
+      if (event.touches.length !== 1) { this.cancel(); return; }
+      if (this.drag?.touchPending) this.drag.touchId = event.changedTouches[0].identifier;
+    }, { passive: true });
+    // Keep touch ownership through a long press. Browsers can cancel the pointer
+    // stream when pan-y is allowed, even while touch events are still available.
+    window.addEventListener('touchmove', event => this.touchMove(event), { capture: true, passive: false });
+    window.addEventListener('touchend', event => {
+      const drag = this.drag;
+      const touch = Array.from(event.changedTouches).find(touch => touch.identifier === drag?.touchId);
+      if (!drag || !touch) return;
+      if (drag.active) {
+        if (event.cancelable) event.preventDefault();
+        this.updatePointer(touch.clientX, touch.clientY); this.finish();
+      } else this.cancel();
+    }, { capture: true, passive: false });
+    window.addEventListener('touchcancel', event => {
+      if (Array.from(event.changedTouches).some(touch => touch.identifier === this.drag?.touchId)) this.cancel();
+    }, true);
     window.addEventListener('pointermove', event => this.pointerMove(event), { capture: true, passive: false });
     window.addEventListener('pointerup', event => {
-      if (event.pointerId !== this.drag?.pointerId) return;
+      if (event.pointerId !== this.drag?.pointerId || this.drag.touchId !== undefined) return;
       if (this.drag.active) { event.preventDefault(); this.updatePointer(event.clientX, event.clientY); this.finish(); }
       else this.cancel();
     }, true);
-    window.addEventListener('pointercancel', event => { if (event.pointerId === this.drag?.pointerId) this.cancel(); }, true);
+    window.addEventListener('pointercancel', event => { if (event.pointerId === this.drag?.pointerId && this.drag.touchId === undefined) this.cancel(); }, true);
     // Touch starts with implicit capture on the item; handing it to the overlay is not a cancellation.
-    ui.overlay.addEventListener('lostpointercapture', event => { if (event.target === ui.overlay && event.pointerId === this.drag?.pointerId) this.cancel(); });
+    ui.overlay.addEventListener('lostpointercapture', event => { if (event.target === ui.overlay && event.pointerId === this.drag?.pointerId && this.drag.touchId === undefined) this.cancel(); });
     ui.overlay.addEventListener('dragstart', event => { if ((event.target as Element).closest('.bag-item,[data-equipment-slot]')) event.preventDefault(); });
     ui.overlay.addEventListener('contextmenu', event => { if (this.drag) event.preventDefault(); });
     ui.overlay.addEventListener('scroll', () => {
@@ -66,7 +82,7 @@ export class InventoryDrag {
   }
 
   private prepare(source: HTMLButtonElement): Drag | undefined {
-    if (source.disabled || this.ui.panel !== 'inventory' && this.ui.panel !== 'shared-stash' || this.ui.game.saveConflict || this.ui.sharedStashScreen.busy) return;
+    if (source.disabled || this.ui.panel !== 'inventory' && this.ui.panel !== 'shared-stash' && this.ui.panel !== 'gambling-shop' || this.ui.game.saveConflict || this.ui.game.onlineSaveBusy || this.ui.sharedStashScreen.busy) return;
     const sourceSlot = source.dataset.equipmentSlot as Slot | undefined;
     const grid = (sourceSlot ? this.ui.overlay.querySelector<HTMLElement>('.diablo-grid') : source.closest<HTMLElement>('.diablo-grid')) ?? undefined;
     const container = grid?.dataset.container ?? (sourceSlot ? 'inventory' : undefined); if (!isContainer(container) || container === 'cube' && !hasCube(this.ui.game.hero)) return;
@@ -101,10 +117,10 @@ export class InventoryDrag {
 
   private pointerMove(event: PointerEvent) {
     const drag = this.drag; if (!drag || event.pointerId !== drag.pointerId) return;
+    if (drag.touchId !== undefined) return;
     if (event.pointerType === 'mouse' && !(event.buttons & 1)) { this.cancel(); return; }
     if (drag.touchPending) {
       if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 8) { this.cancel(); this.suppressClick = true; }
-      else { drag.clientX = event.clientX; drag.clientY = event.clientY; }
       return;
     }
     if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
@@ -113,8 +129,28 @@ export class InventoryDrag {
     this.updatePointer(event.clientX, event.clientY);
   }
 
+  private touchMove(event: TouchEvent) {
+    const drag = this.drag;
+    const touch = Array.from(event.changedTouches).find(touch => touch.identifier === drag?.touchId);
+    if (!drag || !touch) return;
+    if (drag.touchPending) {
+      if (Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) > 8) {
+        this.cancel(); this.suppressClick = true;
+      } else { drag.clientX = touch.clientX; drag.clientY = touch.clientY; }
+      return; // A swipe keeps native scrolling, including over a full warehouse.
+    }
+    if (drag.active) {
+      if (!event.cancelable) { this.cancel(); return; }
+      event.preventDefault();
+      this.updatePointer(touch.clientX, touch.clientY);
+    }
+  }
+
   private startPointerDrag() {
-    this.activate(); this.ui.hideTooltip(); this.ui.overlay.setPointerCapture(this.drag!.pointerId!);
+    clearTimeout(this.holdTimer); this.holdTimer = undefined;
+    if (this.drag?.touchPending) this.drag.touchPending = false;
+    this.activate(); this.ui.hideTooltip();
+    if (this.drag!.touchId === undefined) this.ui.overlay.setPointerCapture(this.drag!.pointerId!);
     this.lastFrame = performance.now(); this.frame = requestAnimationFrame(now => this.autoScroll(now));
   }
 
@@ -138,7 +174,7 @@ export class InventoryDrag {
         const containers: Container[] = drag.panel === 'shared-stash' ? ['inventory', 'stash', 'shared'] : hasCube(this.ui.game.hero) ? ['inventory', 'stash', 'cube'] : ['inventory', 'stash'];
         drag.dock.innerHTML = `<div class="drag-dock-title">拖到这里卸下 · 自动放入空位</div><div>${containers.map(container => `<button data-drop-container="${container}">${containerNames[container]}</button>`).join('')}</div>`;
         document.body.append(drag.dock);
-      } else if (innerWidth <= 700 || innerHeight <= 580) {
+      } else if (drag.panel !== 'gambling-shop' && (innerWidth <= 700 || innerHeight <= 580)) {
         drag.dock = document.createElement('aside'); drag.dock.className = 'drag-equipment-dock';
         drag.dock.setAttribute('aria-label', '拖拽到装备部位以装备');
         drag.dock.innerHTML = `<div class="drag-dock-title">拖到对应部位即可装备</div>${equipmentPanel(this.ui.game.hero)}`;
@@ -306,11 +342,19 @@ export class InventoryDrag {
       void this.ui.sharedStashScreen.transfer(slot ? { direction: 'equip', itemId: drag.item.id, target: slot } : { direction: 'move', itemId: drag.item.id, x: drag.x, y: drag.y });
       return;
     }
+    const previous = drag.panel === 'gambling-shop' ? structuredClone(this.ui.game.hero) : undefined;
     const changed = drag.sourceSlot ? slot ? swapRingSlots(this.ui.game.hero, drag.sourceSlot, slot) : unequipToItems(this.ui.game.hero, drag.items, drag.sourceSlot, drag.rows, drag.autoPlace ? undefined : { x: drag.x, y: drag.y })
       : slot ? equipFromItems(this.ui.game.hero, drag.items, drag.item.id, slot, drag.rows)
       : drag.container !== drag.sourceContainer && drag.container !== 'shared' ? transferItem(this.ui.game.hero, drag.item.id, drag.container, drag.autoPlace ? undefined : { x: drag.x, y: drag.y }) : moveItem(drag.items, drag.item.id, drag.x, drag.y, drag.rows, drag.columns);
     if (!changed) return;
     this.ui.selectedItem = drag.item.id;
+    if (previous) {
+      this.ui.game.commitSave(() => {
+        this.ui.renderPanel();
+        [...this.ui.overlay.querySelectorAll<HTMLButtonElement>('.bag-item')].find(button => button.dataset.item === drag.item.id)?.focus({ preventScroll: true });
+      }, () => { this.ui.game.hero = previous; this.ui.renderPanel(); });
+      return;
+    }
     if (drag.panel === 'shared-stash') this.ui.sharedStashScreen.selected = { side: slot ? 'equipment' : 'personal', id: drag.item.id };
     if (drag.sourceSlot && !slot && drag.container !== 'shared') {
       if (drag.panel === 'inventory') { this.ui.characterScreen.view = drag.container === 'cube' ? 'inventory' : drag.container; this.ui.characterScreen.inventoryPane = 'items'; }

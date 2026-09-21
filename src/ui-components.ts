@@ -10,6 +10,7 @@ const panelInfo: Record<string, [string, string]> = {
   map: ['map', '查看区域、目标与传送阵'],
   pause: ['settings', '调整设置，随时继续冒险'],
   'base-shop': ['hammer', '通关刷新货单，每件限购一次'],
+  'gambling-shop': ['coins', '安雅的神秘货单 · 花费金币，揭晓装备'],
   'mercenary-shop': ['swords', '雇佣米山，让沙漠卫士与你并肩作战'],
   mercenary: ['swords', '配置装备与光环，查看同伴状态'],
   shop: ['heart-pulse', '恢复状态，补充旅途所需'],

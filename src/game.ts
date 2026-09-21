@@ -1,3 +1,5 @@
+import { gamblingUnlocked, gamblingStock, buyGamble } from './gambling';
+import { moveStorage } from './model';
 import { PANDEMONIUM_BOSSES } from './pandemonium';
 import { CHALLENGE_KEYS, createClassTorch, isHellfireTorch } from './items';
 import { expansionMode } from './expansion-skills.ts';
@@ -29,6 +31,7 @@ import { rollChestLoot, chestContext } from './chests';
 import { PaladinCombat, type AttackSnapshot } from './combat';
 import { MercenaryCombat } from './mercenary-combat';
 import { mercenaryUnlocked, hireMercenary, mercenaryStats, feedMercenaryPotion, mercenaryPotionReason } from './mercenary';
+import { socketMerchantUnlocked, buySocketing } from './socket-merchant';
 import { BOSSES, ENCOUNTERS, MONSTERS, encounterPool, monsterTactic, type MonsterDef } from './bestiary';
 import { createMonsterActor } from './monster-models';
 import { MonsterCombat } from './monster-combat';
@@ -75,6 +78,9 @@ export class Game {
   ui: UI;
   mercenary = new MercenaryCombat(this);
   mercenaryVendor?: Actor;
+  socketVendor?: Actor;
+  gamblingVendor?: Actor;
+  gambleStock: string[] = [];
   combat: PaladinCombat;
   monsterCombat = new MonsterCombat(this);
   enemies: Enemy[] = [];
@@ -97,7 +103,7 @@ export class Game {
   target?: Enemy;
   pendingPickup?: number;
   pendingPortal = false;
-  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' | 'mercenaryMerchant' | 'returnPortal' = 'portal';
+  pendingCampTarget: 'portal' | 'stash' | 'mysteryPortal' | 'baseMerchant' | 'mercenaryMerchant' | 'socketMerchant' | 'gamblingMerchant' | 'returnPortal' = 'portal';
   campReturn?: CampReturn;
   pendingMysteryCorpse = false;
   pendingChest?: number;
@@ -328,6 +334,10 @@ export class Game {
     this.mercenary.clear();
     if (this.mercenaryVendor) this.disposeObject(this.mercenaryVendor.group);
     this.mercenaryVendor = undefined;
+    if (this.socketVendor) this.disposeObject(this.socketVendor.group);
+    this.socketVendor = undefined;
+    if (this.gamblingVendor) this.disposeObject(this.gamblingVendor.group);
+    this.gamblingVendor = undefined; this.gambleStock = [];
     if (!suspending) { this.combat?.classes.clear(); this.projectileVisuals.clear(); }
     this.world.scene.remove(this.actor.group, this.marker, this.selection, this.playerRing);
     if(this.actor.group.userData.classId!==this.hero.classId) {
@@ -357,6 +367,18 @@ export class Game {
       this.mercenaryVendor.group.position.set(CAMP.mercenaryMerchant.x, 0, CAMP.mercenaryMerchant.z);
       this.mercenaryVendor.group.rotation.y = -Math.PI / 2;
       this.world.scene.add(this.mercenaryVendor.group);
+    }
+    if (inCamp && socketMerchantUnlocked(this.hero)) {
+      this.socketVendor = createActor('hero', 'barbarian');
+      this.socketVendor.group.name = 'socket-merchant-body';
+      this.socketVendor.group.position.set(CAMP.socketMerchant.x, 0, CAMP.socketMerchant.z);
+      this.world.scene.add(this.socketVendor.group);
+    }
+    if (inCamp && gamblingUnlocked(this.hero)) {
+      this.gamblingVendor = createActor('hero', 'sorceress');
+      this.gamblingVendor.group.name = 'gambling-merchant-body';
+      this.gamblingVendor.group.position.set(CAMP.gamblingMerchant.x, 0, CAMP.gamblingMerchant.z);
+      this.world.scene.add(this.gamblingVendor.group);
     }
     this.cooldowns = resume?.cooldowns ?? emptyCooldowns(); this.attackTime = 0; this.invincible = 2;
     this.ui.hoveredEnemy = undefined; this.ui.floats.forEach(float => float.element.remove()); this.ui.floats = [];
@@ -425,6 +447,55 @@ export class Game {
     this.begin(); this.pendingCampTarget = 'baseMerchant';
     if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) this.ui.openPanel('base-shop');
     else { this.moveTo(new THREE.Vector3(CAMP.baseMerchant.x, 0, CAMP.baseMerchant.z)); this.pendingPortal = this.path.length > 0; }
+  }
+  get atSocketMerchant() {
+    return this.inCamp && !!this.profile && !this.dead && !this.saveConflict && socketMerchantUnlocked(this.hero) && Math.hypot(this.position.x - CAMP.socketMerchant.x, this.position.z - CAMP.socketMerchant.z) < 3.5;
+  }
+  useSocketMerchant() {
+    if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict || !socketMerchantUnlocked(this.hero)) return;
+    this.begin(); this.pendingCampTarget = 'socketMerchant';
+    if (this.atSocketMerchant) this.ui.openPanel('socket-shop');
+    else { this.moveTo(new THREE.Vector3(CAMP.socketMerchant.x, 0, CAMP.socketMerchant.z)); this.pendingPortal = this.path.length > 0; }
+  }
+  buySocketing(id: string) {
+    if (!this.atSocketMerchant || this.onlineOperation || this.ui.panel !== 'socket-shop') return;
+    const previous = structuredClone(this.hero), item = buySocketing(this.hero, id);
+    if (!item) { this.ui.toast('无法打孔', '请检查装备与金币'); return; }
+    return this.commitSave(() => {
+      this.audio.play('equip'); this.ui.toast(item.name, `打孔完成 · ${item.sockets} 孔`); this.ui.renderPanel();
+    }, () => { this.hero = previous; this.ui.renderPanel(); });
+  }
+  get atGamblingMerchant() {
+    return this.inCamp && !!this.profile && !this.dead && !this.saveConflict && gamblingUnlocked(this.hero) && Math.hypot(this.position.x - CAMP.gamblingMerchant.x, this.position.z - CAMP.gamblingMerchant.z) < 3.5;
+  }
+  useGamblingMerchant() {
+    if (!this.inCamp || !this.profile || this.paused || this.dead || this.saveConflict || !gamblingUnlocked(this.hero)) return;
+    this.begin(); this.pendingCampTarget = 'gamblingMerchant';
+    // Walk close enough to distinguish Anya from the neighboring socket vendor.
+    if (this.atGamblingMerchant && Math.hypot(this.position.x - CAMP.gamblingMerchant.x, this.position.z - CAMP.gamblingMerchant.z) < 1) this.ui.openPanel('gambling-shop');
+    else { this.moveTo(new THREE.Vector3(CAMP.gamblingMerchant.x, 0, CAMP.gamblingMerchant.z)); this.pendingPortal = this.path.length > 0; }
+  }
+  buyGamble(id: string) {
+    if (!this.atGamblingMerchant || this.onlineOperation || this.ui.panel !== 'gambling-shop') return;
+    if (!this.gambleStock.includes(id)) return;
+    const previous = structuredClone(this.hero), item = buyGamble(this.hero, id);
+    if (!item) { this.ui.toast('无法赌博', '请检查金币与背包空间'); return; }
+    return this.commitSave(() => {
+      this.audio.play('equip'); this.ui.toast(item.name, '赌博结果 · 已鉴定并收入背包'); this.ui.renderPanel();
+    }, () => { this.hero = previous; this.ui.renderPanel(); });
+  }
+  refreshGamblingStock() {
+    if (!this.atGamblingMerchant || this.onlineOperation || this.ui.panel !== 'gambling-shop') return;
+    this.gambleStock = gamblingStock(this.hero); this.ui.renderPanel();
+  }
+  manageGamblingItem(id: string, action: 'sell' | 'store') {
+    if (!this.atGamblingMerchant || this.onlineOperation || this.ui.panel !== 'gambling-shop' || !this.hero.inventory.some(item => item.id === id)) return;
+    const previous = structuredClone(this.hero);
+    const changed = action === 'sell' ? sellItem(this.hero, id) : moveStorage(this.hero, id, true);
+    if (!changed) { this.ui.toast(action === 'store' ? '私人仓库空间不足' : '无法出售此物品'); return; }
+    return this.commitSave(() => {
+      this.ui.selectedItem = undefined; this.ui.renderPanel();
+    }, () => { this.hero = previous; this.ui.renderPanel(); });
   }
   get atMercenaryMerchant() {
     return this.inCamp && !!this.profile && !this.dead && !this.saveConflict && mercenaryUnlocked(this.hero) && Math.hypot(this.position.x - CAMP.mercenaryMerchant.x, this.position.z - CAMP.mercenaryMerchant.z) < 3.5;
@@ -934,8 +1005,10 @@ export class Game {
         if (this.specialArea === 'cow') refreshBaseStock(this.hero);
         this.hero.bossDefeated = true; this.world.setExitActive(true); this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`); this.save(false); return;
       }
+      const hadGamblingMerchant = gamblingUnlocked(this.hero);
       const hadMercenaryMerchant = mercenaryUnlocked(this.hero);
       if (!completeCampaignLevel(this.hero)) return;
+      if (!hadGamblingMerchant && gamblingUnlocked(this.hero)) this.ui.toast('赌博商人已解锁', '安雅已抵达营地，可用金币赌博装备');
       if (!hadMercenaryMerchant && mercenaryUnlocked(this.hero)) this.ui.toast('佣兵商人已解锁', '返回营地可花金币雇佣米山');
       this.world.setExitActive(true); this.ui.toast(`${this.level.boss}已被击败`, `传送门已激活 · 靠近后按 F ${this.exitLabel}`);
       this.save(false);
@@ -981,8 +1054,8 @@ export class Game {
       if (isHellfireTorch(loot.item) && this.hero.inventory.some(isHellfireTorch)) { this.ui.toast('背包只能携带一枚地狱火炬'); return; }
       if (isAnnihilus(loot.item) && this.hero.inventory.some(isAnnihilus)) { this.ui.toast(loot.item.identified === false ? '背包中已有同类唯一物品' : '背包中已有毁灭'); return; }
       if (!packItems([...this.hero.inventory, loot.item])) { this.ui.toast('背包空间不足'); return; }
-      this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.identified === false ? `未鉴定 · ${groundItemName(loot.item)}` : loot.item.name, '已收入背包');
-    } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`);
+      this.hero.inventory.push(loot.item); placeItems(this.hero.inventory); this.ui.toast(loot.item.identified === false ? `未鉴定 · ${groundItemName(loot.item)}` : loot.item.name, '已收入背包', true);
+    } else if (loot.rune) { this.hero.runes.push(loot.rune); this.ui.toast(`${runeLabel(loot.rune)}符文`, '', true);
     } else if (loot.gold) { this.hero.gold += loot.gold; this.ui.floatText(`+${loot.gold}`, this.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 'gold'); }
     else if (loot.potion !== undefined) {
       if (!POTIONS[loot.potion] || this.hero.potions[loot.potion] >= POTION_LIMIT) return;
@@ -1008,12 +1081,12 @@ export class Game {
     if (POTIONS[index].kind === 'utility') {
       if (!useUtilityPotion(this.hero, index, stats(this.hero).maxStamina)) { this.ui.toast('药剂已用尽'); return; }
       this.burst(this.position.clone().setY(1), POTIONS[index].color, 15); this.audio.play('potion');
-      this.ui.toast(POTIONS[index].name, POTIONS[index].description); if (fromInventory) this.ui.renderPanel(); this.save(false); return;
+      this.ui.toast(POTIONS[index].name, POTIONS[index].description, true); if (fromInventory) this.ui.renderPanel(); this.save(false); return;
     }
     const s = stats(this.hero), reason = useRecoveryPotion(this.hero, index, s.maxHp, s.maxMana);
     if (reason) { this.ui.toast(reason); return; }
     this.burst(this.position.clone().setY(1), POTIONS[index].color, 15); this.audio.play('potion');
-    this.ui.toast(POTIONS[index].name, potionDescription(index, this.hero.classId));
+    this.ui.toast(POTIONS[index].name, potionDescription(index, this.hero.classId), true);
     if (fromInventory) this.ui.renderPanel(); this.save(false);
   }
 
@@ -1023,7 +1096,7 @@ export class Game {
     if (reason) { this.ui.toast(reason); return false; }
     if (!feedMercenaryPotion(this.hero)) return false;
     if (this.mercenary.position) this.burst(this.mercenary.position.clone().setY(1), 0xe25c65, 15);
-    this.audio.play('potion'); this.ui.toast('米山使用了生命药水', '按所用药水档位持续恢复生命'); this.save(false); return true;
+    this.audio.play('potion'); this.ui.toast('米山使用了生命药水', '按所用药水档位持续恢复生命', true); this.save(false); return true;
   }
   contextAction() {
     if (this.dead) return null;
@@ -1035,6 +1108,8 @@ export class Game {
       if (Math.hypot(this.position.x - CAMP.mysteryPortal.x, this.position.z - CAMP.mysteryPortal.z) < 3.5) return { name: '神秘传送阵', kind: 'mystery-portal', id: 0 };
       if (Math.hypot(this.position.x - CAMP.baseMerchant.x, this.position.z - CAMP.baseMerchant.z) < 3.5) return { name: '底材商人', kind: 'base-shop', id: 0 };
       if (this.atMercenaryMerchant) return { name: '佣兵商人', kind: 'mercenary-shop', id: 0 };
+      if (this.atGamblingMerchant && (!this.atSocketMerchant || Math.hypot(this.position.x - CAMP.gamblingMerchant.x, this.position.z - CAMP.gamblingMerchant.z) < Math.hypot(this.position.x - CAMP.socketMerchant.x, this.position.z - CAMP.socketMerchant.z))) return { name: '赌博商人', kind: 'gambling-shop', id: 0 };
+      if (this.atSocketMerchant) return { name: '打孔商人', kind: 'socket-shop', id: 0 };
       if (Math.hypot(this.position.x - CAMP.supply.x, this.position.z - CAMP.supply.z) < 3.5) return { name: '旅者补给', kind: 'shop', id: 0 };
       return null;
     }
@@ -1055,6 +1130,8 @@ export class Game {
     this.begin(); const action = this.contextAction(); if (!action) return;
     if (action.kind === 'corpse') { if (recoverCorpse(this.hero, !this.inCamp)) { this.ui.toast('装备已取回'); this.save(false); } else this.ui.toast('背包空间不足'); return; }
     if (action.kind === 'base-shop') { this.ui.openPanel('base-shop'); return; }
+    if (action.kind === 'gambling-shop') { this.ui.openPanel('gambling-shop'); return; }
+    if (action.kind === 'socket-shop') { this.ui.openPanel('socket-shop'); return; }
     if (action.kind === 'shop') { this.ui.openPanel('shop'); return; }
     if (action.kind === 'camp-portal') { this.ui.openPanel('campaign'); return; }
     if (action.kind === 'return-portal') { this.resumeCampReturn(); return; }
@@ -1288,7 +1365,7 @@ export class Game {
     this.position.set(this.body.position.x, this.combat.expansion.jumpHeight, this.body.position.z);
     const campTarget = CAMP[this.pendingCampTarget];
     if (this.pendingPortal && this.pendingCampTarget === 'returnPortal' && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.pendingPortal = false; this.resumeCampReturn(); return; }
-    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < 3.5) { this.ui.openPanel(this.pendingCampTarget === 'mercenaryMerchant' ? 'mercenary-shop' : this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
+    if (this.pendingPortal && Math.hypot(this.position.x - campTarget.x, this.position.z - campTarget.z) < (this.pendingCampTarget === 'gamblingMerchant' ? 1 : 3.5)) { this.ui.openPanel(this.pendingCampTarget === 'gamblingMerchant' ? 'gambling-shop' : this.pendingCampTarget === 'socketMerchant' ? 'socket-shop' : this.pendingCampTarget === 'mercenaryMerchant' ? 'mercenary-shop' : this.pendingCampTarget === 'baseMerchant' ? 'base-shop' : this.pendingCampTarget === 'stash' ? 'shared-stash' : this.pendingCampTarget === 'mysteryPortal' ? 'mystery-portal' : 'campaign'); return; }
     if (this.pendingMysteryCorpse) {
       const corpse = this.world.mysteryCorpse;
       if (!corpse || corpse.opened || !this.path.length && Math.hypot(this.position.x - corpse.x, this.position.z - corpse.z) > 3.2) this.pendingMysteryCorpse = false;

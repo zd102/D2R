@@ -28,6 +28,7 @@
     "test:item-special-effects": "node tests/item-special-effects-browser.mjs",
     "test:potions": "node tests/potions-browser.mjs",
     "test:mercenary": "node tests/mercenary-browser.mjs",
+    "test:gambling": "node tests/gambling-browser.mjs && node tests/gambling-inventory-browser.mjs",
     "test:nightmare-pressure": "node tests/nightmare-pressure-browser.mjs",
     "test:pandemonium": "node tests/pandemonium-browser.mjs",
     "test:maps": "node tests/maps-chests-browser.mjs",

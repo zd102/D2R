@@ -129,7 +129,8 @@ export class GameAudio {
       this.finishVoice(victim);
     }
     this.lastPlayed.set(kind, now);
-    const nativeFiles = (this.native[options.nativeKey ?? kind] ?? this.native[kind])?.filter(file => this.buffers.has(file));
+    const specificFiles = this.native[options.nativeKey ?? kind]?.filter(file => this.buffers.has(file));
+    const nativeFiles = specificFiles?.length ? specificFiles : this.native[kind]?.filter(file => this.buffers.has(file));
     // Use all available native variants; never immediately repeat a sample.
     const variantKey = options.nativeKey ?? kind, count = nativeFiles?.length || 3;
     const variant = ((this.variants.get(variantKey) ?? -1) + 1 + Math.floor(this.random() * Math.max(1, count - 1))) % count;
@@ -141,7 +142,9 @@ export class GameAudio {
     const volume = ctx.createGain(), pan = ctx.createStereoPanner(), send = ctx.createGain();
     const pitch = (nativeFiles?.length ? 1 : definition.rate * (.97 + this.random() * .06)) * Math.max(.5, Math.min(2, options.pitch ?? 1));
     volume.gain.value = 0; volume.gain.linearRampToValueAtTime(definition.gain * spatial.gain * clamp(options.gain, 1), now + .004);
-    pan.pan.value = spatial.pan; send.gain.value = definition.wet * (this.terrain === 'cave' || this.terrain === 'temple' ? 1 : .5);
+    // Native recordings already contain their authored acoustics; procedural
+    // reverb colors them and obscures the HD transients and stereo detail.
+    pan.pan.value = spatial.pan; send.gain.value = nativeFiles?.length ? 0 : definition.wet * (this.terrain === 'cave' || this.terrain === 'temple' ? 1 : .5);
     volume.connect(pan); pan.connect(this.buses![channel]); pan.connect(send); send.connect(this.sends![channel]);
     const voice: Voice = { kind, priority: definition.priority, gain: volume, nodes: [volume, pan, send], sources: [], end: now };
     let remaining = layers.length;
