@@ -1,4 +1,4 @@
-import { gamblingUnlocked, gamblingStock, gamblingPrice } from './gambling';
+import { gamblingUnlocked, gamblingStock, gamblingPrice, gamblingBaseTier } from './gambling';
 import { CHALLENGE_KEYS } from './items';
 import { socketMerchantUnlocked, socketMerchantPrice, socketMerchantReason, socketQuestRange } from './socket-merchant';
 import { PANDEMONIUM_BOSSES } from './pandemonium';
@@ -64,10 +64,10 @@ function socketShop(hero: HeroState) {
 
 function gamblingShop(game: Game) {
   const hero = game.hero;
-  return `<p class="quest-story">安雅 · 购买前仅展示底材，购买后揭晓属性并自动鉴定，可重复购买同类物品。</p><p class="quest-story">魔法 89.85% · 稀有 10% · 套装 0.1% · 暗金 0.05%。无符合等级的套装或暗金时会降级。物品等级随角色等级浮动（−5～+4），有机会升级为扩展或精英底材；不受难度与魔法寻获影响。</p><button class="secondary-button" data-action="refresh-gambling">免费刷新货单</button><div class="shop-items">${game.gambleStock.map(code => {
+  return `<div class="gambling-toolbar"><button class="secondary-button" data-action="refresh-gambling">免费刷新货单</button><span>${hero.gold.toLocaleString()} 金币</span><details class="gambling-rules"><summary>赌博规则</summary><p>购买后揭晓属性并自动鉴定，可重复购买。魔法 89.85% · 稀有 10% · 套装 0.1% · 暗金 0.05%；无符合等级的套装或暗金时会降级。物品等级随角色等级浮动（−5～+4），普通底材有机会升级为拓展或精英；不受难度与魔法寻获影响。</p></details></div><div class="shop-items">${game.gambleStock.map(code => {
     const base = BASES.find(base => base.baseCode === code)!, price = gamblingPrice(hero, base);
-    return `<div><div class="shop-item-icon gold-text">${icon(base.slot === 'weapon' ? 'sword' : 'gem')}</div><div><h3>${escapeHtml(base.name)}</h3><small>属性未知 · ${price.toLocaleString()} 金币</small></div><button class="secondary-button" data-buy-gamble="${code}" ${hero.gold < price ? 'disabled' : ''}>${hero.gold < price ? '金币不足' : '赌博'}</button></div>`;
-  }).join('')}</div><div class="inventory-gold">${hero.gold.toLocaleString()}<small>金币</small></div>`;
+    return `<div><h3>${escapeHtml(base.name)}</h3><small class="gambling-base-tier">底材 · ${gamblingBaseTier(code)}</small><button class="secondary-button" data-buy-gamble="${code}" aria-label="赌博${escapeHtml(base.name)} · ${price.toLocaleString()}金币" ${hero.gold < price ? 'disabled' : ''}>${price.toLocaleString()} 金</button></div>`;
+  }).join('')}</div>`;
 }
 
 export class UI {

@@ -31,7 +31,7 @@ async function failSave(page, fail) {
   }, fail);
 }
 try {
-  for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+  for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 }, { width: 360, height: 800 }, { width: 844, height: 390 }]) {
     const mobile = viewport.width < 900;
     const page = await browser.newPage({ viewport, isMobile: mobile, hasTouch: mobile });
     page.on('pageerror', error => errors.push(error.message));
@@ -51,6 +51,12 @@ try {
     await page.waitForFunction(() => window.gamblingBagGame?.profile && !window.gamblingBagGame.paused);
     await openShop(page);
     await expect(page.locator('.gambling-inventory .bag-item')).toHaveCount(3);
+    if (output) await page.screenshot({ path: `${output}/gambling-compact-${viewport.width}.png` });
+    assert.equal(await page.locator('[data-buy-gamble]').evaluateAll(buttons => buttons.length === 14 && buttons.every(button => {
+      const r = button.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth && button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+    })), true, 'all 14 gambling purchase buttons fit onscreen without scrolling');
+    await expect(page.locator('.shop-items .gambling-base-tier')).toHaveText(Array(14).fill('底材 · 普通'));
     const choose = async id => { const item = page.locator(`[data-item="${id}"]`); if (mobile) await item.tap(); else await item.click(); };
     await choose('sell-ring');
     await expect(page.locator('.gambling-inventory .item-details h3')).toHaveText(hero.inventory[0].name);

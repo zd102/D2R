@@ -1,3 +1,4 @@
+import { gamblingBaseTier } from './gambling';
 import { expansionMode } from './expansion-skills.ts';
 import { availableCharges, bindChargedSkill } from './model';
 import { ALL_SKILLS } from './paladin';
@@ -196,7 +197,7 @@ export class CharacterScreen {
   }
   gamblingInventory() {
     const h = this.game.hero, selected = h.inventory.find(item => item.id === this.ui.selectedItem);
-    return `<aside class="gambling-inventory" aria-label="赌博背包"><h3>背包</h3><p class="gambling-bag-hint">选中物品可出售或存入私人仓库，按住拖动可调整位置。</p>${this.inventoryGrid('inventory')}<span class="inventory-move-status" role="status" aria-live="polite" aria-atomic="true"></span><div class="item-details">${selected ? `<div class="item-actions"><button class="secondary-button" data-gambling-store="${escape(selected.id)}">${icon('archive')}存入私人仓库</button><button class="secondary-button" data-gambling-sell="${escape(selected.id)}">${icon('coins')}出售 · ${selected.value}</button></div>${itemDetails(h, selected, { showRanges: this.showRanges })}` : '<div class="empty-detail">选择背包物品查看属性、出售或存入仓库</div>'}</div></aside>`;
+    return `<aside class="gambling-inventory" aria-label="赌博背包"><h3>背包</h3><p class="gambling-bag-hint">选中物品可出售或存入私人仓库，按住拖动可调整位置。</p>${this.inventoryGrid('inventory')}<span class="inventory-move-status" role="status" aria-live="polite" aria-atomic="true"></span><div class="item-details">${selected ? `<div class="item-actions"><button class="secondary-button" data-gambling-store="${escape(selected.id)}">${icon('archive')}存入私人仓库</button><button class="secondary-button" data-gambling-sell="${escape(selected.id)}">${icon('coins')}出售 · ${selected.value}</button></div>${gamblingBaseTier(selected.baseCode) ? `<p class="gambling-base-tier">底材级别 · ${gamblingBaseTier(selected.baseCode)}</p>` : ''}${itemDetails(h, selected, { showRanges: this.showRanges })}` : '<div class="empty-detail">选择背包物品查看属性、出售或存入仓库</div>'}</div></aside>`;
   }
   inventory() {
     const h = this.game.hero;

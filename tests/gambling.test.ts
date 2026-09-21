@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newHero, parseSave, serializeSave } from '../src/model.ts';
 import { BASES, makeItem, placeItems } from '../src/items.ts';
-import { GAMBLING_FAMILIES, gamblingUnlocked, gamblingStock, gamblingPool, gamblingPrice, gamblingRarity, gamblingBase, buyGamble } from '../src/gambling.ts';
+import { GAMBLING_FAMILIES, gamblingUnlocked, gamblingStock, gamblingPool, gamblingPrice, gamblingRarity, gamblingBase, gamblingBaseTier, buyGamble } from '../src/gambling.ts';
 
 const hero = () => { const h = newHero(); h.level = 80; h.campaign.cleared[0] = 25; h.gold = 1000000; return h; };
 const base = (code: string) => BASES.find(base => base.baseCode === code)!;
@@ -24,6 +24,14 @@ test('gambling unlocks only after normal and stocks eligible normal bases with j
 });
 
 test('quality thresholds and exceptional/elite upgrades follow gambling rules', () => {
+  assert.equal(gamblingBaseTier('cap'), '普通');
+  assert.equal(gamblingBaseTier('xap'), '拓展');
+  assert.equal(gamblingBaseTier('uap'), '精英');
+  assert.equal(gamblingBaseTier('ci1'), '普通');
+  assert.equal(gamblingBaseTier('ci2'), '拓展');
+  assert.equal(gamblingBaseTier('ci3'), '精英');
+  assert.equal(gamblingBaseTier('rin'), '普通');
+  assert.equal(gamblingBaseTier(undefined), undefined);
   for (const [roll, rarity] of [[0, 'unique'], [.0004999, 'unique'], [.0005, 'set'], [.0014999, 'set'], [.0015, 'rare'], [.1014999, 'rare'], [.1015, 'magic'], [.99999, 'magic']] as const) assert.equal(gamblingRarity(roll), rarity);
   assert.equal(gamblingBase(base('cap'), 99, () => 0).baseCode, 'uap');
   assert.equal(gamblingBase(base('cap'), 99, rolls(.99, 0)).baseCode, 'xap');

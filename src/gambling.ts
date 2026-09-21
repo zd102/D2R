@@ -24,6 +24,10 @@ ci0/ci2/ci3 ci1/ci2/ci3 rin amu
 `.trim().split(/\s+/).map(family => family.split('/'));
 const bases = new Map(BASES.map(base => [base.baseCode, base]));
 export const GAMBLING_FAMILIES = families.map(codes => codes.map(code => bases.get(code)!));
+export function gamblingBaseTier(code?: string): '普通' | '拓展' | '精英' | undefined {
+  const family = GAMBLING_FAMILIES.find(family => family.some(base => base.baseCode === code));
+  return family ? (['普通', '拓展', '精英'] as const)[family.findIndex(base => base.baseCode === code)] : undefined;
+}
 const normalBases = GAMBLING_FAMILIES.map(family => family[0]);
 const draw = (random: () => number) => Math.max(0, Math.min(1 - Number.EPSILON, random()));
 export const gamblingUnlocked = (hero: HeroState) => hero.campaign.cleared[0] >= LEVELS.length;
