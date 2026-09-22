@@ -1,11 +1,10 @@
 # D2R 服务端安装包
 
-## v1.2.0 更新内容
+## v1.2.1 更新内容
 
-- 修复移动端双击缩放、背包长按拖拽与触摸滚动冲突，优化生命/法力条和战斗通知显示。
-- 普通难度通关后解锁拉苏克付费打孔与安雅赌博商店；赌博稀有品质概率提升至 20%。
-- 赌博商店支持直接管理背包，商品卡片展示基础等级；背包支持 Ctrl + 右键快速出售。
-- 调整营地商人位置与商店商品布局，优化高清音效导入并保留原始录音。
+- 修复服务端安装包缺失原版音效的问题，Windows/Linux 安装包现直接包含原版录音，无需额外导入。
+- 构建与打包时校验音频文件大小和 SHA-256，缺失或损坏时阻止发布。
+- 增加发布包本地与在线模式的原版音频播放回归验证。
 
 从 [GitHub Releases](https://github.com/zd102/D2R/releases/latest) 下载对应平台的安装包。程序内置 Node.js 和生产依赖，安装时无需 npm、Git 或下载运行环境。仅提供 x64；Windows 10 / Server 2019 及以上，Linux 需要 systemd、glibc 2.28+（推荐 Ubuntu 22.04/24.04）。
 
@@ -16,7 +15,7 @@
 静默部署：
 
 ```powershell
-Start-Process .\D2R-Server-1.2.0-windows-x64-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait
+Start-Process .\D2R-Server-1.2.1-windows-x64-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait
 Get-Service D2RServer
 ```
 
@@ -34,7 +33,7 @@ Get-Service D2RServer
 
 ```bash
 mkdir d2r-server
-tar -xzf D2R-Server-1.2.0-linux-x64.tar.gz -C d2r-server
+tar -xzf D2R-Server-1.2.1-linux-x64.tar.gz -C d2r-server
 cd d2r-server
 sudo bash install.sh
 systemctl status d2r-server
@@ -69,6 +68,6 @@ New-NetFirewallRule -DisplayName 'D2R Server LAN' -Direction Inbound -Protocol T
 
 发布安装包直接包含 `public/audio/local/manifest.json` 引用的 D2R 原版音效，无需在服务器另行导入。当前随包提供的是经典原版录音；未覆盖的事件仍使用后备音效。构建和打包会核对每个原版文件的大小与 SHA-256，缺失或损坏时终止发布，避免悄悄退回默认音效。已有安装需更新到包含此修复的新安装包。
 
-`main` 推送、Pull Request 和手动触发运行双平台测试、构建、打包及真实服务安装/升级检查；通过后的包可在 Actions artifacts 下载。推送与 `package.json` 版本一致的 `v版本号` 标签（例如 `v1.2.0`），两平台成功后自动创建 Release，附带安装包、本文档和 SHA-256 清单。失败不会发布只有一端产物的 Release。
+`main` 推送、Pull Request 和手动触发运行双平台测试、构建、打包及真实服务安装/升级检查；通过后的包可在 Actions artifacts 下载。推送与 `package.json` 版本一致的 `v版本号` 标签（例如 `v1.2.1`），两平台成功后自动创建 Release，附带安装包、本文档和 SHA-256 清单。失败不会发布只有一端产物的 Release。
 
 本地验证：`npm ci`、`npm test`、`npm run test:server`、`npm run build`、`npm run package:server`、`npm run test:package`。浏览器测试需要 `npx playwright install chromium`；也可指定 `BROWSER_CHANNEL=msedge` 使用本机 Edge。打包目录默认 `release/package`，必须是尚不存在的目录，避免覆盖既有产物。
