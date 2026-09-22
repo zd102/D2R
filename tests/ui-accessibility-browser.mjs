@@ -21,10 +21,10 @@ try {
     await expect(page.locator('input[value=paladin]')).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await expect(page.locator('input[value=amazon]')).toBeChecked();
-    await expect(page.locator('.profile-class-preview')).toContainText('初始生命50');
+    await expect(page.locator('.profile-class-preview')).toContainText('职业基础生命50');
     await page.keyboard.press('ArrowDown');
     await expect(page.locator('input[value=sorceress]')).toBeChecked();
-    await expect(page.locator('.profile-class-preview')).toContainText('初始法力35');
+    await expect(page.locator('.profile-class-preview')).toContainText('职业基础法力35');
     await page.keyboard.press('Tab');
     await expect(page.locator('#profile-name')).toBeFocused();
     await page.locator('#profile-name').fill('长夜旅者');

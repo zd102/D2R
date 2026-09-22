@@ -45,6 +45,12 @@ const tooltipItemKey = (element?: HTMLElement) => element?.dataset.item ?? eleme
 // Keep HUD values live every frame without rebuilding the surrounding interface.
 function setText(element: Element, value: string) { if (element.textContent !== value) element.textContent = value; }
 function setMarkup(element: Element, value: string) { if (element.innerHTML !== value) element.innerHTML = value; }
+function setAttribute(element: Element, name: string, value: string) { if (element.getAttribute(name) !== value) element.setAttribute(name,value); }
+function setStyle(element: HTMLElement, name: string, value: string) { if (element.style.getPropertyValue(name) !== value) element.style.setProperty(name,value); }
+function resourceFraction(value: number, maximum: number) { return Number.isFinite(value) && maximum > 0 ? Math.round(Math.max(0,Math.min(1,value/maximum))*1000)/1000 : 0; }
+function updateMeter(element: HTMLElement, value: number, maximum: number) {
+  setStyle(element,'transform',`scaleX(${resourceFraction(value,maximum)})`);
+}
 
 function progressionBaseShop(hero: HeroState) {
   const stock = hero.baseStock;
@@ -627,15 +633,20 @@ export class UI {
     if (this.tooltipTarget && !this.tooltipTarget.isConnected) this.hideTooltip();
     this.timer += dt;
     const hp = Math.ceil(h.hp), mana = Math.floor(h.mana);
-    document.getElementById('health-fill')!.style.setProperty('--resource-fill', `${Math.max(0, Math.min(1, h.hp / s.maxHp)) * 100}%`);
-    document.getElementById('mana-fill')!.style.setProperty('--resource-fill', `${Math.max(0, Math.min(1, h.mana / s.maxMana)) * 100}%`);
+    for(const [id,value,maximum,label] of [['health',h.hp,s.maxHp,'生命'],['mana',h.mana,s.maxMana,'法力']] as const) {
+      const fill=document.getElementById(`${id}-fill`)!,fraction=resourceFraction(value,maximum),orb=fill.parentElement!;
+      setStyle(fill,'--resource-level',String(fraction));
+      setAttribute(orb,'role','meter');setAttribute(orb,'aria-label',label);setAttribute(orb,'aria-valuemin','0');
+      setAttribute(orb,'aria-valuemax',String(maximum));setAttribute(orb,'aria-valuenow',String(Math.max(0,Math.min(maximum,id==='mana'?Math.floor(value):Math.ceil(value)))));
+      orb.classList.toggle('resource-low',fraction<=.25);
+    }
     setMarkup(document.getElementById('health-value')!, `${hp}<small>/ ${s.maxHp}</small>`);
     setMarkup(document.getElementById('mana-value')!, `${mana}<small>/ ${s.maxMana}</small>`);
     setText(document.getElementById('health-percent')!, `${Math.ceil(h.hp / s.maxHp * 100)}%`);
     setText(document.getElementById('mana-percent')!, `${Math.floor(h.mana / s.maxMana * 100)}%`);
     setText(document.getElementById('hero-level')!, `Lv. ${h.level}`);
     setText(document.getElementById('xp-value')!, h.level === 99 ? 'MAX' : `${Math.floor(h.xp / s.xpNeeded * 100)}%`);
-    document.getElementById('xp-fill')!.style.width = `${h.level === 99 ? 100 : Math.min(100, h.xp / s.xpNeeded * 100)}%`;
+    updateMeter(document.getElementById('xp-fill')!,h.level===99?1:h.xp,h.level===99?1:s.xpNeeded);
     document.querySelectorAll<HTMLButtonElement>('[data-potion-slot]').forEach(button => {
       const slot = Number(button.dataset.potionSlot), index = h.potionBindings[slot], potion = POTIONS[index], count = h.potions[index] ?? 0;
       setText(button.querySelector('b')!, count.toLocaleString());
@@ -666,7 +677,7 @@ export class UI {
     setText(document.getElementById('holy-shield-label')!, h.holyShield > 0 ? `圣盾 ${Math.ceil(h.holyShield)}s` : h.poison > 0 ? '中毒' : h.curse > 0 ? '伤害加深' : '');
     const ammo = document.getElementById('ammo-label')!;
     ammo.hidden = !s.ranged; setText(ammo, s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '');
-    document.getElementById('stamina-fill')!.style.width = `${Math.min(100, h.stamina / s.maxStamina * 100)}%`;
+    updateMeter(document.getElementById('stamina-fill')!,h.stamina,s.maxStamina);
     const runButton = document.querySelector<HTMLButtonElement>('[data-action="run-mode"]')!; runButton.setAttribute('aria-pressed', String(h.running)); runButton.dataset.tip = h.running ? '跑步' : '行走';
     const charges=availableCharges(h);
     const signature = JSON.stringify([game.movementMode, h.bindings, h.chargeBindings, charges]);
@@ -686,15 +697,16 @@ export class UI {
     document.querySelectorAll<HTMLButtonElement>('.skill[data-skill]').forEach(button => {
       const remaining = game.cooldowns[button.dataset.skill as Skill], cooldown = button.querySelector<HTMLElement>('.cooldown')!;
       setText(cooldown, remaining > .1 ? remaining.toFixed(1) : ''); button.classList.toggle('on-cooldown', remaining > .1);
-      const id = h.bindings[button.dataset.skill as Skill];
+      const id = h.bindings[button.dataset.skill as Skill], values=skillValues(id,skillLevel(h,id),h.skills);
+      setAttribute(button,'data-element',values.type);
       const binding=h.chargeBindings?.[button.dataset.skill as Skill];
-      button.classList.toggle('no-mana', binding ? !charges.some(charge=>charge.id===binding.id&&charge.rank===binding.rank&&charge.remaining>0) : h.mana < skillValues(id, skillLevel(h, id), h.skills).cost);
+      button.classList.toggle('no-mana', binding ? !charges.some(charge=>charge.id===binding.id&&charge.rank===binding.rank&&charge.remaining>0) : h.mana < values.cost);
       button.classList.toggle('aura-active', h.activeAura === id);
     });
     const action = game.contextAction(), context = document.getElementById('context-action')!;
     context.hidden = !action || game.paused || game.dead; if (action) setText(context.querySelector('span')!, action.name);
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
-    bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { bar.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`; setText(bar.querySelector('span')!, boss.name); bar.querySelector('span')!.title = boss.name; setText(bar.querySelector('small')!, (special || questComplete(h.campaign)) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
+    bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { updateMeter(bar.querySelector<HTMLElement>('i')!,boss.hp,boss.maxHp); const meter=bar.querySelector('div')!; setAttribute(meter,'role','meter'); setAttribute(meter,'aria-label',boss.name); setAttribute(meter,'aria-valuemin','0'); setAttribute(meter,'aria-valuemax',String(boss.maxHp)); setAttribute(meter,'aria-valuenow',String(Math.max(0,Math.ceil(boss.hp)))); setText(bar.querySelector('span')!, boss.name); bar.querySelector('span')!.title = boss.name; setText(bar.querySelector('small')!, (special || questComplete(h.campaign)) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
     const aliveKeys = new Set<string>();
     const updateOverhead = (key: string, actor: THREE.Group, resources: { name: string; value: number; max: number; kind: string }[]) => {
       const point = game.project(actor.position.clone().add(new THREE.Vector3(0, Number(actor.userData.labelHeight ?? 2.4), 0)));

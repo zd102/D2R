@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {createHeroActor,heroAction,playHeroAction,type HeroAction} from '../src/hero-models.ts';
-import {createImpact,createProjectileVisual,decorateGround,disposeVisual,updateVisual,updateHeroWards} from '../src/visual-effects.ts';
+import {createImpact,createLightning,createProjectileVisual,decorateGround,disposeVisual,updateVisual,updateHeroWards} from '../src/visual-effects.ts';
 
 test('hero motion keeps world placement, returns to rest and uses distinct action poses',()=>{
   for(const id of ['paladin','amazon','sorceress'] as const){
@@ -58,4 +58,29 @@ test('spell decoration animates without changing projectile world position or si
   for(const look of ['knife','axe'] as const){const mesh=createProjectileVisual('physical',look);mesh.position.set(4,.9,5);mesh.rotation.x=Math.PI/2;const rotation=mesh.quaternion.toArray();
     updateVisual(mesh,.2);assert.notEqual(mesh.children[0].rotation.z,0);assert.deepEqual(mesh.position.toArray(),[4,.9,5]);assert.deepEqual(mesh.quaternion.toArray(),rotation);disposeVisual(mesh);
   }
+});
+
+test('ground effects animate through uniforms without rewriting instance buffers',()=>{
+  for(const type of ['fire','cold','poison'] as const) {
+    const field=new THREE.Mesh(new THREE.CircleGeometry(3),new THREE.MeshBasicMaterial());
+    decorateGround(field,type,3);
+    const particles=field.children.find(child=>child instanceof THREE.InstancedMesh) as THREE.InstancedMesh;
+    const matrix=particles.instanceMatrix.array.slice(),version=particles.instanceMatrix.version;
+    for(let i=0;i<60;i++)updateVisual(field,i/60);
+    assert.deepEqual(particles.instanceMatrix.array,matrix);assert.equal(particles.instanceMatrix.version,version);
+    assert.equal((particles.material as THREE.ShaderMaterial).uniforms.effectTime.value,59/60);
+    assert.ok(particles.count<=32);assert.equal((field.material as THREE.ShaderMaterial).forceSinglePass,true);
+    updateVisual(field,1,0);assert.equal(particles.visible,false);
+    updateVisual(field,2,1);assert.equal(particles.visible,true);
+    disposeVisual(field);
+  }
+});
+
+test('lightning core, glow and branches share one draw without losing endpoints',()=>{
+  const from=new THREE.Vector3(-2,.8,0),to=new THREE.Vector3(2,.8,0),mesh=createLightning(from,to);
+  assert.equal(mesh.children.length,0);assert.ok(mesh.material.vertexColors);
+  mesh.geometry.computeBoundingBox();const box=mesh.geometry.boundingBox!;
+  assert.ok(box.min.x<=from.x+.001&&box.max.x>=to.x-.001);
+  assert.ok(mesh.geometry.attributes.color.count===mesh.geometry.attributes.position.count);
+  disposeVisual(mesh);
 });

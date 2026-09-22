@@ -2,7 +2,7 @@
    Layout lives in ui-layout.css; these tokens are shared by every screen. */
 :root {
   --ui-bg: #0c0b09;
-  --ui-panel: #191713;
+  --ui-panel: #171715;
   --ui-raised: #28231c;
   --ui-inset: #100f0c;
   --ui-border: #4b4030;
@@ -16,7 +16,7 @@
   --ui-blue: #a3bbf0;
   --ui-heading: "Palatino Linotype", "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
   --ui-metal: linear-gradient(180deg, #393126, #211d17 48%, #181510);
-  --ui-stone: radial-gradient(ellipse at 50% 0%, #8c693414, transparent 65%), repeating-linear-gradient(115deg, #ffffff02 0 1px, transparent 1px 5px), #191713;
+  --ui-stone: radial-gradient(ellipse at 50% 0%, #99977f12, transparent 65%), repeating-linear-gradient(115deg, #ffffff02 0 1px, transparent 1px 5px), #171715;
   --ui-frame: inset 0 0 0 1px #100d09, inset 0 0 0 3px #8d714629, 0 18px 70px #000b;
   --gold: var(--ui-gold);
   --muted: var(--ui-muted);
@@ -27,7 +27,7 @@
 }
 ::selection { background: #735632; color: #fff2d3; }
 * { scrollbar-color: #766144 var(--ui-inset); scrollbar-width: thin; }
-button, input, select, summary { transition: background-color .16s, border-color .16s, box-shadow .16s; }
+button, input, select, summary { transition: background-color .16s, border-color .16s; }
 button:disabled { opacity: .46; }
 button:hover:not(:disabled) { color: #fff0cc; }
 :is(button, input, select, summary, [tabindex]):focus-visible {
@@ -41,7 +41,7 @@ input::placeholder { color: #928571; }
 kbd { font-family: Georgia, "Microsoft YaHei", serif; font-variant-numeric: tabular-nums; }
 
 /* Engraved dialog frame. Ornament never intercepts an action. */
-#overlay { background: #070604ba; backdrop-filter: blur(5px); }
+#overlay { background: #070604cf; backdrop-filter: none; }
 .panel {
   border: 1px solid var(--ui-border-bright); border-radius: 2px; color: var(--ui-text);
   background: var(--ui-stone); box-shadow: var(--ui-frame);
@@ -493,6 +493,42 @@ kbd { font-family: Georgia, "Microsoft YaHei", serif; font-variant-numeric: tabu
   .roster-atmosphere p { font-size: 12px; }
   #boss-bar { top: 12px; width: 260px; }
 }
+/* Carved stone and dark iron. Static ornament avoids extra animated layers. */
+.panel { border-color: #887657; box-shadow: inset 0 0 0 1px #090907, inset 0 0 0 4px #72715c22, 0 12px 40px #000b; }
+.panel::before { content: ''; display: block; position: absolute; inset: 0 8px auto; height: 3px; background: linear-gradient(90deg, #c2a46c, #4b493b 12%, #4b493b 88%, #c2a46c); pointer-events: none; z-index: 1; }
+.panel .panel-header { background: radial-gradient(ellipse at 50% 0, #8f79582a, transparent 65%), linear-gradient(#34332d, #1c1c18); }
+.panel .panel-header h2 { color: #e8d7b2; text-shadow: 0 2px #000; }
+.panel-body { background: linear-gradient(90deg, #0002, transparent 8%, transparent 92%, #0002); }
+.hud-center { background: linear-gradient(#414039 0 3px, #151512 3px 6px, #25251f 6px, #12120f); border-color: #827458; box-shadow: inset 0 0 0 2px #080806, inset 0 -3px #514731, 0 4px 16px #0009; }
+.hero-strip { border-color: #62573d; }
+.orb-frame { background: conic-gradient(#4d4c40, #aaa389 12%, #49483e 25%, #171813 44%, #777361 64%, #ada288 77%, #414137 92%, #4d4c40); border-color: #8c8167; }
+.orb { isolation: isolate; }
+.orb-fill { height: 100%; transform: scaleY(var(--resource-level, 1)); transform-origin: center bottom; transition: transform .18s; }
+.orb-fill::before { animation: none; inset: 0 -20%; border-top-width: 1px; }
+.health .orb-fill { background: radial-gradient(ellipse at 38% 32%, #dd4c36, #981714 48%, #330609 90%); }
+.mana .orb-fill { background: radial-gradient(ellipse at 38% 32%, #537ae9, #183b97 48%, #090d32 90%); }
+.health .orb.resource-low { box-shadow: inset 0 0 0 2px #ef9a70, 0 0 0 1px #a43725; }
+.mana .orb.resource-low { box-shadow: inset 0 0 0 2px #92b4ed; }
+.resource-caption, .orb > span, .skill .cooldown { font-variant-numeric: tabular-nums; }
+#xp-fill, #stamina-fill, #boss-bar i { width: 100%; transform-origin: left center; transition: transform .18s; }
+.xp-track { background: #090b08; box-shadow: inset 0 0 0 1px #625537; }
+.xp-track i { background: linear-gradient(#b5bf71, #637640); }
+.skill[data-skill] { --skill-tint: #d2bf90; color: var(--skill-tint); border-color: #817456; background: radial-gradient(ellipse at 50% 25%, #9b906830, transparent 65%), linear-gradient(#383830, #11130f); }
+.skill[data-element=fire] { --skill-tint: #f3a264; }
+.skill[data-element=cold] { --skill-tint: #b8e6ff; }
+.skill[data-element=lightning] { --skill-tint: #e3e8ff; }
+.skill[data-element=poison] { --skill-tint: #afd079; }
+.skill[data-element=magic] { --skill-tint: #edd2a1; }
+.skill[data-skill] > svg { filter: drop-shadow(0 1px 2px #000); }
+.skill[data-skill].aura-active { border-color: #d0ba77; box-shadow: inset 0 0 0 2px #272416, inset 0 -3px #d0ba77; }
+.skill[data-skill].no-mana { border-bottom-color: #7297d2; }
+.skill[data-skill].on-cooldown .cooldown { background: #080a0cd9; color: #f7e5bf; text-shadow: 0 1px 2px #000; }
+#boss-bar > div { height: 11px; border-color: #9b8158; background: #130806; box-shadow: 0 0 0 2px #0b0907, inset 0 0 0 1px #000; }
+#boss-bar i { background: linear-gradient(#cd6941, #8b281c 38%, #51100e 80%, #9b4028); }
+.quest-track { background: #10110fe8; border-color: #6d6249; }
+.item-affixes { color: #a9bbef; }
+.item-details .item-basics { background: #10110e; }
+.character-tabs button[aria-selected=true], .compact-tabs button[aria-pressed=true] { background: linear-gradient(#494332, #29271e); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

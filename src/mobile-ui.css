@@ -62,7 +62,7 @@
   .hud .resource.mana { top: calc(var(--touch-top) + 76px); }
   .hud .orb-frame { width: 100%; height: 22px; border: 1px solid #967343; border-radius: 5px; padding: 2px; background: #100c09d9; }
   .hud .orb { border-radius: 2px; width: 100%; height: 100%; box-shadow: none; }
-  .hud .orb-fill { left: 0; width: var(--resource-fill, 100%); height: 100%; transition: width .3s; }
+  .hud .orb-fill { left: 0; width: 100%; height: 100%; transform: scaleX(var(--resource-level, 1)); transform-origin: left bottom; transition: transform .18s; }
   .hud .orb-fill::before { display: none; }
   .hud .orb > span { inset: 0; transform: none; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4px; font: 11px/16px Georgia, serif; }
   .hud .health .orb > span::before { content: '生命'; font: 10px sans-serif; }
