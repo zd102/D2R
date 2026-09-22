@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
+import { ensureGeometryIndex } from './geometry-batching.ts';
+
 type Surface = 'skin' | 'hide' | 'bone' | 'steel' | 'bronze' | 'cloth' | 'leather';
 
 // Object-space patina needs no texture allocation and follows each articulated joint.
@@ -69,15 +71,30 @@ export function contourGeometry(sections: readonly (readonly [number, number, nu
   for (const row of [0, sections.length - 1]) {
     const [y, , , z = 0] = sections[row], center = positions.length / 3;
     positions.push(0, y, z); uvs.push(.5, .5);
+    // Separate cap vertices keep the rim crisp without bending side normals.
+    const rim = positions.length / 3;
+    for (let i = 0; i <= segments; i++) {
+      const source = (row * (segments + 1) + i) * 3;
+      positions.push(positions[source], positions[source + 1], positions[source + 2]);
+      uvs.push(.5 + Math.sin(i / segments * Math.PI * 2) * .5, .5 + Math.cos(i / segments * Math.PI * 2) * .5);
+    }
     for (let i = 0; i < segments; i++) {
-      const b = row * (segments + 1) + i;
+      const b = rim + i;
       indices.push(...(row === 0 ? [center, b + 1, b] : [center, b, b + 1]));
     }
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
+  geometry.setIndex(indices); geometry.computeVertexNormals();
+  // The UV seam duplicates a vertex; average its normals to remove the lit stripe.
+  const normals = geometry.attributes.normal, normal = new THREE.Vector3();
+  for (let row = 0; row < sections.length; row++) {
+    const first = row * (segments + 1), last = first + segments;
+    normal.set(normals.getX(first) + normals.getX(last), normals.getY(first) + normals.getY(last), normals.getZ(first) + normals.getZ(last)).normalize();
+    normals.setXYZ(first, normal.x, normal.y, normal.z); normals.setXYZ(last, normal.x, normal.y, normal.z);
+  }
+  return geometry;
 }
 
 export function plateGeometry(points: readonly (readonly [number, number])[], depth = .035, bevel = .015) {
@@ -91,21 +108,22 @@ export function mergeActorParts(root: THREE.Object3D) {
   const sources = new Set<THREE.BufferGeometry>(), parents: THREE.Object3D[] = [];
   root.traverse(node => { if (node instanceof THREE.Mesh) sources.add(node.geometry); if (node instanceof THREE.Group) parents.push(node); });
   for (const parent of parents) {
-    const batches = new Map<THREE.Material, THREE.Mesh[]>();
+    const batches = new Map<string, THREE.Mesh[]>();
     for (const child of parent.children) {
       if (!(child instanceof THREE.Mesh) || child.name || child.userData.cloth || Array.isArray(child.material)) continue;
-      const list = batches.get(child.material) ?? []; list.push(child); batches.set(child.material, list);
+      const key = `${child.material.uuid}:${child.castShadow}:${child.receiveShadow}`;
+      const list = batches.get(key) ?? []; list.push(child); batches.set(key, list);
     }
-    for (const [material, meshes] of batches) {
+    for (const meshes of batches.values()) {
+      if (meshes.length < 2) continue;
       const copies = meshes.map(mesh => {
         mesh.updateMatrix(); const geometry = mesh.geometry.clone().applyMatrix4(mesh.matrix);
-        if (!geometry.index) return geometry;
-        const unindexed = geometry.toNonIndexed(); geometry.dispose(); return unindexed;
+        return ensureGeometryIndex(geometry);
       });
       const merged = mergeGeometries(copies, false); copies.forEach(geometry => geometry.dispose());
       if (!merged) throw new Error('Actor geometry attributes must agree before merging');
       meshes.forEach(mesh => parent.remove(mesh));
-      const mesh = new THREE.Mesh(merged, material); mesh.castShadow = mesh.receiveShadow = true; mesh.matrixAutoUpdate = false; parent.add(mesh);
+      const mesh = new THREE.Mesh(merged, meshes[0].material); mesh.castShadow = meshes[0].castShadow; mesh.receiveShadow = meshes[0].receiveShadow; mesh.matrixAutoUpdate = false; parent.add(mesh);
     }
   }
   const retained = new Set<THREE.BufferGeometry>(); root.traverse(node => { if (node instanceof THREE.Mesh) retained.add(node.geometry); });

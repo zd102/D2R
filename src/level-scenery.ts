@@ -92,9 +92,16 @@ function buildAuthoredScenery(world: SceneHost) {
   };
   const arch = (x: number,z: number,width = 5.2,h = 4.1) => {
     pylon(x-width/2,z,h,false); pylon(x+width/2,z,h,false);
-    for (let i = 0; i < 7; i++) {
-      const a = i*Math.PI/6, object = box(wall,x+Math.cos(a)*width/2,h+Math.sin(a)*width*.3,z,.85,.8,.9);
-      object.rotation.z = a-Math.PI/2;
+    // Radial voussoirs form a continuous masonry arch, including wide entrances.
+    const count = 13;
+    for (let i = 0; i < count; i++) {
+      const a = (i+.5)*Math.PI/count;
+      const tangent = Math.atan2(width*.3*Math.cos(a),-width*.5*Math.sin(a));
+      const span = Math.hypot(width*.5*Math.sin(a),width*.3*Math.cos(a))*Math.PI/count;
+      const object = box(wall,x+Math.cos(a)*width/2,h+Math.sin(a)*width*.3,z,span*.98,.58,.9);
+      object.rotation.z = tangent;
+      const moulding = box(trim,x+Math.cos(a)*(width/2+.27),h+Math.sin(a)*(width*.3+.27),z+.04,span*1.08,.105,1.02);
+      moulding.rotation.z=tangent;
     }
     box(trim,x,h+width*.3+.3,z,.65,.7,1.05);
   };

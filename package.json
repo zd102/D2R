@@ -43,6 +43,7 @@
     "test:player-count": "node tests/player-count-browser.mjs",
     "test:visuals": "node tests/visuals-browser.mjs",
     "test:models": "node tests/models-browser.mjs",
+    "test:model-loading": "node tests/scenery-cache-browser.mjs && node tests/model-loading-browser.mjs",
     "test:elites": "node tests/elites-browser.mjs",
     "test:monster-diversity": "node tests/monster-diversity-browser.mjs",
     "test:monster-skills": "node tests/monster-skills-browser.mjs",

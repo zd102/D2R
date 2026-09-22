@@ -2,7 +2,19 @@ import * as THREE from 'three';
 import type { SurfaceStyle } from './scene-design.ts';
 
 export const sceneryRandom = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+// Cache immutable CPU images only (24 MiB maximum at 512² RGBA). Each world
+// still owns its GPU textures and repeat settings; disposal cannot affect another.
+const surfaceImages = new Map<string, HTMLCanvasElement>();
+function surfaceTexture(canvas: HTMLCanvasElement) {
+  const texture = new THREE.CanvasTexture(canvas); texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4; return texture;
+}
 export function sceneryTexture(style: SurfaceStyle | 'wall' | 'water' | 'lava' | 'bark', seed: number) {
+  const key = `${style}:${seed}`, cached = surfaceImages.get(key);
+  if (cached) {
+    surfaceImages.delete(key); surfaceImages.set(key, cached);
+    return surfaceTexture(cached);
+  }
   const random = sceneryRandom(seed), canvas = document.createElement('canvas'); canvas.width = canvas.height = 512;
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = style === 'lava' ? '#61453c' : style === 'water' ? '#7c9b99' : '#b6b4ac'; ctx.fillRect(0, 0, 512, 512);
@@ -78,8 +90,9 @@ export function sceneryTexture(style: SurfaceStyle | 'wall' | 'water' | 'lava' |
     }
     ctx.putImageData(pixels,0,0);
   }
-  const texture = new THREE.CanvasTexture(canvas); texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4; return texture;
+  surfaceImages.set(key, canvas);
+  if (surfaceImages.size > 24) surfaceImages.delete(surfaceImages.keys().next().value!);
+  return surfaceTexture(canvas);
 }
 export function weatherTexture(rain: boolean) {
   const canvas = document.createElement('canvas'); canvas.width = canvas.height = 32;

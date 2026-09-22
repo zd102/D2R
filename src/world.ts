@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MapBroadphase, MapCollisionMatrix } from './physics-broadphase.ts';
 import * as CANNON from 'cannon-es';
 import PF from 'pathfinding';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { batchStaticGeometry } from './geometry-batching.ts';
 import { ACTS, LEVELS, FIELD_BOUND, levelLayout, type Level, type QuestProp } from './campaign.ts';
 import { CAMP } from './camp.ts';
 import type { ClassId } from './classes.ts';
@@ -618,25 +618,9 @@ export class GameWorld {
     (shrine.getObjectByName('light') as THREE.PointLight).color.setHex(0x70ffda);
   }
   mergeStatic() {
-    this.staticGroup.updateMatrixWorld(true);
-    const byMaterial = new Map<string, { material: THREE.Material; castShadow: boolean; receiveShadow: boolean; geometries: THREE.BufferGeometry[] }>();
-    this.staticGroup.traverse(object => {
-      if (!(object instanceof THREE.Mesh) || Array.isArray(object.material)) return;
-      const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld);
-      // Static primitives have different attribute layouts; keep only attributes shared by all.
-      for (const name of Object.keys(geometry.attributes)) if (!['position', 'normal', 'uv'].includes(name)) geometry.deleteAttribute(name);
-      const key = `${object.material.uuid}:${object.castShadow}:${object.receiveShadow}`;
-      const batch = byMaterial.get(key) ?? { material: object.material, castShadow: object.castShadow, receiveShadow: object.receiveShadow, geometries: [] as THREE.BufferGeometry[] };
-      batch.geometries.push(geometry.index ? geometry.toNonIndexed() : geometry); byMaterial.set(key, batch);
-      if (geometry.index) geometry.dispose();
-    });
-    for (const { material, castShadow, receiveShadow, geometries } of byMaterial.values()) {
-      const merged = mergeGeometries(geometries, false);
-      if (merged) { const object = new THREE.Mesh(merged, material); object.castShadow = castShadow; object.receiveShadow = receiveShadow; this.scene.add(object); }
-      geometries.forEach(geo => geo.dispose());
-    }
-    this.scene.remove(this.staticGroup); this.staticGroup.clear();
+    batchStaticGeometry(this.staticGroup, this.scene);
   }
+
   update(time: number, dt: number) {
     for (const chest of this.chests) chest.lid.rotation.x = THREE.MathUtils.lerp(chest.lid.rotation.x, chest.opened ? -1.7 : 0, Math.min(1, dt * 9));
     for (const torch of this.torches) {

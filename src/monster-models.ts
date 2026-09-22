@@ -49,7 +49,10 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   const robe = (p: THREE.Object3D, y: number, height: number, radius: number, mat = cloth) => {
     const geo = contourGeometry([[-height*.5,radius,radius*.75],[-height*.27,radius*.85,radius*.66],[height*.28,radius*.55,radius*.46],[height*.5,radius*.56,radius*.47]],24,.055);
     const positions=geo.attributes.position;
-    for(let i=0;i<25;i++)positions.setY(i,positions.getY(i)+(.5+.5*Math.sin(i*2.7))*.10);
+    for(let i=0;i<25;i++) {
+      const y=positions.getY(i)+(.5+.5*Math.sin((i%24)*2.7))*.10;
+      positions.setY(i,y); positions.setY(101+i,y); // Match the separate bottom-cap rim.
+    }
     geo.computeVertexNormals(); return part(p,geo,mat,0,y,-.025,1,1,1);
   };
   const fur = (p: THREE.Object3D, x: number, y: number, z: number, width: number, height: number, mat = dark) => {
@@ -149,6 +152,15 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
       part(head,contourGeometry([[-.17,.085,.083,.05],[-.095,.13,.12,.015],[.025,bulky?.195:.145,bulky?.17:.125],[.13,bulky?.18:.13,.12,-.02],[.215,.08,.08,-.025]],14),skin,0,0,0,1,model==='baal'?1.23:1,1);
       eyes(head,.065,bulky?.17:.13,feminine?.060:.078);
       ball(head,0,-.005,.15,.028,.057,.036);part(head,box,dark,0,-.10,.14,.105,.020,.018);
+      for (const side of [-1, 1]) {
+        ball(head,side*.10,-.033,.105,.046,.042,.037);
+        ball(head,side*.025,-.035,.174,.012,.008,.009,dark);
+        if (!feminine) {
+          // Uneven exposed canines distinguish the demonic jaw from a human face.
+          const tooth=part(head,cone,bone,side*.039,-.095,.157,.012,.043,.012);
+          tooth.rotation.z=Math.PI;
+        }
+      }
     }
     if (['diablo', 'baal', 'venom', 'lord'].includes(model)) {
       ball(rig, 0, 1.47, .16, .16, .1, .16, skeletal ? bone : skin);

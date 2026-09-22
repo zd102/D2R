@@ -55,12 +55,27 @@ export function createHeroActor(classId: ClassId): Actor {
   profile(chest,skin,[[.079,.28],[.077,.41]],0,0,0,.88);
   // Brow, cheek and jaw volumes read as a face even at the isometric camera distance.
   const faceGeometry=new THREE.SphereGeometry(1,24,18),faceVertices=faceGeometry.attributes.position;
-  for(let i=0;i<faceVertices.count;i++){const x=faceVertices.getX(i),y=faceVertices.getY(i),z=faceVertices.getZ(i);faceVertices.setXYZ(i,x*.14*(y<-.15?1+(y+.15)*.28:1),y*.19+.06,z*.125+(z>0?Math.exp(-x*x*25-(y+.05)**2*10)*.02:0));}
+  for(let i=0;i<faceVertices.count;i++) {
+    const x=faceVertices.getX(i),y=faceVertices.getY(i),z=faceVertices.getZ(i);
+    const cheek=Math.exp(-((Math.abs(x)-.53)**2)*24-(y+.12)**2*24)*.013;
+    const orbit=Math.exp(-((Math.abs(x)-.36)**2)*50-(y-.12)**2*65)*.009;
+    const chin=Math.exp(-x*x*25-(y+.66)**2*38)*.016;
+    faceVertices.setXYZ(i,x*.14*(y<-.15?1+(y+.15)*.28:1),y*.19+.06,
+      z*.125+(z>0?(Math.exp(-x*x*25-(y+.05)**2*10)*.02+cheek-orbit+chin)*Math.min(1,z*3):0));
+  }
   faceGeometry.computeVertexNormals();part(head,faceGeometry,skin,0,0,0);head.scale.setScalar(.86);
   for(const side of [-1,1]) {
     ball(head,skin,side*.138,.025,-.005,.017,.034,.018);
     part(head,geos.box,dark,side*.052,.078,.117,.032,.009,.006);
     const brow=part(head,geos.box,hair,side*.051,.106,.112,.049,.010,.010);brow.rotation.z=side*.09;
+    // Sculpted orbital rims, cheek planes and nostrils remain attached to the head.
+    ball(head,skin,side*.054,.064,.118,.030,.008,.009);
+    ball(head,leather,side*.012,.015,.152,.006,.004,.005);
+  }
+  // A stitched collar and fastening studs give cloth/leather a readable thickness.
+  for (const side of [-1,1]) {
+    bar(chest,leather,[side*.082,.31,.061],[side*.19,.22,.104],.013);
+    for (let i=0;i<4;i++) ball(chest,gold,side*(.095+i*.025),.29-i*.021,.078+i*.009,.005,.007,.004);
   }
   ball(head,skin,0,.035,.135,.017,.036,.023);part(head,geos.box,paladin?hair:leather,0,-.045,.133,.057,.008,.006);
   ball(head,barbarian?skin:hair,0,.174,-.02,.146,.088,.13);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Actor } from './world.ts';
 
 type Surface = THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
-type Batch = { mesh: THREE.BatchedMesh; material: Surface; emission: THREE.DataTexture; geometries: Map<string, number>; vertices: number; capacity: number; instances: number };
+type Batch = { mesh: THREE.BatchedMesh; material: Surface; emission: THREE.DataTexture; geometries: Map<string, number>; vertices: number; indices: number; indexCapacity: number; capacity: number; instances: number };
 type Part = { source: THREE.Mesh<THREE.BufferGeometry, Surface>; batch: Batch; id: number; layers: number; parents: THREE.Object3D[] };
 
 // Keep the articulated models as the source of truth. Only their opaque surfaces
@@ -26,7 +26,7 @@ export class MonsterBatches {
     if (material instanceof THREE.MeshStandardMaterial) { material.emissive.setHex(0); material.emissiveIntensity = 1; }
     const emission = new THREE.DataTexture(new Float32Array(64 * 64 * 4), 64, 64, THREE.RGBAFormat, THREE.FloatType);
     emission.needsUpdate = true;
-    const batch: Batch = { mesh: new THREE.BatchedMesh(4096, 8192, 0, material), material, emission, geometries: new Map(), vertices: 0, capacity: 8192, instances: 4096 };
+    const batch: Batch = { mesh: new THREE.BatchedMesh(4096, 8192, source.geometry.index ? 16384 : 0, material), material, emission, geometries: new Map(), vertices: 0, indices: 0, indexCapacity: source.geometry.index ? 16384 : 0, capacity: 8192, instances: 4096 };
     material.customProgramCacheKey = () => `${original.customProgramCacheKey()}:monster-batch-v1`;
     material.onBeforeCompile = (shader, renderer) => {
       original.onBeforeCompile(shader, renderer);
@@ -53,16 +53,23 @@ export class MonsterBatches {
       if (!(object instanceof THREE.Mesh) || !(object.material instanceof THREE.MeshStandardMaterial || object.material instanceof THREE.MeshBasicMaterial)) return;
       const source = object as Part['source'], material = source.material, geometryKey = `${variant}:${index++}`;
       if (material instanceof THREE.MeshStandardMaterial && !material.userData.surface || material.transparent || material.map) return;
-      const key = `${material.type}:${material.userData.surface}:${material.side}:${source.castShadow}:${source.receiveShadow}:${Object.keys(source.geometry.attributes).sort()}`;
+      const key = `${material.type}:${material.userData.surface}:${material.side}:${source.castShadow}:${source.receiveShadow}:${Object.keys(source.geometry.attributes).sort()}:${!!source.geometry.index}`;
       let batch = this.batches.get(key);
       if (!batch) { batch = this.createBatch(source); this.batches.set(key, batch); }
       let geometryId = batch.geometries.get(geometryKey);
       if (geometryId === undefined) {
-        const geometry = source.geometry.index ? source.geometry.toNonIndexed() : source.geometry;
+        const geometry = source.geometry;
         const needed = batch.vertices + geometry.attributes.position.count;
-        if (needed > batch.capacity) { batch.capacity = Math.max(needed, batch.capacity * 2); batch.mesh.setGeometrySize(batch.capacity, 0); }
-        geometryId = batch.mesh.addGeometry(geometry); batch.vertices = needed; batch.geometries.set(geometryKey, geometryId);
-        if (geometry !== source.geometry) geometry.dispose();
+        const indices = batch.indices + (geometry.index?.count ?? 0);
+        if (needed > batch.capacity || indices > batch.indexCapacity) {
+          batch.capacity = Math.max(needed, batch.capacity);
+          batch.indexCapacity = Math.max(indices, batch.indexCapacity);
+          // Geometric growth avoids reallocating on every additional variant.
+          batch.capacity = THREE.MathUtils.ceilPowerOfTwo(batch.capacity);
+          batch.indexCapacity = batch.indexCapacity ? THREE.MathUtils.ceilPowerOfTwo(batch.indexCapacity) : 0;
+          batch.mesh.setGeometrySize(batch.capacity, batch.indexCapacity);
+        }
+        geometryId = batch.mesh.addGeometry(geometry); batch.vertices = needed; batch.indices = indices; batch.geometries.set(geometryKey, geometryId);
       }
       if (batch.mesh.instanceCount === batch.instances) {
         batch.instances *= 2; batch.mesh.setInstanceCount(batch.instances);
