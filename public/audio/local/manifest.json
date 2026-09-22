@@ -1,0 +1,2693 @@
+{
+  "version": 1,
+  "source": "Locally installed Diablo II: Resurrected; classic sound rows",
+  "sounds": {
+    "swing": [
+      "local/combat/weapon/one_hand_swing_small01.flac",
+      "local/combat/weapon/one_hand_swing_small02.flac",
+      "local/combat/weapon/one_hand_swing_small03.flac",
+      "local/combat/weapon/one_hand_swing_small04.flac",
+      "local/combat/weapon/one_hand_swing_small05.flac",
+      "local/combat/weapon/one_hand_swing_small06.flac"
+    ],
+    "bluntSwing": [
+      "local/combat/weapon/staff_blunt01.flac",
+      "local/combat/weapon/staff_blunt02.flac",
+      "local/combat/weapon/staff_blunt03.flac",
+      "local/combat/weapon/staff_blunt04.flac",
+      "local/combat/weapon/staff_blunt05.flac",
+      "local/combat/weapon/staff_blunt06.flac"
+    ],
+    "thrust": [
+      "local/combat/weapon/one_hand_thrust01.flac",
+      "local/combat/weapon/one_hand_thrust02.flac",
+      "local/combat/weapon/one_hand_thrust03.flac",
+      "local/combat/weapon/one_hand_thrust04.flac",
+      "local/combat/weapon/one_hand_thrust05.flac",
+      "local/combat/weapon/one_hand_thrust06.flac"
+    ],
+    "shot": [
+      "local/combat/weapon/bow1.flac",
+      "local/combat/weapon/bow2.flac",
+      "local/combat/weapon/bow3.flac",
+      "local/combat/weapon/bow4.flac",
+      "local/combat/weapon/bow5.flac"
+    ],
+    "crossbow": [
+      "local/combat/weapon/xbow1.flac",
+      "local/combat/weapon/xbow2.flac",
+      "local/combat/weapon/xbow3.flac",
+      "local/combat/weapon/xbow4.flac"
+    ],
+    "throw": [
+      "local/combat/weapon/two_hand_swing_small01.flac",
+      "local/combat/weapon/two_hand_swing_small07.flac",
+      "local/combat/weapon/two_hand_swing_small08.flac"
+    ],
+    "hit": [
+      "local/combat/impact/sword1.flac",
+      "local/combat/impact/sword2.flac",
+      "local/combat/impact/sword3.flac",
+      "local/combat/impact/sword4.flac",
+      "local/combat/impact/sword5.flac",
+      "local/combat/impact/sword6.flac"
+    ],
+    "boneHit": [
+      "local/combat/impact/blunt3.flac",
+      "local/combat/impact/blunt5.flac",
+      "local/combat/impact/blunt6.flac"
+    ],
+    "metalHit": [
+      "local/combat/impact/block_blade1.flac",
+      "local/combat/impact/block_blade4.flac",
+      "local/combat/impact/block_blade5.flac"
+    ],
+    "block": [
+      "local/combat/impact/block_blade1.flac",
+      "local/combat/impact/block_blade4.flac",
+      "local/combat/impact/block_blade5.flac"
+    ],
+    "hurt": [
+      "local/combat/player/paladin/soft1.flac",
+      "local/combat/player/paladin/soft2.flac",
+      "local/combat/player/paladin/soft3.flac",
+      "local/combat/player/paladin/hard1.flac",
+      "local/combat/player/paladin/hard2.flac"
+    ],
+    "death": [
+      "local/combat/player/paladin/death1.flac",
+      "local/combat/player/paladin/death2.flac",
+      "local/combat/player/paladin/death3.flac"
+    ],
+    "monsterDeath": [
+      "local/monster/fallen/death1.flac",
+      "local/monster/fallen/death2.flac",
+      "local/monster/fallen/death3.flac"
+    ],
+    "boneDeath": [
+      "local/monster/skeleton/death1.flac",
+      "local/monster/skeleton/death2.flac",
+      "local/monster/skeleton/death3.flac"
+    ],
+    "ghostDeath": [
+      "local/monster/wraith/death1.flac",
+      "local/monster/wraith/death2.flac",
+      "local/monster/wraith/death3.flac"
+    ],
+    "bossDeath": [
+      "local/monster/diablo/death.flac"
+    ],
+    "fire": [
+      "local/skill/sorceress/firebolt1.flac",
+      "local/skill/sorceress/firebolt2.flac",
+      "local/skill/sorceress/firebolt3.flac"
+    ],
+    "cold": [
+      "local/skill/sorceress/icebolt1.flac",
+      "local/skill/sorceress/icebolt2.flac",
+      "local/skill/sorceress/icebolt3.flac"
+    ],
+    "lightning": [
+      "local/skill/sorceress/lightning1.flac",
+      "local/skill/sorceress/lightning2.flac",
+      "local/skill/sorceress/lightning3.flac"
+    ],
+    "poison": [
+      "local/skill/amazon/poisoncast.flac"
+    ],
+    "spell": [
+      "local/skill/sorceress/eleccast.flac"
+    ],
+    "holyBolt": [
+      "local/skill/paladin/holybolt1.flac",
+      "local/skill/paladin/holybolt2.flac",
+      "local/skill/paladin/holybolt3.flac"
+    ],
+    "hammer": [
+      "local/skill/paladin/hammerlaunch1.flac",
+      "local/skill/paladin/hammerlaunch2.flac",
+      "local/skill/paladin/hammerlaunch3.flac"
+    ],
+    "shield": [
+      "local/skill/paladin/holyshield.flac"
+    ],
+    "aura": [
+      "local/skill/paladin/might.flac"
+    ],
+    "fireImpact": [
+      "local/combat/impact/sizzle1.flac",
+      "local/combat/impact/sizzle2.flac",
+      "local/combat/impact/sizzle3.flac"
+    ],
+    "coldImpact": [
+      "local/combat/impact/coldimpact1.flac",
+      "local/combat/impact/coldimpact2.flac",
+      "local/combat/impact/coldimpact3.flac"
+    ],
+    "lightningImpact": [
+      "local/combat/impact/zap1.flac",
+      "local/combat/impact/zap2.flac",
+      "local/combat/impact/zap3.flac",
+      "local/combat/impact/zap4.flac"
+    ],
+    "poisonImpact": [
+      "local/combat/impact/green1.flac",
+      "local/combat/impact/green2.flac",
+      "local/combat/impact/green3.flac"
+    ],
+    "magicImpact": [
+      "local/skill/paladin/vengeanceimpact1.flac",
+      "local/skill/paladin/vengeanceimpact2.flac",
+      "local/skill/paladin/vengeanceimpact3.flac"
+    ],
+    "portal": [
+      "local/skill/misc/portalenter.flac"
+    ],
+    "teleport": [
+      "local/skill/sorceress/teleport.flac"
+    ],
+    "potion": [
+      "local/item/potiondrink.flac"
+    ],
+    "gold": [
+      "local/item/gold.flac"
+    ],
+    "loot": [
+      "local/cursor/pickup.flac"
+    ],
+    "itemMetal": [
+      "local/item/smallmetalweapon.flac"
+    ],
+    "itemBottle": [
+      "local/item/potionui.flac"
+    ],
+    "rune": [
+      "local/item/rune.flac"
+    ],
+    "drop": [
+      "local/item/flippy.flac"
+    ],
+    "dropMetal": [
+      "local/item/largemetalweapon.flac"
+    ],
+    "dropRare": [
+      "local/item/rare.flac"
+    ],
+    "equip": [
+      "local/item/platearmor.flac"
+    ],
+    "chest": [
+      "local/object/chestbig.flac"
+    ],
+    "uiOpen": [
+      "local/cursor/windowopen.flac"
+    ],
+    "uiClose": [
+      "local/cursor/select.flac"
+    ],
+    "uiClick": [
+      "local/cursor/button.flac"
+    ],
+    "level": [
+      "local/cursor/levelup.flac"
+    ],
+    "quest": [
+      "local/cursor/questdone.flac"
+    ],
+    "stepStone": [
+      "local/ambient/footstep/medistone1.flac",
+      "local/ambient/footstep/medistone2.flac",
+      "local/ambient/footstep/medistone3.flac",
+      "local/ambient/footstep/medistone4.flac"
+    ],
+    "stepGrass": [
+      "local/ambient/footstep/lightdirt1.flac",
+      "local/ambient/footstep/lightdirt2.flac",
+      "local/ambient/footstep/lightdirt3.flac",
+      "local/ambient/footstep/lightdirt4.flac"
+    ],
+    "stepSnow": [
+      "local/ambient/footstep/medsnow1.flac",
+      "local/ambient/footstep/medsnow2.flac",
+      "local/ambient/footstep/medsnow3.flac",
+      "local/ambient/footstep/medsnow4.flac"
+    ],
+    "ambient:camp": [
+      "local/ambient/scene/wilderness_day_2.flac"
+    ],
+    "ambient:field": [
+      "local/ambient/scene/wilderness_night.flac"
+    ],
+    "ambient:cave": [
+      "local/ambient/scene/cave.flac"
+    ],
+    "ambient:temple": [
+      "local/ambient/scene/catacombs.flac"
+    ],
+    "ambient:ruins": [
+      "local/ambient/scene/creepywind.flac"
+    ],
+    "ambient:arcane": [
+      "local/ambient/scene/scene_arcane.flac"
+    ],
+    "ambient:lava": [
+      "local/ambient/scene/lava.flac"
+    ],
+    "ambient:snow": [
+      "local/ambient/scene/creepywind.flac"
+    ],
+    "cast:holyBolt": [
+      "local/skill/paladin/holybolt1.flac",
+      "local/skill/paladin/holybolt2.flac",
+      "local/skill/paladin/holybolt3.flac"
+    ],
+    "cast:blessedHammer": [
+      "local/skill/paladin/hammerlaunch1.flac",
+      "local/skill/paladin/hammerlaunch2.flac",
+      "local/skill/paladin/hammerlaunch3.flac"
+    ],
+    "cast:holyShield": [
+      "local/skill/paladin/holyshield.flac"
+    ],
+    "cast:fistOfHeavens": [
+      "local/skill/paladin/handofgod.flac"
+    ],
+    "cast:charge": [
+      "local/skill/paladin/charge.flac"
+    ],
+    "cast:sacrifice": [
+      "local/skill/paladin/sacrifice.flac"
+    ],
+    "cast:vengeance": [
+      "local/skill/paladin/vengeance.flac"
+    ],
+    "cast:conversion": [
+      "local/skill/paladin/conversion.flac"
+    ],
+    "cast:zeal": [
+      "local/skill/paladin/zeal.flac"
+    ],
+    "cast:fireBolt": [
+      "local/skill/sorceress/firebolt1.flac",
+      "local/skill/sorceress/firebolt2.flac",
+      "local/skill/sorceress/firebolt3.flac"
+    ],
+    "cast:fireBall": [
+      "local/skill/sorceress/fireball1.flac",
+      "local/skill/sorceress/fireball2.flac",
+      "local/skill/sorceress/fireball3.flac"
+    ],
+    "cast:inferno": [
+      "local/skill/sorceress/infernoloop.flac"
+    ],
+    "cast:blaze": [
+      "local/skill/sorceress/firecast.flac"
+    ],
+    "cast:fireWall": [
+      "local/skill/sorceress/firecast.flac"
+    ],
+    "cast:enchant": [
+      "local/skill/sorceress/enchant.flac"
+    ],
+    "cast:meteor": [
+      "local/skill/sorceress/meteorlaunch.flac"
+    ],
+    "cast:hydra": [
+      "local/skill/sorceress/firecast.flac"
+    ],
+    "cast:chargedBolt": [
+      "local/skill/sorceress/chargedbolt1.flac"
+    ],
+    "cast:lightning": [
+      "local/skill/sorceress/lightning1.flac",
+      "local/skill/sorceress/lightning2.flac",
+      "local/skill/sorceress/lightning3.flac"
+    ],
+    "cast:chainLightning": [
+      "local/skill/sorceress/lightning1.flac",
+      "local/skill/sorceress/lightning2.flac",
+      "local/skill/sorceress/lightning3.flac"
+    ],
+    "cast:staticField": [
+      "local/skill/sorceress/eleccast.flac"
+    ],
+    "cast:telekinesis": [
+      "local/skill/sorceress/telekinesis.flac"
+    ],
+    "cast:nova": [
+      "local/skill/sorceress/novaelec.flac"
+    ],
+    "cast:teleport": [
+      "local/skill/sorceress/teleport.flac"
+    ],
+    "cast:thunderStorm": [
+      "local/skill/sorceress/thundercast.flac"
+    ],
+    "cast:energyShield": [
+      "local/skill/sorceress/energyshield.flac"
+    ],
+    "cast:iceBolt": [
+      "local/skill/sorceress/icebolt1.flac",
+      "local/skill/sorceress/icebolt2.flac",
+      "local/skill/sorceress/icebolt3.flac"
+    ],
+    "cast:iceBlast": [
+      "local/skill/sorceress/icebolt1.flac",
+      "local/skill/sorceress/icebolt2.flac",
+      "local/skill/sorceress/icebolt3.flac"
+    ],
+    "cast:frostNova": [
+      "local/skill/sorceress/novaice.flac"
+    ],
+    "cast:glacialSpike": [
+      "local/skill/sorceress/icespike1.flac",
+      "local/skill/sorceress/icespike2.flac",
+      "local/skill/sorceress/icespike3.flac"
+    ],
+    "cast:blizzard": [
+      "local/skill/sorceress/coldcast.flac"
+    ],
+    "cast:frozenOrb": [
+      "local/skill/sorceress/coldcast.flac"
+    ],
+    "cast:frozenArmor": [
+      "local/skill/sorceress/frozenarmor.flac"
+    ],
+    "cast:shiverArmor": [
+      "local/skill/sorceress/shivers.flac"
+    ],
+    "cast:chillingArmor": [
+      "local/skill/sorceress/frozenarmor.flac"
+    ],
+    "cast:magicArrow": [
+      "local/skill/amazon/magicarrow1.flac",
+      "local/skill/amazon/magicarrow2.flac",
+      "local/skill/amazon/magicarrow3.flac"
+    ],
+    "cast:fireArrow": [
+      "local/skill/amazon/firearrow1.flac",
+      "local/skill/amazon/firearrow2.flac",
+      "local/skill/amazon/firearrow3.flac"
+    ],
+    "cast:coldArrow": [
+      "local/skill/amazon/coldarrow1.flac",
+      "local/skill/amazon/coldarrow2.flac",
+      "local/skill/amazon/coldarrow3.flac"
+    ],
+    "cast:multipleShot": [
+      "local/skill/amazon/multi1.flac",
+      "local/skill/amazon/multi2.flac",
+      "local/skill/amazon/multi3.flac",
+      "local/skill/amazon/multi4.flac",
+      "local/skill/amazon/multi5.flac"
+    ],
+    "cast:explodingArrow": [
+      "local/skill/amazon/firearrow1.flac",
+      "local/skill/amazon/firearrow2.flac",
+      "local/skill/amazon/firearrow3.flac"
+    ],
+    "cast:iceArrow": [
+      "local/skill/amazon/coldarrow1.flac",
+      "local/skill/amazon/coldarrow2.flac",
+      "local/skill/amazon/coldarrow3.flac"
+    ],
+    "cast:guidedArrow": [
+      "local/skill/amazon/magicarrow1.flac",
+      "local/skill/amazon/magicarrow2.flac",
+      "local/skill/amazon/magicarrow3.flac"
+    ],
+    "cast:strafe": [
+      "local/skill/amazon/multi1.flac",
+      "local/skill/amazon/multi2.flac",
+      "local/skill/amazon/multi3.flac",
+      "local/skill/amazon/multi4.flac",
+      "local/skill/amazon/multi5.flac"
+    ],
+    "cast:immolationArrow": [
+      "local/skill/amazon/firearrow1.flac",
+      "local/skill/amazon/firearrow2.flac",
+      "local/skill/amazon/firearrow3.flac"
+    ],
+    "cast:freezingArrow": [
+      "local/skill/amazon/coldarrow1.flac",
+      "local/skill/amazon/coldarrow2.flac",
+      "local/skill/amazon/coldarrow3.flac"
+    ],
+    "cast:jab": [
+      "local/skill/amazon/jab1.flac",
+      "local/skill/amazon/jab2.flac",
+      "local/skill/amazon/jab3.flac",
+      "local/skill/amazon/jab4.flac"
+    ],
+    "cast:impale": [
+      "local/skill/amazon/impale1.flac",
+      "local/skill/amazon/impale2.flac",
+      "local/skill/amazon/impale3.flac",
+      "local/skill/amazon/impale4.flac"
+    ],
+    "cast:fend": [
+      "local/skill/amazon/jab1.flac",
+      "local/skill/amazon/jab2.flac",
+      "local/skill/amazon/jab3.flac",
+      "local/skill/amazon/jab4.flac"
+    ],
+    "cast:powerStrike": [
+      "local/skill/amazon/zeus1.flac",
+      "local/skill/amazon/zeus2.flac",
+      "local/skill/amazon/zeus3.flac"
+    ],
+    "cast:chargedStrike": [
+      "local/skill/amazon/zeus1.flac",
+      "local/skill/amazon/zeus2.flac",
+      "local/skill/amazon/zeus3.flac"
+    ],
+    "cast:lightningStrike": [
+      "local/skill/amazon/zeus1.flac",
+      "local/skill/amazon/zeus2.flac",
+      "local/skill/amazon/zeus3.flac"
+    ],
+    "cast:lightningBolt": [
+      "local/skill/amazon/zeus1.flac",
+      "local/skill/amazon/zeus2.flac",
+      "local/skill/amazon/zeus3.flac"
+    ],
+    "cast:lightningFury": [
+      "local/skill/amazon/zeus1.flac",
+      "local/skill/amazon/zeus2.flac",
+      "local/skill/amazon/zeus3.flac"
+    ],
+    "cast:poisonJavelin": [
+      "local/skill/amazon/poisoncast.flac"
+    ],
+    "cast:plagueJavelin": [
+      "local/skill/amazon/poisoncast.flac"
+    ],
+    "cast:valkyrie": [
+      "local/skill/amazon/valkyriecast.flac"
+    ],
+    "cast:dopplezon": [
+      "local/skill/amazon/valkyrieappear1.flac"
+    ],
+    "cast:innerSight": [
+      "local/skill/amazon/eyeofzeus.flac"
+    ],
+    "cast:slowMissiles": [
+      "local/skill/amazon/handofathena.flac"
+    ],
+    "hurt:paladin": [
+      "local/combat/player/paladin/soft1.flac",
+      "local/combat/player/paladin/soft2.flac",
+      "local/combat/player/paladin/soft3.flac",
+      "local/combat/player/paladin/hard1.flac",
+      "local/combat/player/paladin/hard2.flac"
+    ],
+    "death:paladin": [
+      "local/combat/player/paladin/death1.flac",
+      "local/combat/player/paladin/death2.flac",
+      "local/combat/player/paladin/death3.flac"
+    ],
+    "hurt:sorceress": [
+      "local/combat/player/sorceress/soft1.flac",
+      "local/combat/player/sorceress/soft3.flac",
+      "local/combat/player/sorceress/soft4.flac",
+      "local/combat/player/sorceress/soft5.flac",
+      "local/combat/player/sorceress/hard3.flac"
+    ],
+    "death:sorceress": [
+      "local/combat/player/sorceress/death1.flac",
+      "local/combat/player/sorceress/death2.flac",
+      "local/combat/player/sorceress/death3.flac"
+    ],
+    "hurt:amazon": [
+      "local/combat/player/amazon/soft4.flac",
+      "local/combat/player/amazon/hard1.flac",
+      "local/combat/player/amazon/hard2.flac",
+      "local/combat/player/amazon/hard5.flac",
+      "local/combat/player/amazon/hard6.flac"
+    ],
+    "death:amazon": [
+      "local/combat/player/amazon/death1.flac",
+      "local/combat/player/amazon/death2.flac"
+    ],
+    "monsterDeath:fallen": [
+      "local/monster/fallen/death1.flac",
+      "local/monster/fallen/death2.flac",
+      "local/monster/fallen/death3.flac",
+      "local/monster/fallen/death4.flac",
+      "local/monster/fallen/death5.flac",
+      "local/monster/fallen/death6.flac"
+    ],
+    "monsterDeath:shaman": [
+      "local/monster/fallenshaman/death1.flac",
+      "local/monster/fallenshaman/death2.flac",
+      "local/monster/fallenshaman/death3.flac",
+      "local/monster/fallenshaman/death4.flac"
+    ],
+    "monsterDeath:zombie": [
+      "local/monster/zombie/death1.flac",
+      "local/monster/zombie/death2.flac",
+      "local/monster/zombie/death3.flac",
+      "local/monster/zombie/death4.flac"
+    ],
+    "monsterDeath:skeleton": [
+      "local/monster/skeleton/death1.flac",
+      "local/monster/skeleton/death2.flac",
+      "local/monster/skeleton/death3.flac",
+      "local/monster/skeleton/death4.flac",
+      "local/monster/skeleton/death5.flac"
+    ],
+    "monsterDeath:archer": [
+      "local/monster/corrupt/die1.flac",
+      "local/monster/corrupt/die3.flac",
+      "local/monster/corrupt/die4.flac",
+      "local/monster/corrupt/die5.flac"
+    ],
+    "monsterDeath:mage": [
+      "local/monster/vampire/death1.flac",
+      "local/monster/vampire/death2.flac",
+      "local/monster/vampire/death3.flac",
+      "local/monster/vampire/death4.flac",
+      "local/monster/vampire/death5.flac"
+    ],
+    "monsterDeath:goat": [
+      "local/monster/goatman/death1.flac",
+      "local/monster/goatman/death2.flac",
+      "local/monster/goatman/death3.flac",
+      "local/monster/goatman/death4.flac"
+    ],
+    "monsterDeath:ghost": [
+      "local/monster/wraith/death1.flac",
+      "local/monster/wraith/death2.flac",
+      "local/monster/wraith/death3.flac",
+      "local/monster/wraith/death4.flac"
+    ],
+    "monsterDeath:mummy": [
+      "local/monster/mummy/death1.flac",
+      "local/monster/mummy/death2.flac",
+      "local/monster/mummy/death3.flac",
+      "local/monster/mummy/death4.flac"
+    ],
+    "monsterDeath:beetle": [
+      "local/monster/beetle/death1.flac",
+      "local/monster/beetle/death2.flac",
+      "local/monster/beetle/death3.flac",
+      "local/monster/beetle/death4.flac"
+    ],
+    "monsterDeath:maggot": [
+      "local/monster/sandmaggot/death1.flac",
+      "local/monster/sandmaggot/death2.flac",
+      "local/monster/sandmaggot/death3.flac",
+      "local/monster/sandmaggot/death4.flac"
+    ],
+    "monsterDeath:viper": [
+      "local/monster/serpentdemon/death1.flac",
+      "local/monster/serpentdemon/death2.flac",
+      "local/monster/serpentdemon/death3.flac",
+      "local/monster/serpentdemon/death4.flac",
+      "local/monster/serpentdemon/death5.flac",
+      "local/monster/serpentdemon/death6.flac"
+    ],
+    "monsterDeath:spider": [
+      "local/monster/spider/death1.flac",
+      "local/monster/spider/death2.flac",
+      "local/monster/spider/death3.flac",
+      "local/monster/spider/death4.flac",
+      "local/monster/spider/death5.flac",
+      "local/monster/spider/death6.flac"
+    ],
+    "monsterDeath:flayer": [
+      "local/monster/pygmy/death1.flac",
+      "local/monster/pygmy/death2.flac",
+      "local/monster/pygmy/death3.flac",
+      "local/monster/pygmy/death4.flac",
+      "local/monster/pygmy/death5.flac",
+      "local/monster/pygmy/death6.flac"
+    ],
+    "monsterDeath:council": [
+      "local/monster/zakarumhighpriest/death1.flac",
+      "local/monster/zakarumhighpriest/death2.flac",
+      "local/monster/zakarumhighpriest/death3.flac",
+      "local/monster/zakarumhighpriest/death4.flac"
+    ],
+    "monsterDeath:knight": [
+      "local/monster/megademon/death1.flac",
+      "local/monster/megademon/death2.flac",
+      "local/monster/megademon/death3.flac",
+      "local/monster/megademon/death4.flac",
+      "local/monster/megademon/death5.flac"
+    ],
+    "monsterDeath:mauler": [
+      "local/monster/pinhead/death1.flac",
+      "local/monster/pinhead/death2.flac",
+      "local/monster/pinhead/death3.flac",
+      "local/monster/pinhead/death4.flac",
+      "local/monster/pinhead/death5.flac"
+    ],
+    "monsterDeath:venom": [
+      "local/monster/megademon/death1.flac",
+      "local/monster/megademon/death2.flac",
+      "local/monster/megademon/death3.flac",
+      "local/monster/megademon/death4.flac",
+      "local/monster/megademon/death5.flac"
+    ],
+    "monsterDeath:imp": [
+      "local/monster/imp/death1.flac",
+      "local/monster/imp/death2.flac",
+      "local/monster/imp/death3.flac",
+      "local/monster/imp/death4.flac"
+    ],
+    "monsterDeath:succubus": [
+      "local/monster/succubus/death1.flac",
+      "local/monster/succubus/death2.flac",
+      "local/monster/succubus/death3.flac",
+      "local/monster/succubus/death4.flac"
+    ],
+    "monsterDeath:frozen": [
+      "local/monster/yeti/death1.flac",
+      "local/monster/yeti/death2.flac",
+      "local/monster/yeti/death3.flac",
+      "local/monster/yeti/death4.flac"
+    ],
+    "monsterDeath:lord": [
+      "local/monster/bloodlord/death1.flac",
+      "local/monster/bloodlord/death2.flac",
+      "local/monster/bloodlord/death3.flac",
+      "local/monster/bloodlord/death4.flac"
+    ],
+    "monsterDeath:cow": [
+      "local/monster/moo/death1.flac",
+      "local/monster/moo/death2.flac",
+      "local/monster/moo/death3.flac",
+      "local/monster/moo/death4.flac",
+      "local/monster/moo/death5.flac"
+    ],
+    "monsterDeath:andariel": [
+      "local/monster/andariel/death.flac"
+    ],
+    "monsterDeath:duriel": [
+      "local/monster/duriel/death1.flac"
+    ],
+    "monsterDeath:mephisto": [
+      "local/monster/mephisto/death.flac"
+    ],
+    "monsterDeath:diablo": [
+      "local/monster/diablo/death.flac",
+      "local/monster/diablo/deathschwing.flac",
+      "local/monster/diablo/deathhit.flac"
+    ],
+    "monsterDeath:baal": [
+      "local/monster/baal/death.flac",
+      "local/monster/baal/head1.flac",
+      "local/monster/baal/head2.flac",
+      "local/monster/baal/head3.flac"
+    ],
+    "cast:blessedAim": [
+      "local/skill/paladin/blessedaim.flac"
+    ],
+    "cast:cleansing": [
+      "local/skill/paladin/cleansing.flac"
+    ],
+    "cast:concentration": [
+      "local/skill/paladin/concentration.flac"
+    ],
+    "cast:defiance": [
+      "local/skill/paladin/defiance.flac"
+    ],
+    "cast:holyFire": [
+      "local/skill/paladin/holyfire.flac"
+    ],
+    "cast:meditation": [
+      "local/skill/paladin/meditation.flac"
+    ],
+    "cast:might": [
+      "local/skill/paladin/might.flac"
+    ],
+    "cast:prayer": [
+      "local/skill/paladin/prayer.flac"
+    ],
+    "cast:redemption": [
+      "local/skill/paladin/redemption.flac"
+    ],
+    "cast:resistCold": [
+      "local/skill/paladin/resistcold.flac"
+    ],
+    "cast:resistFire": [
+      "local/skill/paladin/resistfire.flac"
+    ],
+    "cast:resistLightning": [
+      "local/skill/paladin/resistlightning.flac"
+    ],
+    "cast:salvation": [
+      "local/skill/paladin/salvation.flac"
+    ],
+    "cast:sanctuary": [
+      "local/skill/paladin/sanctuary.flac"
+    ],
+    "cast:thorns": [
+      "local/skill/paladin/thorns.flac"
+    ],
+    "cast:fanaticism": [
+      "local/skill/paladin/fanaticism.flac"
+    ],
+    "cast:holyFreeze": [
+      "local/skill/paladin/holywind.flac"
+    ],
+    "cast:holyShock": [
+      "local/skill/paladin/holylight.flac"
+    ],
+    "cast:vigor": [
+      "local/skill/paladin/stamina.flac"
+    ],
+    "cast:conviction": [
+      "local/skill/paladin/purification.flac"
+    ]
+  },
+  "files": {
+    "local/combat/weapon/one_hand_swing_small01.flac": {
+      "sound": "weapon_1hs_small_1",
+      "source": "combat/weapon/one_hand_swing_small01.flac",
+      "bytes": 9089,
+      "sha256": "64bcf6d7c91ec2a646f6804d47dcecdcc8950e741ddb04d344eef2890e6f7e8a"
+    },
+    "local/combat/weapon/one_hand_swing_small02.flac": {
+      "sound": "weapon_1hs_small_2",
+      "source": "combat/weapon/one_hand_swing_small02.flac",
+      "bytes": 7760,
+      "sha256": "b233a541202352e12ff7fd3a2f47c49ab6ada68bf12ecea170444bee70428357"
+    },
+    "local/combat/weapon/one_hand_swing_small03.flac": {
+      "sound": "weapon_1hs_small_3",
+      "source": "combat/weapon/one_hand_swing_small03.flac",
+      "bytes": 9420,
+      "sha256": "8ee02bce915bf492b85156fc8d63220aa84822d8f55acb4f307bf1f189eaf8f9"
+    },
+    "local/combat/weapon/one_hand_swing_small04.flac": {
+      "sound": "weapon_1hs_small_4",
+      "source": "combat/weapon/one_hand_swing_small04.flac",
+      "bytes": 9344,
+      "sha256": "fffa9d30b3e3f7ee3600dc691a63e988b8b15a6d7ea68702a851a31853f59f37"
+    },
+    "local/combat/weapon/one_hand_swing_small05.flac": {
+      "sound": "weapon_1hs_small_5",
+      "source": "combat/weapon/one_hand_swing_small05.flac",
+      "bytes": 8583,
+      "sha256": "5f404e8075883a3352760c8f09fd9eae64fd0c273eb7d149eda913e04aa1f073"
+    },
+    "local/combat/weapon/one_hand_swing_small06.flac": {
+      "sound": "weapon_1hs_small_6",
+      "source": "combat/weapon/one_hand_swing_small06.flac",
+      "bytes": 8909,
+      "sha256": "72818455cc5b9619db55043a1a2527601dff5b46087e555818b3f92473911751"
+    },
+    "local/combat/weapon/staff_blunt01.flac": {
+      "sound": "weapon_staff_1",
+      "source": "combat/weapon/staff_blunt01.flac",
+      "bytes": 16600,
+      "sha256": "4b204f10f0b87b33e2cf27dbc16c5255eebfba7e894d429663aa6e0af8569e5a"
+    },
+    "local/combat/weapon/staff_blunt02.flac": {
+      "sound": "weapon_staff_2",
+      "source": "combat/weapon/staff_blunt02.flac",
+      "bytes": 16141,
+      "sha256": "e00751ba892dfe49164878682bc53ea5060eb41300bdbe7b67d368df32922a85"
+    },
+    "local/combat/weapon/staff_blunt03.flac": {
+      "sound": "weapon_staff_3",
+      "source": "combat/weapon/staff_blunt03.flac",
+      "bytes": 16225,
+      "sha256": "c57b099f66dd7e4c00263720aea6f047a20d278e6a500b00f082064b41381ec7"
+    },
+    "local/combat/weapon/staff_blunt04.flac": {
+      "sound": "weapon_staff_4",
+      "source": "combat/weapon/staff_blunt04.flac",
+      "bytes": 16624,
+      "sha256": "4ec43c33ef0a275345e00028760cfc11377c823ff64b984cafc5a454a9202895"
+    },
+    "local/combat/weapon/staff_blunt05.flac": {
+      "sound": "weapon_staff_5",
+      "source": "combat/weapon/staff_blunt05.flac",
+      "bytes": 16960,
+      "sha256": "0a54217df6ac5919ead2556f3ae903e1c4ae5ceab291019e5edf0f5e5be6b3c2"
+    },
+    "local/combat/weapon/staff_blunt06.flac": {
+      "sound": "weapon_staff_6",
+      "source": "combat/weapon/staff_blunt06.flac",
+      "bytes": 16749,
+      "sha256": "4db0e3c6dc583ae994c659eec17e0724f00962c6173cd97b666e7622841cfbf7"
+    },
+    "local/combat/weapon/one_hand_thrust01.flac": {
+      "sound": "weapon_1ht_1",
+      "source": "combat/weapon/one_hand_thrust01.flac",
+      "bytes": 8182,
+      "sha256": "ccd844d31b9650b032911067cf5d8fffe71237016c2cfd5cef18c3feb921711e"
+    },
+    "local/combat/weapon/one_hand_thrust02.flac": {
+      "sound": "weapon_1ht_2",
+      "source": "combat/weapon/one_hand_thrust02.flac",
+      "bytes": 7991,
+      "sha256": "2cbd4c067cf9dca45534ed81d142e1351b97aa0aeee1e350f1e96c1df40737f4"
+    },
+    "local/combat/weapon/one_hand_thrust03.flac": {
+      "sound": "weapon_1ht_3",
+      "source": "combat/weapon/one_hand_thrust03.flac",
+      "bytes": 10243,
+      "sha256": "8457ef91f1a2da87fc9029fdc5871f83632af0e4ef5fa61a234838deff43606b"
+    },
+    "local/combat/weapon/one_hand_thrust04.flac": {
+      "sound": "weapon_1ht_4",
+      "source": "combat/weapon/one_hand_thrust04.flac",
+      "bytes": 9249,
+      "sha256": "9c9a8c33f43a440d435754c221f306cee257956636ad606356b40b8eeec1ad1e"
+    },
+    "local/combat/weapon/one_hand_thrust05.flac": {
+      "sound": "weapon_1ht_5",
+      "source": "combat/weapon/one_hand_thrust05.flac",
+      "bytes": 7711,
+      "sha256": "5e55d9e930284d518e6692504ba6c8d2d72201092f3cb3734f96f91f67cd5db5"
+    },
+    "local/combat/weapon/one_hand_thrust06.flac": {
+      "sound": "weapon_1ht_6",
+      "source": "combat/weapon/one_hand_thrust06.flac",
+      "bytes": 8138,
+      "sha256": "e9f083643297039876638763bff7226d3a3f11723cb88e5d79bb3ff02af2afc9"
+    },
+    "local/combat/weapon/bow1.flac": {
+      "sound": "weapon_bow_1",
+      "source": "combat/weapon/bow1.flac",
+      "bytes": 19450,
+      "sha256": "5968ab8b80cfabbbfb01e42a39ed943e2628d75755e7e125d40da7a5f8ee5feb"
+    },
+    "local/combat/weapon/bow2.flac": {
+      "sound": "weapon_bow_2",
+      "source": "combat/weapon/bow2.flac",
+      "bytes": 21004,
+      "sha256": "eed87418a09c585c8469a4825595c496b6ecbc9c6ac56a464ad0ee5fad51b71c"
+    },
+    "local/combat/weapon/bow3.flac": {
+      "sound": "weapon_bow_3",
+      "source": "combat/weapon/bow3.flac",
+      "bytes": 21397,
+      "sha256": "5d61182e33cd45b6142d3f3a7a05a60effe6d700b0684503b9c4481d72c056c0"
+    },
+    "local/combat/weapon/bow4.flac": {
+      "sound": "weapon_bow_4",
+      "source": "combat/weapon/bow4.flac",
+      "bytes": 21412,
+      "sha256": "30f71f4b482e3e5b727b0c674a7be73d843f6e8dcf17338e5f36920b3986b944"
+    },
+    "local/combat/weapon/bow5.flac": {
+      "sound": "weapon_bow_5",
+      "source": "combat/weapon/bow5.flac",
+      "bytes": 19189,
+      "sha256": "16189640b753f6acbe5f4a3ce8903fca9bf874b4fa07b8af377930d38484042e"
+    },
+    "local/combat/weapon/xbow1.flac": {
+      "sound": "weapon_xbow_1",
+      "source": "combat/weapon/xbow1.flac",
+      "bytes": 22028,
+      "sha256": "5f6b833f4341d6200b7dc955f3d2da3b639577a46fae60fc373fac5628b731c3"
+    },
+    "local/combat/weapon/xbow2.flac": {
+      "sound": "weapon_xbow_2",
+      "source": "combat/weapon/xbow2.flac",
+      "bytes": 22585,
+      "sha256": "2c189718d6ed2cd8646305b1b539f641eedc4e4572294feea54b2a512656a5a2"
+    },
+    "local/combat/weapon/xbow3.flac": {
+      "sound": "weapon_xbow_3",
+      "source": "combat/weapon/xbow3.flac",
+      "bytes": 19180,
+      "sha256": "64de175cba45c3fc7d1335e0fcce70b7589b7ff6c8afab947b49b81f81f484ba"
+    },
+    "local/combat/weapon/xbow4.flac": {
+      "sound": "weapon_xbow_4",
+      "source": "combat/weapon/xbow4.flac",
+      "bytes": 20880,
+      "sha256": "a8afa0ce43e08a6fd676e0f39f24f915da1a09c25e1d8cc2461112fdfe2d91bc"
+    },
+    "local/combat/weapon/two_hand_swing_small01.flac": {
+      "sound": "weapon_throw_1",
+      "source": "combat/weapon/two_hand_swing_small01.flac",
+      "bytes": 15901,
+      "sha256": "3db918397a8a53fa82d51a82b7ea3c8efed08ed7eafe35617222b1299afe9098"
+    },
+    "local/combat/weapon/two_hand_swing_small07.flac": {
+      "sound": "weapon_throw_2",
+      "source": "combat/weapon/two_hand_swing_small07.flac",
+      "bytes": 14580,
+      "sha256": "e942257712322c80a04252c7debcc039c75f14d025c83ca3463c181fcd3ccf2e"
+    },
+    "local/combat/weapon/two_hand_swing_small08.flac": {
+      "sound": "weapon_throw_3",
+      "source": "combat/weapon/two_hand_swing_small08.flac",
+      "bytes": 11994,
+      "sha256": "9a1c2a8363301e5313055038240fe842903ab5e191954bacb7184934d7091a5d"
+    },
+    "local/combat/impact/sword1.flac": {
+      "sound": "impact_blade_swing_1",
+      "source": "combat/impact/sword1.flac",
+      "bytes": 22230,
+      "sha256": "0106ae1f424f52848ab14f40a73ac6251fc0d701dab8d8f000a8e753601a00ce"
+    },
+    "local/combat/impact/sword2.flac": {
+      "sound": "impact_blade_swing_2",
+      "source": "combat/impact/sword2.flac",
+      "bytes": 21499,
+      "sha256": "fc74e28910631767d5eb80b57096a18542f793e7bfcaf9ae5d6e7e89d4238211"
+    },
+    "local/combat/impact/sword3.flac": {
+      "sound": "impact_blade_swing_3",
+      "source": "combat/impact/sword3.flac",
+      "bytes": 22349,
+      "sha256": "dc258206af5366c1c8257c9dc7258ab145c7727455191a1027897153738eee00"
+    },
+    "local/combat/impact/sword4.flac": {
+      "sound": "impact_blade_swing_4",
+      "source": "combat/impact/sword4.flac",
+      "bytes": 21621,
+      "sha256": "630451592ba3376439d4509e2e7742e5930fa28b238a83e47b3f3cb6dfedcefe"
+    },
+    "local/combat/impact/sword5.flac": {
+      "sound": "impact_blade_swing_5",
+      "source": "combat/impact/sword5.flac",
+      "bytes": 22508,
+      "sha256": "dc21b1fb91b2e56acb4b6d386ced7298a1ca56bde218867512511279d4e014d4"
+    },
+    "local/combat/impact/sword6.flac": {
+      "sound": "impact_blade_swing_6",
+      "source": "combat/impact/sword6.flac",
+      "bytes": 16574,
+      "sha256": "f87e702da69a879921dff226dd4c74794ffee5d513705e21e7b8664929b70bb4"
+    },
+    "local/combat/impact/blunt3.flac": {
+      "sound": "impact_blunt_1",
+      "source": "combat/impact/blunt3.flac",
+      "bytes": 16224,
+      "sha256": "9901a7e5cbb8ce35d514be26fb2caecd55b4c3fc8d4282123a304769d2141ef1"
+    },
+    "local/combat/impact/blunt5.flac": {
+      "sound": "impact_blunt_2",
+      "source": "combat/impact/blunt5.flac",
+      "bytes": 12306,
+      "sha256": "f64f44948f77b6fc9e9637d4649e6c0da9d6229d7be7f15b5095505fe6afc93f"
+    },
+    "local/combat/impact/blunt6.flac": {
+      "sound": "impact_blunt_3",
+      "source": "combat/impact/blunt6.flac",
+      "bytes": 13093,
+      "sha256": "5086f520ebaf72c4848d561f1239097d767cd153e6f9f4af8e19a74234959b51"
+    },
+    "local/combat/impact/block_blade1.flac": {
+      "sound": "block_weapon_1",
+      "source": "combat/impact/block_blade1.flac",
+      "bytes": 25712,
+      "sha256": "a24c50ad9d8ee5e6f3592dbc506255c1a86c618ade30c260b4fa57ef4c9c8976"
+    },
+    "local/combat/impact/block_blade4.flac": {
+      "sound": "block_weapon_2",
+      "source": "combat/impact/block_blade4.flac",
+      "bytes": 22133,
+      "sha256": "9fc0bd0f9f18a5089f4dcaa6d8d7587c9a91fb1c96071deae08c9a6ad4740b88"
+    },
+    "local/combat/impact/block_blade5.flac": {
+      "sound": "block_weapon_3",
+      "source": "combat/impact/block_blade5.flac",
+      "bytes": 23461,
+      "sha256": "34370138073af39e63020a5d81e297f4765e799198eff323addf03c4fe7244fb"
+    },
+    "local/combat/player/paladin/soft1.flac": {
+      "sound": "paladin_hit_1",
+      "source": "combat/player/paladin/soft1.flac",
+      "bytes": 20740,
+      "sha256": "0fdebc017097fbd4c2e011da831afdc1db3d4b1bf4a100d19e174022dd29577e"
+    },
+    "local/combat/player/paladin/soft2.flac": {
+      "sound": "paladin_hit_2",
+      "source": "combat/player/paladin/soft2.flac",
+      "bytes": 15498,
+      "sha256": "fa78849a54b9e194e2f79dbf9405e7abe227dd1d4892246e13ac9b1fd3473853"
+    },
+    "local/combat/player/paladin/soft3.flac": {
+      "sound": "paladin_hit_3",
+      "source": "combat/player/paladin/soft3.flac",
+      "bytes": 19109,
+      "sha256": "414a19a497c3320b15fc790aeeec844f64c1ab9e1130d45c7f85c271ac92ead7"
+    },
+    "local/combat/player/paladin/hard1.flac": {
+      "sound": "paladin_hit_4",
+      "source": "combat/player/paladin/hard1.flac",
+      "bytes": 20421,
+      "sha256": "d16468583a92eca87a2390d03a9133b0b1c51b4d86f9aeb69f021f079ece9e69"
+    },
+    "local/combat/player/paladin/hard2.flac": {
+      "sound": "paladin_hit_5",
+      "source": "combat/player/paladin/hard2.flac",
+      "bytes": 17228,
+      "sha256": "8a9e7327974b39232926d8b0182d7f6ba993c3850ff38b86163394b09dcf4cc2"
+    },
+    "local/combat/player/paladin/death1.flac": {
+      "sound": "paladin_death_1",
+      "source": "combat/player/paladin/death1.flac",
+      "bytes": 47863,
+      "sha256": "f6d53b21eaf356000c32a37a6e7c4081abbb7e32e9128a3ea7b696805e35bb18"
+    },
+    "local/combat/player/paladin/death2.flac": {
+      "sound": "paladin_death_2",
+      "source": "combat/player/paladin/death2.flac",
+      "bytes": 49155,
+      "sha256": "803f5b0819fa6a6b4995c7600cbe1557df67ef6a103d75b29f699b2225f1cf73"
+    },
+    "local/combat/player/paladin/death3.flac": {
+      "sound": "paladin_death_3",
+      "source": "combat/player/paladin/death3.flac",
+      "bytes": 75463,
+      "sha256": "8b8cf68bd23e53e273ce74a5d08c5159c0d3b050cb5380a5825a2ca9afbef577"
+    },
+    "local/monster/fallen/death1.flac": {
+      "sound": "fallen_death_1",
+      "source": "monster/fallen/death1.flac",
+      "bytes": 52068,
+      "sha256": "855ee394c335446d6eb18ecd9fcc581a61c56736be2620b5324bcc4c8f2c878b"
+    },
+    "local/monster/fallen/death2.flac": {
+      "sound": "fallen_death_2",
+      "source": "monster/fallen/death2.flac",
+      "bytes": 57992,
+      "sha256": "5380a2b3664b9964b4d9d696154ee1ec2d5333f63f7ea622022c9ceaf5e8450a"
+    },
+    "local/monster/fallen/death3.flac": {
+      "sound": "fallen_death_3",
+      "source": "monster/fallen/death3.flac",
+      "bytes": 42789,
+      "sha256": "72f692db2c2fcc7a4263fadacfe08799f2a33ee20cffc8416028bcb92fca00db"
+    },
+    "local/monster/skeleton/death1.flac": {
+      "sound": "skeleton_death_1",
+      "source": "monster/skeleton/death1.flac",
+      "bytes": 39491,
+      "sha256": "89995a451000016a1508e279c1b810fab1a440c19717ad6f4339558965a7d0ef"
+    },
+    "local/monster/skeleton/death2.flac": {
+      "sound": "skeleton_death_2",
+      "source": "monster/skeleton/death2.flac",
+      "bytes": 37612,
+      "sha256": "64b78b3402c15f40e57f7bc82706a4835e4b4ea8e6463a29fb38d95f405addec"
+    },
+    "local/monster/skeleton/death3.flac": {
+      "sound": "skeleton_death_3",
+      "source": "monster/skeleton/death3.flac",
+      "bytes": 35831,
+      "sha256": "e1f1e19c2c04d0906bcada4da2a50a141b7a9bfcb27365cb02bfe8d6a2554fba"
+    },
+    "local/monster/wraith/death1.flac": {
+      "sound": "wraith_death_1",
+      "source": "monster/wraith/death1.flac",
+      "bytes": 29902,
+      "sha256": "993423e382708c9725d7bc1cbb0d4794b3c07f5302bf8c3e96296f74867d1e2f"
+    },
+    "local/monster/wraith/death2.flac": {
+      "sound": "wraith_death_2",
+      "source": "monster/wraith/death2.flac",
+      "bytes": 58619,
+      "sha256": "3b051d5b30344a8118aab010f91abed7c49e58ac08cf13b97614551c51e2f103"
+    },
+    "local/monster/wraith/death3.flac": {
+      "sound": "wraith_death_3",
+      "source": "monster/wraith/death3.flac",
+      "bytes": 53100,
+      "sha256": "fb001895483ed548e63d4cd2706c7f916aa5fcd10e07d4a3299c935ed37930a9"
+    },
+    "local/monster/diablo/death.flac": {
+      "sound": "diablo_death",
+      "source": "monster/diablo/death.flac",
+      "bytes": 541782,
+      "sha256": "452a28c1a018d2fc2c18099c7778849d138328ea34536c18ab674c2ab0458020"
+    },
+    "local/skill/sorceress/firebolt1.flac": {
+      "sound": "sorceress_firebolt_1",
+      "source": "skill/sorceress/firebolt1.flac",
+      "bytes": 113120,
+      "sha256": "7c807e7fc45dabb98224025982ca0c9a54ff8d49f554a019306bab32d9390bb8"
+    },
+    "local/skill/sorceress/firebolt2.flac": {
+      "sound": "sorceress_firebolt_2",
+      "source": "skill/sorceress/firebolt2.flac",
+      "bytes": 109237,
+      "sha256": "e5a9081d91ae06aefc9617719322d59c8d2a1fdb848282bbccaaf6c2624a8e93"
+    },
+    "local/skill/sorceress/firebolt3.flac": {
+      "sound": "sorceress_firebolt_3",
+      "source": "skill/sorceress/firebolt3.flac",
+      "bytes": 118206,
+      "sha256": "02272b523e49d31fcf381376a71273e31d1c175823b104606f16e67ba61d0911"
+    },
+    "local/skill/sorceress/icebolt1.flac": {
+      "sound": "sorceress_icebolt_1",
+      "source": "skill/sorceress/icebolt1.flac",
+      "bytes": 110980,
+      "sha256": "66f676da80204464071216368d6ba40da6671eebd7956cf5e4aab6b91bb4fd59"
+    },
+    "local/skill/sorceress/icebolt2.flac": {
+      "sound": "sorceress_icebolt_2",
+      "source": "skill/sorceress/icebolt2.flac",
+      "bytes": 100441,
+      "sha256": "3aa8b233794deaf9dbf0b03169b4c0d25c22034d4ca1349c1d03ce987064a920"
+    },
+    "local/skill/sorceress/icebolt3.flac": {
+      "sound": "sorceress_icebolt_3",
+      "source": "skill/sorceress/icebolt3.flac",
+      "bytes": 107723,
+      "sha256": "fc2a002f34a8aa080907b9e127614d75545f3ba7bc43e9923d35e064ff4426f1"
+    },
+    "local/skill/sorceress/lightning1.flac": {
+      "sound": "sorceress_lightning_1",
+      "source": "skill/sorceress/lightning1.flac",
+      "bytes": 97807,
+      "sha256": "1fdc94cf2ae9a9820557a8032180aa6d5f59602a29abdb6dc0c2fcc9d0496a7b"
+    },
+    "local/skill/sorceress/lightning2.flac": {
+      "sound": "sorceress_lightning_2",
+      "source": "skill/sorceress/lightning2.flac",
+      "bytes": 88670,
+      "sha256": "bb36238f7caa42d53dce70fa6f8ce8735d04a8bbd9a40ce7a712c3a3ca17a7ac"
+    },
+    "local/skill/sorceress/lightning3.flac": {
+      "sound": "sorceress_lightning_3",
+      "source": "skill/sorceress/lightning3.flac",
+      "bytes": 86471,
+      "sha256": "f6647dd46875f3ed444c7b255acae8ad6aa0a9de4cbad997441cc6bbbaa9a3f5"
+    },
+    "local/skill/amazon/poisoncast.flac": {
+      "sound": "amazon_cast_poison",
+      "source": "skill/amazon/poisoncast.flac",
+      "bytes": 43411,
+      "sha256": "05910aa4ef44a52e6345416bb706efa4682493f630b99b21151a184a3e0ad802"
+    },
+    "local/skill/sorceress/eleccast.flac": {
+      "sound": "sorceress_cast_lightning",
+      "source": "skill/sorceress/eleccast.flac",
+      "bytes": 50046,
+      "sha256": "c4fa9247c07453011f1aeb765d0a6864d1a1cb659e1ead5abd497d998bd0ad97"
+    },
+    "local/skill/paladin/holybolt1.flac": {
+      "sound": "paladin_holybolt_1",
+      "source": "skill/paladin/holybolt1.flac",
+      "bytes": 109443,
+      "sha256": "b8c3ee09dbd0b152c07ce4bee30d07cfacca4c535510ed8a09a4c592efa35966"
+    },
+    "local/skill/paladin/holybolt2.flac": {
+      "sound": "paladin_holybolt_2",
+      "source": "skill/paladin/holybolt2.flac",
+      "bytes": 116764,
+      "sha256": "20e25f14a131d898384198ade0becbd4517c630c5dd9bce1d0b4280fc2651e18"
+    },
+    "local/skill/paladin/holybolt3.flac": {
+      "sound": "paladin_holybolt_3",
+      "source": "skill/paladin/holybolt3.flac",
+      "bytes": 98548,
+      "sha256": "0cd1b78a0541d92be39eae4dbd0968d8bccd300332b04b0b3190a2ea7269f712"
+    },
+    "local/skill/paladin/hammerlaunch1.flac": {
+      "sound": "paladin_blessedhammer_1",
+      "source": "skill/paladin/hammerlaunch1.flac",
+      "bytes": 86382,
+      "sha256": "6f9fdb8dfd9ccedde4c32bdbc097a8b21b582f770dd8e8b22459b4baf9c4373b"
+    },
+    "local/skill/paladin/hammerlaunch2.flac": {
+      "sound": "paladin_blessedhammer_2",
+      "source": "skill/paladin/hammerlaunch2.flac",
+      "bytes": 86440,
+      "sha256": "45aab4cf699dfafc5f7a4a47a61775ff2de8c7eebec7fa5b3ddc0407cb4c4720"
+    },
+    "local/skill/paladin/hammerlaunch3.flac": {
+      "sound": "paladin_blessedhammer_3",
+      "source": "skill/paladin/hammerlaunch3.flac",
+      "bytes": 86996,
+      "sha256": "8658c5c6d6465f5f476a56b51518343dd0e1c9b367881b8d25b13288542c6961"
+    },
+    "local/skill/paladin/holyshield.flac": {
+      "sound": "paladin_holyshield",
+      "source": "skill/paladin/holyshield.flac",
+      "bytes": 49207,
+      "sha256": "3afb0fcefd4b0f1630ee772fa612a7a7497dcf89c8e3d0c139b3274400d63dc9"
+    },
+    "local/skill/paladin/might.flac": {
+      "sound": "paladin_aura_might",
+      "source": "skill/paladin/might.flac",
+      "bytes": 55548,
+      "sha256": "e69389a877065092ff809f45eb5c5bcc3b552c80696b74c079689b70d1737b65"
+    },
+    "local/combat/impact/sizzle1.flac": {
+      "sound": "impact_fire_1",
+      "source": "combat/impact/sizzle1.flac",
+      "bytes": 33875,
+      "sha256": "0c160e032e58e68d1bedbedd3e81084f0ec22ebd62e1d6034c8daea8b40cfe3e"
+    },
+    "local/combat/impact/sizzle2.flac": {
+      "sound": "impact_fire_2",
+      "source": "combat/impact/sizzle2.flac",
+      "bytes": 38327,
+      "sha256": "b84f8a56bdffb213cc9efbf99277c36b34303a961c453880f3e823ef267b26bc"
+    },
+    "local/combat/impact/sizzle3.flac": {
+      "sound": "impact_fire_3",
+      "source": "combat/impact/sizzle3.flac",
+      "bytes": 40212,
+      "sha256": "fdc71823fdb47dbbb89a8b573875b35d7b5772e88be6c86ac5a9f1fa99353324"
+    },
+    "local/combat/impact/coldimpact1.flac": {
+      "sound": "impact_cold_1",
+      "source": "combat/impact/coldimpact1.flac",
+      "bytes": 24549,
+      "sha256": "137b3d0b4c694a3cf5192c5e4fdb6940da76f5d57bf3c8d10477b798d5ac4493"
+    },
+    "local/combat/impact/coldimpact2.flac": {
+      "sound": "impact_cold_2",
+      "source": "combat/impact/coldimpact2.flac",
+      "bytes": 19114,
+      "sha256": "2d9b1c0e595db1df2b5d10b64438ca08aa0b8929a3101dc1a0847deba7faec5f"
+    },
+    "local/combat/impact/coldimpact3.flac": {
+      "sound": "impact_cold_3",
+      "source": "combat/impact/coldimpact3.flac",
+      "bytes": 18602,
+      "sha256": "7d68955241e4361c5b20c2cbb00385bc3c1b3d552b736710eb20366a8cf44273"
+    },
+    "local/combat/impact/zap1.flac": {
+      "sound": "impact_lightning_1",
+      "source": "combat/impact/zap1.flac",
+      "bytes": 30768,
+      "sha256": "55dc83c72d0d643dfb749cb95acce81c3099ecb6a021be52ef050804d7bde98e"
+    },
+    "local/combat/impact/zap2.flac": {
+      "sound": "impact_lightning_2",
+      "source": "combat/impact/zap2.flac",
+      "bytes": 30369,
+      "sha256": "eab794a916f5e4621d74e4adc9287d068b93661d5a6acad9c71a018c26aa0f06"
+    },
+    "local/combat/impact/zap3.flac": {
+      "sound": "impact_lightning_3",
+      "source": "combat/impact/zap3.flac",
+      "bytes": 33540,
+      "sha256": "4bf94b7653ce51ae6406e5c6f875ba1037f33b12a28ba50a081b19398c04edb4"
+    },
+    "local/combat/impact/zap4.flac": {
+      "sound": "impact_lightning_4",
+      "source": "combat/impact/zap4.flac",
+      "bytes": 35889,
+      "sha256": "b673602f25ed602f9219347862d441fd0bd42426180b5480ee628d33ed3b4543"
+    },
+    "local/combat/impact/green1.flac": {
+      "sound": "impact_poison_1",
+      "source": "combat/impact/green1.flac",
+      "bytes": 17051,
+      "sha256": "7958309e876d0289fc7dffdf4899c48e9493e0be1e4ab2db3f1ae023aeb152b6"
+    },
+    "local/combat/impact/green2.flac": {
+      "sound": "impact_poison_2",
+      "source": "combat/impact/green2.flac",
+      "bytes": 14313,
+      "sha256": "06845efb370a99ea259d67e501a744120194655a52b66efe7809ac845d537568"
+    },
+    "local/combat/impact/green3.flac": {
+      "sound": "impact_poison_3",
+      "source": "combat/impact/green3.flac",
+      "bytes": 13559,
+      "sha256": "4d12e5656ea409351e2cd9534d26e66e53df8eddf34dd2e216385420cd1f1cd2"
+    },
+    "local/skill/paladin/vengeanceimpact1.flac": {
+      "sound": "paladin_holybolt_impact_1",
+      "source": "skill/paladin/vengeanceimpact1.flac",
+      "bytes": 35688,
+      "sha256": "73b1f88ab710a4a2a0269285aff866b4e21cbc1790b22a0ab85f89c32198085e"
+    },
+    "local/skill/paladin/vengeanceimpact2.flac": {
+      "sound": "paladin_holybolt_impact_2",
+      "source": "skill/paladin/vengeanceimpact2.flac",
+      "bytes": 35841,
+      "sha256": "9b93091a9afe81d060248c256b4eb5040963116675349b1e76542fe666143d10"
+    },
+    "local/skill/paladin/vengeanceimpact3.flac": {
+      "sound": "paladin_holybolt_impact_3",
+      "source": "skill/paladin/vengeanceimpact3.flac",
+      "bytes": 40494,
+      "sha256": "643d3c7c351a64535f8d58e2b7d7c1767edf05fdfdf1a8ed1dfbc7dd66e3895c"
+    },
+    "local/skill/misc/portalenter.flac": {
+      "sound": "player_townportal_enter",
+      "source": "skill/misc/portalenter.flac",
+      "bytes": 33037,
+      "sha256": "37b0ed9f4ad35e353a2a0a634c9c9d78326065abc2a84d4b3a0e1d201804f6e1"
+    },
+    "local/skill/sorceress/teleport.flac": {
+      "sound": "sorceress_teleport",
+      "source": "skill/sorceress/teleport.flac",
+      "bytes": 31392,
+      "sha256": "f972add0b2fd37a3be8d2c5e265b792a410f3c2886f6bc320b1069819512bb75"
+    },
+    "local/item/potiondrink.flac": {
+      "sound": "item_potion_drink",
+      "source": "item/potiondrink.flac",
+      "bytes": 19101,
+      "sha256": "6bd847905c9391daeb46d3ae7255502473553527c80eee142e597448a4b0ea35"
+    },
+    "local/item/gold.flac": {
+      "sound": "item_gold",
+      "source": "item/gold.flac",
+      "bytes": 50658,
+      "sha256": "1f9bcc1fbfd857cab7a13e2a3f7285cfbd872f05ca446a10f604fac67defb50c"
+    },
+    "local/cursor/pickup.flac": {
+      "sound": "item_pickup",
+      "source": "cursor/pickup.flac",
+      "bytes": 2289,
+      "sha256": "c18d9d14f280ebb1ffe10600310dfa290656b9a6d589c5c93258f5e11cd6848a"
+    },
+    "local/item/smallmetalweapon.flac": {
+      "sound": "item_smallmetalweapon",
+      "source": "item/smallmetalweapon.flac",
+      "bytes": 19559,
+      "sha256": "6edb53e7e8aa018405faa9b60316956eb669e37bbf0f3fd46de6c7e6e090fcb6"
+    },
+    "local/item/potionui.flac": {
+      "sound": "item_potion",
+      "source": "item/potionui.flac",
+      "bytes": 17135,
+      "sha256": "b3098939e72f2bfe40dbe7232f61453bf62b5ca66b5cc8701bc818bc3dd7afb1"
+    },
+    "local/item/rune.flac": {
+      "sound": "item_rune",
+      "source": "item/rune.flac",
+      "bytes": 10469,
+      "sha256": "11f9caf344940cf46f177814c6d634034bf985392292fa7e251d3db71d93bd84"
+    },
+    "local/item/flippy.flac": {
+      "sound": "item_flippy",
+      "source": "item/flippy.flac",
+      "bytes": 16612,
+      "sha256": "8598f975edef40ad6f6316f7c8b38d2d07a39af61ce1b2444688bc9427c51b8e"
+    },
+    "local/item/largemetalweapon.flac": {
+      "sound": "item_largemetalweapon",
+      "source": "item/largemetalweapon.flac",
+      "bytes": 27440,
+      "sha256": "309337e6d6ebfcc7ee15f54fac0db6f7c0392b6122b8b07257e179f4eff94b32"
+    },
+    "local/item/rare.flac": {
+      "sound": "item_rare",
+      "source": "item/rare.flac",
+      "bytes": 52855,
+      "sha256": "4158d6b8f5db2a17e45996ae09c789bf26c69233af53d34b0d9111f414d4aa34"
+    },
+    "local/item/platearmor.flac": {
+      "sound": "item_platearmor",
+      "source": "item/platearmor.flac",
+      "bytes": 26442,
+      "sha256": "eaa7496fb573e34e45d98b3264ed0c664e6bb4c700ac985ec83c828cb6bb31aa"
+    },
+    "local/object/chestbig.flac": {
+      "sound": "object_chest_large",
+      "source": "object/chestbig.flac",
+      "bytes": 25339,
+      "sha256": "b8cdb48caf32b378a06226b58654cdffc2f0ad5f9e2ba75f46fe297e8b459493"
+    },
+    "local/cursor/windowopen.flac": {
+      "sound": "cursor_switch",
+      "source": "cursor/windowopen.flac",
+      "bytes": 3178,
+      "sha256": "ae9dacbecbb3430ae3656c00fc0b7cfaafdcadfe9c8823e1c0a6f93b7fa66906"
+    },
+    "local/cursor/select.flac": {
+      "sound": "cursor_select",
+      "source": "cursor/select.flac",
+      "bytes": 19736,
+      "sha256": "6db9a57a5e51441456d3cf89d79ef46e7c30e5368209c85fd91cca53f9720074"
+    },
+    "local/cursor/button.flac": {
+      "sound": "cursor_button_click",
+      "source": "cursor/button.flac",
+      "bytes": 3605,
+      "sha256": "dccf0611320a8bf6b3a793985e49f6c51e4c45cd322b518f498ae84c5e726086"
+    },
+    "local/cursor/levelup.flac": {
+      "sound": "cursor_level_up",
+      "source": "cursor/levelup.flac",
+      "bytes": 46020,
+      "sha256": "ae1419070f2e6271ee80276c6971476e6c1d4b9fe64cdaf7709d1bc13778f153"
+    },
+    "local/cursor/questdone.flac": {
+      "sound": "cursor_questdone",
+      "source": "cursor/questdone.flac",
+      "bytes": 149427,
+      "sha256": "0120dbfbd6530b7794fa6751c3581cacbcba80ff670139c7a50c737623fec990"
+    },
+    "local/ambient/footstep/medistone1.flac": {
+      "sound": "medium_walk_istone_1",
+      "source": "ambient/footstep/MedIStone1.flac",
+      "bytes": 29799,
+      "sha256": "be7b20be31bcdca5ede59aa75e4ba7af9c8d5434ca1833e5a83f009099fde06c"
+    },
+    "local/ambient/footstep/medistone2.flac": {
+      "sound": "medium_walk_istone_2",
+      "source": "ambient/footstep/MedIStone2.flac",
+      "bytes": 30612,
+      "sha256": "ef2cfbd29494075d78accde104e3118296b7a572f7fe560245cabb29833f2863"
+    },
+    "local/ambient/footstep/medistone3.flac": {
+      "sound": "medium_walk_istone_3",
+      "source": "ambient/footstep/MedIStone3.flac",
+      "bytes": 28098,
+      "sha256": "6cd05d9ad875c3878edae0e91cc9ca29747e6d4cef5e09a023e9fa44fcdff1ae"
+    },
+    "local/ambient/footstep/medistone4.flac": {
+      "sound": "medium_walk_istone_4",
+      "source": "ambient/footstep/MedIStone4.flac",
+      "bytes": 30710,
+      "sha256": "355183c623676f47ea3d825c11c2c0bea5e30a86f8c26857ddaf9cb43dc4c002"
+    },
+    "local/ambient/footstep/lightdirt1.flac": {
+      "sound": "light_walk_dirt_1",
+      "source": "ambient/footstep/LightDirt1.flac",
+      "bytes": 28970,
+      "sha256": "96dbeb38955c6416845d0c675f22d8ac7a26737d7906d652790984c6b750ab5e"
+    },
+    "local/ambient/footstep/lightdirt2.flac": {
+      "sound": "light_walk_dirt_2",
+      "source": "ambient/footstep/LightDirt2.flac",
+      "bytes": 27424,
+      "sha256": "d9fcde1dbf24d699ed680f8677758d99fcc38607fc32df27fcb378d490ac80dc"
+    },
+    "local/ambient/footstep/lightdirt3.flac": {
+      "sound": "light_walk_dirt_3",
+      "source": "ambient/footstep/LightDirt3.flac",
+      "bytes": 26483,
+      "sha256": "3312715eae708701127f866677adb646667ac6dc9af30772ec3283d674217bd3"
+    },
+    "local/ambient/footstep/lightdirt4.flac": {
+      "sound": "light_walk_dirt_4",
+      "source": "ambient/footstep/LightDirt4.flac",
+      "bytes": 27924,
+      "sha256": "238d6e540abb913f654f621c4557f947b791164a48584963a26d22af817ae5a3"
+    },
+    "local/ambient/footstep/medsnow1.flac": {
+      "sound": "medium_walk_snow_1",
+      "source": "ambient/footstep/MedSnow1.flac",
+      "bytes": 22250,
+      "sha256": "dde98ac3bd1eecb3772d95fe155e8b6baba8f7d13058166bd918c20284af8688"
+    },
+    "local/ambient/footstep/medsnow2.flac": {
+      "sound": "medium_walk_snow_2",
+      "source": "ambient/footstep/MedSnow2.flac",
+      "bytes": 23704,
+      "sha256": "c6b16f758e4497ad07f1e90b0c7da6a9ee393832d94d5601253e92b653e2f40a"
+    },
+    "local/ambient/footstep/medsnow3.flac": {
+      "sound": "medium_walk_snow_3",
+      "source": "ambient/footstep/MedSnow3.flac",
+      "bytes": 23492,
+      "sha256": "0fb4e0df6a8531f4aa9d735ec92f2f7f5c36627b19ff5806a6ace4f0178342b4"
+    },
+    "local/ambient/footstep/medsnow4.flac": {
+      "sound": "medium_walk_snow_4",
+      "source": "ambient/footstep/MedSnow4.flac",
+      "bytes": 23627,
+      "sha256": "f8f54be363b6134c407661b5127ee9566ec2387dd4f0a2ffebb9591b17bf9506"
+    },
+    "local/ambient/scene/wilderness_day_2.flac": {
+      "sound": "scene_wilderness_day",
+      "source": "ambient/scene/wilderness_day_2.flac",
+      "bytes": 1486866,
+      "sha256": "878cbb13c3ecd340a4eb46c05091ae2806cc8f74ae1e0193896accd44ba1e60b"
+    },
+    "local/ambient/scene/wilderness_night.flac": {
+      "sound": "scene_wilderness_night",
+      "source": "ambient/scene/wilderness_night.flac",
+      "bytes": 556480,
+      "sha256": "2951897a6f9f006f9c598f6710c2c39843cf409dd47c5b478786f73d0db39bf5"
+    },
+    "local/ambient/scene/cave.flac": {
+      "sound": "scene_cave",
+      "source": "ambient/scene/cave.flac",
+      "bytes": 297331,
+      "sha256": "e1c8144e5e62f728213e535b41ad7eb8b76c9aaaf916a5f4b085cc57b1291169"
+    },
+    "local/ambient/scene/catacombs.flac": {
+      "sound": "scene_catacombs",
+      "source": "ambient/scene/catacombs.flac",
+      "bytes": 200528,
+      "sha256": "551d39483fc84bd1224728527611331b60b8a104d2ef682f35f6bbce298eece2"
+    },
+    "local/ambient/scene/creepywind.flac": {
+      "sound": "scene_monastery",
+      "source": "ambient/scene/creepywind.flac",
+      "bytes": 512281,
+      "sha256": "cde2cea35905a30a896abdc7c1c3ae1209458263c6ee4be5772a1df2ad1dc0cf"
+    },
+    "local/ambient/scene/scene_arcane.flac": {
+      "sound": "scene_arcane",
+      "source": "ambient/scene/scene_arcane.flac",
+      "bytes": 2145540,
+      "sha256": "e4fe6e0a9c8a58c04364e78906c33a5be5a855d9f27669daa31ed3cdd03269f8"
+    },
+    "local/ambient/scene/lava.flac": {
+      "sound": "scene_lava",
+      "source": "ambient/scene/lava.flac",
+      "bytes": 689115,
+      "sha256": "93a2bb8272ba2bbb7421a6b237a443b75588922bbe9391a4dc6a7e7a25b53e09"
+    },
+    "local/skill/paladin/handofgod.flac": {
+      "sound": "paladin_handofgod_cast",
+      "source": "skill/paladin/handofgod.flac",
+      "bytes": 58099,
+      "sha256": "e58f65ea647fb3ea1665c8dc123a77c63c1b13242f4afa5230dc86d40810377e"
+    },
+    "local/skill/paladin/charge.flac": {
+      "sound": "paladin_charge",
+      "source": "skill/paladin/charge.flac",
+      "bytes": 29567,
+      "sha256": "fa9630bfbb53034189aef5cb97500d453f77999a38843accf335b43e00598f64"
+    },
+    "local/skill/paladin/sacrifice.flac": {
+      "sound": "paladin_sacrifice",
+      "source": "skill/paladin/sacrifice.flac",
+      "bytes": 33031,
+      "sha256": "545e6c2b31ce1ce2a6d0e1ce8a406886dc30cbc507f70e1f6bfef5c9f18f6129"
+    },
+    "local/skill/paladin/vengeance.flac": {
+      "sound": "paladin_vengeance",
+      "source": "skill/paladin/vengeance.flac",
+      "bytes": 26111,
+      "sha256": "87e40d420a75f57753eb0c02604752e2425ec8a665ab8bc36efcf2dddfa88e16"
+    },
+    "local/skill/paladin/conversion.flac": {
+      "sound": "paladin_conversion",
+      "source": "skill/paladin/conversion.flac",
+      "bytes": 44359,
+      "sha256": "ac11416f94a795a8b7e7336e2b5baaa3ca873a95f7797d93f15af94bcbd358c6"
+    },
+    "local/skill/paladin/zeal.flac": {
+      "sound": "paladin_zeal",
+      "source": "skill/paladin/zeal.flac",
+      "bytes": 38356,
+      "sha256": "b334b24b7b344a03a8fb1fb2c0bf20fd85a742508b79a35f46a5b061c2ae6ed8"
+    },
+    "local/skill/sorceress/fireball1.flac": {
+      "sound": "sorceress_fireball_1",
+      "source": "skill/sorceress/fireball1.flac",
+      "bytes": 98034,
+      "sha256": "66a2ec1c873610079af3225f7b607ba3e8a14f17381979916ea4e43344975d6d"
+    },
+    "local/skill/sorceress/fireball2.flac": {
+      "sound": "sorceress_fireball_2",
+      "source": "skill/sorceress/fireball2.flac",
+      "bytes": 82069,
+      "sha256": "2dcbf48880bc5c76b2d7801a0cd08bb1ca24deb02356cf046b087bae4b8b3258"
+    },
+    "local/skill/sorceress/fireball3.flac": {
+      "sound": "sorceress_fireball_3",
+      "source": "skill/sorceress/fireball3.flac",
+      "bytes": 83479,
+      "sha256": "1b46b2aa26bf6f6824c6f1896c3e5bd953c99046112f66bfa2a324343753bc8b"
+    },
+    "local/skill/sorceress/infernoloop.flac": {
+      "sound": "sorceress_inferno",
+      "source": "skill/sorceress/infernoloop.flac",
+      "bytes": 92205,
+      "sha256": "9a836612bc9978c69131b441d58a8e71e2609acfccd888546a49133d2e8835d8"
+    },
+    "local/skill/sorceress/firecast.flac": {
+      "sound": "sorceress_cast_fire",
+      "source": "skill/sorceress/firecast.flac",
+      "bytes": 45070,
+      "sha256": "d6ea4f23f180791777f3429718750ebe2a6b4b5ea1eec493dc7c39943ca4b00a"
+    },
+    "local/skill/sorceress/enchant.flac": {
+      "sound": "sorceress_enchant",
+      "source": "skill/sorceress/enchant.flac",
+      "bytes": 47202,
+      "sha256": "20b3ca417e879bc0380167d0a5525cd16492968aea2731b9a69af12991e73833"
+    },
+    "local/skill/sorceress/meteorlaunch.flac": {
+      "sound": "sorceress_meteor",
+      "source": "skill/sorceress/meteorlaunch.flac",
+      "bytes": 143206,
+      "sha256": "06219f16dc08c6d1cefbf41858078ca610e5bcfd4d4721a4e63af38aeb98e2a0"
+    },
+    "local/skill/sorceress/chargedbolt1.flac": {
+      "sound": "sorceress_chargedbolt_1",
+      "source": "skill/sorceress/chargedbolt1.flac",
+      "bytes": 53805,
+      "sha256": "1e52472a5b2a3a7026285d5b6b66bcd02706d6058cf886cd9a3c79681b1328af"
+    },
+    "local/skill/sorceress/telekinesis.flac": {
+      "sound": "sorceress_telekinesis",
+      "source": "skill/sorceress/telekinesis.flac",
+      "bytes": 23016,
+      "sha256": "83a8f39a7ca7ede9d33c92e11ddf46661c5ec83f7e9b47ae6c1a7e7564172321"
+    },
+    "local/skill/sorceress/novaelec.flac": {
+      "sound": "sorceress_nova",
+      "source": "skill/sorceress/novaelec.flac",
+      "bytes": 35098,
+      "sha256": "9c7814dbdd3d0cda4b4484909d105210e6a066fb3a5440188b090ea29a480578"
+    },
+    "local/skill/sorceress/thundercast.flac": {
+      "sound": "sorceress_thunder_cast",
+      "source": "skill/sorceress/thundercast.flac",
+      "bytes": 81545,
+      "sha256": "ad2db10655679cfc18747dffad2581d34ebdd447fad0d6942d96b7c9eedc9515"
+    },
+    "local/skill/sorceress/energyshield.flac": {
+      "sound": "sorceress_energyshield",
+      "source": "skill/sorceress/energyshield.flac",
+      "bytes": 39105,
+      "sha256": "4daa3336a70ca08e75108660a2f01e97f6bbe0c220f484fc4083967a37ad9516"
+    },
+    "local/skill/sorceress/novaice.flac": {
+      "sound": "sorceress_frostnova",
+      "source": "skill/sorceress/novaice.flac",
+      "bytes": 36837,
+      "sha256": "ae173543833daadd83bffe263b771c0e90043ce63bdbfff675bb90c44fbbbdd7"
+    },
+    "local/skill/sorceress/icespike1.flac": {
+      "sound": "sorceress_glacialspike_1",
+      "source": "skill/sorceress/icespike1.flac",
+      "bytes": 91658,
+      "sha256": "3aab8269567f43ba89e584081b88a71883286f0b6a5da8ddfb497c900f4ea806"
+    },
+    "local/skill/sorceress/icespike2.flac": {
+      "sound": "sorceress_glacialspike_2",
+      "source": "skill/sorceress/icespike2.flac",
+      "bytes": 108122,
+      "sha256": "e1aa4f0287bb3e623f8e59999dceeb3ae49cb92069e28608794753a0c184655f"
+    },
+    "local/skill/sorceress/icespike3.flac": {
+      "sound": "sorceress_glacialspike_3",
+      "source": "skill/sorceress/icespike3.flac",
+      "bytes": 99282,
+      "sha256": "8c43f9cc4aeb1fbcd0c12b70ebd4ea5c0bef7b659117b5322860aed2f3b443cd"
+    },
+    "local/skill/sorceress/coldcast.flac": {
+      "sound": "sorceress_cast_cold",
+      "source": "skill/sorceress/coldcast.flac",
+      "bytes": 37525,
+      "sha256": "27bd4d4c9bc492daf970d92b0bce2dfe9df0d68c28fde55671e2f9150b0cfe16"
+    },
+    "local/skill/sorceress/frozenarmor.flac": {
+      "sound": "sorceress_frozenarmor",
+      "source": "skill/sorceress/frozenarmor.flac",
+      "bytes": 51160,
+      "sha256": "59df1b6b6e7c5bccac1e87eff39dad776e121720692572dc072a8333f0d7a788"
+    },
+    "local/skill/sorceress/shivers.flac": {
+      "sound": "sorceress_shiverarmor",
+      "source": "skill/sorceress/shivers.flac",
+      "bytes": 40705,
+      "sha256": "40df81b3b98fbb6313e9e949e4d6b6a9971a6c42c4c6266e6949cf6cc343d7c8"
+    },
+    "local/skill/amazon/magicarrow1.flac": {
+      "sound": "amazon_magicarrow_1",
+      "source": "skill/amazon/magicarrow1.flac",
+      "bytes": 25454,
+      "sha256": "09e662b48c016d5fb9118cf5251436c7f703f5600c76c3552d50c4ea61aa3660"
+    },
+    "local/skill/amazon/magicarrow2.flac": {
+      "sound": "amazon_magicarrow_2",
+      "source": "skill/amazon/magicarrow2.flac",
+      "bytes": 27656,
+      "sha256": "4cd94f9781c79cf66b85b40293b1be75f69693ca60067cd2904f198ee7811f50"
+    },
+    "local/skill/amazon/magicarrow3.flac": {
+      "sound": "amazon_magicarrow_3",
+      "source": "skill/amazon/magicarrow3.flac",
+      "bytes": 27977,
+      "sha256": "9da33ff01c330641972bc3aa5a9b38180efa0f0246f047c1c6cf738cfb4721f7"
+    },
+    "local/skill/amazon/firearrow1.flac": {
+      "sound": "amazon_firearrow_1",
+      "source": "skill/amazon/firearrow1.flac",
+      "bytes": 79636,
+      "sha256": "dc195ce1b4feaf6ef316f8ef2b8188127310318d1d46d98889e6715850f99ab0"
+    },
+    "local/skill/amazon/firearrow2.flac": {
+      "sound": "amazon_firearrow_2",
+      "source": "skill/amazon/firearrow2.flac",
+      "bytes": 75148,
+      "sha256": "ca12b69ed257cd3ddeaa1576d69521634b49b6ad986ba891ca9eb59bff53dde3"
+    },
+    "local/skill/amazon/firearrow3.flac": {
+      "sound": "amazon_firearrow_3",
+      "source": "skill/amazon/firearrow3.flac",
+      "bytes": 77638,
+      "sha256": "6dcdc6b2d88e3918d4fe07d29c0b1f968b227f96c4457cc360078c5de115b915"
+    },
+    "local/skill/amazon/coldarrow1.flac": {
+      "sound": "amazon_coldarrow_1",
+      "source": "skill/amazon/coldarrow1.flac",
+      "bytes": 90491,
+      "sha256": "330d22aadaf5c34bfb07879a6a39a235e0b97fb5387b808a1bfd8bfafacfda61"
+    },
+    "local/skill/amazon/coldarrow2.flac": {
+      "sound": "amazon_coldarrow_2",
+      "source": "skill/amazon/coldarrow2.flac",
+      "bytes": 82261,
+      "sha256": "96005dee415eae8d557cafe4b0891144b7a60ead519801457f274a05e6870873"
+    },
+    "local/skill/amazon/coldarrow3.flac": {
+      "sound": "amazon_coldarrow_3",
+      "source": "skill/amazon/coldarrow3.flac",
+      "bytes": 93415,
+      "sha256": "a66f5cda87fd105685541eb7dc308b08799ce2dbd952cf58a5cacf970ba099e7"
+    },
+    "local/skill/amazon/multi1.flac": {
+      "sound": "amazon_multi_arrow_1",
+      "source": "skill/amazon/multi1.flac",
+      "bytes": 22269,
+      "sha256": "68496e23667599b0bd61c8c1c3944661ba37dc7bbc756902d91197a800ee8c8c"
+    },
+    "local/skill/amazon/multi2.flac": {
+      "sound": "amazon_multi_arrow_2",
+      "source": "skill/amazon/multi2.flac",
+      "bytes": 28401,
+      "sha256": "471965c29b3663baf6afc88b5ded5aef44191a570d98f9f2650c51ce3adc9c03"
+    },
+    "local/skill/amazon/multi3.flac": {
+      "sound": "amazon_multi_arrow_3",
+      "source": "skill/amazon/multi3.flac",
+      "bytes": 20823,
+      "sha256": "d7c9b505a28e3315fac62d7c5b608c801b6c0a047dc398851c175363815827c4"
+    },
+    "local/skill/amazon/multi4.flac": {
+      "sound": "amazon_multi_arrow_4",
+      "source": "skill/amazon/multi4.flac",
+      "bytes": 27046,
+      "sha256": "5978ea6a4694410abb3861032aedc41e19901797d558c38e4e0c8963ca9bc39d"
+    },
+    "local/skill/amazon/multi5.flac": {
+      "sound": "amazon_multi_arrow_5",
+      "source": "skill/amazon/multi5.flac",
+      "bytes": 25727,
+      "sha256": "5874e5367943c897c304164675a7086ba3f589c217856cc1497a81785b3cf094"
+    },
+    "local/skill/amazon/jab1.flac": {
+      "sound": "amazon_jab_1",
+      "source": "skill/amazon/jab1.flac",
+      "bytes": 18368,
+      "sha256": "46493e13440627bf07b7b5c8a4c164224b6e4e36b89bc03574e5cf3aca38207e"
+    },
+    "local/skill/amazon/jab2.flac": {
+      "sound": "amazon_jab_2",
+      "source": "skill/amazon/jab2.flac",
+      "bytes": 21922,
+      "sha256": "8240c042b9cce3a1c6870e251785572a227cf9f18bb4a12c7cf83a97cd074b71"
+    },
+    "local/skill/amazon/jab3.flac": {
+      "sound": "amazon_jab_3",
+      "source": "skill/amazon/jab3.flac",
+      "bytes": 22332,
+      "sha256": "8331b21aedac85383f992a7823eace6e9a10c3dd8132496959df17149f6c41d6"
+    },
+    "local/skill/amazon/jab4.flac": {
+      "sound": "amazon_jab_4",
+      "source": "skill/amazon/jab4.flac",
+      "bytes": 14586,
+      "sha256": "f636f19dc93cc5aed4e29d5c5287695c5cc9c63e004277f781acf44d007d11b9"
+    },
+    "local/skill/amazon/impale1.flac": {
+      "sound": "amazon_impale_1",
+      "source": "skill/amazon/impale1.flac",
+      "bytes": 32366,
+      "sha256": "509e081eb710d0f66b63ba3b97469ede2ab4a926d31c2f86035082386a6ab872"
+    },
+    "local/skill/amazon/impale2.flac": {
+      "sound": "amazon_impale_2",
+      "source": "skill/amazon/impale2.flac",
+      "bytes": 31031,
+      "sha256": "7b6e9a8a1fd6a380af7f407061296bd0b58e0b5db1ffeb56a7bde0da30ae8bee"
+    },
+    "local/skill/amazon/impale3.flac": {
+      "sound": "amazon_impale_3",
+      "source": "skill/amazon/impale3.flac",
+      "bytes": 29455,
+      "sha256": "836708b1ee437a520604e519ba5c89e51d02abb2abf599e7d8086f3e93b55aad"
+    },
+    "local/skill/amazon/impale4.flac": {
+      "sound": "amazon_impale_4",
+      "source": "skill/amazon/impale4.flac",
+      "bytes": 35674,
+      "sha256": "ccced87df06665260d975957b07b12dbda42ca1fa52fb24a042560afa864ca48"
+    },
+    "local/skill/amazon/zeus1.flac": {
+      "sound": "amazon_lightning_1",
+      "source": "skill/amazon/zeus1.flac",
+      "bytes": 113380,
+      "sha256": "8277afaf68eb53dae65c4f960fe30e6e188942fc7e2bbabc03a7b9af5c108b5f"
+    },
+    "local/skill/amazon/zeus2.flac": {
+      "sound": "amazon_lightning_2",
+      "source": "skill/amazon/zeus2.flac",
+      "bytes": 157924,
+      "sha256": "8b7e4f3435122ea5f81b2a260a45b695a89aaf641affd9ce1ecb730046e5ec57"
+    },
+    "local/skill/amazon/zeus3.flac": {
+      "sound": "amazon_lightning_3",
+      "source": "skill/amazon/zeus3.flac",
+      "bytes": 98567,
+      "sha256": "620e2dc8d232b2f7ac095767d016af0de2553c318e89b5fdc1ca6203b43d2e5b"
+    },
+    "local/skill/amazon/valkyriecast.flac": {
+      "sound": "amazon_valkyrie_cast",
+      "source": "skill/amazon/valkyriecast.flac",
+      "bytes": 56211,
+      "sha256": "1aebe56285e5b9a57cf9180efe21a4d8400d1a667a4cb7e5381ea4c3add40d2a"
+    },
+    "local/skill/amazon/valkyrieappear1.flac": {
+      "sound": "amazon_valkyrie_appear",
+      "source": "skill/amazon/valkyrieappear1.flac",
+      "bytes": 33921,
+      "sha256": "a235a4e0df25d57d1cef7834d9f684d1354f90624d078070274371f00e39310a"
+    },
+    "local/skill/amazon/eyeofzeus.flac": {
+      "sound": "amazon_eyeofzeus",
+      "source": "skill/amazon/eyeofzeus.flac",
+      "bytes": 44517,
+      "sha256": "fb2f2a4063db5f0fb48fdb782531ad547d416ca0cf75f7b18fcab35ac18fc69a"
+    },
+    "local/skill/amazon/handofathena.flac": {
+      "sound": "amazon_handofathena",
+      "source": "skill/amazon/handofathena.flac",
+      "bytes": 57957,
+      "sha256": "9732fb0d548dff340354988414518c0982a0f5d77822f175b0b419ab6d4ae66c"
+    },
+    "local/combat/player/sorceress/soft1.flac": {
+      "sound": "sorceress_hit_1",
+      "source": "combat/player/sorceress/soft1.flac",
+      "bytes": 12079,
+      "sha256": "9367859cdeef51ab66382fc4996482973bd9d8cf9587c73704a3d84507ca627c"
+    },
+    "local/combat/player/sorceress/soft3.flac": {
+      "sound": "sorceress_hit_2",
+      "source": "combat/player/sorceress/soft3.flac",
+      "bytes": 10619,
+      "sha256": "7fccb707ab0d7cd8d921bf7aad2a502cb2617546dcabe28b33c844342a72becf"
+    },
+    "local/combat/player/sorceress/soft4.flac": {
+      "sound": "sorceress_hit_3",
+      "source": "combat/player/sorceress/soft4.flac",
+      "bytes": 10617,
+      "sha256": "aaf75e81b419011bf49d30ddc5c8375981980e9d169d694c41dcd6944586bf6a"
+    },
+    "local/combat/player/sorceress/soft5.flac": {
+      "sound": "sorceress_hit_4",
+      "source": "combat/player/sorceress/soft5.flac",
+      "bytes": 11556,
+      "sha256": "ff83315b8b2c67f322ab1c274ef86edef3100750ee1312ab8aaf59f7520f423c"
+    },
+    "local/combat/player/sorceress/hard3.flac": {
+      "sound": "sorceress_hit_5",
+      "source": "combat/player/sorceress/hard3.flac",
+      "bytes": 21580,
+      "sha256": "3605d8f7f10e4207e52b232494b462b2f5bffcf020d9242289df348a366f13a1"
+    },
+    "local/combat/player/sorceress/death1.flac": {
+      "sound": "sorceress_death_1",
+      "source": "combat/player/sorceress/death1.flac",
+      "bytes": 56057,
+      "sha256": "9695b32fdaa6c13f2a0fb29febee8cf8af15cc82e3ce8352bfde7e2e668a3387"
+    },
+    "local/combat/player/sorceress/death2.flac": {
+      "sound": "sorceress_death_2",
+      "source": "combat/player/sorceress/death2.flac",
+      "bytes": 96093,
+      "sha256": "3cf389e2bf8a944b145682d84a6c61b770acab6b9ddac3a21004067ff743e072"
+    },
+    "local/combat/player/sorceress/death3.flac": {
+      "sound": "sorceress_death_3",
+      "source": "combat/player/sorceress/death3.flac",
+      "bytes": 48723,
+      "sha256": "699dd2f19fc60ccc42d748d95aacffeec08f012527b51af92b89e16167ea9a95"
+    },
+    "local/combat/player/amazon/soft4.flac": {
+      "sound": "amazon_hit_1",
+      "source": "combat/player/amazon/soft4.flac",
+      "bytes": 25593,
+      "sha256": "41e52d9104e8c83bd7a67634e569a05272b86f85da897209d9cec6dde5e0d658"
+    },
+    "local/combat/player/amazon/hard1.flac": {
+      "sound": "amazon_hit_2",
+      "source": "combat/player/amazon/hard1.flac",
+      "bytes": 27101,
+      "sha256": "53e7f0b5a96bf06ea130952765b1d16b1b832e2825ea92fa12969244c617a2cd"
+    },
+    "local/combat/player/amazon/hard2.flac": {
+      "sound": "amazon_hit_3",
+      "source": "combat/player/amazon/hard2.flac",
+      "bytes": 24909,
+      "sha256": "fce1edce40b90745094d75c61ade40d2c770acbf35a3153bbdbf98bc5324c544"
+    },
+    "local/combat/player/amazon/hard5.flac": {
+      "sound": "amazon_hit_4",
+      "source": "combat/player/amazon/hard5.flac",
+      "bytes": 25141,
+      "sha256": "d386183ac1d44f70091bc58f6a43b10bb9de01c05c774c15c4a90f190a24ffca"
+    },
+    "local/combat/player/amazon/hard6.flac": {
+      "sound": "amazon_hit_5",
+      "source": "combat/player/amazon/hard6.flac",
+      "bytes": 25310,
+      "sha256": "73d28d728b331db0d3f0411ecc39d5eb81a33ea9aa6ba5b7ab8ff5e5142d6531"
+    },
+    "local/combat/player/amazon/death1.flac": {
+      "sound": "amazon_death_1",
+      "source": "combat/player/amazon/death1.flac",
+      "bytes": 27295,
+      "sha256": "94d5e8cbe648c0b9c25cf307ee7e71ff949b35d9d98f865909f0027b64d2bcbf"
+    },
+    "local/combat/player/amazon/death2.flac": {
+      "sound": "amazon_death_2",
+      "source": "combat/player/amazon/death2.flac",
+      "bytes": 24077,
+      "sha256": "4e2509317f97b1c985b348fb01f70033417d77f7d1210d80e506da4582db09b2"
+    },
+    "local/monster/fallen/death4.flac": {
+      "sound": "fallen_death_4",
+      "source": "monster/fallen/death4.flac",
+      "bytes": 39363,
+      "sha256": "5e5d62520d45367953d40c7d2ce7223cc3ed384322e694f9743d5f5a0965ffb2"
+    },
+    "local/monster/fallen/death5.flac": {
+      "sound": "fallen_death_5",
+      "source": "monster/fallen/death5.flac",
+      "bytes": 48879,
+      "sha256": "fefe7e8cb73f4ea4da96906cdb189acda11e7f10f672c5c4aa1c61ed724aff3b"
+    },
+    "local/monster/fallen/death6.flac": {
+      "sound": "fallen_death_6",
+      "source": "monster/fallen/death6.flac",
+      "bytes": 56448,
+      "sha256": "512ea1250e9d2c0a21470eddb30ba974de45b58fccbd1b8a2fbc56a3d53b5149"
+    },
+    "local/monster/fallenshaman/death1.flac": {
+      "sound": "fallenshaman_death_1",
+      "source": "monster/fallenshaman/death1.flac",
+      "bytes": 51877,
+      "sha256": "7fac9edb4e93905b965b701a9676d10d68728e15f67182577c38b0ac94122b8b"
+    },
+    "local/monster/fallenshaman/death2.flac": {
+      "sound": "fallenshaman_death_2",
+      "source": "monster/fallenshaman/death2.flac",
+      "bytes": 46823,
+      "sha256": "a8eea89ae9669143ea6778826d9949fbdf178a5f6e48c9be37b5d80ebcd8c453"
+    },
+    "local/monster/fallenshaman/death3.flac": {
+      "sound": "fallenshaman_death_3",
+      "source": "monster/fallenshaman/death3.flac",
+      "bytes": 45566,
+      "sha256": "03617dd8cbbf881d1f9a5ce1be632b9140dbcbf537c5ccbff245710f6f496593"
+    },
+    "local/monster/fallenshaman/death4.flac": {
+      "sound": "fallenshaman_death_4",
+      "source": "monster/fallenshaman/death4.flac",
+      "bytes": 37804,
+      "sha256": "a21fe049d07365a38be85993472497b80afbfc033736ebde439ad906c0e44317"
+    },
+    "local/monster/zombie/death1.flac": {
+      "sound": "zombie_death_1",
+      "source": "monster/zombie/death1.flac",
+      "bytes": 46896,
+      "sha256": "143615c25f73cc8643ee1cfc0b8803feaba01cc495c939a8cbf5a04d00cfdcfa"
+    },
+    "local/monster/zombie/death2.flac": {
+      "sound": "zombie_death_2",
+      "source": "monster/zombie/death2.flac",
+      "bytes": 42847,
+      "sha256": "82137e257079b70c4f0c3aeebce60f64347d0565ea0f07f18a589f925e7835d2"
+    },
+    "local/monster/zombie/death3.flac": {
+      "sound": "zombie_death_3",
+      "source": "monster/zombie/death3.flac",
+      "bytes": 41886,
+      "sha256": "b35cd4b66c93afa6863447424a945747cda146af74612b2c9fbf7f39c790c530"
+    },
+    "local/monster/zombie/death4.flac": {
+      "sound": "zombie_death_4",
+      "source": "monster/zombie/death4.flac",
+      "bytes": 46192,
+      "sha256": "f7cf46d36b7c554a48ad83f8b37f965539379d4326371f277988fe2b99436ca0"
+    },
+    "local/monster/skeleton/death4.flac": {
+      "sound": "skeleton_death_4",
+      "source": "monster/skeleton/death4.flac",
+      "bytes": 36827,
+      "sha256": "45383c97160dac88cee02c6d09ea7b3978a054c754ffc4a5ea103c65a16601d5"
+    },
+    "local/monster/skeleton/death5.flac": {
+      "sound": "skeleton_death_5",
+      "source": "monster/skeleton/death5.flac",
+      "bytes": 38422,
+      "sha256": "0fddfd044298ebb47d77ce32bc0b9e9563a2a0f626b19e841205cbda64570320"
+    },
+    "local/monster/corrupt/die1.flac": {
+      "sound": "corrupt_death_1",
+      "source": "monster/corrupt/die1.flac",
+      "bytes": 60339,
+      "sha256": "1a25ffc2dbbd199ca531fa36f98d8a0bcf2e750ac4f84e569d2d44d8101db1fa"
+    },
+    "local/monster/corrupt/die3.flac": {
+      "sound": "corrupt_death_2",
+      "source": "monster/corrupt/die3.flac",
+      "bytes": 64344,
+      "sha256": "0d9face13509ad9531df237b6aabac75da91b68a7a77e0d9c3d9fc1e29691c2b"
+    },
+    "local/monster/corrupt/die4.flac": {
+      "sound": "corrupt_death_3",
+      "source": "monster/corrupt/die4.flac",
+      "bytes": 56026,
+      "sha256": "d9d2cc28a70bdf73ff8d242aadfed4d3858f30886e34bb6b0511d9da5d772bb2"
+    },
+    "local/monster/corrupt/die5.flac": {
+      "sound": "corrupt_death_4",
+      "source": "monster/corrupt/die5.flac",
+      "bytes": 56437,
+      "sha256": "85943923b5ede2c6e3d5c7657f9ab6f3133f4e807672a716b99314503fbaab99"
+    },
+    "local/monster/vampire/death1.flac": {
+      "sound": "vampire_death_1",
+      "source": "monster/vampire/death1.flac",
+      "bytes": 50948,
+      "sha256": "369022c661ff8ae5d659b006753536078ed9f9e973fc611119932cf6180fcac7"
+    },
+    "local/monster/vampire/death2.flac": {
+      "sound": "vampire_death_2",
+      "source": "monster/vampire/death2.flac",
+      "bytes": 46333,
+      "sha256": "86760342e3aab3d219041e53ffc5dd7c174024797f28aa165b05ab0dfae14e3c"
+    },
+    "local/monster/vampire/death3.flac": {
+      "sound": "vampire_death_3",
+      "source": "monster/vampire/death3.flac",
+      "bytes": 47565,
+      "sha256": "f4952421960bec41640bae434255e56a79f9d22e33640cfce3c21da2194c5562"
+    },
+    "local/monster/vampire/death4.flac": {
+      "sound": "vampire_death_4",
+      "source": "monster/vampire/death4.flac",
+      "bytes": 49624,
+      "sha256": "7fd2d58c63449a3f6c694bb4fabbfd20932ce5a3fa690520d40400c22d0946b6"
+    },
+    "local/monster/vampire/death5.flac": {
+      "sound": "vampire_death_5",
+      "source": "monster/vampire/death5.flac",
+      "bytes": 47387,
+      "sha256": "5a4558b4d5fb02184d0635b064c11d9e57ebde5416a62fb092e241264754c3a8"
+    },
+    "local/monster/goatman/death1.flac": {
+      "sound": "goatman_death_1",
+      "source": "monster/goatman/death1.flac",
+      "bytes": 47177,
+      "sha256": "f655bc4a476c3b3111e02f41a3cf5cf54385369f3f17f6df4ad7915d7ade02b6"
+    },
+    "local/monster/goatman/death2.flac": {
+      "sound": "goatman_death_2",
+      "source": "monster/goatman/death2.flac",
+      "bytes": 48323,
+      "sha256": "96d59cd3decc9fbd69e97ceef7e3511e38993503cf5ceff8efa4fd00bb3783fe"
+    },
+    "local/monster/goatman/death3.flac": {
+      "sound": "goatman_death_3",
+      "source": "monster/goatman/death3.flac",
+      "bytes": 41990,
+      "sha256": "8ad403dfe41ac04d37a3a4abc485a4b3f65b22919f68cdba6d1e2ba965c69552"
+    },
+    "local/monster/goatman/death4.flac": {
+      "sound": "goatman_death_4",
+      "source": "monster/goatman/death4.flac",
+      "bytes": 44394,
+      "sha256": "9147e531fb67edcac2945eab067f43db47a73847dee65bc6c8fc68286be809ce"
+    },
+    "local/monster/wraith/death4.flac": {
+      "sound": "wraith_death_4",
+      "source": "monster/wraith/death4.flac",
+      "bytes": 68205,
+      "sha256": "3ba33ee31a5e149233418b2e968e42ff0c04a940580a4dfbc21a23f3f9ab69de"
+    },
+    "local/monster/mummy/death1.flac": {
+      "sound": "mummy_death_1",
+      "source": "monster/mummy/death1.flac",
+      "bytes": 32164,
+      "sha256": "dcadf17e70ce428f5e5a13a8ad336a821e70c068421fc766f3c9bf390ddd1b79"
+    },
+    "local/monster/mummy/death2.flac": {
+      "sound": "mummy_death_2",
+      "source": "monster/mummy/death2.flac",
+      "bytes": 39171,
+      "sha256": "b3a991d7faf747faeb19acd98184545d2a047466438c01ed77ee153b1326b294"
+    },
+    "local/monster/mummy/death3.flac": {
+      "sound": "mummy_death_3",
+      "source": "monster/mummy/death3.flac",
+      "bytes": 35670,
+      "sha256": "295b0b3bc53035a61ff783d42ea8acce96d2456a1f4c2b4af235e9c731546037"
+    },
+    "local/monster/mummy/death4.flac": {
+      "sound": "mummy_death_4",
+      "source": "monster/mummy/death4.flac",
+      "bytes": 36707,
+      "sha256": "c00b968f4193ebe309096d6f46eeba4214a92f3f960446aca8182e6fd0cf2f11"
+    },
+    "local/monster/beetle/death1.flac": {
+      "sound": "beetle_death_1",
+      "source": "monster/beetle/death1.flac",
+      "bytes": 67292,
+      "sha256": "5a551352ea93ab984ce3d9221d94033fefdc24bb02d2925b81ed7ad8ef325983"
+    },
+    "local/monster/beetle/death2.flac": {
+      "sound": "beetle_death_2",
+      "source": "monster/beetle/death2.flac",
+      "bytes": 64787,
+      "sha256": "b3f8318fbc0ff4119e9b7fb7d01616fee4505b842dab34cf9aa4cfb0c17d4b01"
+    },
+    "local/monster/beetle/death3.flac": {
+      "sound": "beetle_death_3",
+      "source": "monster/beetle/death3.flac",
+      "bytes": 69377,
+      "sha256": "88847858d031f298b7a063a506d645cc7af03bdfed98bc77ca73f08df8c4f59c"
+    },
+    "local/monster/beetle/death4.flac": {
+      "sound": "beetle_death_4",
+      "source": "monster/beetle/death4.flac",
+      "bytes": 67934,
+      "sha256": "225e1fee38c6d7356a104d16521e6fe64c4bd3cd9af36f17a1c182915abee484"
+    },
+    "local/monster/sandmaggot/death1.flac": {
+      "sound": "sandmaggot_death_1",
+      "source": "monster/sandmaggot/death1.flac",
+      "bytes": 29864,
+      "sha256": "03e448bbff70e050d4031afc0ec84b49247725ebf14076bdcb30d34f93152b9a"
+    },
+    "local/monster/sandmaggot/death2.flac": {
+      "sound": "sandmaggot_death_2",
+      "source": "monster/sandmaggot/death2.flac",
+      "bytes": 28391,
+      "sha256": "a81a8e9d5cd04b8cfbe22ba584e2238bf6910f040a8bb3e19535052a82c4598e"
+    },
+    "local/monster/sandmaggot/death3.flac": {
+      "sound": "sandmaggot_death_3",
+      "source": "monster/sandmaggot/death3.flac",
+      "bytes": 23357,
+      "sha256": "daa6be054c3981edb85d67f1fa2a90343d6f90c4ce1b8fbf222b360900448e7e"
+    },
+    "local/monster/sandmaggot/death4.flac": {
+      "sound": "sandmaggot_death_4",
+      "source": "monster/sandmaggot/death4.flac",
+      "bytes": 27286,
+      "sha256": "527dbee9f7dee6a67b77d60dec478fdf244d9f82746e4da767e92bdd3f1a6aba"
+    },
+    "local/monster/serpentdemon/death1.flac": {
+      "sound": "serpentdemon_death_1",
+      "source": "monster/serpentdemon/death1.flac",
+      "bytes": 55250,
+      "sha256": "fbfd243325e93f795cbe161b35b0f2c2e9fc7358d972019cf7dbe97fb2b85139"
+    },
+    "local/monster/serpentdemon/death2.flac": {
+      "sound": "serpentdemon_death_2",
+      "source": "monster/serpentdemon/death2.flac",
+      "bytes": 56122,
+      "sha256": "f600b0f10243b76ea46447dca24b7079a3f181ac62169dc9b087a3bf5acde6db"
+    },
+    "local/monster/serpentdemon/death3.flac": {
+      "sound": "serpentdemon_death_3",
+      "source": "monster/serpentdemon/death3.flac",
+      "bytes": 57949,
+      "sha256": "705d56c010cca30eda2884aeceed868ead421e2061d0123d69496a2179d671d5"
+    },
+    "local/monster/serpentdemon/death4.flac": {
+      "sound": "serpentdemon_death_4",
+      "source": "monster/serpentdemon/death4.flac",
+      "bytes": 61490,
+      "sha256": "03438218a29ddf05347f52bfc2d718253436ed59d32a546e52dd733933e1c313"
+    },
+    "local/monster/serpentdemon/death5.flac": {
+      "sound": "serpentdemon_death_5",
+      "source": "monster/serpentdemon/death5.flac",
+      "bytes": 52621,
+      "sha256": "305ef13a6614b7c74e8905b2ef9215454b5c2e9490e75c98ae6ff4a13cbc4886"
+    },
+    "local/monster/serpentdemon/death6.flac": {
+      "sound": "serpentdemon_death_6",
+      "source": "monster/serpentdemon/death6.flac",
+      "bytes": 62683,
+      "sha256": "c5daaf15b855b4eba5743f62fb676bed2ceed91339bb54c09bc7c18decc0ee78"
+    },
+    "local/monster/spider/death1.flac": {
+      "sound": "spider_death_1",
+      "source": "monster/spider/death1.flac",
+      "bytes": 66402,
+      "sha256": "59033b0816787324f93a889361fde8aa5969fb3f4a1bd9741f1067df2d695b18"
+    },
+    "local/monster/spider/death2.flac": {
+      "sound": "spider_death_2",
+      "source": "monster/spider/death2.flac",
+      "bytes": 65919,
+      "sha256": "f6a245350c605b6d65ccaa166f6d39839c83c72164bdd34afe8bb5c88844413e"
+    },
+    "local/monster/spider/death3.flac": {
+      "sound": "spider_death_3",
+      "source": "monster/spider/death3.flac",
+      "bytes": 68179,
+      "sha256": "a57602a1b32ccaabe837c2fa5e2b29ab19532bd0e8f2c7ad48bfb1eb8418f9ee"
+    },
+    "local/monster/spider/death4.flac": {
+      "sound": "spider_death_4",
+      "source": "monster/spider/death4.flac",
+      "bytes": 61181,
+      "sha256": "9e225008af31588bf1ef1560e8ad5103cd153198e03e90cc2dcef0b4d4efc209"
+    },
+    "local/monster/spider/death5.flac": {
+      "sound": "spider_death_5",
+      "source": "monster/spider/death5.flac",
+      "bytes": 66380,
+      "sha256": "2f51004b10bccd26ad83e0eed078f4701717c80855f6dc839cd4dbe506936e46"
+    },
+    "local/monster/spider/death6.flac": {
+      "sound": "spider_death_6",
+      "source": "monster/spider/death6.flac",
+      "bytes": 63983,
+      "sha256": "9804423e1ecb9abd94db2a95eb78d90142323aebe1a9d12cb9e35b6d349f54c7"
+    },
+    "local/monster/pygmy/death1.flac": {
+      "sound": "pygmy_death_1",
+      "source": "monster/pygmy/death1.flac",
+      "bytes": 37629,
+      "sha256": "f9770aecb39dba00b3b2e51bbc9ce3246cdae8178b3da14f797842271614ed75"
+    },
+    "local/monster/pygmy/death2.flac": {
+      "sound": "pygmy_death_2",
+      "source": "monster/pygmy/death2.flac",
+      "bytes": 43211,
+      "sha256": "62be8615ba5b0cd02dd707dc7a1c394183ebca018911bffc5129bc40951d1a93"
+    },
+    "local/monster/pygmy/death3.flac": {
+      "sound": "pygmy_death_3",
+      "source": "monster/pygmy/death3.flac",
+      "bytes": 35676,
+      "sha256": "66c571a0a6e75402362debac737b2a5582969cba53630901a3d6aab5b95aaba2"
+    },
+    "local/monster/pygmy/death4.flac": {
+      "sound": "pygmy_death_4",
+      "source": "monster/pygmy/death4.flac",
+      "bytes": 39499,
+      "sha256": "f44875f22142eb6b906895cb2f0633673a43bfc8c71c814fd5764155f94d992f"
+    },
+    "local/monster/pygmy/death5.flac": {
+      "sound": "pygmy_death_5",
+      "source": "monster/pygmy/death5.flac",
+      "bytes": 42991,
+      "sha256": "7a2a5c5c98ac4c7909b4cbeb681285f3489f026217f52b49c6f2e992e56011dc"
+    },
+    "local/monster/pygmy/death6.flac": {
+      "sound": "pygmy_death_6",
+      "source": "monster/pygmy/death6.flac",
+      "bytes": 48761,
+      "sha256": "2f084a72dfae6ae7c9f9228ebcdae46312ee2dba029b747e6abf9f525daede51"
+    },
+    "local/monster/zakarumhighpriest/death1.flac": {
+      "sound": "zakarumhigh_death_1",
+      "source": "monster/zakarumhighpriest/death1.flac",
+      "bytes": 49833,
+      "sha256": "055a4902a14ec9c14fb5ef2f590e983f415c2252d47eba69bf589dcf59f9b5ad"
+    },
+    "local/monster/zakarumhighpriest/death2.flac": {
+      "sound": "zakarumhigh_death_2",
+      "source": "monster/zakarumhighpriest/death2.flac",
+      "bytes": 49591,
+      "sha256": "d68f479696b4917889079bc1a12d51f1927df851438be0568d987f2b7a9329ff"
+    },
+    "local/monster/zakarumhighpriest/death3.flac": {
+      "sound": "zakarumhigh_death_3",
+      "source": "monster/zakarumhighpriest/death3.flac",
+      "bytes": 43081,
+      "sha256": "9c88b17748977a0690132065258ef64501d6faeac4a435e15061b926ea1b515a"
+    },
+    "local/monster/zakarumhighpriest/death4.flac": {
+      "sound": "zakarumhigh_death_4",
+      "source": "monster/zakarumhighpriest/death4.flac",
+      "bytes": 48930,
+      "sha256": "b0e261f9191524f0cbbc05a445b11bbd957a95168eb3e9d1582b237808dc5227"
+    },
+    "local/monster/megademon/death1.flac": {
+      "sound": "megademon_death_1",
+      "source": "monster/megademon/death1.flac",
+      "bytes": 80114,
+      "sha256": "d15b005d300f42bf7e2146a6b611ccbb2c1651765021a9dd19b248d20e37a960"
+    },
+    "local/monster/megademon/death2.flac": {
+      "sound": "megademon_death_2",
+      "source": "monster/megademon/death2.flac",
+      "bytes": 85436,
+      "sha256": "2e91d9d1a4e5c83181132bc4057dd6e6ff14c3396968d31d04f3c25e69997261"
+    },
+    "local/monster/megademon/death3.flac": {
+      "sound": "megademon_death_3",
+      "source": "monster/megademon/death3.flac",
+      "bytes": 58495,
+      "sha256": "6b96a3b22bf28512177ce69623ccbe91b1db0a2836ab908618d68d233b14c882"
+    },
+    "local/monster/megademon/death4.flac": {
+      "sound": "megademon_death_4",
+      "source": "monster/megademon/death4.flac",
+      "bytes": 83308,
+      "sha256": "9742cc20aaa38f0257dbd0e426b1f63c6e20117fee5bf8d67ea67f768f53b253"
+    },
+    "local/monster/megademon/death5.flac": {
+      "sound": "megademon_death_5",
+      "source": "monster/megademon/death5.flac",
+      "bytes": 67118,
+      "sha256": "2cba081333933c9922bdea6b03c615fb39deeda293938b992cb43594ec53d944"
+    },
+    "local/monster/pinhead/death1.flac": {
+      "sound": "pinhead_death_1",
+      "source": "monster/pinhead/death1.flac",
+      "bytes": 50405,
+      "sha256": "973986a2532b0dcf9d9093ff35e85906ac80d508eac06ca1d0a5f574bef9948f"
+    },
+    "local/monster/pinhead/death2.flac": {
+      "sound": "pinhead_death_2",
+      "source": "monster/pinhead/death2.flac",
+      "bytes": 45014,
+      "sha256": "3c96bcdfe112e333767a34936350b0990458f2315919204a0dae610358f5cfe9"
+    },
+    "local/monster/pinhead/death3.flac": {
+      "sound": "pinhead_death_3",
+      "source": "monster/pinhead/death3.flac",
+      "bytes": 48066,
+      "sha256": "a3c4793a2db71a2789e27ac514d8b76a9edc1330d04e8025830756c793884c20"
+    },
+    "local/monster/pinhead/death4.flac": {
+      "sound": "pinhead_death_4",
+      "source": "monster/pinhead/death4.flac",
+      "bytes": 58996,
+      "sha256": "b319d8ce8841848c7fdd6228b4f840d25f7f6cc1b2074b55adc49ff0f5fa30bc"
+    },
+    "local/monster/pinhead/death5.flac": {
+      "sound": "pinhead_death_5",
+      "source": "monster/pinhead/death5.flac",
+      "bytes": 45316,
+      "sha256": "cc14fffe2400396b1e484da860d6877c5f53424099ba39ae29db18712a858cc6"
+    },
+    "local/monster/imp/death1.flac": {
+      "sound": "imp_death_1",
+      "source": "monster/imp/death1.flac",
+      "bytes": 62544,
+      "sha256": "c581afc2a1240306045f52ef1e0ab481f72840d220081d84d40145a5b0aa1427"
+    },
+    "local/monster/imp/death2.flac": {
+      "sound": "imp_death_2",
+      "source": "monster/imp/death2.flac",
+      "bytes": 75243,
+      "sha256": "152c7b9f9eb231ef7d3f2d3d31e10b7b2d7decd857e42d96498babf21532d353"
+    },
+    "local/monster/imp/death3.flac": {
+      "sound": "imp_death_3",
+      "source": "monster/imp/death3.flac",
+      "bytes": 61845,
+      "sha256": "5d0645f2c63bc1de8305e18a07e36ba2e8d69ee16eb81196389404cba9568127"
+    },
+    "local/monster/imp/death4.flac": {
+      "sound": "imp_death_4",
+      "source": "monster/imp/death4.flac",
+      "bytes": 60618,
+      "sha256": "74e64f5e58123ed147322f23a160107c288e1ba9e57ed714be55c72333489484"
+    },
+    "local/monster/succubus/death1.flac": {
+      "sound": "succubus_death_1",
+      "source": "monster/succubus/death1.flac",
+      "bytes": 45426,
+      "sha256": "7eb52d73ee86ff45d45dbd38c9952b42804783092fbd504bc668126ff32fd6c6"
+    },
+    "local/monster/succubus/death2.flac": {
+      "sound": "succubus_death_2",
+      "source": "monster/succubus/death2.flac",
+      "bytes": 46771,
+      "sha256": "a57299fb0d6db5ae5ce1cca6002f5339b504907acaa12e9b7bc0ae28579e317d"
+    },
+    "local/monster/succubus/death3.flac": {
+      "sound": "succubus_death_3",
+      "source": "monster/succubus/death3.flac",
+      "bytes": 51299,
+      "sha256": "c07bf1bd3130417bae41b9b2a8b3abb6a5fccb24730e1d74839292eda8eabdf1"
+    },
+    "local/monster/succubus/death4.flac": {
+      "sound": "succubus_death_4",
+      "source": "monster/succubus/death4.flac",
+      "bytes": 45359,
+      "sha256": "6286e7c47483f74febc8d830772361a98c5741bfddc11c64596f4889f89847c7"
+    },
+    "local/monster/yeti/death1.flac": {
+      "sound": "yeti_death_1",
+      "source": "monster/yeti/death1.flac",
+      "bytes": 51913,
+      "sha256": "6920b51f10a2e0bebc3429e9c58914724e93216a1f69700cb5bec09d09e93e9c"
+    },
+    "local/monster/yeti/death2.flac": {
+      "sound": "yeti_death_2",
+      "source": "monster/yeti/death2.flac",
+      "bytes": 47037,
+      "sha256": "1d63a185b14c32b658c647cb8a398e01e766ad1bcfe632d5066c2c230772b4db"
+    },
+    "local/monster/yeti/death3.flac": {
+      "sound": "yeti_death_3",
+      "source": "monster/yeti/death3.flac",
+      "bytes": 45931,
+      "sha256": "ae47b2e91eaf17369e5710b781d3a05f5af140a1cecc783b87f39d802cb8b90a"
+    },
+    "local/monster/yeti/death4.flac": {
+      "sound": "yeti_death_4",
+      "source": "monster/yeti/death4.flac",
+      "bytes": 46611,
+      "sha256": "b77a7eaa8637f9af7cfbb4119ea76fd1697b57c29a7744a8234c6596c8f1b952"
+    },
+    "local/monster/bloodlord/death1.flac": {
+      "sound": "bloodlord_death_1",
+      "source": "monster/bloodlord/death1.flac",
+      "bytes": 42543,
+      "sha256": "9b37e2a77094904d73d2b85bb14a1c7d4d908eebb5db3c4bd362f65bbc7b3a78"
+    },
+    "local/monster/bloodlord/death2.flac": {
+      "sound": "bloodlord_death_2",
+      "source": "monster/bloodlord/death2.flac",
+      "bytes": 45531,
+      "sha256": "7abfaa4287a74b7ca8b2b6b3c4939ba65e59167306dfed10f4c311f8b26e0c7c"
+    },
+    "local/monster/bloodlord/death3.flac": {
+      "sound": "bloodlord_death_3",
+      "source": "monster/bloodlord/death3.flac",
+      "bytes": 45409,
+      "sha256": "398e07268a81fd931513afa68cb95a8b38fdcc150214d973e33d16adaba479e8"
+    },
+    "local/monster/bloodlord/death4.flac": {
+      "sound": "bloodlord_death_4",
+      "source": "monster/bloodlord/death4.flac",
+      "bytes": 50573,
+      "sha256": "66675b8c0912b87dcdbca052b576e1dbdd5494c405ae3df74b683fc0512dd4f9"
+    },
+    "local/monster/moo/death1.flac": {
+      "sound": "moo_death_1",
+      "source": "monster/moo/death1.flac",
+      "bytes": 49254,
+      "sha256": "2dafebfd2b480881e65efd9005fa6df7243df82342c3f180edd083186d10d1c1"
+    },
+    "local/monster/moo/death2.flac": {
+      "sound": "moo_death_2",
+      "source": "monster/moo/death2.flac",
+      "bytes": 37400,
+      "sha256": "4a81242199cfdb331e085de93a240cefd544bd431096ab4cf4040fa983ef5b78"
+    },
+    "local/monster/moo/death3.flac": {
+      "sound": "moo_death_3",
+      "source": "monster/moo/death3.flac",
+      "bytes": 29800,
+      "sha256": "d32a33a7d8bc64e96ba70033e1b3b79c604bbc7d07640959f17a51d6a7fd1f1b"
+    },
+    "local/monster/moo/death4.flac": {
+      "sound": "moo_death_4",
+      "source": "monster/moo/death4.flac",
+      "bytes": 42285,
+      "sha256": "1595e2b7b1270a163d7ce457feb9f8b70e26d6d3f3d18e749ffee687e8fcf21b"
+    },
+    "local/monster/moo/death5.flac": {
+      "sound": "moo_death_5",
+      "source": "monster/moo/death5.flac",
+      "bytes": 17990,
+      "sha256": "8d3a67d213071ec1ac2fe97a9640eb084c7b14a37ed7d1903370c4c42cabdf82"
+    },
+    "local/monster/andariel/death.flac": {
+      "sound": "andariel_death",
+      "source": "monster/andariel/death.flac",
+      "bytes": 192052,
+      "sha256": "c1e52906f4cf0178c2cf7aed5e390bd8330271cf0d24d15e49593841e1a3f22a"
+    },
+    "local/monster/duriel/death1.flac": {
+      "sound": "duriel_death",
+      "source": "monster/duriel/death1.flac",
+      "bytes": 95433,
+      "sha256": "c8873855265cf77699a3c6a08bc1fc5b3dbb59942fa0c5072d87b7f412b2a967"
+    },
+    "local/monster/mephisto/death.flac": {
+      "sound": "mephisto_death",
+      "source": "monster/mephisto/death.flac",
+      "bytes": 126322,
+      "sha256": "76333ffa46376e622ca361aeea0dfd36ec9aa18264d7266ff7b617a7c62a3269"
+    },
+    "local/monster/diablo/deathschwing.flac": {
+      "sound": "diablo_death_schwing",
+      "source": "monster/diablo/deathschwing.flac",
+      "bytes": 110466,
+      "sha256": "4a2253d43beb13d5728f6ee7df3de30e49459ae33a2fe35fd7756ce4aa38a634"
+    },
+    "local/monster/diablo/deathhit.flac": {
+      "sound": "diablo_death_hit",
+      "source": "monster/diablo/deathhit.flac",
+      "bytes": 155178,
+      "sha256": "993f933065fee1c5e64723407caf48bddd05e7cd581d06206b47615c2cb21fb9"
+    },
+    "local/monster/baal/death.flac": {
+      "sound": "baal_death",
+      "source": "monster/baal/death.flac",
+      "bytes": 918779,
+      "sha256": "456b39c497a52c8f0bcda053354f7a02258f817962edfac26f71bb7689000f58"
+    },
+    "local/monster/baal/head1.flac": {
+      "sound": "baal_deathhead_1",
+      "source": "monster/baal/head1.flac",
+      "bytes": 186127,
+      "sha256": "58d96706e6e0474a61c3dd2d358ce9a1b5afad972af9a6d65acea8d551ac84d6"
+    },
+    "local/monster/baal/head2.flac": {
+      "sound": "baal_deathhead_2",
+      "source": "monster/baal/head2.flac",
+      "bytes": 181576,
+      "sha256": "9bf78cc00ad58df97c715ce556b824053935a0351bbb143eada27603940a85dd"
+    },
+    "local/monster/baal/head3.flac": {
+      "sound": "baal_deathhead_3",
+      "source": "monster/baal/head3.flac",
+      "bytes": 148862,
+      "sha256": "7af3f2674187fccffd281f1116d050f3cb863c22b2f7dc62af7de2ca11bbcb26"
+    },
+    "local/skill/paladin/blessedaim.flac": {
+      "sound": "paladin_aura_blessedaim",
+      "source": "skill/paladin/blessedaim.flac",
+      "bytes": 79726,
+      "sha256": "96f5543a17edb2ddc9575b2ab7af1efe50abe99d8dc9295165e49300d58050f5"
+    },
+    "local/skill/paladin/cleansing.flac": {
+      "sound": "paladin_aura_cleansing",
+      "source": "skill/paladin/cleansing.flac",
+      "bytes": 71867,
+      "sha256": "cdb1d27822320b2feb3ad10ea611a37cda86ad35c1bf3fc6479fe369b35c4e0c"
+    },
+    "local/skill/paladin/concentration.flac": {
+      "sound": "paladin_aura_concentration",
+      "source": "skill/paladin/concentration.flac",
+      "bytes": 77057,
+      "sha256": "20d1266b98b91d5f1e27f443149ec1b2ac1fedb62637e571cf8fea017df45720"
+    },
+    "local/skill/paladin/defiance.flac": {
+      "sound": "paladin_aura_defiance",
+      "source": "skill/paladin/defiance.flac",
+      "bytes": 62779,
+      "sha256": "249bc34313c8d300bf84b750a5432c7e3927c4532c549c5fc9ffcb00df1e4f51"
+    },
+    "local/skill/paladin/holyfire.flac": {
+      "sound": "paladin_aura_holyfire",
+      "source": "skill/paladin/holyfire.flac",
+      "bytes": 71484,
+      "sha256": "14441f616f15714591f0b9619eaa128b51aefa3494f694ddf2af9aa3c294cb02"
+    },
+    "local/skill/paladin/meditation.flac": {
+      "sound": "paladin_aura_meditation",
+      "source": "skill/paladin/meditation.flac",
+      "bytes": 63230,
+      "sha256": "a45c646bb5e347cf01b3e126df0a7bf752c4558e89f7964101d135893ef2aed4"
+    },
+    "local/skill/paladin/prayer.flac": {
+      "sound": "paladin_aura_prayer",
+      "source": "skill/paladin/prayer.flac",
+      "bytes": 61445,
+      "sha256": "0740213c93b61fb17b1d31c619d4d28e068aa4452e09e5e37229556bbbb953d1"
+    },
+    "local/skill/paladin/redemption.flac": {
+      "sound": "paladin_aura_redemption",
+      "source": "skill/paladin/redemption.flac",
+      "bytes": 66482,
+      "sha256": "b1c6029e53e30d841e4732227342705e44f015cddfde3e18ae30509c133358ee"
+    },
+    "local/skill/paladin/resistcold.flac": {
+      "sound": "paladin_aura_resistcold",
+      "source": "skill/paladin/resistcold.flac",
+      "bytes": 87962,
+      "sha256": "ab54902f6578d3328ae01a93c84c0c940c1d3e7472562806a562645a54b84172"
+    },
+    "local/skill/paladin/resistfire.flac": {
+      "sound": "paladin_aura_resistfire",
+      "source": "skill/paladin/resistfire.flac",
+      "bytes": 76274,
+      "sha256": "a467ee106be84f6465fceaa60ad923771f7c6ea21af122c2ad56b17a1c6bcd43"
+    },
+    "local/skill/paladin/resistlightning.flac": {
+      "sound": "paladin_aura_resistlightning",
+      "source": "skill/paladin/resistlightning.flac",
+      "bytes": 83277,
+      "sha256": "c99926f8e3314ca7ef795af43b246dd4e432cbfe9a0baab42e6169b5c86033ad"
+    },
+    "local/skill/paladin/salvation.flac": {
+      "sound": "paladin_aura_salvation",
+      "source": "skill/paladin/salvation.flac",
+      "bytes": 62973,
+      "sha256": "0e0ee9d059820a0e1517d6371bfee6949b55a7ed92a99b4c5e1bc3ef34d6b9d1"
+    },
+    "local/skill/paladin/sanctuary.flac": {
+      "sound": "paladin_aura_sanctuary",
+      "source": "skill/paladin/sanctuary.flac",
+      "bytes": 65762,
+      "sha256": "298fdb3695d7c8625ff6189055a1a6ed842f4edc6325720719d38f6c667d7623"
+    },
+    "local/skill/paladin/thorns.flac": {
+      "sound": "paladin_aura_thorns",
+      "source": "skill/paladin/thorns.flac",
+      "bytes": 66775,
+      "sha256": "23f0bf7a35f74b098213f036d1b58b0bdd902f5487ff8e2201c57ead5d6f1273"
+    },
+    "local/skill/paladin/fanaticism.flac": {
+      "sound": "paladin_aura_fanatacism",
+      "source": "skill/paladin/fanaticism.flac",
+      "bytes": 69676,
+      "sha256": "b3bae9e05e195f0a6537916a4dbb5958d47e4f9bd31435c7df5f999dba1b6bde"
+    },
+    "local/skill/paladin/holywind.flac": {
+      "sound": "paladin_aura_holywind",
+      "source": "skill/paladin/holywind.flac",
+      "bytes": 74079,
+      "sha256": "1d9bc9e98f4f71e7070afc4f142d3490a7443e4d3a0894f76b924fbef61dfc88"
+    },
+    "local/skill/paladin/holylight.flac": {
+      "sound": "paladin_aura_holylight",
+      "source": "skill/paladin/holylight.flac",
+      "bytes": 76650,
+      "sha256": "7c5a24eeddc3fb9c7205650ce74aa5972e55211a8a3a0e1eb082a37442ca0862"
+    },
+    "local/skill/paladin/stamina.flac": {
+      "sound": "paladin_aura_stamina",
+      "source": "skill/paladin/stamina.flac",
+      "bytes": 61872,
+      "sha256": "1d41058e1cc64e1b95470a3bd48e580f83a202ffbc2c28f2917411e82eae6fde"
+    },
+    "local/skill/paladin/purification.flac": {
+      "sound": "paladin_aura_purification",
+      "source": "skill/paladin/purification.flac",
+      "bytes": 72465,
+      "sha256": "cb2759acac18aebabfd58cb4f093f885180451ff1e0040152007fc6bd4544bfb"
+    }
+  }
+}

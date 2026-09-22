@@ -3,8 +3,10 @@ import { cp, mkdir, readFile, writeFile, access, chmod } from 'node:fs/promises'
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { verifyNativeAudio } from './verify-native-audio.mjs';
 
 const destination = resolve(process.env.PACKAGE_DIR || 'release/package');
+await verifyNativeAudio(resolve(process.env.D2R_BUILD_DIR || 'dist'));
 try { await access(destination); throw new Error(`Package destination already exists: ${destination}`); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
 if (!['win32', 'linux'].includes(process.platform) || process.arch !== 'x64') throw new Error('Packaging requires Windows or Linux x64');
@@ -13,6 +15,7 @@ if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== `v$
 await mkdir(join(destination, 'app'), { recursive: true });
 await mkdir(join(destination, 'runtime'));
 await cp(process.env.D2R_BUILD_DIR || 'dist', join(destination, 'dist'), { recursive: true });
+await verifyNativeAudio(join(destination, 'dist'));
 await build({ entryPoints: ['server/deploy.mjs'], outfile: join(destination, 'app/server.mjs'), bundle: true,
   platform: 'node', target: 'node24', format: 'esm', packages: 'external' });
 for (const filename of ['package.json', 'package-lock.json']) await cp(filename, join(destination, filename));

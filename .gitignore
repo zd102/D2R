@@ -2,6 +2,7 @@ node_modules/
 dist/
 .verification/
 *.log
+# Release recordings and manifest are explicitly tracked; extra imports stay local.
 public/audio/local/
 scripts/__pycache__/
 server/data/
