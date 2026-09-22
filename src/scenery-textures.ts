@@ -24,6 +24,18 @@ export function sceneryTexture(style: SurfaceStyle | 'wall' | 'water' | 'lava' |
     for (let c = 0; c < 3; c++) noise.data[i + c] = Math.max(0, Math.min(255, noise.data[i + c] + n));
   }
   ctx.putImageData(noise, 0, 0);
+  // Large mineral/soil stains beneath the fine grain prevent uniformly painted
+  // surfaces. Wrap each stain so the repeated tile retains continuous edges.
+  for(let i=0;i<48;i++) {
+    const x=random()*512,y=random()*512,r=18+random()*80;
+    const tint=i%3?'46,39,30':'218,206,177';
+    for(const dx of [-512,0,512])for(const dy of [-512,0,512]) {
+      if(x+dx+r<0||x+dx-r>512||y+dy+r<0||y+dy-r>512)continue;
+      const gradient=ctx.createRadialGradient(x+dx,y+dy,0,x+dx,y+dy,r);
+      gradient.addColorStop(0,`rgba(${tint},.12)`);gradient.addColorStop(1,`rgba(${tint},0)`);
+      ctx.fillStyle=gradient;ctx.fillRect(x+dx-r,y+dy-r,r*2,r*2);
+    }
+  }
   const line = (points: number[][], color: string, width: number) => {
     ctx.beginPath(); points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
   };
@@ -36,6 +48,10 @@ export function sceneryTexture(style: SurfaceStyle | 'wall' | 'water' | 'lava' |
       ctx.strokeStyle = '#34332f'; ctx.lineWidth = style === 'wall' ? 5 : 3; ctx.strokeRect(x, y, w, h);
       line([[x+3,y+h-4],[x+3,y+3],[x+w-4,y+3]], '#e7e3ce77', 2);
       line([[x+w*.7,y],[x+w*.69,y+h*.18],[x+w*.77,y+h*.4]], '#46443e99', 1.3);
+      for(let chip=0;chip<4;chip++) {
+        const cx=x+random()*w,cy=y+(chip%2?h:0),size=2+random()*6;
+        ctx.fillStyle='#4f4b4266';ctx.beginPath();ctx.moveTo(cx-size,cy);ctx.lineTo(cx+size,cy);ctx.lineTo(cx+size*.4,cy+(chip%2?-1:1)*size);ctx.fill();
+      }
       if (style === 'mosaic') {
         ctx.strokeStyle = '#77776b'; ctx.lineWidth = 3; ctx.strokeRect(x + 15, y + 15, w - 30, h - 30);
         line([[x+w/2,y+28],[x+w-28,y+h/2],[x+w/2,y+h-28],[x+28,y+h/2],[x+w/2,y+28]], '#d9d4b6', 3);

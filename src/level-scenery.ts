@@ -5,6 +5,7 @@ import { distanceToSegment, layoutWalkable, type LevelLayout } from './level-lay
 import { sceneDesign, type SceneryProp } from './scene-design.ts';
 import { sceneryRandom, sceneryTexture, sceneryDecal } from './scenery-textures.ts';
 import { rotateLayout, rotateMapPoint } from './map-orientation.ts';
+import { contourGeometry } from './actor-modeling.ts';
 
 type SceneHost = {
   level: Level; layout: LevelLayout; scene: THREE.Scene; staticGroup: THREE.Group; ground: THREE.Mesh; grid: PF.Grid; floorCells: MapPoint[];
@@ -44,8 +45,10 @@ function buildAuthoredScenery(world: SceneHost) {
   const level = world.level, design = sceneDesign(level), palette = design.palette, layout = world.layout;
   const random = sceneryRandom(3817 + level.index * 793 + layout.seed), root = world.staticGroup;
   const geometry = {
-    box: new THREE.BoxGeometry(1,1,1), column: new THREE.CylinderGeometry(1,1,1,10), cone: new THREE.ConeGeometry(1,1,7),
-    rock: new THREE.SphereGeometry(1,9,7), orb: new THREE.SphereGeometry(1,12,8), ring: new THREE.TorusGeometry(1,.018,5,64),
+    box: new THREE.BoxGeometry(1,1,1), column: new THREE.CylinderGeometry(1,1,1,14), cone: new THREE.ConeGeometry(1,1,7),
+    rock: new THREE.SphereGeometry(1,14,10), orb: new THREE.SphereGeometry(1,16,12), ring: new THREE.TorusGeometry(1,.018,5,64),
+    urn: new THREE.LatheGeometry([[.15,0],[.23,.045],[.21,.12],[.33,.25],[.37,.46],[.32,.67],[.18,.79],[.17,.86],[.22,.89],[.22,.94],[.16,.94],[.135,.86],[.14,.79],[.26,.65],[.30,.46],[.27,.27],[.14,.14],[0,.14]].map(([r,y])=>new THREE.Vector2(r,y)),20),
+    shaft: contourGeometry([[0,.39,.39],[.08,.39,.39],[.12,.32,.32],[.87,.28,.28],[.94,.34,.34],[1,.34,.34]],8),
     crystal: new THREE.OctahedronGeometry(1,0), plane: new THREE.PlaneGeometry(1,1),
   };
   const rockVertices=geometry.rock.attributes.position;
@@ -85,7 +88,7 @@ function buildAuthoredScenery(world: SceneHost) {
     if(world.floorCells.some(p=>Math.abs(p.x-x)<w/2+.5&&Math.abs(p.z-z)<d/2+.5))world.addCollider(x,z,w,d);
   };
   const pylon = (x: number,z: number,h = 3.8, ornate = true) => {
-    box(stone,x,.18,z,1.25,.36,1.25); box(wall,x,h/2,z,.7,h,.7);
+    box(stone,x,.18,z,1.25,.36,1.25); mesh(geometry.shaft,wall,x,.18,z,1,h-.18,1,Math.PI/8);
     for (const y of [.5,h-.3]) box(trim,x,y,z,.94,.17,.94);
     if (ornate) { mesh(geometry.cone,trim,x,h+.25,z,.65,.75,.65); box(dark,x,h*.56,z+.361,.2,h*.42,.025); }
     solid(x,z,1.25,1.25);
@@ -148,8 +151,8 @@ function buildAuthoredScenery(world: SceneHost) {
       for (let i=0;i<3;i++) mesh(geometry.rock,stone,x+(random()-.5)*2,.15,z+.6+random(),.3,.3,.3);
     } else if (kind === 'pillar') pylon(x,z,3*scale);
     else if (kind === 'urn') {
-      mesh(geometry.orb,stone,x,.48*scale,z,.37*scale,.5*scale,.37*scale);
-      mesh(geometry.column,trim,x,.88*scale,z,.23*scale,.12,.23*scale); mesh(geometry.column,dark,x,.955*scale,z,.16*scale,.025,.16*scale);
+      mesh(geometry.urn,stone,x,0,z,scale,scale,scale);
+      ring(x,.12*scale,z,.21*scale,trim);ring(x,.73*scale,z,.245*scale,trim);
     } else if (kind === 'egg') {
       for(let i=0;i<3;i++) { const dx=(i-1)*.42*scale; mesh(geometry.orb,foliage,x+dx,.42*scale,z+Math.abs(i-1)*.25,.32*scale,.55*scale,.35*scale); }
       for(let i=0;i<4;i++) beam(wood,[x-1,.05,z+i*.2],[x+1,.07,z+.7-i*.2],.025);
@@ -163,6 +166,8 @@ function buildAuthoredScenery(world: SceneHost) {
     } else if (kind === 'hut') {
       box(wood,x,.7,z,1.7*scale,1.4,1.7*scale); mesh(geometry.cone,foliage,x,2,z,1.5*scale,1.7,1.5*scale);
       box(dark,x,.57,z+.87*scale,.65,1.05,.03);
+      for(const side of [-1,1])beam(wood,[x+side*.42,.02,z+.90*scale],[x+side*.42,1.26,z+.90*scale],.055);
+      beam(wood,[x-.45,1.26,z+.90*scale],[x+.45,1.26,z+.90*scale],.07);
     } else if (kind === 'totem' || kind === 'spike') {
       mesh(geometry.cone,kind==='spike'?dark:wood,x,h*.5,z,.25*scale,h,.25*scale);
       if(kind==='totem') for(let i=0;i<3;i++) { mesh(geometry.orb,bone,x,.8+i*.5,z+.1,.32,.24,.22); box(dark,x,.84+i*.5,z+.3,.28,.065,.025); }

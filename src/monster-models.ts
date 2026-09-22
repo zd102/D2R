@@ -2,19 +2,20 @@ import * as THREE from 'three';
 import { monsterVisualScale } from './actor-size.ts';
 import type { Actor } from './world.ts';
 import type { MonsterDef } from './bestiary.ts';
-import { actorMaterial, contourGeometry, mergeActorParts, plateGeometry } from './actor-modeling.ts';
+import { actorMaterial, contourGeometry, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
 
 export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   const group = new THREE.Group(), rig = new THREE.Group(); group.name = def.id; group.add(rig);
   const leftLeg = new THREE.Group(), rightLeg = new THREE.Group(), leftArm = new THREE.Group(), rightArm = new THREE.Group();
   const limbs: THREE.Group[] = [], tails: THREE.Group[] = [], knees: THREE.Group[] = [], elbows: THREE.Group[] = [];
-  const skin = actorMaterial(new THREE.Color(def.color).lerp(new THREE.Color(0x75634f), .12), 'hide');
+  const carapace=['beetle','maggot','duriel','spider'].includes(def.model), furry=['goat','cow','frozen'].includes(def.model);
+  const skin = actorMaterial(new THREE.Color(def.color).lerp(new THREE.Color(0x75634f), .12), carapace?'chitin':furry?'fur':'hide');
   const bone = actorMaterial(new THREE.Color(0xb9ad8b).lerp(new THREE.Color(def.color), def.race === 'undead' ? .25 : .08), 'bone');
   const metal = actorMaterial(0x727b7b, 'steel'), brass = actorMaterial(0x917342, 'bronze');
   const dark = actorMaterial(0x24201d, 'leather');
   const cloth = actorMaterial(new THREE.Color(def.color).multiplyScalar(.42), 'cloth');
   const glow = new THREE.MeshBasicMaterial({ color: def.race === 'undead' ? 0x9abdb0 : 0xdb8739 });
-  const sphere = new THREE.SphereGeometry(1, 14, 10), box = new THREE.BoxGeometry(), cone = new THREE.ConeGeometry(1, 1, 9), cylinder = new THREE.CylinderGeometry(1, 1, 1, 10);
+  const sphere = organicGeometry(furry?'fur':'muscle',14), box = new THREE.BoxGeometry(), cone = new THREE.ConeGeometry(1, 1, 9), cylinder = new THREE.CylinderGeometry(1, 1, 1, 10);
   const part = (parent: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
     const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh); return mesh;
   };
@@ -31,7 +32,7 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
     const mesh = ribbon(p, [[0,-length*.5,0],[0,-length*.1,0],[.025,length*.24,-length*.08],[.015,length*.5,-length*.23]], Math.min(.09,length*.22), bone);
     mesh.position.set(x,y,z); mesh.rotation.z=tilt; return mesh;
   };
-  const eyes = (p: THREE.Object3D, y: number, z: number, spacing = .095) => { for (const side of [-1, 1]) { ball(p, side * spacing, y, z - .018, .060, .036, .027, dark); ball(p, side * spacing, y, z + .012, .017, .010, .012, glow); const brow = part(p, box, skin, side * spacing, y + .035, z, .125, .032, .038); brow.rotation.z = side * .22; } };
+  const eyes = (p: THREE.Object3D, y: number, z: number, spacing = .095) => { for (const side of [-1, 1]) { ball(p, side * spacing, y, z - .018, .047, .027, .024, dark); ball(p, side * spacing, y, z + .012, .013, .009, .010, glow); const brow = ball(p, side * spacing, y + .027, z, .057, .016, .027); brow.rotation.z = side * .22; } };
   const ribbon = (parent: THREE.Object3D, points: number[][], radius: number, mat = skin, taper = true) => {
     const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p as [number, number, number])));
     const geometry = new THREE.TubeGeometry(curve, 16, radius, 6, false);

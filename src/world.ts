@@ -15,7 +15,7 @@ import { buildLevelScenery } from './level-scenery.ts';
 import { nextMapSeed } from './map-random.ts';
 import type { LevelLayout } from './level-layouts.ts';
 import { rotateMapPoint } from './map-orientation.ts';
-import { weatherTexture } from './scenery-textures.ts';
+import { sceneryTexture, weatherTexture } from './scenery-textures.ts';
 
 export const BOUNDS = FIELD_BOUND;
 export function gridWalkable(grid: Pick<PF.Grid, 'width' | 'height' | 'isWalkableAt'>, point: { x: number; z: number }) {
@@ -189,6 +189,7 @@ export class GameWorld {
   buildCamp() {
     const paving = new THREE.MeshStandardMaterial({ color: 0x959d91, map: stoneTexture(), roughness: 1 });
     const timber = mat(0x64675b), redCanvas = mat(0x923f4b), blueCanvas = mat(0x4b7885);
+    timber.map=timber.bumpMap=sceneryTexture('bark',780);timber.bumpScale=.055;
     for (let z = -13; z <= 18; z++) for (let x = -15; x <= 15; x++) {
       this.floorCells.push({ x, z });
       const facilities = [CAMP.portal, CAMP.mysteryPortal, CAMP.returnPortal, CAMP.supply, CAMP.baseMerchant, CAMP.mercenaryMerchant, CAMP.socketMerchant, CAMP.gamblingMerchant, CAMP.stash];

@@ -3,15 +3,30 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 import { ensureGeometryIndex } from './geometry-batching.ts';
 
-type Surface = 'skin' | 'hide' | 'bone' | 'steel' | 'bronze' | 'cloth' | 'leather';
+type Surface = 'skin' | 'hide' | 'bone' | 'steel' | 'bronze' | 'cloth' | 'leather' | 'fur' | 'chitin' | 'stone';
+
+// Continuous low-frequency planes break the perfect ellipsoid without adding
+// separate floating muscle balls. Deterministic positions preserve batch reuse.
+export function organicGeometry(style: 'muscle' | 'fur' | 'stone' = 'muscle', segments = 16) {
+  const geometry = new THREE.SphereGeometry(1, segments, 12), position = geometry.attributes.position;
+  for (let i=0;i<position.count;i++) {
+    const x=position.getX(i), y=position.getY(i), z=position.getZ(i);
+    const planes = style === 'stone' ? .11*Math.sin(x*8+y*3+z*5)*Math.sin(y*7-z*4)
+      : style === 'fur' ? .035*Math.sin(x*17+z*13)*Math.sin(y*11)
+      : .045*Math.cos(y*4+x*2)*Math.cos(z*3)-.025*Math.sin(y*7);
+    const r=1+planes;
+    position.setXYZ(i,x*r,y*r,z*r);
+  }
+  geometry.computeVertexNormals(); return geometry;
+}
 
 // Object-space patina needs no texture allocation and follows each articulated joint.
 // Every actor still owns its materials so hit flashes and summon tints stay local.
 export function actorMaterial(color: THREE.ColorRepresentation, surface: Surface) {
   const metal = surface === 'steel' || surface === 'bronze';
-  const material = new THREE.MeshStandardMaterial({ color, roughness: metal ? .63 : surface === 'skin' ? .87 : .94, metalness: metal ? .58 : 0 });
+  const material = new THREE.MeshStandardMaterial({ color, roughness: metal ? .44 : surface === 'skin' ? .72 : surface === 'chitin' ? .48 : .9, metalness: metal ? .78 : 0 });
   material.userData.surface = surface;
-  material.customProgramCacheKey = () => `actor-surface-v2-${surface}`;
+  material.customProgramCacheKey = () => `actor-surface-v3-${surface}`;
   material.onBeforeCompile = shader => {
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vActorSurface;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvActorSurface = position;');
@@ -28,7 +43,16 @@ export function actorMaterial(color: THREE.ColorRepresentation, surface: Surface
     `).replace('#include <color_fragment>', `#include <color_fragment>
       float grain = actorNoise(vActorSurface * ${surface === 'skin' ? '95.0' : '72.0'});
       float wear = actorNoise(vActorSurface * 13.0);
-      ${surface === 'cloth' ? `
+      ${surface === 'fur' ? `
+        float strand = sin(vActorSurface.y * 310.0 + sin(vActorSurface.x * 93.0) * 3.0 + vActorSurface.z * 53.0);
+        diffuseColor.rgb *= .70 + wear * .23 + strand * .07;
+      ` : surface === 'chitin' ? `
+        float plates = abs(sin(vActorSurface.y * 65.0 + sin(vActorSurface.x * 32.0) * .9));
+        diffuseColor.rgb *= .65 + wear * .24 + smoothstep(.08, .32, plates) * .20;
+      ` : surface === 'bone' ? `
+        float pores = smoothstep(.62, .78, grain);
+        diffuseColor.rgb *= .79 + wear * .23 - pores * .12;
+      ` : surface === 'cloth' ? `
         vec3 weave = sin(vActorSurface * 460.0);
         float thread = (weave.x * weave.y + weave.z * .35) * .035;
         diffuseColor.rgb *= .78 + wear * .22 + thread;
@@ -44,7 +68,7 @@ export function actorMaterial(color: THREE.ColorRepresentation, surface: Surface
         vec3 surfaceDx = normalize(dFdx(-vViewPosition)), surfaceDy = normalize(dFdy(-vViewPosition));
         vec3 gradientX = cross(surfaceDy, normal), gradientY = cross(normal, surfaceDx);
         float determinant = dot(surfaceDx, gradientX) * faceDirection;
-        float relief = grain * ${surface === 'skin' ? '.055' : metal ? '.13' : '.22'} + wear * .06;
+        float relief = grain * ${surface === 'skin' ? '.025' : metal ? '.075' : '.13'} + wear * .04;
         vec3 reliefGradient = sign(determinant) * (dFdx(relief) * gradientX + dFdy(relief) * gradientY);
         normal = normalize(max(abs(determinant), .0001) * normal - reliefGradient);
       `);
