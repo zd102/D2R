@@ -10,7 +10,9 @@ export class RenderBudget {
   reset() { this.frames = this.slow = this.work = this.stable = 0; }
 
   sample(interval: number, work: number) {
-    if (!Number.isFinite(interval) || interval <= 0 || interval > 100) { this.reset(); return false; }
+    // Recurring 100–250 ms GPU stalls are overload too. Resetting on each one
+    // prevents a struggling device from ever accumulating a sampling window.
+    if (!Number.isFinite(interval) || interval <= 0 || interval > 250) { this.reset(); return false; }
     this.frames++; this.slow += Number(interval > 18); this.work += work;
     if (this.frames < 45) return false;
     let next = this.level;

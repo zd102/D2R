@@ -1,0 +1,137 @@
+{
+  "initial": {
+    "hardware": {
+      "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 770 (0x00004690) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "multiDraw": true,
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1
+    },
+    "results": [
+      {
+        "area": "0",
+        "point": "battle",
+        "fps": 23.076923076923077,
+        "p50": 33.400000000001455,
+        "p95": 100.10000000000218,
+        "p99": 133.3000000000029,
+        "max": 133.40000000000146,
+        "overBudget": 195,
+        "outliers": [],
+        "calls": 381.81327800829877,
+        "triangles": 734814.5975103735,
+        "submissions": {},
+        "costs": {
+          "update": 5.6688796588494075,
+          "render": 12.697095438157868,
+          "ui": 1.6589211621225128,
+          "physics": 1.5186722115362334,
+          "ai": 1.588796670011465,
+          "broadphase": 1.0585062231760303,
+          "contacts": 0.05269710057998594,
+          "solve": 0.23112033808379748,
+          "matrices": 0.8705394188892792,
+          "batch": 0.37261410916989274,
+          "path": 0
+        },
+        "enemies": 31,
+        "active": 24,
+        "quality": "auto",
+        "pixelRatio": 1,
+        "seed": 20260913,
+        "casts": 50
+      }
+    ],
+    "errors": []
+  },
+  "adaptiveFix": {
+    "hardware": {
+      "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 770 (0x00004690) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "multiDraw": true,
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1
+    },
+    "results": [
+      {
+        "area": "0",
+        "point": "battle",
+        "fps": 52.17391304347826,
+        "p50": 16.700000000000728,
+        "p95": 33.39999999999782,
+        "p99": 66.69999999999709,
+        "max": 66.70000000000073,
+        "overBudget": 26,
+        "outliers": [],
+        "calls": 367.2157676348548,
+        "triangles": 734735.5975103735,
+        "submissions": {},
+        "costs": {
+          "update": 2.792116179505819,
+          "render": 6.329875523123999,
+          "ui": 1.6419087138908037,
+          "physics": 0.7485477197219722,
+          "ai": 0.7564315355664961,
+          "broadphase": 0.5112033167320663,
+          "contacts": 0.028630705789906355,
+          "solve": 0.1207468885603782,
+          "matrices": 0.8356846506664862,
+          "batch": 0.3410788344149768,
+          "path": 0
+        },
+        "enemies": 31,
+        "active": 24,
+        "quality": "auto",
+        "pixelRatio": 0.5220062499999999,
+        "seed": 20260913,
+        "casts": 32
+      }
+    ],
+    "errors": []
+  },
+  "steady": {
+    "hardware": {
+      "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 770 (0x00004690) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "multiDraw": true,
+      "width": 1920,
+      "height": 1080,
+      "dpr": 1
+    },
+    "results": [
+      {
+        "area": "0",
+        "point": "battle",
+        "fps": 59.80026710785974,
+        "p50": 16.69999999999709,
+        "p95": 16.799999999999272,
+        "p99": 16.80000000000291,
+        "max": 33.400000000001455,
+        "overBudget": 1,
+        "outliers": [],
+        "calls": 367.98006644518273,
+        "triangles": 734784.7142857143,
+        "submissions": {},
+        "costs": {
+          "update": 2.282724254551124,
+          "render": 6.112292360229746,
+          "ui": 1.5923588038282932,
+          "physics": 0.6016611300433593,
+          "ai": 0.585382057186773,
+          "broadphase": 0.42225913431161266,
+          "contacts": 0.022923588752746582,
+          "solve": 0.0880398667135904,
+          "matrices": 0.7398671097929691,
+          "batch": 0.325249171732272,
+          "path": 0
+        },
+        "enemies": 31,
+        "active": 24,
+        "quality": "auto",
+        "pixelRatio": 0.5220062499999999,
+        "seed": 20260913,
+        "casts": 37
+      }
+    ],
+    "errors": []
+  }
+}

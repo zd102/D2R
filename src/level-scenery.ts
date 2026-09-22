@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import PF from 'pathfinding';
 import { type Level, type MapPoint } from './campaign.ts';
 import { distanceToSegment, layoutWalkable, type LevelLayout } from './level-layouts.ts';
@@ -45,6 +46,7 @@ function buildAuthoredScenery(world: SceneHost) {
   const level = world.level, design = sceneDesign(level), palette = design.palette, layout = world.layout;
   const random = sceneryRandom(3817 + level.index * 793 + layout.seed), root = world.staticGroup;
   const geometry = {
+    masonry: new RoundedBoxGeometry(1,1,1,1,.045),
     box: new THREE.BoxGeometry(1,1,1), column: new THREE.CylinderGeometry(1,1,1,14), cone: new THREE.ConeGeometry(1,1,7),
     rock: new THREE.SphereGeometry(1,14,10), orb: new THREE.SphereGeometry(1,16,12), ring: new THREE.TorusGeometry(1,.018,5,64),
     urn: new THREE.LatheGeometry([[.15,0],[.23,.045],[.21,.12],[.33,.25],[.37,.46],[.32,.67],[.18,.79],[.17,.86],[.22,.89],[.22,.94],[.16,.94],[.135,.86],[.14,.79],[.26,.65],[.30,.46],[.27,.27],[.14,.14],[0,.14]].map(([r,y])=>new THREE.Vector2(r,y)),20),
@@ -76,7 +78,7 @@ function buildAuthoredScenery(world: SceneHost) {
     const object = new THREE.Mesh(geo,mat); object.position.set(x,y,z); object.scale.set(sx,sy,sz); object.rotation.y = angle;
     object.castShadow = object.receiveShadow = true; root.add(object); return object;
   };
-  const box = (mat: THREE.Material,x: number,y: number,z: number,w: number,h: number,d: number,angle = 0) => mesh(geometry.box,mat,x,y,z,w,h,d,angle);
+  const box = (mat: THREE.Material,x: number,y: number,z: number,w: number,h: number,d: number,angle = 0) => mesh(mat===stone&&w>.3&&h>.2&&d>.2?geometry.masonry:geometry.box,mat,x,y,z,w,h,d,angle);
   const beam = (mat: THREE.Material,a: number[],b: number[],radius = .07) => {
     const start = new THREE.Vector3(a[0],a[1],a[2]), end = new THREE.Vector3(b[0],b[1],b[2]);
     const object = mesh(geometry.column,mat,0,0,0,radius,start.distanceTo(end),radius);

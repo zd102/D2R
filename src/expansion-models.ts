@@ -1,9 +1,10 @@
+import { loftGeometry as contourGeometry, sculptedTorso } from './sculpted-surfaces.ts';
 import * as THREE from 'three';
 import type { Actor } from './world.ts';
 import { createMonsterActor } from './monster-models.ts';
 import { MONSTERS } from './bestiary.ts';
 import { createHeroActor } from './hero-models.ts';
-import { actorMaterial, contourGeometry, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
+import { actorMaterial, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
 
 export function createBeastActor(bear=false,upright=false):Actor {
   const group=new THREE.Group(),body=new THREE.Group();group.add(body);
@@ -76,11 +77,9 @@ export function createCompanionActor(id:string):Actor {
     ball(group,Math.sin(6.4)*.3,.63,.48,.15,.10,.18,glow);
     ball(group,Math.sin(6.4)*.3,.66,.61,.10,.035,.04,material);
   }else{
-    const torso=new THREE.Mesh(contourGeometry([[.46,.25,.22],[.67,.29,.25],[.95,.34,.28],[1.20,.45,.30],[1.39,.30,.23]],16,.035),material);torso.castShadow=true;group.add(torso);
+    const torso=new THREE.Mesh(sculptedTorso([[.46,.25,.22],[.67,.29,.25],[.95,.34,.28],[1.20,.45,.30],[1.39,.30,.23]],.065),material);torso.castShadow=true;group.add(torso);
     ball(group,0,1.52,.05,.20,.24,.20);
     for(const side of [-1,1]) {
-      ball(group,side*.20,1.18,.24,.21,.15,.10);
-      for(let ridge=0;ridge<3;ridge++)ball(group,side*.12,.94-ridge*.12,.25,.115,.07,.065);
       if(id==='ironGolem') {
         const plate=new THREE.Mesh(plateGeometry([[-.18,-.1],[.15,-.1],[.23,.08],[0,.19],[-.23,.08]],.055,.014),material);plate.position.set(side*.40,1.32,.09);plate.rotation.y=side*.5;group.add(plate);
       }

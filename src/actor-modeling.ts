@@ -1,13 +1,15 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 import { ensureGeometryIndex } from './geometry-batching.ts';
+import { modelGeometryCache } from './model-geometry-cache.ts';
 
 type Surface = 'skin' | 'hide' | 'bone' | 'steel' | 'bronze' | 'cloth' | 'leather' | 'fur' | 'chitin' | 'stone';
 
 // Continuous low-frequency planes break the perfect ellipsoid without adding
 // separate floating muscle balls. Deterministic positions preserve batch reuse.
 export function organicGeometry(style: 'muscle' | 'fur' | 'stone' = 'muscle', segments = 16) {
+  return modelGeometryCache.get(`organic:${style}:${segments}`,()=>{
   const geometry = new THREE.SphereGeometry(1, segments, 12), position = geometry.attributes.position;
   for (let i=0;i<position.count;i++) {
     const x=position.getX(i), y=position.getY(i), z=position.getZ(i);
@@ -18,6 +20,7 @@ export function organicGeometry(style: 'muscle' | 'fur' | 'stone' = 'muscle', se
     position.setXYZ(i,x*r,y*r,z*r);
   }
   geometry.computeVertexNormals(); return geometry;
+  });
 }
 
 // Object-space patina needs no texture allocation and follows each articulated joint.
@@ -122,9 +125,12 @@ export function contourGeometry(sections: readonly (readonly [number, number, nu
 }
 
 export function plateGeometry(points: readonly (readonly [number, number])[], depth = .035, bevel = .015) {
+  return modelGeometryCache.get(`plate:${depth}:${bevel}:${JSON.stringify(points)}`,()=>{
   const shape = new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x, y)));
   shape.closePath();
-  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel * .65, bevelSegments: 2, curveSegments: 5 });
+  const source=new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel * .65, bevelSegments: 2, curveSegments: 5 });
+  const geometry=mergeVertices(source);source.dispose();return geometry;
+  });
 }
 
 // Only merge siblings: knees, hands, weapons, wings and tails retain their pivots.

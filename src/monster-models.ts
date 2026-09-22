@@ -1,8 +1,9 @@
+import { loftGeometry as contourGeometry, sculptedTorso, refreshLoftNormals } from './sculpted-surfaces.ts';
 import * as THREE from 'three';
 import { monsterVisualScale } from './actor-size.ts';
 import type { Actor } from './world.ts';
 import type { MonsterDef } from './bestiary.ts';
-import { actorMaterial, contourGeometry, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
+import { actorMaterial, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
 
 export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   const group = new THREE.Group(), rig = new THREE.Group(); group.name = def.id; group.add(rig);
@@ -50,11 +51,12 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   const robe = (p: THREE.Object3D, y: number, height: number, radius: number, mat = cloth) => {
     const geo = contourGeometry([[-height*.5,radius,radius*.75],[-height*.27,radius*.85,radius*.66],[height*.28,radius*.55,radius*.46],[height*.5,radius*.56,radius*.47]],24,.055);
     const positions=geo.attributes.position;
-    for(let i=0;i<25;i++) {
-      const y=positions.getY(i)+(.5+.5*Math.sin((i%24)*2.7))*.10;
-      positions.setY(i,y); positions.setY(101+i,y); // Match the separate bottom-cap rim.
+    const radial=geo.userData.ringSegments as number,cap=geo.userData.bottomCapRim as number;
+    for(let i=0;i<=radial;i++) {
+      const y=positions.getY(i)+(.5+.5*Math.sin((i%radial)*2.7))*.10;
+      positions.setY(i,y); positions.setY(cap+i,y); // Match the separate bottom-cap rim.
     }
-    geo.computeVertexNormals(); return part(p,geo,mat,0,y,-.025,1,1,1);
+    refreshLoftNormals(geo); return part(p,geo,mat,0,y,-.025,1,1,1);
   };
   const fur = (p: THREE.Object3D, x: number, y: number, z: number, width: number, height: number, mat = dark) => {
     for(let i=0;i<7;i++){const m=part(p,cone,mat,x+(i-3)*width/7,y-Math.abs(i-3)*.018,z+Math.sin(i*2)*.025,width/6,height*(.75+(i%3)*.12),.065);m.rotation.z=Math.PI+(i-3)*.10;}
@@ -143,7 +145,7 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   } else {
     const skeletal = ['skeleton', 'mephisto', 'mage', 'ghost'].includes(model), bulky = ['mauler', 'frozen', 'venom', 'diablo', 'lord'].includes(model);
     const feminine=['archer','succubus','andariel'].includes(model), waist=bulky?.25:feminine?.15:.17, shoulder=bulky?.43:feminine?.225:.265;
-    part(rig,contourGeometry([[.70,waist*1.1,waist*.8],[.86,waist,.15],[1.05,shoulder*.78,bulky?.28:.17],[1.26,shoulder,bulky?.28:.16],[1.40,shoulder*.62,.12]]),skeletal?bone:skin,0,0,0,skeletal?.28:1,1,skeletal?.55:1);
+    part(rig,sculptedTorso([[.70,waist*1.1,waist*.8],[.86,waist,.15],[1.05,shoulder*.78,bulky?.28:.17],[1.26,shoulder,bulky?.28:.16],[1.40,shoulder*.62,.12]],skeletal?0:bulky?.055:.02),skeletal?bone:skin,0,0,0,skeletal?.28:1,1,skeletal?.55:1);
     if (skeletal) for (let i = 0; i < 5; i++) {
       for(const s of [-1,1])ribbon(rig,[[0,1.34-i*.095,-.08],[s*(.25-i*.018),1.29-i*.095,-.015],[s*(.22-i*.018),1.25-i*.09,.12],[s*.025,1.26-i*.09,.17]],.021,bone,false);
     }
@@ -154,7 +156,6 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
       eyes(head,.065,bulky?.17:.13,feminine?.060:.078);
       ball(head,0,-.005,.15,.028,.057,.036);part(head,box,dark,0,-.10,.14,.105,.020,.018);
       for (const side of [-1, 1]) {
-        ball(head,side*.10,-.033,.105,.046,.042,.037);
         ball(head,side*.025,-.035,.174,.012,.008,.009,dark);
         if (!feminine) {
           // Uneven exposed canines distinguish the demonic jaw from a human face.

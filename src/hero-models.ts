@@ -1,5 +1,6 @@
+import { loftGeometry as contourGeometry, sculptedHead, sculptedTorso } from './sculpted-surfaces.ts';
 import * as THREE from 'three';
-import { actorMaterial, contourGeometry, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
+import { actorMaterial, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
 import type { Actor } from './world.ts';
 import type { ClassId } from './classes.ts';
 import { createHeroWards } from './visual-effects.ts';
@@ -42,48 +43,42 @@ export function createHeroActor(classId: ClassId): Actor {
     const mesh=part(p,geos.tube,m,0,0,0,r,from.distanceTo(to),r);mesh.position.copy(from).lerp(to,.5);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),to.sub(from).normalize());return mesh;
   };
   const profile=(p:THREE.Object3D,mat:THREE.Material,points:[number,number][],x:number,y:number,z:number,depth=1)=>{
-    const geometry=new THREE.LatheGeometry(points.map(([r,h])=>new THREE.Vector2(r,h)),16);
+    const geometry=contourGeometry(points.map(([r,h])=>[h,r,r] as [number,number,number]),20);
     return part(p,geometry,mat,x,y,z,1,1,depth);
   };
   const trim=(p:THREE.Object3D,x:number,y:number,z:number,r:number,scaleZ=1)=>{
     const m=part(p,new THREE.TorusGeometry(r,.015,5,24),gold,x,y,z,1,1,scaleZ);m.rotation.x=Math.PI/2;return m;
   };
-  part(chest,contourGeometry([[-.28,.18,.12],[-.19,.185,.13],[-.055,.155,.115],[.09,.22,.145],[.22,paladin?.27:.235,.13],[.29,.16,.105]]),paladin?fabric:skin,0,0,0);
+  part(chest,sculptedTorso([[-.28,.18,.12],[-.19,.185,.13],[-.055,.155,.115],[.09,.22,.145],[.22,paladin?.27:.235,.13],[.29,.16,.105]],barbarian?.045:.016),paladin?fabric:skin,0,0,0);
   profile(rig,leather,[[.19,.76],[.23,.84],[.20,.94]],0,0,0,.78);
   part(rig,geos.tube,leather,0,.94,0,.22,.075,.17);part(rig,geos.box,gold,0,.95,.174,.085,.085,.025);
   for(const side of [-1,1])part(rig,geos.box,gold,side*.16,.95,.12,.024,.065,.025);
   profile(chest,skin,[[.079,.28],[.077,.41]],0,0,0,.88);
   // Brow, cheek and jaw volumes read as a face even at the isometric camera distance.
-  const faceGeometry=new THREE.SphereGeometry(1,24,18),faceVertices=faceGeometry.attributes.position;
-  for(let i=0;i<faceVertices.count;i++) {
-    const x=faceVertices.getX(i),y=faceVertices.getY(i),z=faceVertices.getZ(i);
-    const cheek=Math.exp(-((Math.abs(x)-.53)**2)*24-(y+.12)**2*24)*.013;
-    const orbit=Math.exp(-((Math.abs(x)-.36)**2)*50-(y-.12)**2*65)*.009;
-    const chin=Math.exp(-x*x*25-(y+.66)**2*38)*.016;
-    faceVertices.setXYZ(i,x*(barbarian?.153:necromancer?.127:.14)*(y<-.15?1+(y+.15)*.28:1),y*(necromancer?.205:.19)+.06,
-      z*.125+(z>0?(Math.exp(-x*x*25-(y+.05)**2*10)*.02+cheek-orbit+chin)*Math.min(1,z*3):0));
-  }
-  faceGeometry.computeVertexNormals();part(head,faceGeometry,skin,0,0,0);head.scale.setScalar(.86);
+  part(head,sculptedHead(barbarian?1.10:necromancer?.94:1,necromancer?.012:0),skin,0,0,0);head.scale.setScalar(.86);
   for(const side of [-1,1]) {
-    ball(head,skin,side*.138,.025,-.005,.017,.034,.018);
-    part(head,geos.box,dark,side*.052,.078,.117,.032,.009,.006);
-    const brow=part(head,geos.box,hair,side*.051,.106,.112,.049,.010,.010);brow.rotation.z=side*.09;
-    // Sculpted orbital rims, cheek planes and nostrils remain attached to the head.
-    ball(head,skin,side*.054,.064,.118,.030,.008,.009);
-    ball(head,leather,side*.012,.015,.152,.006,.004,.005);
+    const ear=part(head,plateGeometry([[-.009,-.030],[.012,-.036],[.021,-.003],[.015,.031],[-.009,.027]],.007,.005),skin,side*.135,.026,-.004);
+    ear.scale.x=side;
+    ball(head,leather,side*.143,.026,.008,.005,.016,.006);
+    ball(head,dark,side*.052,.067,.106,.028,.012,.013);
+    ball(head,light,side*.052,.066,.118,.021,.006,.006);
+    ball(head,leather,side*.052,.066,.124,.006,.007,.004);
+    ball(head,skin,side*.052,.076,.114,.029,.006,.011);
+    const brow=ball(head,hair,side*.052,.097,.112,.035,.006,.009);brow.rotation.z=side*.12;
+    ball(head,leather,side*.011,.005,.153,.004,.003,.004);
   }
   // A stitched collar and fastening studs give cloth/leather a readable thickness.
   for (const side of [-1,1]) {
     bar(chest,leather,[side*.082,.31,.061],[side*.19,.22,.104],.013);
     for (let i=0;i<4;i++) ball(chest,gold,side*(.095+i*.025),.29-i*.021,.078+i*.009,.005,.007,.004);
   }
-  ball(head,skin,0,.035,.135,.017,.036,.023);part(head,geos.box,paladin?hair:leather,0,-.045,.133,.057,.008,.006);
+  ball(head,leather,0,-.046,.117,.026,.0025,.004);
   if(!barbarian) {
     // Follow the skull and the swept hairline instead of placing a round cap on it.
     const scalp=new THREE.SphereGeometry(1,24,14,0,Math.PI*2,0,Math.PI*.66),vertices=scalp.attributes.position;
     for(let i=0;i<vertices.count;i++) {
       const x=vertices.getX(i),y=vertices.getY(i),z=vertices.getZ(i),strand=1+.012*Math.sin(Math.atan2(x,z)*22+y*4);
-      vertices.setXYZ(i,x*.147*strand,y*.198+.064+Math.max(0,z)*Math.max(0,.35-y)*.16,z*.135*strand-.012);
+      vertices.setXYZ(i,x*.158*strand,y*.208+.064+Math.max(0,z)*Math.max(0,.35-y)*.16,z*.144*strand-.006);
     }
     scalp.computeVertexNormals();part(head,scalp,hair,0,0,0);
   }
@@ -125,7 +120,7 @@ export function createHeroActor(classId: ClassId): Actor {
     for(const side of [-1,1])part(head,contourGeometry([[-.18,.023,.043,-.07],[-.04,.035,.07,-.035],[.12,.026,.05,-.025]],12,.06),hair,side*.116,0,0);
   }
   if(barbarian){
-    for(const side of [-1,1]){ball(chest,skin,side*.12,.1,.10,.14,.16,.09);const tattoo=part(chest,geos.box,fabric,side*.13,.11,.199,.035,.20,.012);tattoo.rotation.z=side*.3;ball(head,hair,side*.07,-.1,.08,.075,.065,.055);}
+    for(const side of [-1,1]){const tattoo=part(chest,geos.box,fabric,side*.13,.11,.199,.035,.20,.012);tattoo.rotation.z=side*.3;ball(head,hair,side*.07,-.1,.08,.075,.065,.055);}
     bar(chest,leather,[-.22,.26,.11],[.17,-.23,.14],.04);profile(rig,leather,[[.25,.57],[.25,.8],[.20,.92]],0,0,0,.85);
     for(let i=0;i<5;i++)part(rig,geos.cone,light,(i-2)*.075,.57,.18,.025,.16,.025);
   }

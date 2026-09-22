@@ -26,3 +26,15 @@ test('high DPI and 4K buffers stay within the automatic pixel budget', () => {
     assert.ok(width * height * ratio ** 2 <= 2560 * 1440 + 1);
   }
 });
+
+test('recurring long GPU frames cannot starve adaptive quality sampling',()=>{
+  const budget=new RenderBudget();
+  for(let i=0;i<90;i++)budget.sample(i%9===0?133.3:33.3,22);
+  assert.equal(budget.level,2);
+  const isolated=new RenderBudget();
+  for(let i=0;i<90;i++)isolated.sample(i===8?133.3:16.67,6);
+  assert.equal(isolated.level,0);
+  isolated.sample(2000,300);
+  for(let i=0;i<44;i++)isolated.sample(33.3,22);
+  assert.equal(isolated.level,0,'loading starts a fresh sampling window');
+});

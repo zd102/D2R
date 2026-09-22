@@ -14,6 +14,7 @@ try {
   const results=await page.evaluate(async()=>{
     const THREE=await import('/node_modules/three/build/three.module.js');
     const {createHeroActor}=await import('/src/hero-models.ts');
+    const {createVillagerModel}=await import('/src/villager-model.ts');
     const {createCompanionActor,createBeastActor,trapModel}=await import('/src/expansion-models.ts');
     const {disposeVisual}=await import('/src/visual-effects.ts');
     const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
@@ -27,6 +28,7 @@ try {
       ...['raiseSkeleton','raiseSkeletalMage','shadowWarrior','shadowMaster','summonSpiritWolf','summonFenris','summonGrizzly','clayGolem','bloodGolem','ironGolem','fireGolem','raven','oakSage','heartOfWolverine','spiritOfBarbs','plaguePoppy','carrionVine','solarCreeper'].map(id=>({id,create:()=>createCompanionActor(id)})),
       {id:'werewolf',create:()=>createBeastActor(false,true)},{id:'werebear',create:()=>createBeastActor(true,true)},
       ...['wakeOfFire','wakeOfInferno','lightningSentry','deathSentry'].map(id=>({id,create:()=>({group:trapModel(id)})})),
+      {id:'camp-vendor',create:()=>({group:createVillagerModel()})},
     ];
     for(const fixture of fixtures) {
       const actor=fixture.create();scene.add(actor.group);
