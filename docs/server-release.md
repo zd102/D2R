@@ -1,6 +1,13 @@
 # D2R 服务端安装包
 
-## v1.2.1 更新内容
+## v1.3.0 更新内容
+
+- 细化七职业英雄、怪物、首领、佣兵、召唤物和村民模型，增加雕刻表面与材质细节。
+- 改善场景几何体、环境材质与纹理，统一哥特式界面和元素技能特效。
+- 通过几何体缓存、合批和资源释放优化模型加载，限制复杂模型的几何开销。
+- 减少 HUD 重复更新和粒子更新开销，补充模型加载、场景缓存、伙伴模型与界面回归验证。
+
+### 延续 v1.2.1 的音频修复
 
 - 修复服务端安装包缺失原版音效的问题，Windows/Linux 安装包现直接包含原版录音，无需额外导入。
 - 构建与打包时校验音频文件大小和 SHA-256，缺失或损坏时阻止发布。
@@ -15,7 +22,7 @@
 静默部署：
 
 ```powershell
-Start-Process .\D2R-Server-1.2.1-windows-x64-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait
+Start-Process .\D2R-Server-1.3.0-windows-x64-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait
 Get-Service D2RServer
 ```
 
@@ -33,7 +40,7 @@ Get-Service D2RServer
 
 ```bash
 mkdir d2r-server
-tar -xzf D2R-Server-1.2.1-linux-x64.tar.gz -C d2r-server
+tar -xzf D2R-Server-1.3.0-linux-x64.tar.gz -C d2r-server
 cd d2r-server
 sudo bash install.sh
 systemctl status d2r-server
@@ -68,6 +75,6 @@ New-NetFirewallRule -DisplayName 'D2R Server LAN' -Direction Inbound -Protocol T
 
 发布安装包直接包含 `public/audio/local/manifest.json` 引用的 D2R 原版音效，无需在服务器另行导入。当前随包提供的是经典原版录音；未覆盖的事件仍使用后备音效。构建和打包会核对每个原版文件的大小与 SHA-256，缺失或损坏时终止发布，避免悄悄退回默认音效。已有安装需更新到包含此修复的新安装包。
 
-`main` 推送、Pull Request 和手动触发运行双平台测试、构建、打包及真实服务安装/升级检查；通过后的包可在 Actions artifacts 下载。推送与 `package.json` 版本一致的 `v版本号` 标签（例如 `v1.2.1`），两平台成功后自动创建 Release，附带安装包、本文档和 SHA-256 清单。失败不会发布只有一端产物的 Release。
+`main` 推送、Pull Request 和手动触发运行双平台测试、构建、打包及真实服务安装/升级检查；通过后的包可在 Actions artifacts 下载。推送与 `package.json` 版本一致的 `v版本号` 标签（例如 `v1.3.0`），两平台成功后自动创建 Release，附带安装包、本文档和 SHA-256 清单。失败不会发布只有一端产物的 Release。
 
 本地验证：`npm ci`、`npm test`、`npm run test:server`、`npm run build`、`npm run package:server`、`npm run test:package`。浏览器测试需要 `npx playwright install chromium`；也可指定 `BROWSER_CHANNEL=msedge` 使用本机 Edge。打包目录默认 `release/package`，必须是尚不存在的目录，避免覆盖既有产物。
