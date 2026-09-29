@@ -27,11 +27,11 @@ export function itemArtwork(item: VisualItem): string {
   const familySize = groups.get(family)?.length ?? 1;
   const tier = familySize >= 6 ? Math.min(2, Math.floor(ordinal / (familySize / 3))) : 0;
   const variant = familySize >= 6 ? ordinal % Math.ceil(familySize / 3) : ordinal;
-  const metal = ['#95a3a7', '#b2b9bd', '#c3cfd0'][tier], dark = ['#46565b', '#54616d', '#596c79'][tier];
-  const light = '#edf3e9', ink = '#202b2e', trim = rarity === 'common' ? ['#9b9378', '#c0ac78', '#dfc17e'][tier] : accents[rarity];
-  const leather = ['#536352', '#756352', '#5b5f75', '#4d6d70', '#735660'][seed % 5];
+  const metal = ['#858b87', '#a2aaa9', '#b8bdb4'][tier], dark = ['#3e4745', '#485252', '#535e5b'][tier];
+  const light = '#d7d6c4', ink = '#1c201b', trim = rarity === 'common' ? ['#948368', '#b49c6d', '#c6aa71'][tier] : accents[rarity];
+  const leather = ['#4b4434', '#6c5039', '#544837', '#39483d', '#614433'][seed % 5];
   const gem = ['#80d5cd', '#bc869e', '#9aa3ec', '#d7bd69', '#94c28b'][seed % 5];
-  const path = (d: string, fill = metal, stroke = ink, width = 1.6) => `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const path = (d: string, fill = metal, stroke = ink, width = 1.2) => `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"/>`;
   const line = (d: string, color = light, width = 1.4) => path(d, 'none', color, width);
   const ellipse = (x: number, y: number, rx: number, ry: number, fill = metal, stroke = ink) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
   const jewel = (x: number, y: number, r = 5) => path(`M${x} ${y-r}L${x+r} ${y} ${x} ${y+r} ${x-r} ${y}Z`, gem) + line(`M${x-r+1} ${y}L${x} ${y-r+1} ${x} ${y+r-1}`, light, .8);

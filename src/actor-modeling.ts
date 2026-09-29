@@ -10,12 +10,14 @@ type Surface = 'skin' | 'hide' | 'bone' | 'steel' | 'bronze' | 'cloth' | 'leathe
 // separate floating muscle balls. Deterministic positions preserve batch reuse.
 export function organicGeometry(style: 'muscle' | 'fur' | 'stone' = 'muscle', segments = 16) {
   return modelGeometryCache.get(`organic:${style}:${segments}`,()=>{
-  const geometry = new THREE.SphereGeometry(1, segments, 12), position = geometry.attributes.position;
+  // These volumes mostly become knuckles, eyes, rivets and small muscle masses.
+  // Spend the silhouette budget on the authored lofts instead of hidden sphere rings.
+  const geometry = new THREE.SphereGeometry(1, segments, Math.max(6, Math.floor(segments * .625))), position = geometry.attributes.position;
   for (let i=0;i<position.count;i++) {
     const x=position.getX(i), y=position.getY(i), z=position.getZ(i);
     const planes = style === 'stone' ? .11*Math.sin(x*8+y*3+z*5)*Math.sin(y*7-z*4)
-      : style === 'fur' ? .035*Math.sin(x*17+z*13)*Math.sin(y*11)
-      : .045*Math.cos(y*4+x*2)*Math.cos(z*3)-.025*Math.sin(y*7);
+      : style === 'fur' ? .055*Math.sin(x*11+z*9)*Math.sin(y*7)
+      : .055*Math.cos(y*4+x*2)*Math.cos(z*3)-.035*Math.sin(y*7);
     const r=1+planes;
     position.setXYZ(i,x*r,y*r,z*r);
   }
@@ -27,15 +29,18 @@ export function organicGeometry(style: 'muscle' | 'fur' | 'stone' = 'muscle', se
 // Every actor still owns its materials so hit flashes and summon tints stay local.
 export function actorMaterial(color: THREE.ColorRepresentation, surface: Surface) {
   const metal = surface === 'steel' || surface === 'bronze';
-  const material = new THREE.MeshStandardMaterial({ color, roughness: metal ? .44 : surface === 'skin' ? .72 : surface === 'chitin' ? .48 : .9, metalness: metal ? .78 : 0 });
+  const material = new THREE.MeshStandardMaterial({ color, roughness: metal ? .43 : surface === 'skin' ? .76 : surface === 'chitin' ? .39 : surface === 'leather' ? .68 : .91, metalness: metal ? .74 : 0 });
   material.userData.surface = surface;
-  material.customProgramCacheKey = () => `actor-surface-v3-${surface}`;
+  material.customProgramCacheKey = () => `actor-surface-v4-${surface}`;
   material.onBeforeCompile = shader => {
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vActorSurface;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvActorSurface = position;');
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>
       varying vec3 vActorSurface;
-      float actorHash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+      float actorHash(vec3 p) {
+        p = fract(p * vec3(.1031,.11369,.13787)); p += dot(p, p.yzx + 19.19);
+        return fract((p.x + p.y) * p.z);
+      }
       float actorNoise(vec3 p) {
         vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(mix(actorHash(i), actorHash(i + vec3(1,0,0)), f.x),
@@ -44,34 +49,62 @@ export function actorMaterial(color: THREE.ColorRepresentation, surface: Surface
           mix(actorHash(i + vec3(0,1,1)), actorHash(i + vec3(1,1,1)), f.x), f.y), f.z);
       }
     `).replace('#include <color_fragment>', `#include <color_fragment>
-      float grain = actorNoise(vActorSurface * ${surface === 'skin' ? '95.0' : '72.0'});
-      float wear = actorNoise(vActorSurface * 13.0);
+      // Band-limit pores, weave and hair to their projected footprint. Detail
+      // must settle into the base material when automatic resolution decreases.
+      float footprint = max(length(dFdx(vActorSurface)), length(dFdy(vActorSurface)));
+      float detail = 1.0 - smoothstep(.006, .026, footprint);
+      float fiberDetail = 1.0 - smoothstep(1.5, 3.14, footprint * 460.0);
+      float grain = mix(.5, actorNoise(vActorSurface * ${surface === 'skin' ? '95.0' : '72.0'}), detail);
+      float wear = actorNoise(vActorSurface * 11.0);
+      float patina = smoothstep(.53, .86, wear);
+      float relief = grain * ${surface === 'skin' ? '.018' : metal ? '.055' : '.09'} + wear * .055;
       ${surface === 'fur' ? `
-        float strand = sin(vActorSurface.y * 310.0 + sin(vActorSurface.x * 93.0) * 3.0 + vActorSurface.z * 53.0);
-        diffuseColor.rgb *= .70 + wear * .23 + strand * .07;
+        float strand = sin(vActorSurface.x * 300.0 + vActorSurface.z * 160.0 + wear * 8.0) * fiberDetail;
+        diffuseColor.rgb *= .73 + wear * .26 + strand * .065;
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.10,1.04,.90), patina * .35);
+        relief += strand * .022;
       ` : surface === 'chitin' ? `
-        float plates = abs(sin(vActorSurface.y * 65.0 + sin(vActorSurface.x * 32.0) * .9));
-        diffuseColor.rgb *= .65 + wear * .24 + smoothstep(.08, .32, plates) * .20;
+        float plates = abs(sin(vActorSurface.y * 43.0 + sin(vActorSurface.x * 23.0) * .9));
+        diffuseColor.rgb *= .61 + wear * .28 + mix(.75, smoothstep(.10,.30,plates),detail) * .23;
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.79,.88,1.04), patina * .45);
+        relief += mix(.5, smoothstep(.1,.35,plates),detail) * .022;
       ` : surface === 'bone' ? `
         float pores = smoothstep(.62, .78, grain);
-        diffuseColor.rgb *= .79 + wear * .23 - pores * .12;
+        diffuseColor.rgb *= .76 + wear * .26 - pores * .10;
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.73,.61,.44), patina * .40);
+        relief -= pores * .035;
       ` : surface === 'cloth' ? `
         vec3 weave = sin(vActorSurface * 460.0);
-        float thread = (weave.x * weave.y + weave.z * .35) * .035;
-        diffuseColor.rgb *= .78 + wear * .22 + thread;
+        float thread = (weave.x * weave.y + weave.z * .35) * .06 * fiberDetail;
+        diffuseColor.rgb *= .73 + wear * .30 + thread;
+        relief += thread * .7;
       ` : metal ? `
-        float scratch = smoothstep(.94, .99, sin(vActorSurface.y * 260.0 + vActorSurface.x * 37.0)) * .09;
-        diffuseColor.rgb *= .68 + wear * .30 + grain * .14 + scratch;
-        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.65, .42, .25), smoothstep(.60, .82, wear) * .40);
+        float scratch = smoothstep(.92, .99, sin(vActorSurface.y * 260.0 + vActorSurface.x * 37.0)) * .14 * detail;
+        diffuseColor.rgb *= .89 + wear * .08 + grain * .035 + scratch;
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(${surface === 'bronze' ? '.38,.64,.52' : '.67,.43,.27'}), patina * .35);
+        relief -= scratch * .25;
+      ` : surface === 'leather' || surface === 'hide' ? `
+        float crease = (1.0-smoothstep(.015,.11,abs(wear-.48)+grain*.07))*detail;
+        float pore = smoothstep(.56,.76,grain);
+        diffuseColor.rgb *= .74+wear*.23-crease*.055-pore*.045;
+        diffuseColor.rgb = mix(diffuseColor.rgb,diffuseColor.rgb*vec3(1.12,.98,.79),patina*.32);
+        relief -= crease*.025+pore*.025;
+      ` : surface === 'stone' ? `
+        float fissure = (1.0-smoothstep(.01,.09,abs(wear-.43)+grain*.08))*detail;
+        float mineral = smoothstep(.57,.75,grain);
+        diffuseColor.rgb *= .69+wear*.26-fissure*.10+mineral*.075;
+        diffuseColor.rgb = mix(diffuseColor.rgb,diffuseColor.rgb*vec3(.82,.88,.77),patina*.35);
+        relief += mineral*.05-fissure*.045;
       ` : `
-        diffuseColor.rgb *= ${surface === 'skin' ? '.86 + wear * .14 + grain * .045' : '.54 + wear * .42 + grain * .16'};
+        diffuseColor.rgb *= ${surface === 'skin' ? '.88 + wear * .14 + grain * .025' : '.59 + wear * .36 + grain * .14'};
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(${surface === 'skin' ? '1.08,.91,.84' : '1.04,.91,.76'}), patina * .28);
       `}
-    `).replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor + (grain - .5) * .16, .38, 1.0);')
+    `).replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor + (grain - .5) * .12 + patina * ${metal ? '.09' : '.07'}, .30, 1.0);`)
+      .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>\n${metal ? 'metalnessFactor *= 1.0-patina*.25;' : ''}`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         vec3 surfaceDx = normalize(dFdx(-vViewPosition)), surfaceDy = normalize(dFdy(-vViewPosition));
         vec3 gradientX = cross(surfaceDy, normal), gradientY = cross(normal, surfaceDx);
         float determinant = dot(surfaceDx, gradientX) * faceDirection;
-        float relief = grain * ${surface === 'skin' ? '.025' : metal ? '.075' : '.13'} + wear * .04;
         vec3 reliefGradient = sign(determinant) * (dFdx(relief) * gradientX + dFdy(relief) * gradientY);
         normal = normalize(max(abs(determinant), .0001) * normal - reliefGradient);
       `);

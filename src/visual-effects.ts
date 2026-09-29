@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { DamageType } from './paladin.ts';
 
-export const EFFECT_COLORS:Record<DamageType,number>={physical:0xcab58e,fire:0xff722d,cold:0x9bd5ed,lightning:0xd8dcff,poison:0x789b42,magic:0xf0dba7};
+export const EFFECT_COLORS:Record<DamageType,number>={physical:0xcab58e,fire:0xf76c26,cold:0x94c5dc,lightning:0xdfe9ff,poison:0x718943,magic:0xe4cf9b};
 const callbacks=new WeakMap<THREE.Object3D,(time:number,fade:number)=>void>();
 const hash=(n:number)=>{const value=Math.sin(n*127.1+311.7)*43758.5453;return value-Math.floor(value);};
 const basic=(color:number,opacity=1,additive=false)=>{
@@ -16,17 +16,29 @@ const vertex=`varying vec2 vUv; void main(){vUv=uv;vec4 p=vec4(position,1.0);
   p=instanceMatrix*p;
   #endif
   gl_Position=projectionMatrix*modelViewMatrix*p;}`;
+const smokeNoise=`
+  float fxHash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
+  float fxNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(fxHash(i),fxHash(i+vec2(1,0)),f.x),mix(fxHash(i+vec2(0,1)),fxHash(i+vec2(1,1)),f.x),f.y);}
+`;
 function energyMaterial(color:number,flame=false,opacity=.75,mist=false) {
   const material=new THREE.ShaderMaterial({uniforms:{effectTime:{value:0},effectFade:{value:opacity},tint:{value:new THREE.Color(color)}},vertexShader:vertex,
     fragmentShader:`varying vec2 vUv;uniform float effectTime;uniform float effectFade;uniform vec3 tint;
+    ${flame||mist?smokeNoise:''}
     void main(){vec2 uv=vUv;float a;vec3 color=tint;
-    ${flame?`float wave=sin(uv.y*15.0-effectTime*9.0)*.07+sin(uv.y*28.0+effectTime*6.0)*.025;
-      float width=(1.0-uv.y)*.44;float edge=abs(uv.x-.5+wave*uv.y);
-      a=(1.0-smoothstep(width*.25,width,edge))*smoothstep(0.0,.12,uv.y)*pow(1.0-uv.y,.65);
-      float tongues=.78+.22*sin(uv.y*24.0-effectTime*12.0+sin(uv.x*19.0)*2.0);
-      a*=tongues; color=mix(tint,vec3(1.0,.94,.70),pow(1.0-uv.y,2.0)*.85);`:
-    mist?`float d=length((uv-.5)*2.0);float cloud=sin(uv.x*17.0+effectTime)*sin(uv.y*13.0-effectTime*.7);a=pow(max(0.0,1.0-d),1.1)*(.75+cloud*.25);color=tint*(.6+cloud*.13);`:
+    ${flame?`float plume=fxNoise(vec2(uv.x*5.0,uv.y*7.0-effectTime*2.8));
+      float filament=fxNoise(vec2(uv.x*12.0+plume*2.0,uv.y*12.0-effectTime*4.6));
+      float bend=sin(uv.y*7.0-effectTime*3.0)*uv.y*.10+(plume-.5)*uv.y*.24;
+      float width=(1.0-uv.y)*.46;float edge=abs(uv.x-.5+bend);
+      float body=1.0-smoothstep(width*.12,width,edge);
+      a=body*smoothstep(0.0,.08,uv.y)*(1.0-smoothstep(.64,1.0,uv.y+filament*.2));
+      a*=smoothstep(.13,.70,plume+body*.36-uv.y*.23);
+      float core=body*body*(1.0-uv.y)*smoothstep(.3,.8,filament);
+      color=mix(tint*.8,vec3(1.0,.93,.65),core);`:
+    mist?`float d=length((uv-.5)*2.0);float cloud=fxNoise(uv*4.0+vec2(effectTime*.17,-effectTime*.23));
+      float curl=fxNoise(uv*8.0+cloud*2.0-effectTime*.12);
+      a=(1.0-smoothstep(.2,1.0,d))*(.20+cloud*.5+curl*.3);color=tint*(.43+cloud*.34);`:
     `float d=length((uv-.5)*2.0);a=pow(max(0.0,1.0-d),2.5);color=mix(tint,vec3(1.0),a*.45);`}
+    if(a*effectFade<.004)discard;
     gl_FragColor=vec4(color,a*effectFade);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -79,11 +91,12 @@ export function createLightning(from:THREE.Vector3,to:THREE.Vector3,color=EFFECT
     for(let i=0;i<colors.length;i+=3)colors.set([rgb.r,rgb.g,rgb.b],i);
     geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));parts.push(geometry);
   };
-  add(new THREE.TubeGeometry(curve,count*2,.037,5,false),color,.65);
-  add(new THREE.TubeGeometry(curve,count*2,.017,4,false),0xf4f8ff,1);
+  add(new THREE.TubeGeometry(curve,count*2,.053,5,false),color,.32);
+  add(new THREE.TubeGeometry(curve,count*2,.024,4,false),0xf4f8ff,1);
   if(length>2)for(const i of [Math.floor(count*.35),Math.floor(count*.65)]){
     const start=points[i],end=start.clone().addScaledVector(side,(i%2?1:-1)*Math.min(1,length*.2)).addScaledVector(direction,.55);
-    add(new THREE.TubeGeometry(new THREE.LineCurve3(start,end),1,.012,4,false),color,.4);
+    const bend=start.clone().lerp(end,.55).addScaledVector(other,.18);
+    add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([start,bend,end]),3,.014,4,false),0xe6efff,.6);
   }
   const geometry=mergeGeometries(parts)!;parts.forEach(part=>part.dispose());
   const material=basic(0xffffff,1,true);material.vertexColors=true;
@@ -177,15 +190,16 @@ export function createNova(radius:number,type:DamageType) {
   const ring=energyMaterial(EFFECT_COLORS[type]);
   ring.fragmentShader=`varying vec2 vUv;uniform vec3 tint;uniform float effectTime;uniform float effectFade;
     void main(){vec2 p=(vUv-.5)*2.0;float r=length(p),angle=atan(p.y,p.x);
-      float ripple=.75+.25*sin(angle*24.0-effectTime*7.0);
-      float edge=smoothstep(.89,.93,r)*(1.0-smoothstep(.975,1.0,r));
-      gl_FragColor=vec4(mix(tint,vec3(.94,.98,1.0),edge*.35),edge*ripple*effectFade);
+      float ripple=.62+.23*sin(angle*19.0-effectTime*5.0)+.15*sin(angle*37.0+r*30.0);
+      float edge=smoothstep(.71,.93,r)*(1.0-smoothstep(.96,1.0,r));
+      float crest=exp(-abs(r-.955)*110.0);
+      gl_FragColor=vec4(mix(tint,vec3(.94,.98,1.0),crest*.65),(edge*ripple*.45+crest*.5)*effectFade);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`;
-  const mesh=new THREE.Mesh(new THREE.RingGeometry(radius*.90,radius,64),ring);mesh.rotation.x=-Math.PI/2;mesh.name=`${type}-nova`;
+  const mesh=new THREE.Mesh(new THREE.RingGeometry(radius*.71,radius,64),ring);mesh.rotation.x=-Math.PI/2;mesh.name=`${type}-nova`;
   const teeth:THREE.BufferGeometry[]=[];
-  for(let i=0;i<32;i++){const angle=i*Math.PI/16;const geometry=type==='cold'?new THREE.ConeGeometry(.055,.35,4):new THREE.BoxGeometry(.022,.23,.015);geometry.rotateZ(-angle);geometry.translate(Math.sin(angle)*radius*.94,Math.cos(angle)*radius*.94,.05);teeth.push(geometry);}
+  for(let i=0;i<32;i++){const angle=i*Math.PI/16+hash(i)*.06;const geometry=type==='cold'?new THREE.ConeGeometry(.023,.10+hash(i+4)*.18,4):new THREE.BoxGeometry(.015,.12+hash(i)*.12,.012);geometry.rotateZ(-angle);geometry.translate(Math.sin(angle)*radius*.92,Math.cos(angle)*radius*.92,.035);teeth.push(geometry);}
   const merged=mergeGeometries(teeth);teeth.forEach(g=>g.dispose());if(merged)mesh.add(new THREE.Mesh(merged,basic(type==='cold'?0xe8faff:EFFECT_COLORS[type],.8,true)));
   callbacks.set(mesh,(time)=>{mesh.scale.setScalar(Math.min(1,.12+time/.35*.88));});return mesh;
 }
@@ -206,20 +220,21 @@ export function decorateGround(mesh:THREE.Mesh,type:DamageType,radius:number,kin
     }`,transparent:true,depthWrite:false,side:THREE.DoubleSide});
   mesh.material.forceSinglePass=true;
   for(const material of Array.isArray(old)?old:[old])material.dispose();
-  const count=Math.min(32,Math.max(8,Math.round(line?length*4:radius*7))),geometry=ice?new THREE.OctahedronGeometry(.11):new THREE.PlaneGeometry(1,1);
+  const count=Math.min(32,Math.max(8,Math.round(line?length*4:radius*7))),geometry=ice?new THREE.OctahedronGeometry(.11).scale(.65,.65,2.8):new THREE.PlaneGeometry(1,1);
   const material=energyMaterial(ice?0xc2eafa:EFFECT_COLORS[type],fire,ice?.8:fire?.7:.45,!fire&&!ice);
   // Instance placement is immutable. Only one time uniform changes per frame;
   // movement and lifetime run on the GPU rather than uploading count matrices.
   geometry.setAttribute('fieldPhase',new THREE.InstancedBufferAttribute(Float32Array.from({length:count},(_,i)=>hash(i+9)),1));
-  material.vertexShader=`uniform float effectTime; attribute float fieldPhase; varying float vFieldLife;\n${vertex}`
+  material.vertexShader=`uniform float effectTime; attribute float fieldPhase; varying float vFieldLife; varying float vFieldFacet;\n${vertex}`
+    .replace('vUv=uv;', 'vUv=uv;vFieldFacet=.48+.52*abs(dot(normal,normalize(vec3(.4,.6,1.0))));')
     .replace('p=instanceMatrix*p;',`float phase=fract(effectTime*${ice?'1.1':'.55'}+fieldPhase);
       vFieldLife=${ice?'smoothstep(0.0,.08,phase)*(1.0-smoothstep(.88,1.0,phase))':'1.0'};
       ${!fire&&!ice?'p.xy*=.7+phase*.6;':''}
       ${fire?'p.x*=.92+.08*sin(effectTime*9.0+fieldPhase*17.0);':''}
       p=instanceMatrix*p;
       p.z+=${ice?'(1.0-phase)*3.0':fire?'.30+fieldPhase*.35':'.15+phase*.7'};`);
-  material.fragmentShader='varying float vFieldLife;\n'+material.fragmentShader.replace('#include <tonemapping_fragment>','gl_FragColor.a*=vFieldLife;\n#include <tonemapping_fragment>');
-  if(ice)material.fragmentShader=material.fragmentShader.replace('a=pow(max(0.0,1.0-d),2.5);','a=.85;');
+  material.fragmentShader='varying float vFieldLife;varying float vFieldFacet;\n'+material.fragmentShader.replace('#include <tonemapping_fragment>','gl_FragColor.a*=vFieldLife;\n#include <tonemapping_fragment>');
+  if(ice)material.fragmentShader=material.fragmentShader.replace('a=pow(max(0.0,1.0-d),2.5);','a=.68;').replace('gl_FragColor=vec4(color,a*effectFade);','gl_FragColor=vec4(color*vFieldFacet,a*effectFade);');
   const wisps=new THREE.InstancedMesh(geometry,material,count);wisps.frustumCulled=false;wisps.name=`${type}-field-particles`;mesh.add(wisps);
   const dummy=new THREE.Object3D(),positions=Array.from({length:count},(_,i)=>{
     const a=hash(i+5)*Math.PI*2,r=Math.sqrt(hash(i+20))*radius*.8;
@@ -227,7 +242,7 @@ export function decorateGround(mesh:THREE.Mesh,type:DamageType,radius:number,kin
   });
   for(let i=0;i<count;i++){
     const p=positions[i];dummy.position.set(p.x,p.y,0);dummy.rotation.set(ice?.2:Math.PI/2,ice?i:i%2*Math.PI/2,0);
-    const size=fire?.6+hash(i+18)*.5:1;dummy.scale.set(size,ice?2.8:fire?size*1.7:size,1);dummy.updateMatrix();wisps.setMatrixAt(i,dummy.matrix);
+    const size=fire?.7+hash(i+18)*.55:ice?.65+hash(i+18)*.55:1;dummy.scale.set(size,fire?size*1.7:size,1);dummy.updateMatrix();wisps.setMatrixAt(i,dummy.matrix);
   }
   wisps.instanceMatrix.needsUpdate=true;
   callbacks.set(mesh,(_time,fade)=>{wisps.visible=fade>0;});

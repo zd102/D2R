@@ -176,6 +176,8 @@ Safari/WebKit 与 Chromium 的在线兼容回归使用 `npm run test:online-comp
 
 游戏默认自动调节渲染分辨率以优先维持 60 帧。全场景帧时间采样使用 `npm run test:performance`，测量方法、压力测试和适用边界见 [性能说明](docs/performance.md)。
 
+七职业、怪物与同伴的形体、十类表面材质、特效和 UI 细化预览，以及几何和帧耗时前后对照，见 [视觉与质感细化记录](docs/visual-refinement-20260929.md)。材质专项检查运行 `npm run test:materials`。
+
 - `src/game.ts`：战斗、掉落、成长、输入与存档流程。
 - `src/world.ts`：原创程序化模型与纹理、Cannon ES 碰撞、PathFinding.js A* 寻路。
 - `src/bestiary.ts`、`src/monster-models.ts`、`src/monster-combat.ts`：分章怪物与首领表、独立模型、攻击预警、投射物、范围攻击和限量召唤。

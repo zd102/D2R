@@ -44,10 +44,19 @@ export function sceneryTexture(style: SurfaceStyle | 'wall' | 'water' | 'lava' |
     for (let row = -1; row < 512 / h + 1; row++) for (let col = -1; col < 512 / w + 1; col++) {
       const x = col * w + (row % 2 ? w / 2 : 0), y = row * h;
       ctx.fillStyle = `rgba(${random() > .5 ? '245,237,211' : '35,32,30'},${.025 + random() * .09})`;
-      ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
-      ctx.strokeStyle = '#34332f'; ctx.lineWidth = style === 'wall' ? 5 : 3; ctx.strokeRect(x, y, w, h);
-      line([[x+3,y+h-4],[x+3,y+3],[x+w-4,y+3]], '#e7e3ce77', 2);
+      const chip=3+random()*5;
+      const outline=[[x+chip,y+3],[x+w-9,y+2],[x+w-3,y+chip],[x+w-2,y+h-8],[x+w-8,y+h-3],[x+6,y+h-2],[x+2,y+h-chip],[x+3,y+9],[x+chip,y+3]];
+      ctx.beginPath();outline.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.fill();
+      line(outline, '#35332dcc', style === 'wall' ? 6 : 5);
+      line([[x+4,y+h-9],[x+5,y+9],[x+chip,y+5],[x+w-12,y+4]], '#e7e3ce66', 2);
+      line([[x+8,y+h-6],[x+w-10,y+h-5],[x+w-5,y+h-11],[x+w-6,y+10]], '#514b3b66', 3);
       line([[x+w*.7,y],[x+w*.69,y+h*.18],[x+w*.77,y+h*.4]], '#46443e99', 1.3);
+      // Mineral scars and accumulated grout are baked once; no extra terrain
+      // meshes, texture samplers or transparent decals are needed in combat.
+      for(let scar=0;scar<12;scar++) {
+        const sx=x+12+random()*(w-24),sy=y+12+random()*(h-24),length=2+random()*14;
+        line([[sx,sy],[sx+length*.6,sy-1],[sx+length,sy+1]],scar%3?'#4e493f21':'#e4ddc72b',1+random()*2);
+      }
       for(let chip=0;chip<4;chip++) {
         const cx=x+random()*w,cy=y+(chip%2?h:0),size=2+random()*6;
         ctx.fillStyle='#4f4b4266';ctx.beginPath();ctx.moveTo(cx-size,cy);ctx.lineTo(cx+size,cy);ctx.lineTo(cx+size*.4,cy+(chip%2?-1:1)*size);ctx.fill();
@@ -86,6 +95,18 @@ export function sceneryTexture(style: SurfaceStyle | 'wall' | 'water' | 'lava' |
     if (style === 'sand' || style === 'snow') for (let y = 0; y < 512; y += 24) {
       const points = Array.from({ length: 33 }, (_, i) => [i*16,y+Math.sin(i*.5+y)*5]);
       line(points, style === 'snow' ? '#eefbff25' : '#6b604015', 3);
+    }
+  }
+  if(!['lava','water','ice'].includes(style)) {
+    // Seamless mottling overlays the cut stone too, so the joints share its age.
+    for(let i=0;i<34;i++) {
+      const x=random()*512,y=random()*512,r=10+random()*32;
+      for(const dx of [-512,0,512])for(const dy of [-512,0,512]) {
+        const px=x+dx,py=y+dy;if(px+r<0||px-r>512||py+r<0||py-r>512)continue;
+        const stain=ctx.createRadialGradient(px,py,0,px,py,r);
+        stain.addColorStop(0,style==='snow'?'#899caa13':i%3?'#362c2121':'#6f76432a');stain.addColorStop(1,'#362c2100');
+        ctx.fillStyle=stain;ctx.fillRect(px-r,py-r,r*2,r*2);
+      }
     }
   }
   if(style==='lava') {

@@ -1,4 +1,4 @@
-import { loftGeometry as contourGeometry, sculptedHead, sculptedTorso } from './sculpted-surfaces.ts';
+import { loftGeometry as contourGeometry, sculptedHead, sculptedTorso, sculptedBeard } from './sculpted-surfaces.ts';
 import * as THREE from 'three';
 import { actorMaterial, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
 import type { Actor } from './world.ts';
@@ -31,7 +31,7 @@ export function createHeroActor(classId: ClassId): Actor {
   const skin=actorMaterial(paladin?0x70462f:necromancer?0xc2c4b3:barbarian?0xbc997d:sorceress?0xb88869:0xc69e7b,'skin');
   const leather=actorMaterial(0x3c2c21,'leather'), dark=actorMaterial(0x1b1c1c,'leather'), steel=actorMaterial(0x8a9292,'steel');
   const gold=actorMaterial(0xa88a4d,'bronze'), fabric=actorMaterial(sorceress?0x285c65:necromancer?0x263737:druid?0x59442d:assassin?0x30252d:amazon?0x554b30:0x343c42,'cloth');
-  const hair=actorMaterial(paladin?0x211b17:necromancer?0xc2c3b6:druid?0x85472b:barbarian?0x4c3728:amazon?0x967036:0x18191b,'fur'), light=actorMaterial(0xc9bda2,'bone');
+  const hair=actorMaterial(paladin?0x211b17:necromancer?0xa9aaa0:druid?0x644333:barbarian?0x4c3728:amazon?0x806347:0x18191b,'fur'), light=actorMaterial(0xc9bda2,'bone');
   const bronze=actorMaterial(0x8c7045,'bronze'), clothBack=actorMaterial(paladin?0x582727:sorceress?0x243d43:0x3b4937,'cloth');
   const geos={ball:organicGeometry(),box:new THREE.BoxGeometry(),tube:new THREE.CylinderGeometry(1,1,1,12),cone:new THREE.ConeGeometry(1,1,8)};
   const part=(parent:THREE.Object3D,geo:THREE.BufferGeometry,mat:THREE.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1)=>{
@@ -55,14 +55,14 @@ export function createHeroActor(classId: ClassId): Actor {
   for(const side of [-1,1])part(rig,geos.box,gold,side*.16,.95,.12,.024,.065,.025);
   profile(chest,skin,[[.079,.28],[.077,.41]],0,0,0,.88);
   // Brow, cheek and jaw volumes read as a face even at the isometric camera distance.
-  part(head,sculptedHead(barbarian?1.10:necromancer?.94:1,necromancer?.012:0),skin,0,0,0);head.scale.setScalar(.86);
+  part(head,sculptedHead(barbarian?1.10:necromancer?.94:1,necromancer?.012:0),skin,0,0,0);head.scale.setScalar(barbarian?.80:.75);
   for(const side of [-1,1]) {
     const ear=part(head,plateGeometry([[-.009,-.030],[.012,-.036],[.021,-.003],[.015,.031],[-.009,.027]],.007,.005),skin,side*.135,.026,-.004);
     ear.scale.x=side;
     ball(head,leather,side*.143,.026,.008,.005,.016,.006);
     ball(head,dark,side*.052,.067,.106,.028,.012,.013);
-    ball(head,light,side*.052,.066,.118,.021,.006,.006);
-    ball(head,leather,side*.052,.066,.124,.006,.007,.004);
+    ball(head,light,side*.052,.066,.118,.019,.0045,.006);
+    ball(head,leather,side*.052,.066,.124,.006,.006,.004);
     ball(head,skin,side*.052,.076,.114,.029,.006,.011);
     const brow=ball(head,hair,side*.052,.097,.112,.035,.006,.009);brow.rotation.z=side*.12;
     ball(head,leather,side*.011,.005,.153,.004,.003,.004);
@@ -83,13 +83,16 @@ export function createHeroActor(classId: ClassId): Actor {
     scalp.computeVertexNormals();part(head,scalp,hair,0,0,0);
   }
   if(paladin) {
-    ball(head,hair,0,-.092,.083,.089,.036,.061);
+    part(head,sculptedBeard(),hair,0,0,0,1,.78,1);
     part(chest,contourGeometry([[-.16,.18,.13],[-.06,.205,.16],[.08,.265,.18],[.20,.28,.15],[.27,.19,.115]]),steel,0,0,.007);
     for(const side of [-1,1]) {
       const plate=part(chest,plateGeometry([[-.105,-.07],[.09,-.05],[.12,.06],[.045,.12],[-.105,.08]],.025,.012),steel,side*.135,.115,.161);plate.rotation.y=side*.20;
       bar(chest,gold,[side*.24,.20,.16],[side*.17,-.10,.16],.016);
       for(let i=0;i<3;i++)part(chest,plateGeometry([[-.065,.035],[.07,.03],[.085,-.035],[-.07,-.04]],.022,.006),steel,side*.19,-.13-i*.055,.11+i*.006);
       for(const y of [-.08,.20])ball(chest,gold,side*.21,y,.18,.011,.011,.008);
+      // Raised heraldic ribs and recessed edges catch light at game distance.
+      bar(chest,gold,[side*.035,.18,.201],[side*.14,.09,.211],.006);
+      bar(chest,dark,[side*.053,.176,.195],[side*.16,.086,.195],.004);
     }
     part(chest,geos.box,gold,0,.075,.235,.027,.29,.016);part(chest,geos.box,gold,0,.145,.235,.21,.027,.016);
     // Open helmet keeps the Paladin's face visible.
@@ -99,6 +102,10 @@ export function createHeroActor(classId: ClassId): Actor {
   } else if(amazon) {
     profile(chest,bronze,[[.19,-.08],[.235,.09],[.247,.19],[.18,.24]],0,0,.012,.8);
     for(const side of [-1,1]){bar(chest,gold,[side*.1,-.07,.16],[side*.16,.22,.15],.017);bar(chest,leather,[side*.17,.27,.08],[side*.14,.17,.18],.025);}
+    for(const side of [-1,1])for(let band=0;band<3;band++) {
+      const lame=part(chest,plateGeometry([[-.055,.025],[.06,.02],[.067,-.018],[-.05,-.03]],.009,.004),bronze,side*.10,-.035+band*.058,.187);
+      lame.rotation.z=side*.10;
+    }
     for(let i=0;i<11;i++){const a=i*Math.PI*2/11;const skirt=part(rig,plateGeometry([[-.043,.11],[.043,.11],[.047,-.105],[.025,-.145],[-.036,-.13]],.014,.004),i%3?leather:bronze,Math.sin(a)*.205,.77,Math.cos(a)*.16);skirt.rotation.set(.14*Math.cos(a),a,-.14*Math.sin(a));ball(skirt,gold,0,.075,.028,.009,.009,.008);}
     const ponytail=new THREE.Group();head.add(ponytail);ponytail.name='hero-hair';ponytail.position.set(0,.18,-.12);
     part(ponytail,contourGeometry([[-.46,.016,.02,-.10],[-.34,.033,.039,-.12],[-.20,.043,.045,-.09],[-.08,.049,.048,-.035],[.015,.03,.03]],12,.1),hair,0,0,0);
@@ -112,26 +119,43 @@ export function createHeroActor(classId: ClassId): Actor {
     for(const side of [-1,1]){bar(chest,gold,[side*.15,.23,.135],[0,-.03,.148],.012);part(head,contourGeometry([[-.28,.027,.04,-.065],[-.10,.05,.065,-.04],[.10,.052,.07,-.035],[.19,.025,.04,-.02]],12,.12),hair,side*.11,0,0);}
     const crest=part(chest,new THREE.OctahedronGeometry(.048),gold,0,.20,.185);crest.scale.set(.8,1.1,.4);
     for(let i=0;i<4;i++)part(chest,geos.box,gold,0,-.15-i*.035,.126,.05-i*.007,.018,.016);
+    for(const side of [-1,1]) {
+      bar(chest,leather,[side*.19,.15,.15],[side*.12,-.035,.14],.008);
+      for(let i=0;i<5;i++)bar(chest,gold,[side*.04,.04+i*.025,.192],[side*.073,.052+i*.025,.181],.0035);
+      const clasp=part(rig,plateGeometry([[-.038,.04],[.038,.04],[.03,-.026],[0,-.065],[-.03,-.026]],.008,.004),gold,side*.17,.90,.127);clasp.rotation.y=side*.55;
+    }
   }
   if(necromancer) {
     profile(chest,fabric,[[.17,-.2],[.20,.05],[.24,.2]],0,0,0,.8);
-    for(const side of [-1,1]){for(let rib=0;rib<5;rib++)bar(chest,light,[0,.17-rib*.055,.18],[side*(.21-rib*.012),.13-rib*.055,.12],.019);ball(chest,light,side*.30,.24,0,.10,.11,.10);for(let tooth=0;tooth<3;tooth++)part(chest,geos.cone,light,side*.30,.12,(tooth-1)*.03,.017,.08,.015);}
+    for(const side of [-1,1]){for(let rib=0;rib<5;rib++)bar(chest,light,[0,.17-rib*.055,.18],[side*(.21-rib*.012),.13-rib*.055,.12],.019);
+      part(chest,plateGeometry([[-.085,.045],[-.04,.105],[.053,.082],[.09,.013],[.05,-.09],[-.055,-.07]],.045,.014),light,side*.29,.235,-.03);
+      for(let tooth=0;tooth<3;tooth++)part(chest,geos.cone,light,side*.30,.12,(tooth-1)*.03,.017,.08,.015);
+      bar(chest,leather,[side*.22,.20,.13],[side*.13,-.17,.14],.014);
+    }
     bar(chest,light,[0,-.15,.17],[0,.22,.18],.023);
     for(const side of [-1,1])part(head,contourGeometry([[-.18,.023,.043,-.07],[-.04,.035,.07,-.035],[.12,.026,.05,-.025]],12,.06),hair,side*.116,0,0);
   }
   if(barbarian){
-    for(const side of [-1,1]){const tattoo=part(chest,geos.box,fabric,side*.13,.11,.199,.035,.20,.012);tattoo.rotation.z=side*.3;ball(head,hair,side*.07,-.1,.08,.075,.065,.055);}
+    for(const side of [-1,1]){const tattoo=part(chest,geos.box,fabric,side*.13,.11,.199,.022,.17,.007);tattoo.rotation.z=side*.3;}
+    part(head,sculptedBeard(),hair,0,0,0);
     bar(chest,leather,[-.22,.26,.11],[.17,-.23,.14],.04);profile(rig,leather,[[.25,.57],[.25,.8],[.20,.92]],0,0,0,.85);
     for(let i=0;i<5;i++)part(rig,geos.cone,light,(i-2)*.075,.57,.18,.025,.16,.025);
+    for(let i=0;i<5;i++){const plate=part(rig,plateGeometry([[-.043,.11],[.043,.11],[.033,-.12],[-.027,-.10]],.012,.006),steel,(i-2)*.089,.73,.18-Math.abs(i-2)*.015);plate.rotation.y=(i-2)*.13;ball(plate,gold,0,.075,.021,.008,.008,.004);}
   }
   if(druid){
-    profile(chest,fabric,[[.20,-.22],[.25,.06],[.27,.23]],0,0,0,.9);ball(head,hair,0,-.12,.075,.11,.10,.09);
+    profile(chest,fabric,[[.20,-.22],[.25,.06],[.27,.23]],0,0,0,.9);part(head,sculptedBeard(true),hair,0,0,0);
     for(const side of [-1,1]){ball(chest,leather,side*.27,.20,0,.14,.13,.16);bar(head,light,[side*.1,.23,0],[side*.22,.42,-.02],.024);bar(head,light,[side*.17,.34,-.01],[side*.28,.37,.08],.016);}
+    for(const side of [-1,1])for(let i=0;i<5;i++) {
+      const lock=part(chest,contourGeometry([[-.09,.008,.009],[0,.032,.033],[.065,.023,.028]],8,.12),hair,side*(.18+i*.026),.21-i*.014,.10-(i%2)*.04);lock.rotation.z=side*.35;
+    }
+    bar(chest,leather,[-.17,.22,.16],[.13,-.20,.16],.019);
+    for(let i=0;i<3;i++)part(chest,geos.cone,light,(i-1)*.05,.10,.185,.012,.08,.014).rotation.z=Math.PI;
   }
   if(assassin){
     profile(chest,dark,[[.16,-.23],[.17,-.08],[.23,.13],[.23,.21]],0,0,.005,.83);
     for(const side of [-1,1]){bar(chest,steel,[side*.08,-.12,.15],[side*.2,.22,.13],.025);part(head,contourGeometry([[-.15,.018,.047,-.03],[-.01,.028,.07,-.025],[.16,.02,.04,-.04]],12,.06),hair,side*.125,0,0);}
     const sash=part(rig,geos.box,clothBack,0,.9,.03,.43,.08,.34);sash.rotation.z=.16;
+    for(const side of [-1,1])for(let i=0;i<4;i++)bar(chest,bronze,[side*.11,-.11+i*.055,.161],[side*.16,-.084+i*.055,.141],.006);
   }
   if(amazon||sorceress) {
     const circlet=part(head,new THREE.TorusGeometry(.144,.013,6,24),gold,0,.152,0);circlet.rotation.x=Math.PI/2;

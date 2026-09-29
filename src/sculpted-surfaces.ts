@@ -48,11 +48,13 @@ export function sculptedHead(broad=1,gaunt=0) {
     const bump=(x:number,y:number,cx:number,cy:number,wx:number,wy:number)=>Math.exp(-(((x-cx)/wx)**2+((y-cy)/wy)**2));
     for(let i=0;i<vertices.count;i++) {
       const x=vertices.getX(i),y=vertices.getY(i),z=vertices.getZ(i),front=THREE.MathUtils.smoothstep(z,.035,.10);
-      const cheek=.015*bump(Math.abs(x),y,.085,.01,.035,.034);
-      const socket=.012*bump(Math.abs(x),y,.052,.068,.025,.022);
+      const cheek=.022*bump(Math.abs(x),y,.084,.007,.031,.028);
+      const socket=.018*bump(Math.abs(x),y,.052,.068,.026,.021);
       const bridge=.029*bump(x,y,0,.057,.018,.061),nose=.028*bump(x,y,0,.015,.022,.020);
       const lip=.009*bump(x,y,0,-.046,.043,.010),chin=.009*bump(x,y,0,-.09,.045,.020);
-      vertices.setXYZ(i,x*broad,y,z+front*(cheek-socket+bridge+nose+lip+chin-gaunt*bump(Math.abs(x),y,.080,-.047,.036,.032)));
+      const brow=.013*bump(Math.abs(x),y,.052,.095,.035,.013);
+      const hollow=(.010+gaunt)*bump(Math.abs(x),y,.080,-.047,.036,.032);
+      vertices.setXYZ(i,x*broad,y,z+front*(cheek-socket+bridge+nose+lip+chin+brow-hollow));
     }
     refreshLoftNormals(geometry);return geometry;
   });
@@ -69,7 +71,26 @@ export function sculptedTorso(sections:readonly Section[],strength=.015) {
       const abdomen=Math.exp(-((u/.56)**2+((v-.32)/.30)**2))*(.5+.5*Math.cos(v*35));
       const sternum=Math.exp(-((u/.09)**2+((v-.67)/.23)**2));
       const front=THREE.MathUtils.smoothstep(z,0,.10);
-      vertices.setZ(i,z+front*strength*(chest+.35*abdomen-.3*sternum));
+      const clavicle=Math.exp(-(((v-.86+Math.abs(u)*.045)/.035)**2))*(1-u*u);
+      const oblique=Math.exp(-(((Math.abs(u)-.78)/.18)**2+((v-.35)/.24)**2));
+      const back=THREE.MathUtils.smoothstep(-z,0,.10);
+      const scapula=Math.exp(-(((Math.abs(u)-.51)/.27)**2+((v-.72)/.19)**2));
+      vertices.setZ(i,z+front*strength*(chest+.35*abdomen-.3*sternum+.32*clavicle+.24*oblique)-back*strength*.6*scapula);
+    }
+    refreshLoftNormals(geometry);return geometry;
+  });
+}
+
+// Tapered, grooved locks follow a jaw instead of overlapping round beard balls.
+export function sculptedBeard(long=false) {
+  return modelGeometryCache.get(`beard:${long}`,()=>{
+    const geometry=loftGeometry(long
+      ? [[-.27,.012,.017,.10],[-.20,.06,.038,.105],[-.13,.092,.049,.09],[-.075,.096,.042,.078],[-.052,.064,.023,.095]]
+      : [[-.18,.018,.017,.085],[-.135,.062,.034,.083],[-.092,.093,.044,.067],[-.053,.080,.025,.08]],16,.09);
+    const vertices=geometry.attributes.position;
+    for(let i=0;i<vertices.count;i++) {
+      const x=vertices.getX(i),y=vertices.getY(i),z=vertices.getZ(i);
+      vertices.setZ(i,z+Math.sin(x*150+y*13)*.004*THREE.MathUtils.smoothstep(z,.08,.12));
     }
     refreshLoftNormals(geometry);return geometry;
   });

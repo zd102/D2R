@@ -33,7 +33,7 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
     const mesh = ribbon(p, [[0,-length*.5,0],[0,-length*.1,0],[.025,length*.24,-length*.08],[.015,length*.5,-length*.23]], Math.min(.09,length*.22), bone);
     mesh.position.set(x,y,z); mesh.rotation.z=tilt; return mesh;
   };
-  const eyes = (p: THREE.Object3D, y: number, z: number, spacing = .095) => { for (const side of [-1, 1]) { ball(p, side * spacing, y, z - .018, .047, .027, .024, dark); ball(p, side * spacing, y, z + .012, .013, .009, .010, glow); const brow = ball(p, side * spacing, y + .027, z, .057, .016, .027); brow.rotation.z = side * .22; } };
+  const eyes = (p: THREE.Object3D, y: number, z: number, spacing = .095) => { for (const side of [-1, 1]) { ball(p, side * spacing, y, z - .018, .041, .021, .024, dark); ball(p, side * spacing, y, z + .012, .010, .006, .009, glow); const brow = ball(p, side * spacing, y + .023, z, .053, .018, .029); brow.rotation.z = side * .27; } };
   const ribbon = (parent: THREE.Object3D, points: number[][], radius: number, mat = skin, taper = true) => {
     const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p as [number, number, number])));
     const geometry = new THREE.TubeGeometry(curve, 16, radius, 6, false);
@@ -63,19 +63,28 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   };
   const skull = (p: THREE.Object3D, x: number, y: number, z: number, scale=1) => {
     const h=new THREE.Group();h.position.set(x,y,z);h.scale.setScalar(scale);p.add(h);
-    part(h,contourGeometry([[-.16,.095,.075,.035],[-.065,.135,.10,.025],[.025,.165,.13],[.15,.145,.12,-.02],[.205,.075,.075,-.02]],12),bone,0,0,0,1,1,1);
-    for(const s of [-1,1]){ball(h,s*.071,.02,.114,.054,.044,.022,dark);ball(h,s*.071,.02,.137,.012,.009,.009,glow);link(h,[s*.105,-.035,.1],[s*.06,-.10,.13],.024,bone);}
+    part(h,contourGeometry([[-.175,.074,.060,.029],[-.13,.103,.074,.025],[-.077,.10,.078,.022],[-.025,.143,.108],[.065,.143,.121],[.145,.126,.114,-.015],[.205,.065,.063,-.026]],16),bone,0,0,0,1,1,1);
+    for(const s of [-1,1]){
+      const socket=part(h,plateGeometry([[-.041,.022],[-.016,.036],[.037,.024],[.034,-.020],[-.018,-.030],[-.040,-.009]],.007,.003),dark,s*.069,.022,.108,1,1,1);socket.rotation.z=s*.22;
+      ball(h,s*.068,.022,.137,.009,.006,.006,glow);
+      link(h,[s*.115,-.017,.117],[s*.084,-.067,.130],.018,bone);
+      link(h,[s*.025,.071,.122],[s*.106,.060,.114],.021,bone);
+      link(h,[s*.114,-.060,.03],[s*.074,-.15,.087],.018,bone);
+    }
     part(h,cone,dark,0,-.038,.131,.024,.056,.018).rotation.z=Math.PI;
     part(h,box,dark,0,-.109,.113,.133,.035,.025);
-    for(let i=0;i<6;i++)part(h,box,bone,(i-2.5)*.022,-.098,.135,.016,.029,.017);
+    for(let i=0;i<6;i++)part(h,box,bone,(i-2.5)*.019,-.098-(i%2)*.003,.135-Math.abs(i-2.5)*.003,.014,.024+(i%3)*.004,.013);
     return h;
   };
   const insect = ['spider', 'beetle', 'maggot', 'duriel'].includes(model), serpentine = model === 'viper', floating = ['ghost', 'mephisto'].includes(model);
   if (model === 'cow') {
-    part(rig,contourGeometry([[.67,.26,.23],[.9,.38,.29],[1.22,.47,.28],[1.49,.38,.23],[1.60,.24,.20]]),skin,0,0,0,1,1,1);
-    ball(rig,0,1.75,.08,.25,.32,.23);ball(rig,0,1.61,.32,.26,.16,.21,bone);
+    part(rig,contourGeometry([[.67,.24,.21],[.9,.32,.26],[1.22,.45,.29],[1.43,.46,.25],[1.60,.26,.20]]),skin,0,0,0,1,1,1);
+    part(rig,contourGeometry([[1.47,.13,.15,.17],[1.59,.18,.23,.14],[1.77,.215,.205,.06],[1.93,.24,.14],[2.04,.13,.085,-.025]],16),skin,0,0,0,1,1,1);
+    part(rig,contourGeometry([[1.47,.14,.115,.34],[1.54,.215,.17,.34],[1.65,.225,.17,.32],[1.72,.14,.11,.25]],12),dark,0,0,0,1,1,1);
     eyes(rig,1.82,.25,.13);
-    for(const s of [-1,1]){ball(rig,s*.115,1.65,.513,.043,.03,.015,dark);ribbon(rig,[[s*.18,1.94,0],[s*.42,2.02,-.02],[s*.53,2.28,.02]],.09,bone);ball(rig,s*.30,1.85,.01,.16,.065,.10);}
+    for(const s of [-1,1]){ball(rig,s*.115,1.65,.483,.036,.023,.017,cloth);ribbon(rig,[[s*.18,1.94,0],[s*.42,2.02,-.02],[s*.53,2.28,.02]],.09,bone);
+      const ear=part(rig,plateGeometry([[-.08,.03],[.07,.055],[.17,.015],[.085,-.055],[-.05,-.032]],.024,.008),skin,s*.27,1.86,.025,1,1,1);ear.scale.x=s;ear.rotation.z=s*.18;
+    }
     robe(rig,.79,.35,.34,dark);fur(rig,0,1.48,-.22,.72,.28);
     for (const side of [-1, 1]) {
       const leg = side < 0 ? leftLeg : rightLeg;
@@ -84,7 +93,8 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
       for(const toe of [-1,1])part(knee,contourGeometry([[-.405,.05,.13,.03],[-.34,.058,.12,.025],[-.25,.042,.075]]),dark,toe*.06,0,.14,1,1,1);
       const arm=side<0?leftArm:rightArm;arm.position.set(side*.45,1.38,0);rig.add(arm);
       link(arm,[0,0,0],[side*.05,-.32,.08],.14);link(arm,[side*.05,-.32,.08],[side*.02,-.52,.25],.11);ball(arm,side*.02,-.52,.25,.095,.10,.08,dark);
-      ball(rig,side*.26,1.14,.235,.16,.22,.045,bone);
+      // Irregular hide patches hug the chest, rather than round raised spots.
+      const patch=part(rig,plateGeometry([[-.10,.16],[-.04,.23],[.09,.14],[.06,.025],[.10,-.09],[.015,-.17],[-.08,-.13],[-.065,.01]],.004,.002),cloth,side*.22,1.16,.255,1,1,1);patch.rotation.y=side*.32;
     }
     const tail=new THREE.Group();rig.add(tail);tails.push(tail);ribbon(tail,[[0,.84,-.22],[.35,.55,-.40],[.52,.34,-.30]],.035);fur(tail,.52,.32,-.30,.10,.16);
     const polearm=new THREE.Group();polearm.name='monster-polearm';rightArm.add(polearm);polearm.position.set(.03,-.50,.27);polearm.rotation.x=.25;
@@ -152,7 +162,7 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
     const head=new THREE.Group();head.name='monster-head';rig.add(head);head.position.set(0,1.58,model==='zombie'||model==='mauler'?.13:.01);
     if(skeletal)skull(head,0,0,0,model==='mephisto'?1.20:1);
     else {
-      part(head,contourGeometry([[-.17,.085,.083,.05],[-.095,.13,.12,.015],[.025,bulky?.195:.145,bulky?.17:.125],[.13,bulky?.18:.13,.12,-.02],[.215,.08,.08,-.025]],14),skin,0,0,0,1,model==='baal'?1.23:1,1);
+      part(head,contourGeometry([[-.17,.075,.079,.044],[-.105,.122,.107,.024],[-.055,.106,.098,.007],[.025,bulky?.195:.145,bulky?.17:.125],[.083,bulky?.185:.135,.13,-.012],[.15,bulky?.17:.122,.117,-.02],[.215,.07,.07,-.03]],14),skin,0,0,0,1,model==='baal'?1.23:1,1);
       eyes(head,.065,bulky?.17:.13,feminine?.060:.078);
       ball(head,0,-.005,.15,.028,.057,.036);part(head,box,dark,0,-.10,.14,.105,.020,.018);
       for (const side of [-1, 1]) {

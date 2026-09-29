@@ -10,20 +10,24 @@ export function createVillagerModel() {
   const part=(geometry:THREE.BufferGeometry,material:THREE.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1)=>{
     const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);return mesh;
   };
+  const head=new THREE.Group();head.position.y=1.57;head.scale.setScalar(.78);root.add(head);
+  const headPart=(geometry:THREE.BufferGeometry,material:THREE.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1)=>{
+    const mesh=part(geometry,material,x,y-1.57,z,sx,sy,sz);head.add(mesh);return mesh;
+  };
   part(loftGeometry([[.18,.31,.21],[.45,.28,.19],[.84,.20,.15],[1.03,.23,.17],[1.28,.28,.15],[1.38,.13,.095]],20,.035),cloth,0,0,0);
   part(loftGeometry([[0,.067,.065],[.17,.072,.068]],16),skin,0,1.32,0);
-  part(sculptedHead(.98,.005),skin,0,1.57,0);
-  part(loftGeometry([[.12,.142,.132,-.016],[.19,.135,.119,-.022],[.255,.065,.072,-.02]],24),leather,0,1.57,0);
+  headPart(sculptedHead(.98,.005),skin,0,1.57,0);
+  headPart(loftGeometry([[.12,.142,.132,-.016],[.19,.135,.119,-.022],[.255,.065,.072,-.02]],24),leather,0,1.57,0);
   for(const side of [-1,1]) {
     const sleeve=part(loftGeometry([[-.41,.055,.062,.05],[-.20,.09,.085],[0,.11,.10],[.08,.055,.045]],16,.025),cloth,side*.28,1.28,0);sleeve.rotation.z=side*.08;
     part(sphere,skin,side*.31,.85,.045,.053,.085,.047);
     part(sphere,leather,side*.13,.09,.055,.095,.085,.18);
-    part(sphere,bone,side*.052,1.636,.115,.021,.006,.007);
-    part(sphere,leather,side*.052,1.636,.123,.006,.006,.003);
+    headPart(sphere,bone,side*.052,1.636,.115,.019,.0045,.007);
+    headPart(sphere,leather,side*.052,1.636,.123,.006,.006,.003);
   }
   part(loftGeometry([[-.025,.214,.158],[.025,.216,.16]],20),leather,0,.89,0);
   part(box,bone,0,.89,.165,.07,.055,.015);
   part(sphere,leather,.24,.77,.08,.095,.12,.065);
-  part(sphere,leather,0,1.524,.117,.026,.003,.005);
+  headPart(sphere,leather,0,1.524,.117,.026,.003,.005);
   mergeActorParts(root);return root;
 }

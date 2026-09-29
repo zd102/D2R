@@ -14,7 +14,10 @@ export function createBeastActor(bear=false,upright=false):Actor {
   const bulk=bear?1.3:1;
   part(body,fur,0,upright?1:.65,0,.34*bulk,upright?.67:.36,.62*bulk);
   const head=new THREE.Group();head.position.set(0,upright?1.65:.92,upright?.2:.53);body.add(head);
-  part(head,fur,0,0,0,.25*bulk,.25,.29);part(head,fur,0,-.07,.27,.14*bulk,.12,.28);part(head,dark,0,-.025,.48,.10,.07,.07);
+  const skull=contourGeometry([[-.22,.10,.13,.02],[-.11,.20*bulk,.19,.02],[.04,.22*bulk,.24],[.17,.17*bulk,.20,-.03],[.24,.095,.10,-.05]],14);
+  part(head,fur,0,0,0,1,1,1,skull);
+  const muzzle=contourGeometry([[0,.13*bulk,.105],[.16,.11*bulk,.085],[.36,.077*bulk,.061]],12).rotateX(Math.PI/2);
+  part(head,fur,0,-.065,.12,1,1,1,muzzle);part(head,dark,0,-.025,.48,.084,.052,.053);
   for(const side of [-1,1]){part(head,fur,side*.18,.23,-.04,bear?.1:.11,bear?.1:.28,.09,bear?sphere:cone);part(head,eye,side*.14,.065,.23,.028,.018,.025);}
   for(const side of [-1,1]) {
     part(head,dark,side*.14,.067,.236,.035,.024,.016);part(head,eye,side*.14,.067,.250,.012,.009,.008);
@@ -78,7 +81,7 @@ export function createCompanionActor(id:string):Actor {
     ball(group,Math.sin(6.4)*.3,.66,.61,.10,.035,.04,material);
   }else{
     const torso=new THREE.Mesh(sculptedTorso([[.46,.25,.22],[.67,.29,.25],[.95,.34,.28],[1.20,.45,.30],[1.39,.30,.23]],.065),material);torso.castShadow=true;group.add(torso);
-    ball(group,0,1.52,.05,.20,.24,.20);
+    const head=new THREE.Mesh(contourGeometry([[1.30,.105,.11,.06],[1.39,.17,.16,.07],[1.58,.20,.18,.02],[1.73,.15,.14],[1.77,.08,.09]],10,.05),material);head.castShadow=true;group.add(head);
     for(const side of [-1,1]) {
       if(id==='ironGolem') {
         const plate=new THREE.Mesh(plateGeometry([[-.18,-.1],[.15,-.1],[.23,.08],[0,.19],[-.23,.08]],.055,.014),material);plate.position.set(side*.40,1.32,.09);plate.rotation.y=side*.5;group.add(plate);

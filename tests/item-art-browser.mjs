@@ -6,7 +6,7 @@ import { BASES, RUNE_ORDER, RUNEWORDS, makeItem, placeItems, runeNumber } from '
 import { itemArtwork } from '../src/item-art.ts';
 import { savedProfile, inventoryItems, openSocketEditor, recipeNamed } from './browser-helpers.mjs';
 
-const output = '.verification/item-art-check';
+const output = process.env.OUTPUT_DIR || '.verification/item-art-check';
 await mkdir(output, { recursive: true });
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const errors = [], rarities = ['common', 'magic', 'rare', 'set', 'unique', 'runeword', 'legendary'];

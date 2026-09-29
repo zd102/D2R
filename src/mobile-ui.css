@@ -231,6 +231,7 @@
   #overlay .inventory-screen .inventory-detail-heading { display: none; }
   #overlay .inventory-screen .item-actions { margin-top: 4px; padding-top: 4px; gap: 4px; }
   #overlay .inventory-screen .paladin-inventory { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  #overlay .inventory-screen[data-inventory-view=runes] > .paladin-inventory { grid-template-columns: minmax(0, 1fr); }
   #overlay .inventory-screen .item-actions > button { min-height: 44px; }
   #overlay .shared-intro { display: none; }
   #overlay .shared-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr); gap: 6px 12px; }

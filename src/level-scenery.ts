@@ -6,7 +6,7 @@ import { distanceToSegment, layoutWalkable, type LevelLayout } from './level-lay
 import { sceneDesign, type SceneryProp } from './scene-design.ts';
 import { sceneryRandom, sceneryTexture, sceneryDecal } from './scenery-textures.ts';
 import { rotateLayout, rotateMapPoint } from './map-orientation.ts';
-import { contourGeometry } from './actor-modeling.ts';
+import { actorMaterial, contourGeometry } from './actor-modeling.ts';
 
 type SceneHost = {
   level: Level; layout: LevelLayout; scene: THREE.Scene; staticGroup: THREE.Group; ground: THREE.Mesh; grid: PF.Grid; floorCells: MapPoint[];
@@ -58,14 +58,17 @@ function buildAuthoredScenery(world: SceneHost) {
   geometry.rock.computeVertexNormals();
   const floorMap = sceneryTexture(design.surface, 600 + level.index), wallMap = sceneryTexture('wall', 900 + level.act);
   const material = (color: number, roughness = .9, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
-  const stone = material(palette.wall), dark = material(palette.dark), trim = material(palette.trim,.55,.35), wood = material(palette.wood);
+  const stone = material(palette.wall), dark = material(palette.dark), trim = actorMaterial(palette.trim,'bronze'), wood = material(palette.wood);
+  // Architectural trim is a weathered alloy: preserve the diffuse contribution
+  // that makes narrow bridges readable against the unlit abyss.
+  trim.metalness=.35;trim.roughness=.55;
   const rockMap=sceneryTexture('earth',410+level.index),barkMap=sceneryTexture('bark',780);
   stone.map=rockMap;stone.bumpMap=rockMap;stone.bumpScale=.16;wood.map=barkMap;wood.bumpMap=barkMap;wood.bumpScale=.08;
-  const foliage = material(palette.foliage), bone = material(level.act === 4 ? 0xa5b6bd : 0xa8a08a), iron = material(0x403e3d,.55,.65);
+  const foliage = material(palette.foliage), bone = actorMaterial(level.act === 4 ? 0xa5b6bd : 0xa8a08a,'bone'), iron = actorMaterial(0x57534d,'steel');
   const wall = new THREE.MeshStandardMaterial({ color: palette.wall, map: wallMap, bumpMap: wallMap, bumpScale: .14, roughness: .95 });
   const floor = new THREE.MeshStandardMaterial({ color: palette.floor, map: floorMap, bumpMap: floorMap, bumpScale: design.surface === 'ice' ? .035 : .085, roughness: ['mud','ice'].includes(design.surface) ? .42 : .95, vertexColors: true });
   const glow = new THREE.MeshBasicMaterial({ color: design.landmark === 'catacombs' ? 0x91be49 : design.landmark === 'frozen-river' ? 0x97def5 : level.act === 3 ? 0xf3a253 : palette.trim });
-  const red = material(level.act === 4 ? 0x9b3e55 : 0x682b2b), ice = material(level.index === 24 ? 0xb94965 : 0x74b9d0,.25,.2);
+  const red = actorMaterial(level.act === 4 ? 0x763d46 : 0x682b2b,level.act===4?'hide':'cloth'), ice = material(level.index === 24 ? 0xb94965 : 0x74b9d0,.25,.2);
   const leafMap=sceneryDecal('leaves'),webMap=sceneryDecal('web');
   const leaves=new THREE.MeshStandardMaterial({color:palette.foliage,map:leafMap,alphaTest:.25,side:THREE.DoubleSide,roughness:.85});
   const silk=new THREE.MeshBasicMaterial({color:0xd8dfcc,map:webMap,transparent:true,opacity:.5,depthWrite:false,side:THREE.DoubleSide});

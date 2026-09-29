@@ -1,0 +1,878 @@
+{
+  "before": {
+    "monsters": [
+      {
+        "id": "pindleskin",
+        "triangles": 11550,
+        "bytes": 324580,
+        "meshes": 18
+      },
+      {
+        "id": "nihlathak",
+        "triangles": 11640,
+        "bytes": 343632,
+        "meshes": 23
+      },
+      {
+        "id": "fallen",
+        "triangles": 9930,
+        "bytes": 285164,
+        "meshes": 23
+      },
+      {
+        "id": "shaman",
+        "triangles": 21504,
+        "bytes": 624160,
+        "meshes": 39
+      },
+      {
+        "id": "zombie",
+        "triangles": 11188,
+        "bytes": 322760,
+        "meshes": 24
+      },
+      {
+        "id": "rogue",
+        "triangles": 10500,
+        "bytes": 310424,
+        "meshes": 21
+      },
+      {
+        "id": "skeleton",
+        "triangles": 11550,
+        "bytes": 324580,
+        "meshes": 18
+      },
+      {
+        "id": "boneMage",
+        "triangles": 11640,
+        "bytes": 343632,
+        "meshes": 23
+      },
+      {
+        "id": "goat",
+        "triangles": 9998,
+        "bytes": 305844,
+        "meshes": 21
+      },
+      {
+        "id": "ghost",
+        "triangles": 9518,
+        "bytes": 258772,
+        "meshes": 17
+      },
+      {
+        "id": "tainted",
+        "triangles": 14872,
+        "bytes": 428200,
+        "meshes": 28
+      },
+      {
+        "id": "burningDead",
+        "triangles": 11750,
+        "bytes": 326468,
+        "meshes": 17
+      },
+      {
+        "id": "mummy",
+        "triangles": 11598,
+        "bytes": 348468,
+        "meshes": 24
+      },
+      {
+        "id": "unraveler",
+        "triangles": 11870,
+        "bytes": 366996,
+        "meshes": 26
+      },
+      {
+        "id": "huntress",
+        "triangles": 11076,
+        "bytes": 325304,
+        "meshes": 23
+      },
+      {
+        "id": "beetle",
+        "triangles": 9080,
+        "bytes": 202360,
+        "meshes": 26
+      },
+      {
+        "id": "maggot",
+        "triangles": 10136,
+        "bytes": 229944,
+        "meshes": 23
+      },
+      {
+        "id": "viper",
+        "triangles": 5596,
+        "bytes": 175304,
+        "meshes": 7
+      },
+      {
+        "id": "spider",
+        "triangles": 8280,
+        "bytes": 248064,
+        "meshes": 21
+      },
+      {
+        "id": "flayer",
+        "triangles": 11742,
+        "bytes": 351476,
+        "meshes": 22
+      },
+      {
+        "id": "flayerShaman",
+        "triangles": 27096,
+        "bytes": 784752,
+        "meshes": 45
+      },
+      {
+        "id": "zealot",
+        "triangles": 9660,
+        "bytes": 307016,
+        "meshes": 31
+      },
+      {
+        "id": "council",
+        "triangles": 12046,
+        "bytes": 360212,
+        "meshes": 25
+      },
+      {
+        "id": "doll",
+        "triangles": 11742,
+        "bytes": 351476,
+        "meshes": 22
+      },
+      {
+        "id": "vampire",
+        "triangles": 12504,
+        "bytes": 366096,
+        "meshes": 25
+      },
+      {
+        "id": "doomKnight",
+        "triangles": 10180,
+        "bytes": 326200,
+        "meshes": 33
+      },
+      {
+        "id": "oblivion",
+        "triangles": 12160,
+        "bytes": 362816,
+        "meshes": 27
+      },
+      {
+        "id": "soul",
+        "triangles": 9518,
+        "bytes": 258772,
+        "meshes": 17
+      },
+      {
+        "id": "mauler",
+        "triangles": 11348,
+        "bytes": 332248,
+        "meshes": 23
+      },
+      {
+        "id": "venomLord",
+        "triangles": 14872,
+        "bytes": 428200,
+        "meshes": 28
+      },
+      {
+        "id": "spawner",
+        "triangles": 10136,
+        "bytes": 229944,
+        "meshes": 23
+      },
+      {
+        "id": "imp",
+        "triangles": 9638,
+        "bytes": 272580,
+        "meshes": 19
+      },
+      {
+        "id": "overseer",
+        "triangles": 11700,
+        "bytes": 355352,
+        "meshes": 23
+      },
+      {
+        "id": "reanimated",
+        "triangles": 12070,
+        "bytes": 343764,
+        "meshes": 22
+      },
+      {
+        "id": "frozen",
+        "triangles": 13056,
+        "bytes": 422336,
+        "meshes": 23
+      },
+      {
+        "id": "iceCrawler",
+        "triangles": 5596,
+        "bytes": 175304,
+        "meshes": 7
+      },
+      {
+        "id": "succubus",
+        "triangles": 10880,
+        "bytes": 303704,
+        "meshes": 23
+      },
+      {
+        "id": "bloodLord",
+        "triangles": 11342,
+        "bytes": 349348,
+        "meshes": 28
+      },
+      {
+        "id": "minion",
+        "triangles": 14872,
+        "bytes": 428200,
+        "meshes": 28
+      },
+      {
+        "id": "hellCow",
+        "triangles": 8904,
+        "bytes": 247352,
+        "meshes": 20
+      },
+      {
+        "id": "corpsefire",
+        "triangles": 11188,
+        "bytes": 322760,
+        "meshes": 24
+      },
+      {
+        "id": "bloodRaven",
+        "triangles": 11432,
+        "bytes": 337520,
+        "meshes": 23
+      },
+      {
+        "id": "griswold",
+        "triangles": 11700,
+        "bytes": 355352,
+        "meshes": 23
+      },
+      {
+        "id": "countess",
+        "triangles": 12978,
+        "bytes": 387308,
+        "meshes": 25
+      },
+      {
+        "id": "andariel",
+        "triangles": 12100,
+        "bytes": 333176,
+        "meshes": 22
+      },
+      {
+        "id": "radament",
+        "triangles": 11870,
+        "bytes": 366996,
+        "meshes": 26
+      },
+      {
+        "id": "bloodwitch",
+        "triangles": 10500,
+        "bytes": 310424,
+        "meshes": 21
+      },
+      {
+        "id": "coldworm",
+        "triangles": 10136,
+        "bytes": 229944,
+        "meshes": 23
+      },
+      {
+        "id": "summoner",
+        "triangles": 12572,
+        "bytes": 370728,
+        "meshes": 24
+      },
+      {
+        "id": "duriel",
+        "triangles": 12818,
+        "bytes": 322740,
+        "meshes": 26
+      },
+      {
+        "id": "szzark",
+        "triangles": 8280,
+        "bytes": 248064,
+        "meshes": 21
+      },
+      {
+        "id": "endugu",
+        "triangles": 27096,
+        "bytes": 784752,
+        "meshes": 45
+      },
+      {
+        "id": "sarina",
+        "triangles": 11432,
+        "bytes": 337520,
+        "meshes": 23
+      },
+      {
+        "id": "ismail",
+        "triangles": 12046,
+        "bytes": 360212,
+        "meshes": 25
+      },
+      {
+        "id": "mephisto",
+        "triangles": 14158,
+        "bytes": 383444,
+        "meshes": 20
+      },
+      {
+        "id": "abyssVanguard",
+        "triangles": 15392,
+        "bytes": 447384,
+        "meshes": 30
+      },
+      {
+        "id": "izual",
+        "triangles": 10044,
+        "bytes": 316936,
+        "meshes": 32
+      },
+      {
+        "id": "hephasto",
+        "triangles": 11700,
+        "bytes": 355352,
+        "meshes": 23
+      },
+      {
+        "id": "deSeis",
+        "triangles": 10180,
+        "bytes": 326200,
+        "meshes": 33
+      },
+      {
+        "id": "diablo",
+        "triangles": 18176,
+        "bytes": 529376,
+        "meshes": 24
+      },
+      {
+        "id": "shenk",
+        "triangles": 11700,
+        "bytes": 355352,
+        "meshes": 23
+      },
+      {
+        "id": "eldritch",
+        "triangles": 11342,
+        "bytes": 349348,
+        "meshes": 28
+      },
+      {
+        "id": "frozenstein",
+        "triangles": 13056,
+        "bytes": 422336,
+        "meshes": 23
+      },
+      {
+        "id": "talic",
+        "triangles": 9854,
+        "bytes": 321140,
+        "meshes": 33
+      },
+      {
+        "id": "baal",
+        "triangles": 13716,
+        "bytes": 377272,
+        "meshes": 30
+      }
+    ],
+    "heroes": [
+      {
+        "id": "paladin",
+        "triangles": 31364,
+        "bytes": 879112,
+        "meshes": 92
+      },
+      {
+        "id": "amazon",
+        "triangles": 29528,
+        "bytes": 837296,
+        "meshes": 92
+      },
+      {
+        "id": "sorceress",
+        "triangles": 29876,
+        "bytes": 800200,
+        "meshes": 94
+      },
+      {
+        "id": "necromancer",
+        "triangles": 28324,
+        "bytes": 775928,
+        "meshes": 85
+      },
+      {
+        "id": "barbarian",
+        "triangles": 26388,
+        "bytes": 711224,
+        "meshes": 82
+      },
+      {
+        "id": "druid",
+        "triangles": 28004,
+        "bytes": 751384,
+        "meshes": 84
+      },
+      {
+        "id": "assassin",
+        "triangles": 26800,
+        "bytes": 717816,
+        "meshes": 84
+      }
+    ]
+  },
+  "after": {
+    "monsters": [
+      {
+        "id": "pindleskin",
+        "triangles": 10502,
+        "bytes": 307732,
+        "meshes": 18
+      },
+      {
+        "id": "nihlathak",
+        "triangles": 11336,
+        "bytes": 351408,
+        "meshes": 23
+      },
+      {
+        "id": "fallen",
+        "triangles": 8474,
+        "bytes": 251468,
+        "meshes": 23
+      },
+      {
+        "id": "shaman",
+        "triangles": 20592,
+        "bytes": 647488,
+        "meshes": 39
+      },
+      {
+        "id": "zombie",
+        "triangles": 9916,
+        "bytes": 300728,
+        "meshes": 24
+      },
+      {
+        "id": "rogue",
+        "triangles": 9156,
+        "bytes": 279320,
+        "meshes": 21
+      },
+      {
+        "id": "skeleton",
+        "triangles": 10502,
+        "bytes": 307732,
+        "meshes": 18
+      },
+      {
+        "id": "boneMage",
+        "triangles": 11336,
+        "bytes": 351408,
+        "meshes": 23
+      },
+      {
+        "id": "goat",
+        "triangles": 8542,
+        "bytes": 272148,
+        "meshes": 21
+      },
+      {
+        "id": "ghost",
+        "triangles": 9142,
+        "bytes": 257476,
+        "meshes": 17
+      },
+      {
+        "id": "tainted",
+        "triangles": 13416,
+        "bytes": 394504,
+        "meshes": 28
+      },
+      {
+        "id": "burningDead",
+        "triangles": 10702,
+        "bytes": 309620,
+        "meshes": 17
+      },
+      {
+        "id": "mummy",
+        "triangles": 10326,
+        "bytes": 326436,
+        "meshes": 24
+      },
+      {
+        "id": "unraveler",
+        "triangles": 10598,
+        "bytes": 344964,
+        "meshes": 26
+      },
+      {
+        "id": "huntress",
+        "triangles": 9732,
+        "bytes": 294200,
+        "meshes": 23
+      },
+      {
+        "id": "beetle",
+        "triangles": 7400,
+        "bytes": 176440,
+        "meshes": 26
+      },
+      {
+        "id": "maggot",
+        "triangles": 8120,
+        "bytes": 196248,
+        "meshes": 23
+      },
+      {
+        "id": "viper",
+        "triangles": 4812,
+        "bytes": 157160,
+        "meshes": 7
+      },
+      {
+        "id": "spider",
+        "triangles": 5928,
+        "bytes": 193632,
+        "meshes": 21
+      },
+      {
+        "id": "flayer",
+        "triangles": 9726,
+        "bytes": 304820,
+        "meshes": 22
+      },
+      {
+        "id": "flayerShaman",
+        "triangles": 25656,
+        "bytes": 810672,
+        "meshes": 45
+      },
+      {
+        "id": "zealot",
+        "triangles": 8316,
+        "bytes": 275912,
+        "meshes": 31
+      },
+      {
+        "id": "council",
+        "triangles": 10774,
+        "bytes": 338180,
+        "meshes": 25
+      },
+      {
+        "id": "doll",
+        "triangles": 9726,
+        "bytes": 304820,
+        "meshes": 22
+      },
+      {
+        "id": "vampire",
+        "triangles": 12200,
+        "bytes": 373872,
+        "meshes": 25
+      },
+      {
+        "id": "doomKnight",
+        "triangles": 8836,
+        "bytes": 295096,
+        "meshes": 33
+      },
+      {
+        "id": "oblivion",
+        "triangles": 11856,
+        "bytes": 370592,
+        "meshes": 27
+      },
+      {
+        "id": "soul",
+        "triangles": 9142,
+        "bytes": 257476,
+        "meshes": 17
+      },
+      {
+        "id": "mauler",
+        "triangles": 9964,
+        "bytes": 307624,
+        "meshes": 23
+      },
+      {
+        "id": "venomLord",
+        "triangles": 13416,
+        "bytes": 394504,
+        "meshes": 28
+      },
+      {
+        "id": "spawner",
+        "triangles": 8120,
+        "bytes": 196248,
+        "meshes": 23
+      },
+      {
+        "id": "imp",
+        "triangles": 8294,
+        "bytes": 241476,
+        "meshes": 19
+      },
+      {
+        "id": "overseer",
+        "triangles": 10316,
+        "bytes": 330728,
+        "meshes": 23
+      },
+      {
+        "id": "reanimated",
+        "triangles": 11022,
+        "bytes": 326916,
+        "meshes": 22
+      },
+      {
+        "id": "frozen",
+        "triangles": 11712,
+        "bytes": 391232,
+        "meshes": 23
+      },
+      {
+        "id": "iceCrawler",
+        "triangles": 4812,
+        "bytes": 157160,
+        "meshes": 7
+      },
+      {
+        "id": "succubus",
+        "triangles": 9536,
+        "bytes": 272600,
+        "meshes": 23
+      },
+      {
+        "id": "bloodLord",
+        "triangles": 9774,
+        "bytes": 313060,
+        "meshes": 28
+      },
+      {
+        "id": "minion",
+        "triangles": 13416,
+        "bytes": 394504,
+        "meshes": 28
+      },
+      {
+        "id": "hellCow",
+        "triangles": 6688,
+        "bytes": 210216,
+        "meshes": 20
+      },
+      {
+        "id": "corpsefire",
+        "triangles": 9916,
+        "bytes": 300728,
+        "meshes": 24
+      },
+      {
+        "id": "bloodRaven",
+        "triangles": 10088,
+        "bytes": 306416,
+        "meshes": 23
+      },
+      {
+        "id": "griswold",
+        "triangles": 10316,
+        "bytes": 330728,
+        "meshes": 23
+      },
+      {
+        "id": "countess",
+        "triangles": 11706,
+        "bytes": 365276,
+        "meshes": 25
+      },
+      {
+        "id": "andariel",
+        "triangles": 10644,
+        "bytes": 299480,
+        "meshes": 22
+      },
+      {
+        "id": "radament",
+        "triangles": 10598,
+        "bytes": 344964,
+        "meshes": 26
+      },
+      {
+        "id": "bloodwitch",
+        "triangles": 9156,
+        "bytes": 279320,
+        "meshes": 21
+      },
+      {
+        "id": "coldworm",
+        "triangles": 8120,
+        "bytes": 196248,
+        "meshes": 23
+      },
+      {
+        "id": "summoner",
+        "triangles": 12268,
+        "bytes": 378504,
+        "meshes": 24
+      },
+      {
+        "id": "duriel",
+        "triangles": 10242,
+        "bytes": 276084,
+        "meshes": 26
+      },
+      {
+        "id": "szzark",
+        "triangles": 5928,
+        "bytes": 193632,
+        "meshes": 21
+      },
+      {
+        "id": "endugu",
+        "triangles": 25656,
+        "bytes": 810672,
+        "meshes": 45
+      },
+      {
+        "id": "sarina",
+        "triangles": 10088,
+        "bytes": 306416,
+        "meshes": 23
+      },
+      {
+        "id": "ismail",
+        "triangles": 10774,
+        "bytes": 338180,
+        "meshes": 25
+      },
+      {
+        "id": "mephisto",
+        "triangles": 13110,
+        "bytes": 366596,
+        "meshes": 20
+      },
+      {
+        "id": "abyssVanguard",
+        "triangles": 13936,
+        "bytes": 413688,
+        "meshes": 30
+      },
+      {
+        "id": "izual",
+        "triangles": 8700,
+        "bytes": 285832,
+        "meshes": 32
+      },
+      {
+        "id": "hephasto",
+        "triangles": 10316,
+        "bytes": 330728,
+        "meshes": 23
+      },
+      {
+        "id": "deSeis",
+        "triangles": 8836,
+        "bytes": 295096,
+        "meshes": 33
+      },
+      {
+        "id": "diablo",
+        "triangles": 16720,
+        "bytes": 495680,
+        "meshes": 24
+      },
+      {
+        "id": "shenk",
+        "triangles": 10316,
+        "bytes": 330728,
+        "meshes": 23
+      },
+      {
+        "id": "eldritch",
+        "triangles": 9774,
+        "bytes": 313060,
+        "meshes": 28
+      },
+      {
+        "id": "frozenstein",
+        "triangles": 11712,
+        "bytes": 391232,
+        "meshes": 23
+      },
+      {
+        "id": "talic",
+        "triangles": 8510,
+        "bytes": 290036,
+        "meshes": 33
+      },
+      {
+        "id": "baal",
+        "triangles": 12036,
+        "bytes": 338392,
+        "meshes": 30
+      }
+    ],
+    "heroes": [
+      {
+        "id": "paladin",
+        "triangles": 28420,
+        "bytes": 823816,
+        "meshes": 93
+      },
+      {
+        "id": "amazon",
+        "triangles": 27168,
+        "bytes": 807456,
+        "meshes": 92
+      },
+      {
+        "id": "sorceress",
+        "triangles": 27940,
+        "bytes": 788136,
+        "meshes": 94
+      },
+      {
+        "id": "necromancer",
+        "triangles": 25228,
+        "bytes": 717800,
+        "meshes": 85
+      },
+      {
+        "id": "barbarian",
+        "triangles": 23504,
+        "bytes": 665216,
+        "meshes": 83
+      },
+      {
+        "id": "druid",
+        "triangles": 26084,
+        "bytes": 724536,
+        "meshes": 86
+      },
+      {
+        "id": "assassin",
+        "triangles": 24560,
+        "bytes": 685112,
+        "meshes": 85
+      }
+    ]
+  }
+}
