@@ -19,8 +19,8 @@ import { CampaignScreen } from './campaign-ui';
 import { ProfileScreen, type ProfilePanel } from './profiles-ui';
 import { CharacterScreen } from './character-ui';
 import { SharedStashScreen } from './shared-stash-ui';
-import { availableCharges, skillLevel, difficulty, difficultyNames } from './model';
-import { skillName, skillIcon, skillValues, type Attribute } from './paladin';
+import { availableCharges, difficulty, difficultyNames } from './model';
+import { skillName, skillIcon, type Attribute } from './paladin';
 import { BASES, runeLabel, groundItemName } from './items';
 import { CAMP } from './camp';
 import { EncyclopediaScreen } from './encyclopedia-ui';
@@ -30,6 +30,8 @@ import { settingsPanel } from './settings-ui';
 import { phoneUI } from './mobile-ui';
 import { resetBrowserTouches } from './browser-behavior';
 import { itemDetails } from './item-details-ui';
+import { lootLabelPriority, showLootLabel } from './loot-visibility';
+import { skillResourceFeedback } from './skill-feedback';
 import { Search, FilterX, ChevronLeft, Undo2, KeyRound, Package } from 'lucide';
 import { Hammer, ShieldCheck, Sun, Focus, Snowflake, Church, Eye, HeartPulse, BookOpen, Shirt, Crown, Hand, RectangleEllipsis, Circle, Archive, ArrowLeftRight, ScanEye, Wrench, ArrowDown, Upload, Download, FileJson, FolderOpen } from 'lucide';
 
@@ -47,6 +49,7 @@ function setText(element: Element, value: string) { if (element.textContent !== 
 function setMarkup(element: Element, value: string) { if (element.innerHTML !== value) element.innerHTML = value; }
 function setAttribute(element: Element, name: string, value: string) { if (element.getAttribute(name) !== value) element.setAttribute(name,value); }
 function setStyle(element: HTMLElement, name: string, value: string) { if (element.style.getPropertyValue(name) !== value) element.style.setProperty(name,value); }
+function setHidden(element: HTMLElement, value: boolean) { if (element.hidden !== value) element.hidden = value; }
 function resourceFraction(value: number, maximum: number) { return Number.isFinite(value) && maximum > 0 ? Math.round(Math.max(0,Math.min(1,value/maximum))*1000)/1000 : 0; }
 function updateMeter(element: HTMLElement, value: number, maximum: number) {
   setStyle(element,'transform',`scaleX(${resourceFraction(value,maximum)})`);
@@ -118,7 +121,8 @@ export class UI {
       </header>
       <aside class="world-info"><div class="location"><span class="chapter">第 1 章 · 第 1 关</span><h2>邪恶洞窟</h2><span id="difficulty">普通 · Lv. 1</span></div>
         <button class="minimap-button" ${tip('区域地图')} data-panel="map"><canvas id="minimap" width="200" height="150"></canvas><span class="map-north">N</span><span class="map-expand">${icon('maximize')}</span></button>
-        <button class="quest-track" data-panel="quest"><span class="quest-eyebrow">${icon('scroll-text')} 当前任务</span><strong>邪恶的巢穴</strong><span id="quest-step">消灭洞窟魔物 0 / 8</span><span class="quest-final">击败尸体发火</span></button>
+        <button class="quest-track" data-action="journey-guide"><span class="quest-eyebrow">${icon('scroll-text')} 当前目标</span><strong>邪恶的巢穴</strong><span id="quest-step">消灭洞窟魔物 0 / 8</span><span class="quest-final">击败尸体发火</span></button>
+        <button class="loot-filter-toggle" data-action="loot-filter" aria-pressed="false" ${tip('切换掉落标签 · L · 按住 Alt 显示全部')} hidden>${icon('filter-x')}<span>掉落 · 全部</span></button>
       </aside>
       <div id="boss-bar" hidden><span>尸体发火</span><div><i></i></div><small>守关首领</small></div>
       <div id="world-labels"></div><div id="floating-text"></div><div id="toasts" aria-live="polite"></div>
@@ -131,7 +135,7 @@ export class UI {
         <div class="resource health"><div class="orb-frame"><div class="orb"><div class="orb-fill" id="health-fill"></div><div class="orb-shine"></div><span id="health-value">55<small>/ 55</small></span></div></div><div class="resource-caption"><span>生命</span><small id="health-percent">100%</small></div></div>
         <div class="hud-center"><div class="hero-strip"><span class="hero-name"><span id="hero-profile-name">圣骑士</span><b id="hero-level">Lv. 1</b></span><div class="xp-track" ${tip('经验')}><i id="xp-fill"></i></div><span id="xp-value">0 / 80</span></div>
           <div class="action-row"><div class="skill-group">
-            ${SKILL_SLOTS.map(key => `<button class="skill ${key}-skill" data-skill="${key}" ${tip('普通攻击')}><kbd>${keys[key]}</kbd>${icon('sword')}<span class="skill-name">普通攻击</span><span class="cooldown"></span></button>`).join('')}
+            ${SKILL_SLOTS.map(key => `<button class="skill ${key}-skill" data-skill="${key}" ${tip('普通攻击')}><kbd>${keys[key]}</kbd>${icon('sword')}<span class="skill-name">普通攻击</span><span class="skill-resource-state" aria-hidden="true" hidden></span><span class="cooldown"></span></button>`).join('')}
           </div><span class="belt-divider"></span><div class="potion-group">
             ${[0, 1, 2, 3].map(slot => `<button class="skill potion-slot" data-potion-slot="${slot}" aria-label="药水快捷键 ${slot + 1}"><kbd>${slot + 1}</kbd><span class="potion-slot-name"></span><b>0</b></button>`).join('')}
           </div></div>
@@ -203,7 +207,7 @@ export class UI {
   }
   updateStatuses(current: ReturnType<typeof stats>) {
     const effects = [...heroStatuses(this.game.hero, current), ...this.game.monsterCombat.heroStatuses()], root = document.getElementById('combat-status')!;
-    root.hidden = this.game.paused || this.game.dead || !effects.length;
+    setHidden(root, this.game.paused || this.game.dead || !effects.length);
     const signature = effects.map(effect => `${effect.id}:${effect.description}`).join('|');
     if (signature !== this.statusSignature) {
       this.statusSignature = signature;
@@ -220,9 +224,9 @@ export class UI {
       const duration = Math.max(this.statusDurations.get(effect.id) ?? 0, effect.remaining ?? 0);
       this.statusDurations.set(effect.id, duration);
       setText(chip.querySelector('b')!, statusTime(effect.remaining));
-      chip.setAttribute('aria-label', `${effect.name}，${statusTime(effect.remaining)}，${effect.description}`);
+      setAttribute(chip, 'aria-label', `${effect.name}，${statusTime(effect.remaining)}，${effect.description}`);
       chip.classList.toggle('expiring', effect.remaining !== null && effect.remaining <= 5);
-      chip.style.setProperty('--remaining', String(effect.remaining === null ? 1 : effect.remaining / Math.max(.001, duration)));
+      setStyle(chip, '--remaining', String(effect.remaining === null ? 1 : resourceFraction(effect.remaining, duration)));
     }
   }
   bind() {
@@ -346,6 +350,11 @@ export class UI {
         case 'shared-stash': this.game.useSharedStash(); break;
         case 'mystery-corpse': this.game.openMysteriousCorpse(); break;
         case 'run-mode': this.game.hero.running = !this.game.hero.running; this.game.save(false); break;
+        case 'loot-filter': this.game.setLootLabelMode(this.game.lootLabelMode === 'all' ? 'focus' : 'all'); break;
+        case 'journey-guide':
+          if (this.game.inCamp) { if (this.game.campReturn) this.game.useReturnPortal(); else this.game.useCampPortal(); }
+          else this.togglePanel('quest');
+          break;
         case 'restore': this.game.hero.hp = stats(this.game.hero).maxHp; this.game.hero.mana = stats(this.game.hero).maxMana; this.toast('生命与法力已恢复'); this.game.save(false); break;
       }
     });
@@ -362,6 +371,7 @@ export class UI {
     this.overlay.addEventListener('change', event => {
       const element = event.target as HTMLInputElement;
       if (element.id === 'quality') this.game.setQuality(element.value);
+      if (element.id === 'loot-label-mode') this.game.setLootLabelMode(element.value);
       if (element.id === 'player-count') {
         this.game.setPlayerCount(Number(element.value));
         if (this.panel === 'pause') { this.renderPanel(); document.getElementById('player-count')?.focus(); }
@@ -624,7 +634,7 @@ export class UI {
       setMarkup(shortcut, icon(phone ? 'swords' : 'pause')); this.refreshIcons();
     }
     const mercenaryStatus = document.getElementById('mercenary-status')!;
-    mercenaryStatus.hidden = phone || !mercenaryUnlocked(h) || !!this.panel;
+    setHidden(mercenaryStatus, phone || !mercenaryUnlocked(h) || !!this.panel);
     if (!mercenaryStatus.hidden) {
       const merc = h.mercenary, maxHp = mercenaryStats(h).maxHp;
       setMarkup(mercenaryStatus, merc ? `<span>米山 · Lv. ${h.level} <kbd>O</kbd></span><small>${merc.status === 'dead' ? '已阵亡 · 需重新雇佣' : `${skillName(merc.aura)} · ${Math.ceil(merc.hp)} / ${maxHp}`}</small><progress aria-label="米山生命" max="${maxHp}" value="${merc.hp}"></progress>` : '<span>佣兵 · O</span><small>可在营地雇佣米山</small>');
@@ -651,36 +661,50 @@ export class UI {
       const slot = Number(button.dataset.potionSlot), index = h.potionBindings[slot], potion = POTIONS[index], count = h.potions[index] ?? 0;
       setText(button.querySelector('b')!, count.toLocaleString());
       setText(button.querySelector('.potion-slot-name')!, potion.name);
-      button.disabled = count === 0;
-      button.style.color = `#${potion.color.toString(16).padStart(6, '0')}`;
+      if (button.disabled !== (count === 0)) button.disabled = count === 0;
+      const color = `rgb(${potion.color >> 16}, ${(potion.color >> 8) & 255}, ${potion.color & 255})`;
+      setStyle(button, 'color', color);
       const label = `${potion.name} · 剩余 ${count} · 快捷键 ${slot + 1} · ${potionDescription(index, h.classId)}`;
-      button.setAttribute('aria-label', label); button.dataset.tip = label;
+      setAttribute(button, 'aria-label', label); setAttribute(button, 'data-tip', label);
     });
     setText(document.getElementById('gold-value')!, h.gold.toLocaleString()); setText(document.getElementById('difficulty')!, game.inCamp ? '安全区域' : `${difficultyNames[difficulty(h)]} · Lv. ${levelTuning(game.level, difficulty(h)).level}`);
     const special = game.specialArea;
     setText(document.querySelector('.location .chapter')!, special ? '隐藏领域' : game.inCamp ? '旅者驻地' : `第 ${game.level.act + 1} 章 · 第 ${game.level.step + 1} 关`);
     setText(document.querySelector('.location h2')!, game.areaName);
-    setText(document.querySelector('.quest-track strong')!, game.level.quest.name);
+    setText(document.querySelector('.quest-track strong')!, game.inCamp ? game.campReturn ? '继续上次关卡' : '选择关卡出发' : game.level.quest.name);
     setText(document.querySelector('.area-caption>span:last-of-type')!, game.areaName);
     setText(document.querySelector('.area-caption>small')!, game.inCamp ? CAMP.english : game.level.english);
-    setText(document.getElementById('quest-step')!, special === 'nihlathak' ? `击杀暴躁外皮 ${Number(game.enemies.some(enemy => enemy.definition?.id === 'pindleskin' && enemy.dead))} / 1` : special === 'cow' ? `剩余地狱奶牛 ${game.enemies.filter(enemy => !enemy.dead && !enemy.boss).length}` : special ? '唯一首领' : `${game.level.quest.action} ${questProgress(h.campaign)} / ${game.level.quest.count}`);
-    const questFinal = document.querySelector('.quest-final')!; setText(questFinal, h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `${special || questComplete(h.campaign) ? '击败' : '完成任务后挑战'}${game.level.boss}`); questFinal.classList.toggle('complete', h.bossDefeated);
-    const badge = document.getElementById('points-badge')!; badge.hidden = !h.points; setText(badge, String(h.points));
-    const skillBadge = document.getElementById('skill-points-badge')!; skillBadge.hidden = !h.skillPoints; setText(skillBadge, String(h.skillPoints));
+    const questStep = document.getElementById('quest-step')!, questFinal = document.querySelector('.quest-final')!;
+    if (game.inCamp) {
+      setText(questStep, game.movementMode === 'wasd' ? phone ? '靠近传送阵后点交互' : '靠近传送阵后按 F' : '点击此处前往传送阵');
+      setText(questFinal, game.campReturn ? `返回 ${game.campReturn.world.level.name}` : `当前目标 · ${game.level.name}`);
+    } else {
+      setText(questStep, special === 'nihlathak' ? `击杀暴躁外皮 ${Number(game.enemies.some(enemy => enemy.definition?.id === 'pindleskin' && enemy.dead))} / 1` : special === 'cow' ? `剩余地狱奶牛 ${game.enemies.filter(enemy => !enemy.dead && !enemy.boss).length}` : special ? '唯一首领' : `${game.level.quest.action} ${questProgress(h.campaign)} / ${game.level.quest.count}`);
+      setText(questFinal, h.bossDefeated ? '传送门已激活 · 靠近按 F 交互' : `${special || questComplete(h.campaign) ? '击败' : '完成任务后挑战'}${game.level.boss}`);
+    }
+    questFinal.classList.toggle('complete', !game.inCamp && h.bossDefeated);
+    const lootToggle = document.querySelector<HTMLElement>('.loot-filter-toggle')!;
+    setHidden(lootToggle, game.inCamp || !!this.panel || game.dead);
+    const lootModeName = game.lootLabelMode === 'focus' ? '精选' : '全部';
+    setText(lootToggle.querySelector('span')!, game.keys.has('alt') ? '全部 · Alt' : `掉落 · ${lootModeName}`);
+    setAttribute(lootToggle, 'aria-label', `掉落标签：${game.keys.has('alt') ? '临时全部' : lootModeName} · 点击切换`);
+    setAttribute(lootToggle, 'aria-pressed', String(game.lootLabelMode === 'focus'));
+    const badge = document.getElementById('points-badge')!; setHidden(badge, !h.points); setText(badge, String(h.points));
+    const skillBadge = document.getElementById('skill-points-badge')!; setHidden(skillBadge, !h.skillPoints); setText(skillBadge, String(h.skillPoints));
     const classBuffs=Object.entries(h.buffs).map(([id,buff])=>`${skillName(id as SkillId)} ${Math.ceil(buff.remaining)}秒`);
     const auraLabel=document.getElementById('active-aura-label')!;
     setText(auraLabel, h.activeAura ? skillName(h.activeAura) : classBuffs[0]??(h.classId==='paladin'?'无灵气':CLASSES[h.classId].name));
-    auraLabel.title=classBuffs.join(' · ');
+    setAttribute(auraLabel, 'title', classBuffs.join(' · '));
     const pets=game.combat.expansion.pets.pets,trapCount=game.combat.expansion.traps.length,martial=Object.entries(game.combat.expansion.charges).map(([id,charge])=>`${skillName(id as SkillId)} ${charge.stacks}`);
     const classState=[pets.length?`召唤 ${pets.length}`:'',trapCount?`陷阱 ${trapCount}/5`:'',...martial,(h.marks?.wolf??0)>0?'狼印记':'',(h.marks?.bear??0)>0?'熊印记':''].filter(Boolean).join(' · ');
-    const classStateLabel=document.getElementById('class-state-label');if(classStateLabel){classStateLabel.hidden=!classState;setText(classStateLabel,classState);classStateLabel.title=pets.map(p=>`${skillName(p.expansionId)} ${Math.ceil(p.hp)}/${Math.ceil(p.maxHp)}`).join(' · ');}
+    const classStateLabel=document.getElementById('class-state-label');if(classStateLabel){setHidden(classStateLabel,!classState);setText(classStateLabel,classState);setAttribute(classStateLabel,'title',pets.map(p=>`${skillName(p.expansionId)} ${Math.ceil(p.hp)}/${Math.ceil(p.maxHp)}`).join(' · '));}
     setText(document.getElementById('holy-shield-label')!, h.holyShield > 0 ? `圣盾 ${Math.ceil(h.holyShield)}s` : h.poison > 0 ? '中毒' : h.curse > 0 ? '伤害加深' : '');
     const ammo = document.getElementById('ammo-label')!;
-    ammo.hidden = !s.ranged; setText(ammo, s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '');
+    setHidden(ammo, !s.ranged); setText(ammo, s.ranged ? `${s.ranged.stack ? '投掷' : s.ranged.kind === 'bow' ? '箭矢' : '弩矢'} ∞` : '');
     updateMeter(document.getElementById('stamina-fill')!,h.stamina,s.maxStamina);
-    const runButton = document.querySelector<HTMLButtonElement>('[data-action="run-mode"]')!; runButton.setAttribute('aria-pressed', String(h.running)); runButton.dataset.tip = h.running ? '跑步' : '行走';
+    const runButton = document.querySelector<HTMLButtonElement>('[data-action="run-mode"]')!; setAttribute(runButton, 'aria-pressed', String(h.running)); setAttribute(runButton, 'data-tip', h.running ? '跑步' : '行走');
     const charges=availableCharges(h);
-    const signature = JSON.stringify([game.movementMode, h.bindings, h.chargeBindings, charges]);
+    const signature = JSON.stringify([game.movementMode, h.bindings, h.chargeBindings]);
     if (signature !== this.bindingsSignature) {
       this.bindingsSignature = signature;
       const keys = skillKeys(game.movementMode);
@@ -689,22 +713,24 @@ export class UI {
         button.querySelector('svg')?.remove(); button.insertAdjacentHTML('beforeend', icon(skillIcon(id)));
         setText(button.querySelector('.skill-name')!, skillName(id));
         setText(button.querySelector('kbd')!, keys[key]);
-        const binding=h.chargeBindings?.[key], charge=binding&&charges.find(charge=>charge.id===binding.id&&charge.rank===binding.rank);
-        const label = `${skillName(id)} · ${keys[key]}${charge?` · 聚气 ${charge.remaining}/${charge.maximum}`:''}`;
-        button.setAttribute('aria-label', label); button.dataset.tip = label;
       }); this.refreshIcons();
     }
     document.querySelectorAll<HTMLButtonElement>('.skill[data-skill]').forEach(button => {
       const remaining = game.cooldowns[button.dataset.skill as Skill], cooldown = button.querySelector<HTMLElement>('.cooldown')!;
       setText(cooldown, remaining > .1 ? remaining.toFixed(1) : ''); button.classList.toggle('on-cooldown', remaining > .1);
-      const id = h.bindings[button.dataset.skill as Skill], values=skillValues(id,skillLevel(h,id),h.skills);
-      setAttribute(button,'data-element',values.type);
-      const binding=h.chargeBindings?.[button.dataset.skill as Skill];
-      button.classList.toggle('no-mana', binding ? !charges.some(charge=>charge.id===binding.id&&charge.rank===binding.rank&&charge.remaining>0) : h.mana < values.cost);
+      const slot = button.dataset.skill as Skill, id = h.bindings[slot];
+      const feedback = skillResourceFeedback(h, slot, s.mods, charges);
+      setAttribute(button, 'data-element', feedback.values.type);
+      button.classList.toggle('no-mana', !!feedback.reason);
+      const badge = button.querySelector<HTMLElement>('.skill-resource-state')!;
+      setHidden(badge, !feedback.reason); setText(badge, feedback.badge);
+      const label = `${skillName(id)} · ${skillKeys(game.movementMode)[slot]} · ${feedback.resource}${feedback.reason ? ` · ${feedback.reason}` : ''}`;
+      setAttribute(button, 'aria-label', label); setAttribute(button, 'data-tip', label);
+      if (this.tooltipTarget === button) setText(document.getElementById('ui-tooltip')!, label);
       button.classList.toggle('aura-active', h.activeAura === id);
     });
     const action = game.contextAction(), context = document.getElementById('context-action')!;
-    context.hidden = !action || game.paused || game.dead; if (action) setText(context.querySelector('span')!, action.name);
+    setHidden(context, !action || game.paused || game.dead); if (action) setText(context.querySelector('span')!, action.name);
     const boss = game.enemies.find(e => e.boss && !e.dead && e.actor.group.position.distanceTo(game.position) < 14), bar = document.getElementById('boss-bar')!;
     bar.hidden = !boss; bar.classList.toggle('super-unique-bar', !!boss?.superUnique); if (boss) { updateMeter(bar.querySelector<HTMLElement>('i')!,boss.hp,boss.maxHp); const meter=bar.querySelector('div')!; setAttribute(meter,'role','meter'); setAttribute(meter,'aria-label',boss.name); setAttribute(meter,'aria-valuemin','0'); setAttribute(meter,'aria-valuemax',String(boss.maxHp)); setAttribute(meter,'aria-valuenow',String(Math.max(0,Math.ceil(boss.hp)))); setText(bar.querySelector('span')!, boss.name); bar.querySelector('span')!.title = boss.name; setText(bar.querySelector('small')!, (special || questComplete(h.campaign)) ? game.monsterCombat.telegraph(boss)?.name ?? (game.level.actBoss ? '章节首领' : '超级暗金') : '完成当前任务后现身'); }
     const aliveKeys = new Set<string>();
@@ -718,12 +744,12 @@ export class UI {
         setMarkup(label, resources.map(resource => `<div class="ally-resource ${resource.kind}" role="progressbar" aria-label="${resource.name}" aria-valuemin="0"><i></i></div>`).join(''));
         this.labels.append(label); this.labelNodes.set(key, label);
       }
-      label.hidden = game.paused;
-      label.style.transform = `translate(${point.x}px, ${point.y}px) translate(-50%, -100%)`;
+      setHidden(label, game.paused);
+      setStyle(label, 'transform', `translate(${point.x}px, ${point.y}px) translate(-50%, -100%)`);
       resources.forEach((resource, index) => {
         const bar = label.children[index] as HTMLElement, max = Math.max(0, resource.max), value = Math.max(0, Math.min(max, resource.value));
-        bar.setAttribute('aria-valuemax', String(max)); bar.setAttribute('aria-valuenow', String(value));
-        bar.querySelector('i')!.style.width = `${max > 0 ? value / max * 100 : 0}%`;
+        setAttribute(bar, 'aria-valuemax', String(max)); setAttribute(bar, 'aria-valuenow', String(Math.min(max, Math.ceil(value))));
+        setStyle(bar.querySelector('i')!, 'width', `${Number((resourceFraction(value, max) * 100).toFixed(1))}%`);
       });
     };
     updateOverhead('hero', game.actor.group, [{ name: '角色生命', value: h.hp, max: s.maxHp, kind: 'life' }, { name: '角色法力', value: h.mana, max: s.maxMana, kind: 'magic' }]);
@@ -828,9 +854,11 @@ export class UI {
       el.style.transform = `translate(${(enemy.elite || enemy.champion) ? Math.max(60, Math.min(innerWidth - 60, point.x)) : point.x}px,${point.y}px)`; el.classList.toggle('active', !!enemy.elite || !!enemy.champion || enemy.active || this.hoveredEnemy === enemy); el.querySelector<HTMLElement>('i')!.style.width = `${Math.max(0, enemy.hp / enemy.maxHp) * 100}%`;
     }
     const lootRects: { x: number; y: number; width: number; height: number }[] = controlRects.map(rect => ({ x: rect.x, y: rect.y, width: rect.width, height: rect.height }));
-    for (const loot of game.loot) {
-      if ((!loot.item && !loot.rune) || Math.hypot(loot.x - game.position.x, loot.z - game.position.z) > 15) continue;
-      const point = game.project(new THREE.Vector3(loot.x, .5, loot.z)); if (point.x < 40 || point.x > innerWidth - 40 || point.y < 40 || point.y > innerHeight - 130) continue;
+    const labeledLoot = game.loot.filter(loot => showLootLabel(loot, game.lootLabelMode, game.keys.has('alt') || game.pendingPickup === loot.id)
+      && Math.hypot(loot.x - game.position.x, loot.z - game.position.z) <= 15);
+    labeledLoot.sort((a, b) => lootLabelPriority(b) - lootLabelPriority(a) || a.id - b.id);
+    for (const loot of labeledLoot) {
+      const point = game.project(new THREE.Vector3(loot.x, .5, loot.z)); if (!point.visible || point.x < 40 || point.x > innerWidth - 40 || point.y < 40 || point.y > innerHeight - 130) continue;
       const key = `l${loot.id}`; aliveKeys.add(key); let el = this.labelNodes.get(key);
       if (!el) { el = document.createElement('button'); el.className = `loot-label ${loot.item?.rarity ?? 'runeword'}${loot.item?.ethereal ? ' ethereal' : ''}${loot.item?.sockets ? ' socketed' : ''}`; setText(el, (loot.item ? groundItemName(loot.item) : undefined) ?? `${runeLabel(loot.rune!)}符文`); el.dataset.loot = String(loot.id); this.labels.append(el); this.labelNodes.set(key, el); }
       const viewport = `${innerWidth}:${innerHeight}:${devicePixelRatio}`;

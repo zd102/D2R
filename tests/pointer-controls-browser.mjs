@@ -36,12 +36,14 @@ async function arrived(page) {
   await stopped(page);
 }
 async function nonblank(page) {
-  const colors = await page.locator('#game-canvas').evaluate(canvas => {
+  // WebGL discards its drawing buffer after compositing; sample in the render
+  // frame so an already-presented canvas is not mistaken for a blank scene.
+  const colors = await page.locator('#game-canvas').evaluate(canvas => new Promise(resolve => requestAnimationFrame(() => {
     const copy = document.createElement('canvas'); copy.width = copy.height = 64; const ctx = copy.getContext('2d'); ctx.drawImage(canvas, 0, 0, 64, 64);
     const data = ctx.getImageData(0, 0, 64, 64).data, colors = new Set();
     for (let i = 0; i < data.length; i += 4) colors.add(`${data[i] >> 3},${data[i + 1] >> 3},${data[i + 2] >> 3}`);
-    return colors.size;
-  });
+    resolve(colors.size);
+  })));
   assert.ok(colors > 100, `nonblank scene: ${colors} colors`);
 }
 try {
@@ -90,6 +92,8 @@ try {
   assert.ok(distance(noWasd, (await state(page)).position) < .03, 'W casts its skill without movement');
   await page.keyboard.press('t'); await expect(page.locator('[data-binding]')).toHaveCount(6);
   await page.locator('[data-binding="ward"]').selectOption('holyBolt'); await page.keyboard.press('Escape');
+  // Local profiles commit through IndexedDB; reloading must wait for that commit.
+  await page.waitForFunction(() => window.eclipseState.bindings.ward === 'holyBolt' && !window.eclipseState.saveBusy);
   await page.reload(); await page.getByRole('button', { name: '进入旅程', exact: true }).click();
   await page.waitForFunction(() => window.eclipseState?.inCamp && !window.eclipseState.paused);
   assert.equal((await state(page)).bindings.ward, 'holyBolt', 'the W binding survives reload');
@@ -123,7 +127,7 @@ try {
   for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 640 }, { width: 844, height: 390 }]) {
     await mobile.setViewportSize(viewport);
     const rects = await mobile.locator('.action-row .skill').evaluateAll(buttons => buttons.map(button => { const rect = button.getBoundingClientRect(); return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, textFits: button.scrollWidth <= button.clientWidth + 2 }; }));
-    assert.equal(rects.length, 8);
+    assert.equal(rects.length, 10, 'six skills and four configurable potion slots');
     assert.ok(rects.every(rect => rect.x >= 0 && rect.y >= 0 && rect.right <= viewport.width && rect.bottom <= viewport.height && rect.textFits), JSON.stringify({ viewport, rects }));
     await mobile.screenshot({ path: `${output}/skill-bar-${viewport.width}.png` });
   }

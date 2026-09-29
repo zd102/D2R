@@ -50,6 +50,7 @@ import { blockedMovement } from './actor-collision';
 import { FrameClock } from './frame-clock';
 import { MonsterBatches } from './monster-batches';
 import { RenderBudget } from './render-budget';
+import { LOOT_LABEL_MODE_KEY, parseLootLabelMode, type LootLabelMode } from './loot-visibility';
 import { createImpact, createLightning, disposeVisual, updateVisual, ProjectileVisualPool } from './visual-effects';
 
 export type Enemy = { spawn?: { x: number; z: number }; engaged?: boolean; playerCount?: PlayerCount; xpScale?: number; lootScale?: number; pack?: number; id: number; name: string; actor: Actor; body: CANNON.Body; hp: number; maxHp: number; damage: number; speed: number; cooldown: number; attackTime: number; path: THREE.Vector3[]; rethink: number; dead: boolean; boss: boolean; elite?: boolean; champion?: ChampionVariant; superUnique?: boolean; affixes?: MonsterAffix[]; active: boolean; kind: 'skeleton' | 'demon' | 'boss'; level: number; defense: number; attackRating: number; resistances: Record<DamageType, number>; stunned: number; coldTime: number; converted: number; bleed: number; redeemed: boolean; definition?: MonsterDef; summoned?: boolean; corpseExplosionSource?: boolean; owner?: number; blind?: number; flee?: number; preventHeal?: boolean; bleedSnapshot?: AttackSnapshot; poison?: { dps: number; remaining: number; snapshot?: AttackSnapshot }; slow?: { percent: number; remaining: number } };
@@ -88,6 +89,7 @@ export class Game {
   effects: Effect[] = [];
   keys = new Set<string>();
   movementMode: MovementMode = 'mouse';
+  lootLabelMode: LootLabelMode = 'all';
   path: THREE.Vector3[] = [];
   joystick = new THREE.Vector2();
   pointer = new THREE.Vector2();
@@ -145,6 +147,7 @@ export class Game {
   specialArea?: SpecialArea;
   constructor() {
     try { this.movementMode = parseMovementMode(localStorage.getItem(MOVEMENT_MODE_KEY)); } catch { /* Use mouse controls when settings storage is unavailable. */ }
+    try { this.lootLabelMode = parseLootLabelMode(localStorage.getItem(LOOT_LABEL_MODE_KEY)); } catch { /* Show all labels when settings storage is unavailable. */ }
     this.hero = newHero();
     try {
       if (this.online) this.saves = this.online;
@@ -840,6 +843,8 @@ export class Game {
       if (event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && (event.code === 'Digit1' || event.code === 'Numpad1' || key === '1')) {
         event.preventDefault(); this.begin(); this.drinkMercenary(); return;
       }
+      if (key === 'alt' && !event.ctrlKey && !event.metaKey) { event.preventDefault(); this.keys.add(key); return; }
+      if (key === 'l' && !event.ctrlKey && !event.altKey && !event.metaKey) { this.setLootLabelMode(this.lootLabelMode === 'all' ? 'focus' : 'all'); return; }
       this.begin(); this.keys.add(key);
       if (key === 'x') { this.swapWeapons(); return; }
       if (key === 'v') { this.hero.running = !this.hero.running; return; }
@@ -876,6 +881,12 @@ export class Game {
   }
   nearestEnemy(range: number) {
     return this.enemies.filter(e => this.combat.hostile(e)).sort((a, b) => a.actor.group.position.distanceToSquared(this.position) - b.actor.group.position.distanceToSquared(this.position)).find(e => e.actor.group.position.distanceTo(this.position) < range);
+  }
+  setLootLabelMode(value: unknown) {
+    this.lootLabelMode = parseLootLabelMode(value);
+    this.ui.hideTooltip();
+    try { localStorage.setItem(LOOT_LABEL_MODE_KEY, this.lootLabelMode); }
+    catch { this.ui.toast('掉落显示已切换', '设置无法保存，刷新后将恢复上次保存的模式'); }
   }
   useSkill(skill: Skill, aimed = this.pointerAimActive, buffer = true): boolean {
     if (this.paused || this.dead) return false;

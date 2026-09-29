@@ -26,7 +26,16 @@ try {
     await page.goto(process.env.BASE_URL || 'http://127.0.0.1:5173');
     await page.getByRole('button', { name: '进入旅程', exact: true }).click();
     await page.waitForFunction(() => window.returnGame?.profile && !window.returnGame.paused);
-    await page.evaluate(() => cancelAnimationFrame(window.returnGame.frameId));
+    await page.evaluate(() => {
+      cancelAnimationFrame(window.returnGame.frameId);
+      window.returnSettled = async () => {
+        const deadline = performance.now() + 10000;
+        while (window.returnGame.onlineSaveBusy) {
+          if (performance.now() > deadline) throw new Error('Scene transition did not finish saving');
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      };
+    });
     assert.equal(await page.evaluate(() => !!window.returnGame.world.returnPortal), false);
     const facilities = await page.evaluate(async () => {
       const { CAMP } = await import('/src/camp.ts'), g = window.returnGame;
@@ -36,8 +45,8 @@ try {
       });
     });
     assert.ok(facilities.every(p => p.reachable), JSON.stringify(facilities));
-    await page.evaluate(() => {
-      const g = window.returnGame; g.enterLevel(2); g.invincible = 1000;
+    await page.evaluate(async () => {
+      const g = window.returnGame; g.enterLevel(2); await window.returnSettled(); g.invincible = 1000;
       const p = g.world.path(g.position, g.world.layout.route[2]).at(-1);
       g.position.copy(p); g.body.position.set(p.x, .5, p.z);
       g.combat.damage(g.enemies.find(e => !e.boss), 1e9, 'magic', true);
@@ -46,16 +55,20 @@ try {
       window.frozen = { world: g.world, enemies: g.enemies, loot: g.loot, position: g.position.clone(),
         campaign: JSON.stringify(g.hero.campaign), hp: g.enemies.map(e => e.hp), bodies: g.world.physics.bodies.length, seed: g.world.layout.seed };
       if (!g.returnToCamp()) throw new Error('Return to camp failed');
+      await window.returnSettled();
       g.ui.update(0); g.updateCamera(1); g.renderer.render(g.world.scene, g.camera);
     });
     await page.screenshot({ path: `${output}/camp-${viewport.width}.png` });
     assert.equal(await page.evaluate(() => window.returnGame.world.scene.children.filter(o => o === window.returnGame.world.returnPortal).length), 1);
     assert.equal(await page.evaluate(() => !!window.returnGame.world.portal && !!window.returnGame.world.mysteryPortal), true);
     await expect(page.getByRole('button', { name: '返程传送门', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '返程传送门', exact: true }).click();
-    await page.evaluate(() => {
+    await expect(page.locator('.quest-track')).toContainText('继续上次关卡');
+    // The new camp guidance must use the same preserved encounter as the portal.
+    await page.locator('.quest-track').click();
+    await page.evaluate(async () => {
       const g = window.returnGame;
       for (let i = 0; i < 600 && g.inCamp; i++) g.update(1 / 60);
+      await window.returnSettled();
       g.ui.update(0);
     });
     async function assertRestored() {
@@ -73,18 +86,22 @@ try {
       await page.evaluate(async () => {
         const g = window.returnGame, { CAMP } = await import('/src/camp.ts');
         if (!g.returnToCamp()) throw new Error('Repeated return failed');
+        await window.returnSettled();
         if (g.world.scene.children.filter(o => o === g.world.returnPortal).length !== 1) throw new Error('Duplicate portal');
         const p = g.world.path(g.position, CAMP.returnPortal).at(-1);
         g.position.copy(p); g.body.position.set(p.x, .5, p.z); g.ui.update(0);
       });
       await page.keyboard.press('f');
+      await page.evaluate(() => window.returnSettled());
       await assertRestored();
     }
-    await page.evaluate(() => {
-      const g = window.returnGame; g.returnToCamp();
+    await page.evaluate(async () => {
+      const g = window.returnGame; g.returnToCamp(); await window.returnSettled();
       const suspended = g.campReturn.world;
-      if (!g.enterLevel(3) || g.campReturn || suspended.scene.children.length) throw new Error('New journey did not release previous scene');
-      g.returnToCamp();
+      if (!g.enterLevel(3)) throw new Error('New journey was rejected');
+      await window.returnSettled();
+      if (g.campReturn || suspended.scene.children.length) throw new Error('New journey did not release previous scene');
+      g.returnToCamp(); await window.returnSettled();
       if (g.campReturn.world.level.index !== 3) throw new Error('Portal did not target latest level');
     });
     if (viewport.width > 700) await page.evaluate(async () => {
@@ -92,21 +109,25 @@ try {
       const { createWirtsLeg } = await import('/src/items.ts');
       const p = g.world.path(g.position, CAMP.returnPortal).at(-1);
       g.position.copy(p); g.body.position.set(p.x, .5, p.z);
-      const saved = g.campReturn, save = g.save;
-      g.save = () => false;
-      if (g.resumeCampReturn() || !g.inCamp || g.campReturn !== saved) throw new Error('Failed save lost the return destination');
-      g.save = save;
+      const saved = g.campReturn, flushSave = g.flushSave;
+      g.flushSave = async () => false;
+      g.resumeCampReturn(); await window.returnSettled();
+      if (!g.inCamp || g.campReturn !== saved) throw new Error('Failed save lost the return destination');
+      g.flushSave = flushSave; g.ui.closePanel();
       for (const area of ['cow', 'uberDiablo']) {
         const catalyst = createWirtsLeg(2); g.hero.inventory.push(catalyst);
         if (!g.enterSpecialArea(area, 2, catalyst)) throw new Error('Special area fixture failed');
+        await window.returnSettled();
         const world = g.world, enemies = g.enemies, count = g.hero.inventory.length;
         const boss = g.enemies.find(e => e.boss); if (boss) g.combat.damage(boss, 1e9, 'magic', true);
         const defeated = g.hero.bossDefeated, loot = g.loot;
-        g.returnToCamp();
+        g.returnToCamp(); await window.returnSettled();
         const end = g.world.path(g.position, CAMP.returnPortal).at(-1);
         g.position.copy(end); g.body.position.set(end.x, .5, end.z);
-        if (!g.resumeCampReturn() || g.specialArea !== area || g.world !== world || g.enemies !== enemies || g.loot !== loot || g.hero.bossDefeated !== defeated || g.hero.inventory.length !== count) throw new Error('Special area did not resume its completed encounter without a second catalyst');
-        g.update(1 / 60); g.returnToCamp();
+        if (!g.resumeCampReturn()) throw new Error('Special area return was rejected');
+        await window.returnSettled();
+        if (g.specialArea !== area || g.world !== world || g.enemies !== enemies || g.loot !== loot || g.hero.bossDefeated !== defeated || g.hero.inventory.length !== count) throw new Error('Special area did not resume its completed encounter without a second catalyst');
+        g.update(1 / 60); g.returnToCamp(); await window.returnSettled();
       }
     });
     await page.reload();

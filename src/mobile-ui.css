@@ -111,7 +111,8 @@
   .minimap-button { height: 68px; }
   .quest-track { display: flex; margin-top: 4px; padding: 6px 0; min-height: 44px; gap: 4px; }
   .quest-track strong { font-size: 11px; }
-  .quest-track #quest-step, .quest-track .quest-final { display: none; }
+  .quest-track #quest-step { display: block; font-size: 10px; line-height: 1.5; }
+  .quest-track .quest-final { display: none; }
   #party-status { left: var(--touch-left); top: calc(var(--touch-top) + 150px); width: 144px; max-height: 92px; gap: 4px; }
   #party-status #mercenary-status { display: none; }
   #combat-status { flex: none; flex-direction: row; height: 44px; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: pan-x; }
@@ -209,9 +210,11 @@
   .hud .potion-group { left: 50%; transform: translateX(-50%); bottom: var(--touch-controls-bottom); }
   .world-info { top: var(--touch-top); right: calc(var(--touch-right) + 104px); width: 86px; display: flex; flex-direction: column; }
   .world-info .location { order: 1; }
-  .world-info .chapter, .world-info #difficulty, .world-info .quest-track { display: none; }
+  .world-info .chapter, .world-info #difficulty, .world-info .quest-track, .is-camp .world-info .quest-track { display: none; }
   .world-info .location h2 { font-size: 11px; text-align: center; }
   .minimap-button { height: 56px; }
+  .loot-filter-toggle svg { display: none; }
+  .loot-filter-toggle span { white-space: nowrap; }
   #party-status { top: calc(var(--touch-top) + 54px); gap: 3px; }
   #boss-bar { top: calc(var(--touch-top) + 60px); width: 200px; }
   #context-action { bottom: calc(var(--touch-controls-bottom) + 60px); max-width: 210px; }

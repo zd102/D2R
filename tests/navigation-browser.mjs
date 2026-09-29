@@ -166,8 +166,13 @@ try {
     }
     const approached = g.position.distanceTo(enemy.actor.group.position) < 8;
     // Once in range, attack recovery must not start new navigation work.
+    // The chase ends beside a camp stall. Use the clear arrival plaza for this
+    // separate assertion so a collider cannot push the target out of range.
+    g.position.set(0, 0, 11); g.body.position.set(0, .5, 11); g.body.velocity.set(0, 0, 0);
+    g.path = []; enemy.body.velocity.set(0, 0, 0);
     enemy.body.position.set(g.position.x, .5, g.position.z - 1.6);
     enemy.actor.group.position.set(g.position.x, 0, g.position.z - 1.6);
+    if (!g.combat.canReach(enemy, 'attack')) throw new Error('Melee fixture must start in unobstructed attack range');
     const before = requests, health = enemy.hp;
     for (let i = 0; i < 60; i++) g.update(1 / 60);
     const result = { approached, chaseRequests: before, attackRequests: requests - before, attacked: enemy.hp < health };
