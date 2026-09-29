@@ -1,4 +1,4 @@
-import { loftGeometry as contourGeometry, sculptedTorso, refreshLoftNormals } from './sculpted-surfaces.ts';
+import { loftGeometry as contourGeometry, sculptedHead, sculptedTorso, refreshLoftNormals } from './sculpted-surfaces.ts';
 import * as THREE from 'three';
 import { monsterVisualScale } from './actor-size.ts';
 import type { Actor } from './world.ts';
@@ -10,13 +10,13 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   const leftLeg = new THREE.Group(), rightLeg = new THREE.Group(), leftArm = new THREE.Group(), rightArm = new THREE.Group();
   const limbs: THREE.Group[] = [], tails: THREE.Group[] = [], knees: THREE.Group[] = [], elbows: THREE.Group[] = [];
   const carapace=['beetle','maggot','duriel','spider'].includes(def.model), furry=['goat','cow','frozen'].includes(def.model);
-  const skin = actorMaterial(new THREE.Color(def.color).lerp(new THREE.Color(0x75634f), .12), carapace?'chitin':furry?'fur':'hide');
+  const skin = actorMaterial(new THREE.Color(def.color).lerp(new THREE.Color(0x75634f), .24), carapace?'chitin':furry?'fur':'hide');
   const bone = actorMaterial(new THREE.Color(0xb9ad8b).lerp(new THREE.Color(def.color), def.race === 'undead' ? .25 : .08), 'bone');
   const metal = actorMaterial(0x727b7b, 'steel'), brass = actorMaterial(0x917342, 'bronze');
   const dark = actorMaterial(0x24201d, 'leather');
   const cloth = actorMaterial(new THREE.Color(def.color).multiplyScalar(.42), 'cloth');
   const glow = new THREE.MeshBasicMaterial({ color: def.race === 'undead' ? 0x9abdb0 : 0xdb8739 });
-  const sphere = organicGeometry(furry?'fur':'muscle',14), box = new THREE.BoxGeometry(), cone = new THREE.ConeGeometry(1, 1, 9), cylinder = new THREE.CylinderGeometry(1, 1, 1, 10);
+  const sphere = organicGeometry(carapace?'carapace':furry?'fur':'muscle',14), box = new THREE.BoxGeometry(), cone = new THREE.ConeGeometry(1, 1, 9), cylinder = new THREE.CylinderGeometry(1, 1, 1, 10);
   const part = (parent: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
     const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh); return mesh;
   };
@@ -24,7 +24,7 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
   const link = (p: THREE.Object3D, a: number[], b: number[], r: number, mat: THREE.Material = skin) => {
     const start = new THREE.Vector3(...a as [number, number, number]), end = new THREE.Vector3(...b as [number, number, number]);
     const length = start.distanceTo(end);
-    const geometry = mat === skin ? contourGeometry([[-.5,r*.65,r*.7],[-.35,r*.85,r*.85],[0,r*1.18,r],[.3,r*.96,r*.88],[.5,r*.72,r*.7]],10)
+    const geometry = mat === skin ? contourGeometry([[-.5,r*.57,r*.67],[-.34,r*.82,r*.82,r*.05],[-.09,r*1.12,r*.94,r*.14],[.16,r*1.02,r,r*.08],[.36,r*.76,r*.76],[.5,r*.62,r*.67]],10)
       : mat === bone ? contourGeometry([[-.5,r*1.12,r],[-.38,r*.7,r*.75],[0,r*.56,r*.62],[.38,r*.7,r*.75],[.5,r*1.12,r]],8) : cylinder;
     const mesh = part(p, geometry, mat, 0, 0, 0, mat === skin || mat === bone ? 1 : r, length, mat === skin || mat === bone ? 1 : r);
     mesh.position.copy(start).add(end).multiplyScalar(.5); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.sub(start).normalize()); return mesh;
@@ -102,15 +102,16 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
     part(polearm,plateGeometry([[0,.08],[.28,.23],[.35,.06],[.34,-.18],[.15,-.29],[0,-.16]],.035,.008),metal,0,1.12,0,1,1,1);
   } else if (insect) {
     const heavy = model === 'duriel';
-    ball(rig, 0, heavy ? .85 : .5, -.35, heavy ? .66 : .48, heavy ? .64 : .34, heavy ? .95 : .67);
+    const abdomen=contourGeometry([[-1.1,.10,.11],[-.82,.39,.29],[-.35,.48,.35],[.16,.42,.30],[.43,.23,.19]],18,.055).rotateX(Math.PI/2);
+    part(rig,abdomen,skin,0,heavy?.85:.5,-.06,heavy?1.37:1,heavy?1.65:1,heavy?1.25:1);
     part(rig,contourGeometry([[heavy?.57:.25,.23,.25],[heavy?.92:.46,.40,.39],[heavy?1.37:.68,.32,.27],[heavy?1.58:.76,.16,.15]],14),model==='beetle'?metal:skin,0,0,.43,1,1,1);
     if (heavy) {
-      for (let i = 0; i < 5; i++) { ball(rig, 0, 1.37 - i * .1, -.15 - i * .25, .58 - i * .04, .14, .2, i % 2 ? cloth : skin); for (const s of [-1, 1]) horn(rig, s * (.42 - i * .035), 1.4 - i * .12, -.15 - i * .25, .3, -s * .55); }
-      part(rig, box, dark, 0, .9, .84, .38, .15, .06);
+      for (let i = 0; i < 5; i++) {const plate=part(rig,contourGeometry([[-.16,.38,.075],[0,.57,.12],[.12,.49,.09],[.18,.35,.035]],14),skin,0,1.34-i*.1,-.15-i*.25,1-i*.065,1,1);plate.rotation.x=Math.PI/2;for (const s of [-1, 1]) horn(rig, s * (.42 - i * .035), 1.4 - i * .12, -.15 - i * .25, .3, -s * .55); }
+      part(rig,plateGeometry([[-.16,.045],[0,.08],[.16,.045],[.12,-.08],[0,-.12],[-.12,-.08]],.013,.006),dark,0,.94,.84,1,1,1);
       for (const s of [-1, 1]) horn(rig, s * .15, .87, .9, .3, s * .2).rotation.x = Math.PI;
     }
-    if (model === 'beetle') { for (const s of [-1, 1]) ball(rig, s * .23, .71, -.22, .26, .12, .62, cloth); }
-    if (model === 'maggot' || heavy) for (let i = 0; i < 5; i++) ball(rig, 0, .55 - i * .065, -.6 - i * .25, .48 - i * .055, .4 - i * .04, .28, i % 2 ? cloth : skin);
+    if (model === 'beetle') { for (const s of [-1, 1]) {const shell=contourGeometry([[-.71,.055,.02],[-.45,.21,.10],[0,.25,.12],[.44,.18,.085],[.55,.04,.02]],16).rotateX(Math.PI/2);part(rig,shell,skin,s*.24,.73,-.22,1,1,1).rotation.z=-s*.16;} }
+    if (model === 'maggot' || heavy) for (let i = 0; i < 5; i++) {const segment=contourGeometry([[-.30,i===4?.015:.61,i===4?.015:.62],[-.23,.74,.76],[-.10,1,1],[.06,.96,.94],[.18,.76,.71]],14,.04).rotateX(Math.PI/2);part(rig,segment,skin,0,.55-i*.065,-.6-i*.25,.48-i*.055,.4-i*.04,1);}
     const count = model === 'spider' ? 4 : 3;
     for (const s of [-1, 1]) for (let i = 0; i < count; i++) {
       const limb = new THREE.Group(); limb.position.set(s * .3, heavy ? .6 : .45, .45 - i * .4); rig.add(limb); limbs.push(limb);
@@ -162,9 +163,9 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
     const head=new THREE.Group();head.name='monster-head';rig.add(head);head.position.set(0,1.58,model==='zombie'||model==='mauler'?.13:.01);
     if(skeletal)skull(head,0,0,0,model==='mephisto'?1.20:1);
     else {
-      part(head,contourGeometry([[-.17,.075,.079,.044],[-.105,.122,.107,.024],[-.055,.106,.098,.007],[.025,bulky?.195:.145,bulky?.17:.125],[.083,bulky?.185:.135,.13,-.012],[.15,bulky?.17:.122,.117,-.02],[.215,.07,.07,-.03]],14),skin,0,0,0,1,model==='baal'?1.23:1,1);
+      part(head,sculptedHead(bulky?1.32:feminine?.96:1.07,model==='zombie'||model==='mummy'?.026:.009,feminine?'feminine':bulky?'feral':'gaunt'),skin,0,0,0,1,model==='baal'?1.23:1,bulky?1.16:1);
       eyes(head,.065,bulky?.17:.13,feminine?.060:.078);
-      ball(head,0,-.005,.15,.028,.057,.036);part(head,box,dark,0,-.10,.14,.105,.020,.018);
+      part(head,box,dark,0,-.10,.14,.092,.015,.013);
       for (const side of [-1, 1]) {
         ball(head,side*.025,-.035,.174,.012,.008,.009,dark);
         if (!feminine) {
@@ -192,7 +193,7 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
     const grips: THREE.Group[] = [];
     for (const [arm, side] of [[leftArm, -1], [rightArm, 1]] as const) {
       arm.position.set(side * (bulky ? .49 : .32), 1.28, 0); rig.add(arm);
-      ball(arm, 0, -.015, 0, skeletal?.047:bulky?.16:.082, skeletal?.06:.11, skeletal?.053:bulky?.14:.083, skeletal ? bone : skin);
+      part(arm,contourGeometry([[-.145,.051,.054,.014],[-.08,.090,.085,.013],[.012,.104,.088,-.006],[.07,.080,.066],[.103,.024,.030]],12),skeletal?bone:skin,0,0,0,skeletal?.53:bulky?1.60:1,skeletal?.63:bulky?1.35:1,skeletal?.60:bulky?1.55:1);
       link(arm,[0,0,0],[side*.05,-.24,.035],bulky?.14:.065,skeletal?bone:skin);
       const elbow=new THREE.Group();elbow.position.set(side*.05,-.24,.035);arm.add(elbow);elbows.push(elbow);
       const grip=new THREE.Group();grip.name=side<0?'monster-left-grip':'monster-right-grip';elbow.add(grip);grip.position.copy(elbow.position).negate();grips.push(grip);
@@ -205,7 +206,8 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
     if (['mage', 'council', 'shaman', 'mummy'].includes(model)) {
       robe(rig,.57,1.03,model==='mummy'?.34:.40);
       if(model==='mage'||model==='council'){
-        const hood=part(head,new THREE.SphereGeometry(1,14,10,Math.PI*.42,Math.PI*1.16),cloth,0,.035,-.018,.205,.29,.20);hood.rotation.y=Math.PI;
+        cloth.side=THREE.DoubleSide;
+        part(head,new THREE.SphereGeometry(1,14,10,Math.PI*.85,Math.PI*1.30),cloth,0,.035,-.018,.205,.29,.20);
         for(const s of [-1,1])link(head,[s*.16,-.19,.07],[s*.14,.17,.085],.028,dark);
       }
       link(rightGrip, [.1, -.6, .3], [.1, .55, .3], .04, dark);
@@ -242,9 +244,17 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
       link(wing, [0, 0, 0], [side * .7, .7, -.2], .065, bone);
       for (let i = 0; i < 3; i++) link(wing, [side * .7, .7, -.2], [side * (1.25 - i * .3), -.35 - i * .1, -.45], .035, bone);
       if (model !== 'mephisto') {
-        const positions:number[]=[],uvs:number[]=[];
-        for(let i=0;i<3;i++){const a=[side*(1.25-i*.3),-.35-i*.1,-.45],b=i===2?[0,0,0]:[side*(.95-i*.3),-.45-i*.1,-.45],mid=[(a[0]+b[0])*.5,(a[1]+b[1])*.5+.16,-.36],tip=[side*.7,.7,-.2];for(const end of [[a,mid],[mid,b]]){positions.push(...tip,...end[0],...end[1]);uvs.push(.5,1,0,0,1,0);}}
-        const geo=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(positions,3)).setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geo.computeVertexNormals();
+        const positions:number[]=[],uvs:number[]=[],indices:number[]=[],tip=new THREE.Vector3(side*.7,.7,-.2);
+        for(let bay=0;bay<3;bay++) {
+          const a=new THREE.Vector3(side*(1.25-bay*.3),-.35-bay*.1,-.45),b=bay===2?new THREE.Vector3(0,0,0):new THREE.Vector3(side*(.95-bay*.3),-.45-bay*.1,-.45),offset=positions.length/3;
+          for(let row=0;row<=5;row++)for(let col=0;col<=6;col++) {
+            const t=row/5,u=col/6,edge=a.clone().lerp(b,u);edge.y+=Math.sin(u*Math.PI)*.19;
+            const point=tip.clone().lerp(edge,t);point.z+=Math.sin(u*Math.PI)*Math.sin(t*Math.PI)*.10;
+            positions.push(point.x,point.y,point.z);uvs.push(u,t);
+            if(row<5&&col<6){const v=offset+row*7+col;indices.push(v,v+1,v+7,v+1,v+8,v+7);}
+          }
+        }
+        const geo=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(positions,3)).setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geo.setIndex(indices);geo.computeVertexNormals();
         const membrane=actorMaterial(new THREE.Color(def.color).multiplyScalar(.38),'leather');membrane.side=THREE.DoubleSide;const mesh=new THREE.Mesh(geo,membrane);mesh.castShadow=true;wing.add(mesh);
       }
     }
@@ -393,7 +403,7 @@ export function createMonsterActor(def: MonsterDef, boss = false): Actor {
     }
     if(model==='venom'||model==='diablo'){
       for(const s of [-1,1]){
-        for(let i=0;i<4;i++)plate(rig,cloth,s*.22,1.25-i*.115,.255-i*.019,.27-i*.02,.12);
+        for(let i=0;i<4;i++){const rib=part(rig,contourGeometry([[-.033,.075,.009],[0,.127,.023],[.035,.102,.012]],10),skin,s*.22,1.25-i*.115,.255-i*.019,1-i*.08,1,1);rib.rotation.z=-s*.25;}
         for(let i=0;i<3;i++)horn(s<0?leftArm:rightArm,s*.13,-.05-i*.11,-.06,.22-i*.025,-s*.70);
         plate(head,skin,s*.09,-.08,.17,.10,.14);horn(head,s*.10,-.13,.22,.13,s*.2).rotation.x=Math.PI;
       }

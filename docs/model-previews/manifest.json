@@ -1,0 +1,2562 @@
+{
+  "generatedAt": "2026-09-29T08:48:47.290Z",
+  "hashFormat": "SHA-256, UTF-8 source with LF line endings",
+  "sourceHashes": {
+    "src/actor-modeling.ts": "e4ef9a5c84b900c2f45e6cfd2c863aa4cdb37d2bd9a9f152f0b6f71eb2884ae5",
+    "src/sculpted-surfaces.ts": "8ca04ddc30175deafb60b83b695646d47101e057ed5ccc0c3b93490c0b2dc2d9",
+    "src/model-detailing.ts": "b62961fafe30df0e0ed9254c85103ebafd3785b63121eb50190049eb37e7e1f4",
+    "src/model-geometry-cache.ts": "0660dcae86d112af976cf672a067c0c7dfcb1e2a2f8fc5feb888ed6fcb8990b1",
+    "src/geometry-batching.ts": "09bd3cd36755d59da74145cfd35623d087a1480335ce9b1271448f8c1c46e43a",
+    "src/hero-models.ts": "f9d9df0793edd9cc1a7d659df43be0b4b443ec4e37b0ec2194849b8154800ad3",
+    "src/monster-models.ts": "2f105a13580c65a73847f8d0ccf297735ccec98c56efc1552e21a92c55d370ac",
+    "src/villager-model.ts": "33fcb791ea882e9b426d9f341e965fc6851579b6f350bbf3b03c6616813f8a9e",
+    "src/expansion-models.ts": "4ff451f9afbb45d0c2d1b6afd59f2ff929aa922cfac4b7e094cf2a995b8dd77b",
+    "src/scenery-props.ts": "d4f333c9ba5b2506be81db2a75bff75c8aeac3b73f360362f9335326575e8ea6",
+    "src/world.ts": "e1ec5748d61794bab1eede549aa26351170f33ee1c011c0edb9d72b78accd1c1",
+    "src/level-scenery.ts": "d84334fb7651ea11c2ed993e7f77c75d65c2d386afa150451f653da0fbda3b73",
+    "src/scenery-textures.ts": "ce4868297a3af600ff3e775609de6da094ecb63f5ce68e00490dba5859535b6c",
+    "src/scene-design.ts": "6d7c747c232ec60dc2f1fe5c6a4b68c4c6a832a337347e2f04cf25e092ac73ee",
+    "src/bestiary.ts": "ac71312da9f264186d21c2276ba1d965bf9329cc945de21af6a40efa4e80a632",
+    "src/actor-size.ts": "bb8cf1a3284d62026f778bde11bc042df01bbace126d2eede7f60a88ed869af5",
+    "src/campaign.ts": "d4eaaeee9e0885af7484dd288111aaf9aeddafa6d750b6a1c0047e3afece22fd",
+    "src/camp.ts": "bf1bcc386bd7add460db8db5e562aa7e8ca2765de5bc484cf32a766f624489e6",
+    "scripts/export-model-previews.mjs": "a48880154b75b650e2fa54d5898bde810847d3ba96bed4415858cbb6c2d752ac"
+  },
+  "counts": {
+    "hero": 8,
+    "npc": 5,
+    "monster": 40,
+    "boss": 25,
+    "companion": 20,
+    "trap": 4,
+    "equipment": 12,
+    "prop": 24,
+    "interactive": 14,
+    "scene": 30
+  },
+  "records": [
+    {
+      "id": "hero-paladin",
+      "name": "圣骑士",
+      "category": "hero",
+      "triangles": 22484,
+      "calls": 47,
+      "size": [
+        1.6501589079108574,
+        2.375218407779932,
+        1.9165915154192934
+      ],
+      "views": 3,
+      "file": "images/hero-paladin.webp"
+    },
+    {
+      "id": "hero-amazon",
+      "name": "亚马逊",
+      "category": "hero",
+      "triangles": 20448,
+      "calls": 42,
+      "size": [
+        1.0991962921085057,
+        2.344950014322996,
+        1.1036523941956773
+      ],
+      "views": 3,
+      "file": "images/hero-amazon.webp"
+    },
+    {
+      "id": "hero-sorceress",
+      "name": "法师",
+      "category": "hero",
+      "triangles": 23116,
+      "calls": 44,
+      "size": [
+        1.1893452694749636,
+        2.859227596496232,
+        1.184597512246047
+      ],
+      "views": 3,
+      "file": "images/hero-sorceress.webp"
+    },
+    {
+      "id": "hero-necromancer",
+      "name": "死灵法师",
+      "category": "hero",
+      "triangles": 20092,
+      "calls": 35,
+      "size": [
+        1.0914399691423382,
+        2.859227596496232,
+        1.184597512246047
+      ],
+      "views": 3,
+      "file": "images/hero-necromancer.webp"
+    },
+    {
+      "id": "hero-barbarian",
+      "name": "野蛮人",
+      "category": "hero",
+      "triangles": 16572,
+      "calls": 32,
+      "size": [
+        1.76339615017204,
+        2.5267139993047714,
+        1.5712026855000127
+      ],
+      "views": 3,
+      "file": "images/hero-barbarian.webp"
+    },
+    {
+      "id": "hero-druid",
+      "name": "德鲁伊",
+      "category": "hero",
+      "triangles": 20764,
+      "calls": 36,
+      "size": [
+        1.1994236735996595,
+        2.859227596496232,
+        1.184597512246047
+      ],
+      "views": 3,
+      "file": "images/hero-druid.webp"
+    },
+    {
+      "id": "hero-assassin",
+      "name": "刺客",
+      "category": "hero",
+      "triangles": 18008,
+      "calls": 36,
+      "size": [
+        1.0678445100345022,
+        2.344950014322996,
+        1.128320633613106
+      ],
+      "views": 3,
+      "file": "images/hero-assassin.webp"
+    },
+    {
+      "id": "mercenary-mishan",
+      "name": "沙漠佣兵",
+      "category": "hero",
+      "triangles": 21508,
+      "calls": 42,
+      "size": [
+        1.3412622104370215,
+        3.0970140394824295,
+        0.6866778302905915
+      ],
+      "views": 3,
+      "file": "images/mercenary-mishan.webp"
+    },
+    {
+      "id": "npc-merchant",
+      "name": "军需商人",
+      "category": "npc",
+      "triangles": 9320,
+      "calls": 10,
+      "size": [
+        0.7279999852180481,
+        1.7489751181784496,
+        0.517744510610266
+      ],
+      "views": 3,
+      "file": "images/npc-merchant.webp"
+    },
+    {
+      "id": "npc-captain",
+      "name": "雇佣兵队长",
+      "category": "npc",
+      "triangles": 8324,
+      "calls": 13,
+      "size": [
+        0.9187950718402862,
+        2.1790710797905923,
+        0.4570000022649765
+      ],
+      "views": 3,
+      "file": "images/npc-captain.webp"
+    },
+    {
+      "id": "npc-artisan",
+      "name": "符文工匠",
+      "category": "npc",
+      "triangles": 8372,
+      "calls": 11,
+      "size": [
+        0.7960000038146973,
+        1.7270000007748605,
+        0.4570000022649765
+      ],
+      "views": 3,
+      "file": "images/npc-artisan.webp"
+    },
+    {
+      "id": "npc-gambler",
+      "name": "游商",
+      "category": "npc",
+      "triangles": 8024,
+      "calls": 11,
+      "size": [
+        0.7279999852180481,
+        1.9057729789632678,
+        0.4570000022649765
+      ],
+      "views": 3,
+      "file": "images/npc-gambler.webp"
+    },
+    {
+      "id": "npc-healer",
+      "name": "补给修士",
+      "category": "npc",
+      "triangles": 8324,
+      "calls": 10,
+      "size": [
+        0.7517195343971252,
+        1.7855000007748605,
+        0.4570000022649765
+      ],
+      "views": 3,
+      "file": "images/npc-healer.webp"
+    },
+    {
+      "id": "monster-pindleskin",
+      "name": "暴躁外皮",
+      "category": "monster",
+      "family": "skeleton",
+      "triangles": 10542,
+      "calls": 19,
+      "size": [
+        1.939225640330437,
+        3.2105767073622697,
+        2.703125899085275
+      ],
+      "views": 3,
+      "file": "images/monster-pindleskin.webp"
+    },
+    {
+      "id": "monster-nihlathak",
+      "name": "尼拉塞克",
+      "category": "monster",
+      "family": "mage",
+      "triangles": 11376,
+      "calls": 24,
+      "size": [
+        1.7996800497422285,
+        3.8616486277364874,
+        1.4275333607167724
+      ],
+      "views": 3,
+      "file": "images/monster-nihlathak.webp"
+    },
+    {
+      "id": "monster-fallen",
+      "name": "沉沦魔",
+      "category": "monster",
+      "family": "fallen",
+      "triangles": 10114,
+      "calls": 24,
+      "size": [
+        1.0935552298447164,
+        1.919379135027566,
+        1.6218086542742132
+      ],
+      "views": 3,
+      "file": "images/monster-fallen.webp"
+    },
+    {
+      "id": "monster-shaman",
+      "name": "沉沦巫师",
+      "category": "monster",
+      "family": "shaman",
+      "triangles": 22232,
+      "calls": 40,
+      "size": [
+        1.3151069749313669,
+        2.821973997192048,
+        1.0431974559084103
+      ],
+      "views": 3,
+      "file": "images/monster-shaman.webp"
+    },
+    {
+      "id": "monster-zombie",
+      "name": "饥饿死者",
+      "category": "monster",
+      "family": "zombie",
+      "triangles": 11556,
+      "calls": 25,
+      "size": [
+        1.410940195794339,
+        2.491167827861224,
+        2.187256862906245
+      ],
+      "views": 3,
+      "file": "images/monster-zombie.webp"
+    },
+    {
+      "id": "monster-rogue",
+      "name": "腐化罗格",
+      "category": "monster",
+      "family": "archer",
+      "triangles": 10796,
+      "calls": 22,
+      "size": [
+        1.3640138846053635,
+        2.601888208993019,
+        1.4361282491020964
+      ],
+      "views": 3,
+      "file": "images/monster-rogue.webp"
+    },
+    {
+      "id": "monster-skeleton",
+      "name": "骷髅战士",
+      "category": "monster",
+      "family": "skeleton",
+      "triangles": 10542,
+      "calls": 19,
+      "size": [
+        1.4364634372818053,
+        2.3782049684164965,
+        2.002315480803907
+      ],
+      "views": 3,
+      "file": "images/monster-skeleton.webp"
+    },
+    {
+      "id": "monster-boneMage",
+      "name": "骷髅法师",
+      "category": "monster",
+      "family": "mage",
+      "triangles": 11376,
+      "calls": 24,
+      "size": [
+        1.3843692690324834,
+        2.9704989444126824,
+        1.098102585166748
+      ],
+      "views": 3,
+      "file": "images/monster-boneMage.webp"
+    },
+    {
+      "id": "monster-goat",
+      "name": "黑暗一族",
+      "category": "monster",
+      "family": "goat",
+      "triangles": 10182,
+      "calls": 22,
+      "size": [
+        1.8058788669086379,
+        2.7260139677278854,
+        1.9470368064593646
+      ],
+      "views": 3,
+      "file": "images/monster-goat.webp"
+    },
+    {
+      "id": "monster-ghost",
+      "name": "幽灵",
+      "category": "monster",
+      "family": "ghost",
+      "triangles": 8158,
+      "calls": 14,
+      "size": [
+        1.3772356527080976,
+        2.3371910265704416,
+        2.0812157955967394
+      ],
+      "views": 3,
+      "file": "images/monster-ghost.webp"
+    },
+    {
+      "id": "monster-tainted",
+      "name": "污染怪",
+      "category": "monster",
+      "family": "venom",
+      "triangles": 15660,
+      "calls": 28,
+      "size": [
+        3.8942283827306396,
+        2.5943632425868333,
+        2.230274057609153
+      ],
+      "views": 3,
+      "file": "images/monster-tainted.webp"
+    },
+    {
+      "id": "monster-burningDead",
+      "name": "燃烧死者",
+      "category": "monster",
+      "family": "skeleton",
+      "triangles": 10742,
+      "calls": 18,
+      "size": [
+        1.391680291504736,
+        2.425969513626204,
+        1.1431546133583508
+      ],
+      "views": 3,
+      "file": "images/monster-burningDead.webp"
+    },
+    {
+      "id": "monster-mummy",
+      "name": "腐尸",
+      "category": "monster",
+      "family": "mummy",
+      "triangles": 11966,
+      "calls": 25,
+      "size": [
+        1.4500801818355793,
+        3.207196426714378,
+        0.9678629944728045
+      ],
+      "views": 3,
+      "file": "images/monster-mummy.webp"
+    },
+    {
+      "id": "monster-unraveler",
+      "name": "解开者",
+      "category": "monster",
+      "family": "mummy",
+      "triangles": 12238,
+      "calls": 27,
+      "size": [
+        1.8169241101025464,
+        3.8503988130445093,
+        1.204436004303047
+      ],
+      "views": 3,
+      "file": "images/monster-unraveler.webp"
+    },
+    {
+      "id": "monster-huntress",
+      "name": "女猎人",
+      "category": "monster",
+      "family": "archer",
+      "triangles": 11372,
+      "calls": 24,
+      "size": [
+        1.4138354847950227,
+        2.601888208993019,
+        2.25847951854708
+      ],
+      "views": 3,
+      "file": "images/monster-huntress.webp"
+    },
+    {
+      "id": "monster-beetle",
+      "name": "死亡甲虫",
+      "category": "monster",
+      "family": "beetle",
+      "triangles": 7712,
+      "calls": 26,
+      "size": [
+        3.5251233609398867,
+        1.6738310427662895,
+        3.2378126177787783
+      ],
+      "views": 3,
+      "file": "images/monster-beetle.webp"
+    },
+    {
+      "id": "monster-maggot",
+      "name": "沙虫",
+      "category": "monster",
+      "family": "maggot",
+      "triangles": 8528,
+      "calls": 24,
+      "size": [
+        3.655683485419142,
+        1.50032496247439,
+        4.448091899871827
+      ],
+      "views": 3,
+      "file": "images/monster-maggot.webp"
+    },
+    {
+      "id": "monster-viper",
+      "name": "利爪蝮蛇",
+      "category": "monster",
+      "family": "viper",
+      "triangles": 4892,
+      "calls": 8,
+      "size": [
+        2.452775810304247,
+        2.4166017347928723,
+        3.2915103773772465
+      ],
+      "views": 3,
+      "file": "images/monster-viper.webp"
+    },
+    {
+      "id": "monster-spider",
+      "name": "巨型蜘蛛",
+      "category": "monster",
+      "family": "spider",
+      "triangles": 6056,
+      "calls": 22,
+      "size": [
+        3.6470369252999353,
+        1.3630470298143758,
+        3.329211885452271
+      ],
+      "views": 3,
+      "file": "images/monster-spider.webp"
+    },
+    {
+      "id": "monster-flayer",
+      "name": "剥皮者",
+      "category": "monster",
+      "family": "flayer",
+      "triangles": 11366,
+      "calls": 23,
+      "size": [
+        0.8838809972242756,
+        1.69680829081461,
+        1.3023631877273274
+      ],
+      "views": 3,
+      "file": "images/monster-flayer.webp"
+    },
+    {
+      "id": "monster-flayerShaman",
+      "name": "剥皮巫师",
+      "category": "monster",
+      "family": "shaman",
+      "triangles": 27296,
+      "calls": 46,
+      "size": [
+        1.3151069749313669,
+        2.821973997192048,
+        1.0431974559084103
+      ],
+      "views": 3,
+      "file": "images/monster-flayerShaman.webp"
+    },
+    {
+      "id": "monster-zealot",
+      "name": "狂信者",
+      "category": "monster",
+      "family": "knight",
+      "triangles": 9956,
+      "calls": 32,
+      "size": [
+        1.773972786911982,
+        2.908778338966391,
+        2.2200286204464064
+      ],
+      "views": 3,
+      "file": "images/monster-zealot.webp"
+    },
+    {
+      "id": "monster-council",
+      "name": "议会成员",
+      "category": "monster",
+      "family": "council",
+      "triangles": 12414,
+      "calls": 26,
+      "size": [
+        1.453539288082037,
+        3.119023891633317,
+        1.1530077228740438
+      ],
+      "views": 3,
+      "file": "images/monster-council.webp"
+    },
+    {
+      "id": "monster-doll",
+      "name": "冥河娃娃",
+      "category": "monster",
+      "family": "flayer",
+      "triangles": 11366,
+      "calls": 23,
+      "size": [
+        0.8593287473013789,
+        1.6496747271808707,
+        1.2661864325126793
+      ],
+      "views": 3,
+      "file": "images/monster-doll.webp"
+    },
+    {
+      "id": "monster-vampire",
+      "name": "鲜血之王",
+      "category": "monster",
+      "family": "mage",
+      "triangles": 12240,
+      "calls": 26,
+      "size": [
+        1.3843692690324834,
+        3.1784338705215696,
+        1.1515119514763907
+      ],
+      "views": 3,
+      "file": "images/monster-vampire.webp"
+    },
+    {
+      "id": "monster-doomKnight",
+      "name": "厄运骑士",
+      "category": "monster",
+      "family": "knight",
+      "triangles": 10476,
+      "calls": 34,
+      "size": [
+        1.773972786911982,
+        2.908778338966391,
+        2.25229698964485
+      ],
+      "views": 3,
+      "file": "images/monster-doomKnight.webp"
+    },
+    {
+      "id": "monster-oblivion",
+      "name": "遗忘骑士",
+      "category": "monster",
+      "family": "mage",
+      "triangles": 11896,
+      "calls": 28,
+      "size": [
+        1.3843692690324834,
+        2.9704989444126824,
+        1.098102585166748
+      ],
+      "views": 3,
+      "file": "images/monster-oblivion.webp"
+    },
+    {
+      "id": "monster-soul",
+      "name": "燃烧灵魂",
+      "category": "monster",
+      "family": "ghost",
+      "triangles": 8158,
+      "calls": 14,
+      "size": [
+        1.3772356527080976,
+        2.3371910265704416,
+        2.0812157955967394
+      ],
+      "views": 3,
+      "file": "images/monster-soul.webp"
+    },
+    {
+      "id": "monster-mauler",
+      "name": "乌达尔",
+      "category": "monster",
+      "family": "mauler",
+      "triangles": 11604,
+      "calls": 24,
+      "size": [
+        3.1833918736552302,
+        4.350646535254417,
+        1.6688793494362821
+      ],
+      "views": 3,
+      "file": "images/monster-mauler.webp"
+    },
+    {
+      "id": "monster-venomLord",
+      "name": "邪魔之王",
+      "category": "monster",
+      "family": "venom",
+      "triangles": 15660,
+      "calls": 28,
+      "size": [
+        6.084731848016624,
+        4.053692566541927,
+        3.484803215014301
+      ],
+      "views": 3,
+      "file": "images/monster-venomLord.webp"
+    },
+    {
+      "id": "monster-spawner",
+      "name": "血肉复生者",
+      "category": "monster",
+      "family": "maggot",
+      "triangles": 8528,
+      "calls": 24,
+      "size": [
+        3.655683485419142,
+        1.50032496247439,
+        4.448091899871827
+      ],
+      "views": 3,
+      "file": "images/monster-spawner.webp"
+    },
+    {
+      "id": "monster-imp",
+      "name": "恶魔小妖",
+      "category": "monster",
+      "family": "imp",
+      "triangles": 9934,
+      "calls": 20,
+      "size": [
+        0.9722690969467032,
+        1.5386110783086477,
+        0.9298427920502234
+      ],
+      "views": 3,
+      "file": "images/monster-imp.webp"
+    },
+    {
+      "id": "monster-overseer",
+      "name": "奴役者",
+      "category": "monster",
+      "family": "mauler",
+      "triangles": 11956,
+      "calls": 24,
+      "size": [
+        2.4487629797347923,
+        3.3466511809649355,
+        1.2837533457202168
+      ],
+      "views": 3,
+      "file": "images/monster-overseer.webp"
+    },
+    {
+      "id": "monster-reanimated",
+      "name": "复生战士",
+      "category": "monster",
+      "family": "skeleton",
+      "triangles": 11062,
+      "calls": 23,
+      "size": [
+        1.4364634372818053,
+        2.3782049684164965,
+        2.0382073608178364
+      ],
+      "views": 3,
+      "file": "images/monster-reanimated.webp"
+    },
+    {
+      "id": "monster-frozen",
+      "name": "冰川恶兽",
+      "category": "monster",
+      "family": "frozen",
+      "triangles": 13352,
+      "calls": 24,
+      "size": [
+        2.9761896541648154,
+        3.7883516781519053,
+        1.7954904139960177
+      ],
+      "views": 3,
+      "file": "images/monster-frozen.webp"
+    },
+    {
+      "id": "monster-iceCrawler",
+      "name": "冰封爬行者",
+      "category": "monster",
+      "family": "viper",
+      "triangles": 4892,
+      "calls": 8,
+      "size": [
+        2.452775810304247,
+        2.4166017347928723,
+        3.2915103773772465
+      ],
+      "views": 3,
+      "file": "images/monster-iceCrawler.webp"
+    },
+    {
+      "id": "monster-succubus",
+      "name": "女妖",
+      "category": "monster",
+      "family": "succubus",
+      "triangles": 11524,
+      "calls": 24,
+      "size": [
+        4.406185131322384,
+        2.8427366199553017,
+        1.6126084823369018
+      ],
+      "views": 3,
+      "file": "images/monster-succubus.webp"
+    },
+    {
+      "id": "monster-bloodLord",
+      "name": "死亡之王",
+      "category": "monster",
+      "family": "lord",
+      "triangles": 11414,
+      "calls": 29,
+      "size": [
+        2.939432833808142,
+        3.4267189032790606,
+        2.673277162368402
+      ],
+      "views": 3,
+      "file": "images/monster-bloodLord.webp"
+    },
+    {
+      "id": "monster-minion",
+      "name": "毁灭仆从",
+      "category": "monster",
+      "family": "venom",
+      "triangles": 15660,
+      "calls": 28,
+      "size": [
+        6.084731848016624,
+        4.053692566541927,
+        3.484803215014301
+      ],
+      "views": 3,
+      "file": "images/monster-minion.webp"
+    },
+    {
+      "id": "monster-hellCow",
+      "name": "地狱奶牛",
+      "category": "monster",
+      "family": "cow",
+      "triangles": 7008,
+      "calls": 21,
+      "size": [
+        3.0264571676464724,
+        5.250103257486053,
+        2.125781411960032
+      ],
+      "views": 3,
+      "file": "images/monster-hellCow.webp"
+    },
+    {
+      "id": "boss-corpsefire",
+      "name": "尸体发火",
+      "category": "boss",
+      "family": "zombie",
+      "triangles": 11564,
+      "calls": 26,
+      "size": [
+        2.0458632839017916,
+        3.612193350398775,
+        3.171522451214055
+      ],
+      "views": 3,
+      "file": "images/boss-corpsefire.webp"
+    },
+    {
+      "id": "boss-bloodRaven",
+      "name": "血鸟",
+      "category": "boss",
+      "family": "archer",
+      "triangles": 11736,
+      "calls": 25,
+      "size": [
+        1.9778201326777771,
+        3.9097900462805564,
+        2.1318862284935793
+      ],
+      "views": 3,
+      "file": "images/boss-bloodRaven.webp"
+    },
+    {
+      "id": "boss-griswold",
+      "name": "格里斯瓦尔德",
+      "category": "boss",
+      "family": "mauler",
+      "triangles": 11964,
+      "calls": 25,
+      "size": [
+        3.550706320615449,
+        4.852644212399155,
+        1.8614423512943143
+      ],
+      "views": 3,
+      "file": "images/boss-griswold.webp"
+    },
+    {
+      "id": "boss-countess",
+      "name": "女伯爵",
+      "category": "boss",
+      "family": "council",
+      "triangles": 13354,
+      "calls": 27,
+      "size": [
+        2.107631967718954,
+        4.522584642868309,
+        1.6718611981673637
+      ],
+      "views": 3,
+      "file": "images/boss-countess.webp"
+    },
+    {
+      "id": "boss-andariel",
+      "name": "安达利尔",
+      "category": "boss",
+      "family": "andariel",
+      "triangles": 12292,
+      "calls": 24,
+      "size": [
+        7.158703867546853,
+        5.627686389965059,
+        4.006001047070384
+      ],
+      "views": 3,
+      "file": "images/boss-andariel.webp"
+    },
+    {
+      "id": "boss-radament",
+      "name": "罗达门特",
+      "category": "boss",
+      "family": "mummy",
+      "triangles": 12246,
+      "calls": 28,
+      "size": [
+        2.107631967718954,
+        4.466462623131631,
+        1.3971457649915346
+      ],
+      "views": 3,
+      "file": "images/boss-radament.webp"
+    },
+    {
+      "id": "boss-bloodwitch",
+      "name": "疯狂血腥女巫",
+      "category": "boss",
+      "family": "archer",
+      "triangles": 10804,
+      "calls": 23,
+      "size": [
+        1.9778201326777771,
+        3.7727379030398778,
+        2.0823859611980398
+      ],
+      "views": 3,
+      "file": "images/boss-bloodwitch.webp"
+    },
+    {
+      "id": "boss-coldworm",
+      "name": "钻地冰虫",
+      "category": "boss",
+      "family": "maggot",
+      "triangles": 8536,
+      "calls": 25,
+      "size": [
+        7.311366970838284,
+        3.768746047695248,
+        8.896183799743653
+      ],
+      "views": 3,
+      "file": "images/boss-coldworm.webp"
+    },
+    {
+      "id": "boss-summoner",
+      "name": "召唤者",
+      "category": "boss",
+      "family": "mage",
+      "triangles": 12316,
+      "calls": 26,
+      "size": [
+        2.007335440097101,
+        4.307223469398389,
+        1.5922487601593935
+      ],
+      "views": 3,
+      "file": "images/boss-summoner.webp"
+    },
+    {
+      "id": "boss-duriel",
+      "name": "都瑞尔",
+      "category": "boss",
+      "family": "duriel",
+      "triangles": 10714,
+      "calls": 28,
+      "size": [
+        6.547590242634641,
+        4.946763246541097,
+        8.87134719781852
+      ],
+      "views": 3,
+      "file": "images/boss-duriel.webp"
+    },
+    {
+      "id": "boss-szzark",
+      "name": "燃烧者韦布",
+      "category": "boss",
+      "family": "spider",
+      "triangles": 6064,
+      "calls": 23,
+      "size": [
+        5.835259080479895,
+        3.00872552083914,
+        5.326739016723634
+      ],
+      "views": 3,
+      "file": "images/boss-szzark.webp"
+    },
+    {
+      "id": "boss-endugu",
+      "name": "巫医恩都古",
+      "category": "boss",
+      "family": "shaman",
+      "triangles": 27304,
+      "calls": 47,
+      "size": [
+        1.9069051136504815,
+        4.091862295928469,
+        1.5126363110671952
+      ],
+      "views": 3,
+      "file": "images/boss-endugu.webp"
+    },
+    {
+      "id": "boss-sarina",
+      "name": "战场处子沙利娜",
+      "category": "boss",
+      "family": "archer",
+      "triangles": 11736,
+      "calls": 25,
+      "size": [
+        1.9778201326777771,
+        3.9097900462805564,
+        2.1318862284935793
+      ],
+      "views": 3,
+      "file": "images/boss-sarina.webp"
+    },
+    {
+      "id": "boss-ismail",
+      "name": "邪恶之手伊斯梅尔",
+      "category": "boss",
+      "family": "council",
+      "triangles": 12422,
+      "calls": 27,
+      "size": [
+        2.107631967718954,
+        4.522584642868309,
+        1.6718611981673637
+      ],
+      "views": 3,
+      "file": "images/boss-ismail.webp"
+    },
+    {
+      "id": "boss-mephisto",
+      "name": "墨菲斯托",
+      "category": "boss",
+      "family": "mephisto",
+      "triangles": 12134,
+      "calls": 18,
+      "size": [
+        8.935542988952612,
+        6.131207020892221,
+        5.111160667853461
+      ],
+      "views": 3,
+      "file": "images/boss-mephisto.webp"
+    },
+    {
+      "id": "boss-abyssVanguard",
+      "name": "深渊先锋",
+      "category": "boss",
+      "family": "venom",
+      "triangles": 16188,
+      "calls": 31,
+      "size": [
+        7.058288943699284,
+        4.702283377188635,
+        4.0423717294165895
+      ],
+      "views": 3,
+      "file": "images/boss-abyssVanguard.webp"
+    },
+    {
+      "id": "boss-izual",
+      "name": "衣卒尔",
+      "category": "boss",
+      "family": "knight",
+      "triangles": 10348,
+      "calls": 34,
+      "size": [
+        3.912753425180912,
+        4.217728591501266,
+        3.562654134063958
+      ],
+      "views": 3,
+      "file": "images/boss-izual.webp"
+    },
+    {
+      "id": "boss-hephasto",
+      "name": "海法斯特盔甲制造者",
+      "category": "boss",
+      "family": "mauler",
+      "triangles": 11964,
+      "calls": 25,
+      "size": [
+        3.550706320615449,
+        4.852644212399155,
+        1.8614423512943143
+      ],
+      "views": 3,
+      "file": "images/boss-hephasto.webp"
+    },
+    {
+      "id": "boss-deSeis",
+      "name": "西希之王",
+      "category": "boss",
+      "family": "knight",
+      "triangles": 10484,
+      "calls": 35,
+      "size": [
+        2.5722605410223736,
+        4.217728591501266,
+        3.2658306349850315
+      ],
+      "views": 3,
+      "file": "images/boss-deSeis.webp"
+    },
+    {
+      "id": "boss-diablo",
+      "name": "迪亚波罗",
+      "category": "boss",
+      "family": "diablo",
+      "triangles": 18624,
+      "calls": 25,
+      "size": [
+        4.684588236578125,
+        6.448813369487816,
+        7.314890311323895
+      ],
+      "views": 3,
+      "file": "images/boss-diablo.webp"
+    },
+    {
+      "id": "boss-shenk",
+      "name": "督军山克",
+      "category": "boss",
+      "family": "mauler",
+      "triangles": 11964,
+      "calls": 25,
+      "size": [
+        3.550706320615449,
+        4.852644212399155,
+        1.8614423512943143
+      ],
+      "views": 3,
+      "file": "images/boss-shenk.webp"
+    },
+    {
+      "id": "boss-eldritch",
+      "name": "矫正者艾德利奇",
+      "category": "boss",
+      "family": "lord",
+      "triangles": 11422,
+      "calls": 30,
+      "size": [
+        3.7062413991493974,
+        4.320645573699686,
+        3.370653813421029
+      ],
+      "views": 3,
+      "file": "images/boss-eldritch.webp"
+    },
+    {
+      "id": "boss-frozenstein",
+      "name": "冰冻魔怪",
+      "category": "boss",
+      "family": "frozen",
+      "triangles": 13360,
+      "calls": 25,
+      "size": [
+        3.452379998831186,
+        4.39448794665621,
+        2.0827688802353803
+      ],
+      "views": 3,
+      "file": "images/boss-frozenstein.webp"
+    },
+    {
+      "id": "boss-talic",
+      "name": "塔力克·先祖守卫",
+      "category": "boss",
+      "family": "knight",
+      "triangles": 10158,
+      "calls": 35,
+      "size": [
+        2.5722605410223736,
+        4.217728591501266,
+        3.2190414996472883
+      ],
+      "views": 3,
+      "file": "images/boss-talic.webp"
+    },
+    {
+      "id": "boss-baal",
+      "name": "巴尔",
+      "category": "boss",
+      "family": "baal",
+      "triangles": 12356,
+      "calls": 26,
+      "size": [
+        7.5147700487605595,
+        5.93935554436058,
+        5.523228176365179
+      ],
+      "views": 3,
+      "file": "images/boss-baal.webp"
+    },
+    {
+      "id": "companion-raiseSkeleton",
+      "name": "骷髅复苏",
+      "category": "companion",
+      "triangles": 10542,
+      "calls": 19,
+      "size": [
+        0.8512375924632918,
+        1.4093066479505163,
+        1.1865573219578711
+      ],
+      "views": 3,
+      "file": "images/companion-raiseSkeleton.webp"
+    },
+    {
+      "id": "companion-raiseSkeletalMage",
+      "name": "骷髅法师",
+      "category": "companion",
+      "triangles": 11376,
+      "calls": 24,
+      "size": [
+        0.8203669742414716,
+        1.760295670763071,
+        0.6507274578765914
+      ],
+      "views": 3,
+      "file": "images/companion-raiseSkeletalMage.webp"
+    },
+    {
+      "id": "companion-shadowWarrior",
+      "name": "影子战士",
+      "category": "companion",
+      "triangles": 18008,
+      "calls": 36,
+      "size": [
+        1.0678445100345022,
+        2.344950014322996,
+        1.128320633613106
+      ],
+      "views": 3,
+      "file": "images/companion-shadowWarrior.webp"
+    },
+    {
+      "id": "companion-shadowMaster",
+      "name": "影子大师",
+      "category": "companion",
+      "triangles": 18008,
+      "calls": 36,
+      "size": [
+        1.0678445100345022,
+        2.344950014322996,
+        1.128320633613106
+      ],
+      "views": 3,
+      "file": "images/companion-shadowMaster.webp"
+    },
+    {
+      "id": "companion-summonSpiritWolf",
+      "name": "召唤灵狼",
+      "category": "companion",
+      "triangles": 7296,
+      "calls": 17,
+      "size": [
+        0.800000011920929,
+        1.2796535336981862,
+        2.2967936391603416
+      ],
+      "views": 3,
+      "file": "images/companion-summonSpiritWolf.webp"
+    },
+    {
+      "id": "companion-summonFenris",
+      "name": "召唤狂狼",
+      "category": "companion",
+      "triangles": 7296,
+      "calls": 17,
+      "size": [
+        0.800000011920929,
+        1.2796535336981862,
+        2.2967936391603416
+      ],
+      "views": 3,
+      "file": "images/companion-summonFenris.webp"
+    },
+    {
+      "id": "companion-summonGrizzly",
+      "name": "召唤灰熊",
+      "category": "companion",
+      "triangles": 7556,
+      "calls": 17,
+      "size": [
+        1.0399999618530273,
+        1.2396610121044727,
+        1.9096590275537435
+      ],
+      "views": 3,
+      "file": "images/companion-summonGrizzly.webp"
+    },
+    {
+      "id": "companion-clayGolem",
+      "name": "黏土石魔",
+      "category": "companion",
+      "triangles": 2628,
+      "calls": 7,
+      "size": [
+        1.3070157301425933,
+        1.7478162741661072,
+        0.6675769984722137
+      ],
+      "views": 3,
+      "file": "images/companion-clayGolem.webp"
+    },
+    {
+      "id": "companion-bloodGolem",
+      "name": "鲜血石魔",
+      "category": "companion",
+      "triangles": 2628,
+      "calls": 7,
+      "size": [
+        1.3070157301425933,
+        1.7478162741661072,
+        0.6546290218830109
+      ],
+      "views": 3,
+      "file": "images/companion-bloodGolem.webp"
+    },
+    {
+      "id": "companion-ironGolem",
+      "name": "钢铁石魔",
+      "category": "companion",
+      "triangles": 2740,
+      "calls": 8,
+      "size": [
+        1.3070157301425933,
+        1.7478162741661072,
+        0.6675769984722137
+      ],
+      "views": 3,
+      "file": "images/companion-ironGolem.webp"
+    },
+    {
+      "id": "companion-fireGolem",
+      "name": "火焰石魔",
+      "category": "companion",
+      "triangles": 2628,
+      "calls": 7,
+      "size": [
+        1.3070157301425933,
+        1.7478162741661072,
+        0.6675769984722137
+      ],
+      "views": 3,
+      "file": "images/companion-fireGolem.webp"
+    },
+    {
+      "id": "companion-raven",
+      "name": "乌鸦",
+      "category": "companion",
+      "triangles": 2524,
+      "calls": 8,
+      "size": [
+        0.9798875270703127,
+        0.4798199389066704,
+        0.8136596608161927
+      ],
+      "views": 3,
+      "file": "images/companion-raven.webp"
+    },
+    {
+      "id": "companion-oakSage",
+      "name": "橡木智者",
+      "category": "companion",
+      "triangles": 1704,
+      "calls": 4,
+      "size": [
+        0.6117301285266876,
+        1.1502922177314758,
+        0.6056957542896271
+      ],
+      "views": 3,
+      "file": "images/companion-oakSage.webp"
+    },
+    {
+      "id": "companion-heartOfWolverine",
+      "name": "狼獾之心",
+      "category": "companion",
+      "triangles": 1704,
+      "calls": 4,
+      "size": [
+        0.6117301285266876,
+        1.1502922177314758,
+        0.6056957542896271
+      ],
+      "views": 3,
+      "file": "images/companion-heartOfWolverine.webp"
+    },
+    {
+      "id": "companion-spiritOfBarbs",
+      "name": "棘灵",
+      "category": "companion",
+      "triangles": 1704,
+      "calls": 4,
+      "size": [
+        0.6117301285266876,
+        1.1502922177314758,
+        0.6056957542896271
+      ],
+      "views": 3,
+      "file": "images/companion-spiritOfBarbs.webp"
+    },
+    {
+      "id": "companion-plaguePoppy",
+      "name": "猛毒花藤",
+      "category": "companion",
+      "triangles": 1158,
+      "calls": 4,
+      "size": [
+        0.7308000922203064,
+        0.7168292149156332,
+        1.1899711549282075
+      ],
+      "views": 3,
+      "file": "images/companion-plaguePoppy.webp"
+    },
+    {
+      "id": "companion-carrionVine",
+      "name": "食尸藤",
+      "category": "companion",
+      "triangles": 1158,
+      "calls": 4,
+      "size": [
+        0.7308000922203064,
+        0.7168292149156332,
+        1.1899711549282075
+      ],
+      "views": 3,
+      "file": "images/companion-carrionVine.webp"
+    },
+    {
+      "id": "companion-solarCreeper",
+      "name": "太阳藤",
+      "category": "companion",
+      "triangles": 1158,
+      "calls": 4,
+      "size": [
+        0.7308000922203064,
+        0.7168292149156332,
+        1.1899711549282075
+      ],
+      "views": 3,
+      "file": "images/companion-solarCreeper.webp"
+    },
+    {
+      "id": "form-werewolf",
+      "name": "狼人变形",
+      "category": "companion",
+      "triangles": 7224,
+      "calls": 17,
+      "size": [
+        0.9399999976158142,
+        2.009653533698186,
+        1.9667936391603413
+      ],
+      "views": 3,
+      "file": "images/form-werewolf.webp"
+    },
+    {
+      "id": "form-werebear",
+      "name": "熊人变形",
+      "category": "companion",
+      "triangles": 7484,
+      "calls": 17,
+      "size": [
+        1.222000002861023,
+        1.9696610121044724,
+        1.2746590800058308
+      ],
+      "views": 3,
+      "file": "images/form-werebear.webp"
+    },
+    {
+      "id": "trap-wakeOfFire",
+      "name": "火焰复苏",
+      "category": "trap",
+      "triangles": 748,
+      "calls": 3,
+      "size": [
+        0.7065421044826508,
+        0.812463691830635,
+        0.766888439655304
+      ],
+      "views": 3,
+      "file": "images/trap-wakeOfFire.webp"
+    },
+    {
+      "id": "trap-wakeOfInferno",
+      "name": "复苏狱火",
+      "category": "trap",
+      "triangles": 748,
+      "calls": 3,
+      "size": [
+        0.7065421044826508,
+        0.812463691830635,
+        0.766888439655304
+      ],
+      "views": 3,
+      "file": "images/trap-wakeOfInferno.webp"
+    },
+    {
+      "id": "trap-lightningSentry",
+      "name": "雷光守卫",
+      "category": "trap",
+      "triangles": 748,
+      "calls": 3,
+      "size": [
+        0.7065421044826508,
+        0.812463691830635,
+        0.766888439655304
+      ],
+      "views": 3,
+      "file": "images/trap-lightningSentry.webp"
+    },
+    {
+      "id": "trap-deathSentry",
+      "name": "亡者守卫",
+      "category": "trap",
+      "triangles": 748,
+      "calls": 3,
+      "size": [
+        0.7065421044826508,
+        0.812463691830635,
+        0.766888439655304
+      ],
+      "views": 3,
+      "file": "images/trap-deathSentry.webp"
+    },
+    {
+      "id": "prop-crag",
+      "name": "风化岩簇",
+      "category": "prop",
+      "triangles": 432,
+      "calls": 3,
+      "size": [
+        2.267546057701111,
+        2.2058799266815186,
+        1.856406807899475
+      ],
+      "views": 3,
+      "file": "images/prop-crag.webp"
+    },
+    {
+      "id": "prop-root",
+      "name": "枯树盘根",
+      "category": "prop",
+      "triangles": 2240,
+      "calls": 2,
+      "size": [
+        2.587551474571228,
+        3.0521050840616226,
+        1.6404436230659485
+      ],
+      "views": 3,
+      "file": "images/prop-root.webp"
+    },
+    {
+      "id": "prop-grave",
+      "name": "哥特墓碑",
+      "category": "prop",
+      "triangles": 232,
+      "calls": 4,
+      "size": [
+        0.7200000286102295,
+        1.3724271059036255,
+        1.4500000476837158
+      ],
+      "views": 3,
+      "file": "images/prop-grave.webp"
+    },
+    {
+      "id": "prop-coffin",
+      "name": "浮雕石棺",
+      "category": "prop",
+      "triangles": 1964,
+      "calls": 5,
+      "size": [
+        1.2797155380249023,
+        0.6303255558013916,
+        2.325000047683716
+      ],
+      "views": 3,
+      "file": "images/prop-coffin.webp"
+    },
+    {
+      "id": "prop-ruin",
+      "name": "残破拱窗",
+      "category": "prop",
+      "triangles": 652,
+      "calls": 4,
+      "size": [
+        2.7115288972854614,
+        3.222639314830303,
+        1.0983378887176514
+      ],
+      "views": 3,
+      "file": "images/prop-ruin.webp"
+    },
+    {
+      "id": "prop-pillar",
+      "name": "槽纹石柱",
+      "category": "prop",
+      "triangles": 648,
+      "calls": 5,
+      "size": [
+        1.2000000476837158,
+        3,
+        1.2000000476837158
+      ],
+      "views": 3,
+      "file": "images/prop-pillar.webp"
+    },
+    {
+      "id": "prop-urn",
+      "name": "双耳陶罐",
+      "category": "prop",
+      "triangles": 1280,
+      "calls": 3,
+      "size": [
+        1.010493278503418,
+        0.9399999976158142,
+        0.7400000095367432
+      ],
+      "views": 3,
+      "file": "images/prop-urn.webp"
+    },
+    {
+      "id": "prop-egg",
+      "name": "虫巢卵囊",
+      "category": "prop",
+      "triangles": 2124,
+      "calls": 3,
+      "size": [
+        1.5868749022483826,
+        1.1216247379779816,
+        0.9522994458675385
+      ],
+      "views": 3,
+      "file": "images/prop-egg.webp"
+    },
+    {
+      "id": "prop-obelisk",
+      "name": "铭文尖碑",
+      "category": "prop",
+      "triangles": 388,
+      "calls": 4,
+      "size": [
+        1.0499999523162842,
+        3.1500000953674316,
+        1.0499999523162842
+      ],
+      "views": 3,
+      "file": "images/prop-obelisk.webp"
+    },
+    {
+      "id": "prop-tree",
+      "name": "扭曲林木",
+      "category": "prop",
+      "triangles": 2250,
+      "calls": 3,
+      "size": [
+        4.659231901168823,
+        5.582160010933876,
+        4.390763998031616
+      ],
+      "views": 3,
+      "file": "images/prop-tree.webp"
+    },
+    {
+      "id": "prop-web",
+      "name": "悬挂蛛网",
+      "category": "prop",
+      "triangles": 282,
+      "calls": 4,
+      "size": [
+        2.726107358932495,
+        2.6081418097019196,
+        0.1784636452794075
+      ],
+      "views": 3,
+      "file": "images/prop-web.webp"
+    },
+    {
+      "id": "prop-hut",
+      "name": "茅草木屋",
+      "category": "prop",
+      "triangles": 1000,
+      "calls": 3,
+      "size": [
+        2.550044298171997,
+        2.875,
+        2.7323999404907227
+      ],
+      "views": 3,
+      "file": "images/prop-hut.webp"
+    },
+    {
+      "id": "prop-totem",
+      "name": "兽骨图腾",
+      "category": "prop",
+      "triangles": 8106,
+      "calls": 5,
+      "size": [
+        0.7757915258407593,
+        2.5,
+        0.5162819027900696
+      ],
+      "views": 3,
+      "file": "images/prop-totem.webp"
+    },
+    {
+      "id": "prop-bones",
+      "name": "散落遗骸",
+      "category": "prop",
+      "triangles": 3720,
+      "calls": 3,
+      "size": [
+        0.9623507857322693,
+        0.5446000024676323,
+        1.091366171836853
+      ],
+      "views": 3,
+      "file": "images/prop-bones.webp"
+    },
+    {
+      "id": "prop-spike",
+      "name": "刑罚尖桩",
+      "category": "prop",
+      "triangles": 834,
+      "calls": 3,
+      "size": [
+        1.2000000476837158,
+        2.5,
+        0.3799999952316284
+      ],
+      "views": 3,
+      "file": "images/prop-spike.webp"
+    },
+    {
+      "id": "prop-barricade",
+      "name": "绑扎拒马",
+      "category": "prop",
+      "triangles": 834,
+      "calls": 3,
+      "size": [
+        2,
+        2.079061709344387,
+        0.8265213668346405
+      ],
+      "views": 3,
+      "file": "images/prop-barricade.webp"
+    },
+    {
+      "id": "prop-crystal",
+      "name": "矿物晶簇",
+      "category": "prop",
+      "triangles": 288,
+      "calls": 3,
+      "size": [
+        2.208772897720337,
+        2.7739722430706024,
+        1.1362541913986206
+      ],
+      "views": 3,
+      "file": "images/prop-crystal.webp"
+    },
+    {
+      "id": "prop-tent",
+      "name": "旧帆布帐篷",
+      "category": "prop",
+      "triangles": 1028,
+      "calls": 5,
+      "size": [
+        5.869999885559082,
+        3.4000000953674316,
+        4.670000076293945
+      ],
+      "views": 3,
+      "file": "images/prop-tent.webp"
+    },
+    {
+      "id": "prop-crate",
+      "name": "加固木箱",
+      "category": "prop",
+      "triangles": 264,
+      "calls": 3,
+      "size": [
+        1.1150000095367432,
+        1.0599999567493796,
+        1.1549999713897705
+      ],
+      "views": 3,
+      "file": "images/prop-crate.webp"
+    },
+    {
+      "id": "prop-workbench",
+      "name": "木制工作台",
+      "category": "prop",
+      "triangles": 196,
+      "calls": 2,
+      "size": [
+        2.319999933242798,
+        0.884999985806644,
+        1.125
+      ],
+      "views": 3,
+      "file": "images/prop-workbench.webp"
+    },
+    {
+      "id": "prop-cask",
+      "name": "箍铁木桶",
+      "category": "prop",
+      "triangles": 860,
+      "calls": 3,
+      "size": [
+        0.9200000166893005,
+        1.0325000286102295,
+        0.9200000166893005
+      ],
+      "views": 3,
+      "file": "images/prop-cask.webp"
+    },
+    {
+      "id": "prop-statue",
+      "name": "守卫石像",
+      "category": "prop",
+      "triangles": 2340,
+      "calls": 3,
+      "size": [
+        1.409999966621399,
+        3.259999990463257,
+        1.1399999856948853
+      ],
+      "views": 3,
+      "file": "images/prop-statue.webp"
+    },
+    {
+      "id": "prop-chest",
+      "name": "包铁储物箱",
+      "category": "prop",
+      "triangles": 1684,
+      "calls": 5,
+      "size": [
+        1.9199999570846558,
+        1.2582728769630194,
+        1.2647727727890015
+      ],
+      "views": 3,
+      "file": "images/prop-chest.webp"
+    },
+    {
+      "id": "prop-corpse",
+      "name": "旅者遗骸",
+      "category": "prop",
+      "triangles": 2488,
+      "calls": 4,
+      "size": [
+        0.8095961809158325,
+        0.3108334541320801,
+        2.0798035860061646
+      ],
+      "views": 3,
+      "file": "images/prop-corpse.webp"
+    },
+    {
+      "id": "equipment-melee-sword",
+      "name": "长剑",
+      "category": "equipment",
+      "triangles": 432,
+      "calls": 5,
+      "size": [
+        0.25,
+        0.06941157206892967,
+        1.2607639133930206
+      ],
+      "views": 3,
+      "file": "images/equipment-melee-sword.webp"
+    },
+    {
+      "id": "equipment-melee-axe",
+      "name": "战斧",
+      "category": "equipment",
+      "triangles": 164,
+      "calls": 3,
+      "size": [
+        0.3515441492199898,
+        0.08200000074505805,
+        1.037183358669281
+      ],
+      "views": 3,
+      "file": "images/equipment-melee-axe.webp"
+    },
+    {
+      "id": "equipment-melee-mace",
+      "name": "钉锤",
+      "category": "equipment",
+      "triangles": 396,
+      "calls": 4,
+      "size": [
+        0.35961633920669556,
+        0.34201546013355255,
+        1.0331958043575287
+      ],
+      "views": 3,
+      "file": "images/equipment-melee-mace.webp"
+    },
+    {
+      "id": "equipment-melee-spear",
+      "name": "长矛",
+      "category": "equipment",
+      "triangles": 112,
+      "calls": 4,
+      "size": [
+        0.144,
+        0.09200000000000003,
+        2.1999999999999993
+      ],
+      "views": 3,
+      "file": "images/equipment-melee-spear.webp"
+    },
+    {
+      "id": "equipment-melee-claw",
+      "name": "拳刃",
+      "category": "equipment",
+      "triangles": 192,
+      "calls": 3,
+      "size": [
+        0.20000000298023224,
+        0.035999998450279236,
+        0.5760935246944427
+      ],
+      "views": 3,
+      "file": "images/equipment-melee-claw.webp"
+    },
+    {
+      "id": "equipment-hero-shield",
+      "name": "盾牌",
+      "category": "equipment",
+      "triangles": 760,
+      "calls": 4,
+      "size": [
+        0.5469299589957806,
+        0.743293285369873,
+        0.18229133902141106
+      ],
+      "views": 3,
+      "file": "images/equipment-hero-shield.webp"
+    },
+    {
+      "id": "equipment-hero-staff",
+      "name": "法杖",
+      "category": "equipment",
+      "triangles": 1304,
+      "calls": 4,
+      "size": [
+        0.25624074786901474,
+        1.9829569816589356,
+        0.11840000152587891
+      ],
+      "views": 3,
+      "file": "images/equipment-hero-staff.webp"
+    },
+    {
+      "id": "equipment-hero-bow",
+      "name": "弓",
+      "category": "equipment",
+      "triangles": 376,
+      "calls": 4,
+      "size": [
+        0.07,
+        1.3547786474227905,
+        0.2371540255844593
+      ],
+      "views": 3,
+      "file": "images/equipment-hero-bow.webp"
+    },
+    {
+      "id": "equipment-hero-crossbow",
+      "name": "弩",
+      "category": "equipment",
+      "triangles": 204,
+      "calls": 4,
+      "size": [
+        0.7379114031791687,
+        0.07,
+        0.6099999999999999
+      ],
+      "views": 3,
+      "file": "images/equipment-hero-crossbow.webp"
+    },
+    {
+      "id": "equipment-hero-javelin",
+      "name": "标枪",
+      "category": "equipment",
+      "triangles": 304,
+      "calls": 4,
+      "size": [
+        0.12,
+        0.05000000000000006,
+        1.9599999999999995
+      ],
+      "views": 3,
+      "file": "images/equipment-hero-javelin.webp"
+    },
+    {
+      "id": "equipment-hero-knife",
+      "name": "飞刀",
+      "category": "equipment",
+      "triangles": 304,
+      "calls": 4,
+      "size": [
+        0.12,
+        0.05000000000000006,
+        0.97
+      ],
+      "views": 3,
+      "file": "images/equipment-hero-knife.webp"
+    },
+    {
+      "id": "equipment-hero-axe",
+      "name": "飞斧",
+      "category": "equipment",
+      "triangles": 576,
+      "calls": 4,
+      "size": [
+        0.44886029635634106,
+        0.06169917488098144,
+        0.8995455145785765
+      ],
+      "views": 3,
+      "file": "images/equipment-hero-axe.webp"
+    },
+    {
+      "id": "objective-grave",
+      "name": "任务墓碑",
+      "category": "interactive",
+      "triangles": 392,
+      "calls": 5,
+      "size": [
+        3,
+        1.8782911717891693,
+        3
+      ],
+      "views": 3,
+      "file": "images/objective-grave.webp"
+    },
+    {
+      "id": "objective-cage",
+      "name": "囚笼与被囚者",
+      "category": "interactive",
+      "triangles": 10000,
+      "calls": 34,
+      "size": [
+        3,
+        2.2399999999999998,
+        3
+      ],
+      "views": 3,
+      "file": "images/objective-cage.webp"
+    },
+    {
+      "id": "objective-chest",
+      "name": "任务遗物箱",
+      "category": "interactive",
+      "triangles": 1844,
+      "calls": 7,
+      "size": [
+        3,
+        1.2385219287872313,
+        3
+      ],
+      "views": 3,
+      "file": "images/objective-chest.webp"
+    },
+    {
+      "id": "objective-altar",
+      "name": "古书祭坛",
+      "category": "interactive",
+      "triangles": 268,
+      "calls": 8,
+      "size": [
+        3,
+        1.4889017366450434,
+        3
+      ],
+      "views": 3,
+      "file": "images/objective-altar.webp"
+    },
+    {
+      "id": "objective-forge",
+      "name": "地狱铁砧",
+      "category": "interactive",
+      "triangles": 348,
+      "calls": 7,
+      "size": [
+        3,
+        1.7950000059604645,
+        3
+      ],
+      "views": 3,
+      "file": "images/objective-forge.webp"
+    },
+    {
+      "id": "objective-ice",
+      "name": "冰封囚牢",
+      "category": "interactive",
+      "triangles": 168,
+      "calls": 4,
+      "size": [
+        3,
+        2.6,
+        3
+      ],
+      "views": 3,
+      "file": "images/objective-ice.webp"
+    },
+    {
+      "id": "objective-seal",
+      "name": "封印祭坛",
+      "category": "interactive",
+      "triangles": 540,
+      "calls": 8,
+      "size": [
+        3,
+        1.994999998807907,
+        3
+      ],
+      "views": 3,
+      "file": "images/objective-seal.webp"
+    },
+    {
+      "id": "objective-siege",
+      "name": "攻城投石机",
+      "category": "interactive",
+      "triangles": 1224,
+      "calls": 20,
+      "size": [
+        3,
+        2.2843917652423333,
+        3
+      ],
+      "views": 3,
+      "file": "images/objective-siege.webp"
+    },
+    {
+      "id": "interactive-loot-chest",
+      "name": "战利品宝箱 · 闭合与开启",
+      "category": "interactive",
+      "triangles": 1216,
+      "calls": 13,
+      "size": [
+        1.65,
+        1.075700000524521,
+        1.1590000009536743
+      ],
+      "views": 3,
+      "file": "images/interactive-loot-chest.webp"
+    },
+    {
+      "id": "interactive-waypoint",
+      "name": "营地传送点",
+      "category": "interactive",
+      "triangles": 1680,
+      "calls": 9,
+      "size": [
+        5.5,
+        1.3899999946355819,
+        5
+      ],
+      "views": 3,
+      "file": "images/interactive-waypoint.webp"
+    },
+    {
+      "id": "interactive-mystery-portal",
+      "name": "神秘传送门",
+      "category": "interactive",
+      "triangles": 2272,
+      "calls": 11,
+      "size": [
+        4.74,
+        2.4399999809265136,
+        4.7
+      ],
+      "views": 3,
+      "file": "images/interactive-mystery-portal.webp"
+    },
+    {
+      "id": "interactive-portal",
+      "name": "关卡与回城传送门",
+      "category": "interactive",
+      "triangles": 3744,
+      "calls": 11,
+      "size": [
+        3,
+        2.784999952316284,
+        3
+      ],
+      "views": 3,
+      "file": "images/interactive-portal.webp"
+    },
+    {
+      "id": "interactive-shrine",
+      "name": "净化祭坛",
+      "category": "interactive",
+      "triangles": 568,
+      "calls": 8,
+      "size": [
+        3,
+        2.6049999839067457,
+        3
+      ],
+      "views": 3,
+      "file": "images/interactive-shrine.webp"
+    },
+    {
+      "id": "interactive-corpse",
+      "name": "神秘旅者遗骸",
+      "category": "interactive",
+      "triangles": 2496,
+      "calls": 5,
+      "size": [
+        0.8095961809158325,
+        1.3346029114723206,
+        2.0798035860061646
+      ],
+      "views": 3,
+      "file": "images/interactive-corpse.webp"
+    },
+    {
+      "id": "scene-camp",
+      "name": "罗格营地",
+      "category": "scene",
+      "triangles": 75076,
+      "calls": 91,
+      "seed": 20260929,
+      "description": "营地服务、帐篷与石铺小径",
+      "views": 2,
+      "file": "images/scene-camp.webp"
+    },
+    {
+      "id": "scene-01",
+      "name": "邪恶洞窟",
+      "category": "scene",
+      "triangles": 368560,
+      "calls": 65,
+      "seed": 20260929,
+      "description": "潮湿岩洞 · 盘根与兽骨",
+      "views": 2,
+      "file": "images/scene-01.webp"
+    },
+    {
+      "id": "scene-02",
+      "name": "埋骨之地",
+      "category": "scene",
+      "triangles": 151048,
+      "calls": 69,
+      "seed": 20260930,
+      "description": "荒凉墓园 · 铁栅与枯树",
+      "views": 2,
+      "file": "images/scene-02.webp"
+    },
+    {
+      "id": "scene-03",
+      "name": "崔斯特瑞姆",
+      "category": "scene",
+      "triangles": 342000,
+      "calls": 106,
+      "seed": 20260931,
+      "description": "焚毁街巷 · 教堂与水井",
+      "views": 2,
+      "file": "images/scene-03.webp"
+    },
+    {
+      "id": "scene-04",
+      "name": "遗忘之塔",
+      "category": "scene",
+      "triangles": 196630,
+      "calls": 80,
+      "seed": 20260932,
+      "description": "伯爵地牢 · 红毯与窖藏",
+      "views": 2,
+      "file": "images/scene-04.webp"
+    },
+    {
+      "id": "scene-05",
+      "name": "地下墓穴",
+      "category": "scene",
+      "triangles": 343804,
+      "calls": 90,
+      "seed": 20260933,
+      "description": "修道院墓穴 · 灵柩与毒火",
+      "views": 2,
+      "file": "images/scene-05.webp"
+    },
+    {
+      "id": "scene-06",
+      "name": "鲁高因下水道",
+      "category": "scene",
+      "triangles": 243698,
+      "calls": 77,
+      "seed": 20260934,
+      "description": "下水道 · 污水渠与砖拱",
+      "views": 2,
+      "file": "images/scene-06.webp"
+    },
+    {
+      "id": "scene-07",
+      "name": "死亡之殿",
+      "category": "scene",
+      "triangles": 174510,
+      "calls": 73,
+      "seed": 20260935,
+      "description": "沙埋墓室 · 彩绘石棺",
+      "views": 2,
+      "file": "images/scene-07.webp"
+    },
+    {
+      "id": "scene-08",
+      "name": "蛆虫巢穴",
+      "category": "scene",
+      "triangles": 344096,
+      "calls": 51,
+      "seed": 20260936,
+      "description": "砂岩虫道 · 卵囊与虫后巢",
+      "views": 2,
+      "file": "images/scene-08.webp"
+    },
+    {
+      "id": "scene-09",
+      "name": "神秘避难所",
+      "category": "scene",
+      "triangles": 27740,
+      "calls": 49,
+      "seed": 20260937,
+      "description": "星海十字桥 · 星仪与符文",
+      "views": 2,
+      "file": "images/scene-09.webp"
+    },
+    {
+      "id": "scene-10",
+      "name": "塔拉夏古墓",
+      "category": "scene",
+      "triangles": 156964,
+      "calls": 84,
+      "seed": 20260938,
+      "description": "七墓符印 · 赫拉迪克墓门",
+      "views": 2,
+      "file": "images/scene-10.webp"
+    },
+    {
+      "id": "scene-11",
+      "name": "蜘蛛森林",
+      "category": "scene",
+      "triangles": 317110,
+      "calls": 48,
+      "seed": 20260939,
+      "description": "湿林水岸 · 巨蛛结网",
+      "views": 2,
+      "file": "images/scene-11.webp"
+    },
+    {
+      "id": "scene-12",
+      "name": "剥皮丛林",
+      "category": "scene",
+      "triangles": 509384,
+      "calls": 64,
+      "seed": 20260940,
+      "description": "丛林村寨 · 草屋与图腾",
+      "views": 2,
+      "file": "images/scene-12.webp"
+    },
+    {
+      "id": "scene-13",
+      "name": "库拉斯特商场",
+      "category": "scene",
+      "triangles": 311324,
+      "calls": 89,
+      "seed": 20260941,
+      "description": "失落商场 · 拱廊与残破神殿",
+      "views": 2,
+      "file": "images/scene-13.webp"
+    },
+    {
+      "id": "scene-14",
+      "name": "崔凡克",
+      "category": "scene",
+      "triangles": 113544,
+      "calls": 88,
+      "seed": 20260942,
+      "description": "高阶神殿 · 阶台与强制之球",
+      "views": 2,
+      "file": "images/scene-14.webp"
+    },
+    {
+      "id": "scene-15",
+      "name": "憎恨囚牢",
+      "category": "scene",
+      "triangles": 277478,
+      "calls": 91,
+      "seed": 20260943,
+      "description": "鲜血囚牢 · 血池与祭坛",
+      "views": 2,
+      "file": "images/scene-15.webp"
+    },
+    {
+      "id": "scene-16",
+      "name": "外侧草原",
+      "category": "scene",
+      "triangles": 322192,
+      "calls": 54,
+      "seed": 20260944,
+      "description": "堡垒断崖 · 灰烬与焦骨",
+      "views": 2,
+      "file": "images/scene-16.webp"
+    },
+    {
+      "id": "scene-17",
+      "name": "绝望平原",
+      "category": "scene",
+      "triangles": 282800,
+      "calls": 54,
+      "seed": 20260945,
+      "description": "荒芜平原 · 灵魂尖碑",
+      "views": 2,
+      "file": "images/scene-17.webp"
+    },
+    {
+      "id": "scene-18",
+      "name": "火焰之河",
+      "category": "scene",
+      "triangles": 20820,
+      "calls": 24,
+      "seed": 20260946,
+      "description": "熔岩长堤 · 铁链与巨砧",
+      "views": 2,
+      "file": "images/scene-18.webp"
+    },
+    {
+      "id": "scene-19",
+      "name": "混沌避难所",
+      "category": "scene",
+      "triangles": 195692,
+      "calls": 79,
+      "seed": 20260947,
+      "description": "混沌教堂 · 十字翼廊与封印",
+      "views": 2,
+      "file": "images/scene-19.webp"
+    },
+    {
+      "id": "scene-20",
+      "name": "恐惧之心",
+      "category": "scene",
+      "triangles": 33308,
+      "calls": 43,
+      "seed": 20260948,
+      "description": "混沌核心 · 五芒星祭场",
+      "views": 2,
+      "file": "images/scene-20.webp"
+    },
+    {
+      "id": "scene-21",
+      "name": "血腥丘陵",
+      "category": "scene",
+      "triangles": 305482,
+      "calls": 61,
+      "seed": 20260949,
+      "description": "血腥战线 · 城垒与投石机",
+      "views": 2,
+      "file": "images/scene-21.webp"
+    },
+    {
+      "id": "scene-22",
+      "name": "冰冻高地",
+      "category": "scene",
+      "triangles": 376522,
+      "calls": 60,
+      "seed": 20260950,
+      "description": "风雪高地 · 木寨与囚笼",
+      "views": 2,
+      "file": "images/scene-22.webp"
+    },
+    {
+      "id": "scene-23",
+      "name": "冰河",
+      "category": "scene",
+      "triangles": 140586,
+      "calls": 51,
+      "seed": 20260951,
+      "description": "地下冰河 · 蓝冰裂隙与冰封安雅",
+      "views": 2,
+      "file": "images/scene-23.webp"
+    },
+    {
+      "id": "scene-24",
+      "name": "亚瑞特之巅",
+      "category": "scene",
+      "triangles": 27544,
+      "calls": 64,
+      "seed": 20260952,
+      "description": "圣山峰顶 · 三先祖与圆形祭坛",
+      "views": 2,
+      "file": "images/scene-24.webp"
+    },
+    {
+      "id": "scene-25",
+      "name": "世界之石大殿",
+      "category": "scene",
+      "triangles": 36532,
+      "calls": 40,
+      "seed": 20260953,
+      "description": "世界之石 · 赤红晶体与王座长廊",
+      "views": 2,
+      "file": "images/scene-25.webp"
+    },
+    {
+      "id": "scene-26",
+      "name": "隐藏奶牛关",
+      "category": "scene",
+      "triangles": 258994,
+      "calls": 68,
+      "seed": 20260954,
+      "description": "血色牧场 · 木栅与猩红月光",
+      "views": 2,
+      "file": "images/scene-26.webp"
+    },
+    {
+      "id": "scene-27",
+      "name": "超级迪亚波罗",
+      "category": "scene",
+      "triangles": 14698,
+      "calls": 39,
+      "seed": 20260955,
+      "description": "末日祭坛 · 恐惧之王的孤绝领域",
+      "views": 2,
+      "file": "images/scene-27.webp"
+    },
+    {
+      "id": "scene-28",
+      "name": "尼拉塞克神殿",
+      "category": "scene",
+      "triangles": 93658,
+      "calls": 66,
+      "seed": 20260956,
+      "description": "尼拉塞克神殿 · 亡者庭院与痛苦大厅",
+      "views": 2,
+      "file": "images/scene-28.webp"
+    },
+    {
+      "id": "scene-29",
+      "name": "魔神挑战",
+      "category": "scene",
+      "triangles": 14744,
+      "calls": 36,
+      "seed": 20260957,
+      "description": "六魔神祭坛 · 赤焰封印与地狱火炬",
+      "views": 2,
+      "file": "images/scene-29.webp"
+    }
+  ]
+}

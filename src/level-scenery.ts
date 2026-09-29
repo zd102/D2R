@@ -7,6 +7,7 @@ import { sceneDesign, type SceneryProp } from './scene-design.ts';
 import { sceneryRandom, sceneryTexture, sceneryDecal } from './scenery-textures.ts';
 import { rotateLayout, rotateMapPoint } from './map-orientation.ts';
 import { actorMaterial, contourGeometry } from './actor-modeling.ts';
+import { createSceneryLibrary } from './scenery-props.ts';
 
 type SceneHost = {
   level: Level; layout: LevelLayout; scene: THREE.Scene; staticGroup: THREE.Group; ground: THREE.Mesh; grid: PF.Grid; floorCells: MapPoint[];
@@ -119,73 +120,12 @@ function buildAuthoredScenery(world: SceneHost) {
     mesh(geometry.crystal,mat,x-.45,h*.2,z-.3,h*.12,h*.28,h*.15,.6);
     solid(x,z,h*.48,h*.48);
   };
+  const sceneryModel = createSceneryLibrary({stone,wall,dark,wood,trim,bone,iron,foliage,ice,leaves,silk,cloth:red});
   const prop = (kind: SceneryProp,x: number,z: number,scale = 1,angle = 0) => {
-    // Geometry is placed outside navigation or inside a checked solid footprint.
-    const h = (1.5+random())*scale;
-    if (kind === 'crag') {
-      mesh(geometry.rock,stone,x,h*.36,z,scale*1.2,h*.6,scale*.9,angle);
-      mesh(geometry.rock,dark,x+.6*scale,.25,z+.4*scale,.55*scale,.5,.5*scale,angle+1);
-      if (design.surface === 'snow') mesh(geometry.rock,bone,x,h*.76,z,.9*scale,.15,.7*scale,angle);
-    } else if (kind === 'root' || kind === 'tree') {
-      const tall = kind === 'tree' ? 1.65 : 1;
-      beam(wood,[x,0,z],[x+.25*scale,h*tall,z+.1],.22*scale);
-      for (let i = 0; i < 4; i++) {
-        const a = angle+i*1.57, dx = Math.cos(a)*scale, dz = Math.sin(a)*scale;
-        beam(wood,[x,.6,z],[x+dx*1.1,.04,z+dz],.09*scale);
-        beam(wood,[x,h*.65*tall,z],[x+dx,h*tall,z+dz],.1*scale);
-        if (kind === 'tree') {
-          for(let leaf=0;leaf<3;leaf++) {
-            const b=a+(leaf-1)*.45,card=mesh(geometry.plane,leaves,x+Math.cos(b)*1.2*scale,h*tall+(leaf-1)*.3,z+Math.sin(b)*1.2*scale,2.3*scale,3.3*scale,1,b);
-            card.rotation.set(-Math.PI/2+.35,b,Math.sin(b)*.3);
-          }
-        }
-      }
-    } else if (kind === 'grave') {
-      box(dark,x,.06,z+.3,.7*scale,.12,1.45*scale,angle);
-      box(stone,x,.6*scale,z,.65*scale,1.2*scale,.25,angle);
-      mesh(geometry.orb,stone,x,1.12*scale,z,.32*scale,.3*scale,.14,angle);
-      box(dark,x,.67*scale,z+.14,.06,.5,.025); box(dark,x,.79*scale,z+.14,.3,.06,.025);
-    } else if (kind === 'coffin') {
-      box(dark,x,.2,z,1.2*scale,.4,2.3*scale,angle); box(stone,x,.55,z,scale,.5,2.1*scale,angle);
-      box(trim,x,.84,z,1.25*scale,.12,2.35*scale,angle);
-      const effigy = mesh(geometry.orb,bone,x,.96,z,.28,.15,.75,angle); effigy.rotation.y=angle;
-    } else if (kind === 'ruin') {
-      box(wall,x,1.15*scale,z,2.5*scale,2.3*scale,.55,angle);
-      beam(wood,[x-1.4*scale,2.5*scale,z],[x,3.7*scale,z],.12); beam(wood,[x,3.7*scale,z],[x+1.4*scale,2.5*scale,z],.12);
-      box(dark,x,1.2*scale,z+.29,.65*scale,1.1*scale,.03,angle);
-      for (let i=0;i<3;i++) mesh(geometry.rock,stone,x+(random()-.5)*2,.15,z+.6+random(),.3,.3,.3);
-    } else if (kind === 'pillar') pylon(x,z,3*scale);
-    else if (kind === 'urn') {
-      mesh(geometry.urn,stone,x,0,z,scale,scale,scale);
-      ring(x,.12*scale,z,.21*scale,trim);ring(x,.73*scale,z,.245*scale,trim);
-    } else if (kind === 'egg') {
-      for(let i=0;i<3;i++) { const dx=(i-1)*.42*scale; mesh(geometry.orb,foliage,x+dx,.42*scale,z+Math.abs(i-1)*.25,.32*scale,.55*scale,.35*scale); }
-      for(let i=0;i<4;i++) beam(wood,[x-1,.05,z+i*.2],[x+1,.07,z+.7-i*.2],.025);
-    } else if (kind === 'obelisk') {
-      box(stone,x,.15,z,1.1*scale,.3,1.1*scale); box(wall,x,h*.55,z,.65*scale,h,.65*scale);
-      mesh(geometry.cone,trim,x,h+.45,z,.48*scale,.9,.48*scale);
-      for(let i=0;i<4;i++) box(trim,x,.6+i*.35,z+.334*scale,.16+i%2*.1,.07,.02);
-    } else if (kind === 'web') {
-      for(const side of [-1,1])beam(wood,[x+side*1.4*scale,0,z],[x+side*1.2*scale,2.5*scale,z],.06);
-      const web=mesh(geometry.plane,silk,x,1.3*scale,z,2.6*scale,2.6*scale,1);web.castShadow=false;
-    } else if (kind === 'hut') {
-      box(wood,x,.7,z,1.7*scale,1.4,1.7*scale); mesh(geometry.cone,foliage,x,2,z,1.5*scale,1.7,1.5*scale);
-      box(dark,x,.57,z+.87*scale,.65,1.05,.03);
-      for(const side of [-1,1])beam(wood,[x+side*.42,.02,z+.90*scale],[x+side*.42,1.26,z+.90*scale],.055);
-      beam(wood,[x-.45,1.26,z+.90*scale],[x+.45,1.26,z+.90*scale],.07);
-    } else if (kind === 'totem' || kind === 'spike') {
-      mesh(geometry.cone,kind==='spike'?dark:wood,x,h*.5,z,.25*scale,h,.25*scale);
-      if(kind==='totem') for(let i=0;i<3;i++) { mesh(geometry.orb,bone,x,.8+i*.5,z+.1,.32,.24,.22); box(dark,x,.84+i*.5,z+.3,.28,.065,.025); }
-      else beam(iron,[x-.6,h*.6,z],[x+.6,h*.6,z],.06);
-    } else if (kind === 'bones') {
-      mesh(geometry.orb,bone,x,.22,z,.24,.22,.29);
-      for(let i=0;i<3;i++) beam(bone,[x-.55+i*.14,.1,z+.3],[x+.4,.13,z+.8-i*.18],.04);
-    } else if (kind === 'barricade') {
-      for(let i=-1;i<=1;i++) { beam(wood,[x+i*.55,0,z+.25],[x+i*.55,1.7*scale,z-.3],.13); mesh(geometry.cone,wood,x+i*.55,1.83*scale,z-.3,.14,.4,.14); }
-      beam(wood,[x-1,.6,z],[x+1,.6,z],.1); beam(iron,[x-1,1.1,z],[x+1,1.1,z],.06);
-    } else crystal(x,z,2.5*scale);
-    if(!['web','bones','pillar','crystal'].includes(kind)) {
-      const [w,d] = kind==='coffin'?[1.25,2.35]:kind==='ruin'?[2.6,.7]:kind==='hut'?[1.8,1.8]:kind==='barricade'?[2,.9]:kind==='egg'?[1.5,1]:kind==='crag'?[1.8,1.6]:kind==='root'||kind==='tree'?[.65,.65]:[.8,.8];
+    const model=sceneryModel(kind);model.position.set(x,0,z);model.scale.setScalar(scale);model.rotation.y=angle;root.add(model);
+    if(design.surface==='snow'&&kind==='crag')mesh(geometry.rock,bone,x-.15*scale,1.55*scale,z,.65*scale,.10*scale,.58*scale,angle);
+    if(!['web','bones'].includes(kind)) {
+      const [w,d] = kind==='coffin'?[1.25,2.35]:kind==='ruin'?[2.6,.7]:kind==='hut'?[1.8,1.8]:kind==='barricade'?[2,.9]:kind==='egg'?[1.5,1]:kind==='crag'?[1.8,1.6]:kind==='root'||kind==='tree'?[.65,.65]:kind==='pillar'?[1.25,1.25]:kind==='crystal'?[1.2,1.2]:[.8,.8];
       solid(x,z,(Math.abs(Math.cos(angle))*w+Math.abs(Math.sin(angle))*d)*scale,(Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*d)*scale);
     }
   };
@@ -284,10 +224,10 @@ function buildAuthoredScenery(world: SceneHost) {
     for(const side of [-1,1])for(let i=0;i<5;i++){beam(mat,[x+side*2.5,0,z+i*.9],[x+side*2,1.7,z+i*.9],.16);beam(mat,[x+side*2,1.7,z+i*.9],[x+side*.8,2.5,z+i*.9],.12);}
   };
   const statue = (x:number,z:number,weapon:'axe'|'spear'|'sword') => {
-    mesh(geometry.column,stone,x,.2,z,.8,.4,.8); mesh(geometry.cone,stone,x,1.25,z,.65,1.8,.65);
-    box(stone,x,2.2,z,1.15,1,.55); mesh(geometry.orb,stone,x,3,z,.38,.43,.35);
-    beam(stone,[x-.7,2.2,z],[x+.7,2.2,z],.18); beam(trim,[x+.8,.8,z],[x+.8,3.4,z],.075);
-    if(weapon==='axe')box(trim,x+.9,3.15,z,.85,.45,.12);else mesh(geometry.cone,trim,x+.8,3.55,z,.17,.65,.1);
+    const model=sceneryModel('statue');model.position.set(x,0,z);root.add(model);
+    if(weapon==='axe')box(trim,x+.75,2.81,z+.08,.55,.35,.12);
+    else if(weapon==='sword')beam(trim,[x+.39,2.68,z+.08],[x+.89,2.68,z+.08],.045);
+    solid(x,z,1.4,1.3);
   };
   const canal = (x:number,z:number,length:number,color=palette.liquid) => {
     const liquid=material(color,.3);materials.push(liquid);box(liquid,x,.087,z,1.6,.02,length);

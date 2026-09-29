@@ -1,4 +1,4 @@
-import { loftGeometry as contourGeometry, sculptedHead, sculptedTorso, sculptedBeard } from './sculpted-surfaces.ts';
+import { loftGeometry as contourGeometry, sculptedHead, sculptedTorso, sculptedBeard, drapedCloth, insetLoftTop } from './sculpted-surfaces.ts';
 import * as THREE from 'three';
 import { actorMaterial, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
 import type { Actor } from './world.ts';
@@ -16,6 +16,23 @@ export function heroAction(id: string, ranged?: string, melee?: string): HeroAct
 }
 export function playHeroAction(actor: Actor, action: HeroAction, time: number, duration: number) {
   actor.group.userData.action = { action, time, duration: Math.max(.18, Math.min(1.1, duration)) };
+}
+
+export function createMercenaryActor(): Actor {
+  const actor=createHeroActor('paladin');actor.group.name='mercenary-mishan';
+  for(const name of ['hero-weapon','hero-shield','hero-staff','hero-javelin','hero-bow','hero-crossbow'])actor.group.getObjectByName(name)!.visible=false;
+  const materials=new Set<THREE.MeshStandardMaterial>();
+  actor.group.traverse(node=>{if(node instanceof THREE.Mesh&&node.material instanceof THREE.MeshStandardMaterial)materials.add(node.material);});
+  for(const material of materials){if(material.userData.surface==='cloth')material.color.setHex(0x71694f);if(material.userData.surface==='steel'){material.color.setHex(0x6d756f);material.roughness=.58;}}
+  const spear=new THREE.Group();spear.name='mercenary-spear';
+  const wood=actorMaterial(0x514131,'leather'),iron=actorMaterial(0x858e87,'steel');
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.031,1.9,10),wood);
+  const tip=new THREE.Mesh(plateGeometry([[0,.31],[.084,.08],[.032,-.16],[-.032,-.16],[-.084,.08]],.018,.006),iron);tip.position.y=1.03;
+  spear.add(shaft,tip);
+  for(const y of [-.11,.05,.90]){const socket=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.09,10),iron);socket.position.y=y;spear.add(socket);}
+  spear.traverse(node=>{if(node instanceof THREE.Mesh)node.castShadow=node.receiveShadow=true;});mergeActorParts(spear);
+  spear.position.set(0,0,.045);spear.rotation.x=.12;actor.group.getObjectByName('hero-weapon')!.parent!.add(spear);
+  return actor;
 }
 
 // Every actor owns its materials and geometries. Static pieces are merged within
@@ -49,13 +66,13 @@ export function createHeroActor(classId: ClassId): Actor {
   const trim=(p:THREE.Object3D,x:number,y:number,z:number,r:number,scaleZ=1)=>{
     const m=part(p,new THREE.TorusGeometry(r,.015,5,24),gold,x,y,z,1,1,scaleZ);m.rotation.x=Math.PI/2;return m;
   };
-  part(chest,sculptedTorso([[-.28,.18,.12],[-.19,.185,.13],[-.055,.155,.115],[.09,.22,.145],[.22,paladin?.27:.235,.13],[.29,.16,.105]],barbarian?.045:.016),paladin?fabric:skin,0,0,0);
+  part(chest,sculptedTorso([[-.28,.18,.12],[-.19,.185,.13],[-.055,.155,.115],[.09,.22,.145],[.22,paladin?.27:.235,.13],[.29,.16,.105]],barbarian?.065:.023),paladin?fabric:skin,0,0,0);
   profile(rig,leather,[[.19,.76],[.23,.84],[.20,.94]],0,0,0,.78);
   part(rig,geos.tube,leather,0,.94,0,.22,.075,.17);part(rig,geos.box,gold,0,.95,.174,.085,.085,.025);
   for(const side of [-1,1])part(rig,geos.box,gold,side*.16,.95,.12,.024,.065,.025);
   profile(chest,skin,[[.079,.28],[.077,.41]],0,0,0,.88);
   // Brow, cheek and jaw volumes read as a face even at the isometric camera distance.
-  part(head,sculptedHead(barbarian?1.10:necromancer?.94:1,necromancer?.012:0),skin,0,0,0);head.scale.setScalar(barbarian?.80:.75);
+  part(head,sculptedHead(barbarian?1.10:necromancer?.94:1,necromancer?.017:0,amazon||sorceress||assassin?'feminine':necromancer?'gaunt':druid?'feral':'veteran'),skin,0,0,0);head.scale.setScalar(barbarian?.80:.75);
   for(const side of [-1,1]) {
     const ear=part(head,plateGeometry([[-.009,-.030],[.012,-.036],[.021,-.003],[.015,.031],[-.009,.027]],.007,.005),skin,side*.135,.026,-.004);
     ear.scale.x=side;
@@ -78,7 +95,7 @@ export function createHeroActor(classId: ClassId): Actor {
     const scalp=new THREE.SphereGeometry(1,24,14,0,Math.PI*2,0,Math.PI*.66),vertices=scalp.attributes.position;
     for(let i=0;i<vertices.count;i++) {
       const x=vertices.getX(i),y=vertices.getY(i),z=vertices.getZ(i),strand=1+.012*Math.sin(Math.atan2(x,z)*22+y*4);
-      vertices.setXYZ(i,x*.158*strand,y*.208+.064+Math.max(0,z)*Math.max(0,.35-y)*.16,z*.144*strand-.006);
+      vertices.setXYZ(i,x*.158*strand,y*.208+.064+Math.max(0,z)*Math.max(0,.35-y)*.16,z*(z<0?.163:.144)*strand-.008);
     }
     scalp.computeVertexNormals();part(head,scalp,hair,0,0,0);
   }
@@ -144,7 +161,7 @@ export function createHeroActor(classId: ClassId): Actor {
   }
   if(druid){
     profile(chest,fabric,[[.20,-.22],[.25,.06],[.27,.23]],0,0,0,.9);part(head,sculptedBeard(true),hair,0,0,0);
-    for(const side of [-1,1]){ball(chest,leather,side*.27,.20,0,.14,.13,.16);bar(head,light,[side*.1,.23,0],[side*.22,.42,-.02],.024);bar(head,light,[side*.17,.34,-.01],[side*.28,.37,.08],.016);}
+    for(const side of [-1,1]){part(chest,contourGeometry([[-.11,.10,.11],[0,.14,.15],[.08,.12,.12],[.13,.04,.07]],14,.10),hair,side*.27,.20,0).rotation.z=side*.25;bar(head,light,[side*.1,.23,0],[side*.22,.42,-.02],.024);bar(head,light,[side*.17,.34,-.01],[side*.28,.37,.08],.016);}
     for(const side of [-1,1])for(let i=0;i<5;i++) {
       const lock=part(chest,contourGeometry([[-.09,.008,.009],[0,.032,.033],[.065,.023,.028]],8,.12),hair,side*(.18+i*.026),.21-i*.014,.10-(i%2)*.04);lock.rotation.z=side*.35;
     }
@@ -166,17 +183,19 @@ export function createHeroActor(classId: ClassId): Actor {
   const knees:THREE.Group[]=[],elbows:THREE.Group[]=[],hands:THREE.Group[]=[];
   for(const [leg,side] of [[leftLeg,-1],[rightLeg,1]] as const) {
     leg.position.set(side*(paladin?.14:.125),.85,0);rig.add(leg);
-    profile(leg,sorceress?fabric:paladin?leather:skin,[[.08,-.35],[.106,-.18],[.113,-.04],[.1,0]],0,0,0,.88);
+    profile(leg,paladin?leather:barbarian||amazon?skin:fabric,[[.068,-.35],[.103,-.22],[.112,-.09],[.10,0]],0,0,0,.86);
     const knee=new THREE.Group();knee.position.y=-.36;leg.add(knee);knees.push(knee);
     part(knee,contourGeometry([[-.065,.048,.039],[0,.074,.062,.015],[.06,.060,.043]],12),paladin?steel:leather,0,0,.025);
     profile(knee,paladin?steel:leather,[[.058,-.39],[.066,-.26],[.09,-.11],[.076,-.015]],0,0,0,.89);
-    ball(knee,leather,0,-.405,.055,.075,.066,.15);
-    if(paladin){part(knee,geos.box,gold,0,-.15,.074,.022,.27,.016);ball(knee,steel,0,-.404,.085,.082,.035,.145);}
-    else for(let i=0;i<3;i++){part(knee,geos.box,bronze,0,-.09-i*.10,.073,.10,.018,.015);}
+    part(knee,contourGeometry([[-.463,.062,.142,.063],[-.426,.075,.151,.065],[-.39,.069,.124,.047],[-.33,.052,.068,.007]],12),leather,0,0,0);
+    if(paladin){part(knee,geos.box,gold,0,-.15,.074,.022,.27,.016);for(let lame=0;lame<3;lame++)part(knee,plateGeometry([[-.071,-.024],[.071,-.024],[.065,.024],[-.065,.024]],.012,.005),steel,0,-.40,.07+lame*.045).rotation.x=-1.32;}
+    else for(let i=0;i<3;i++){part(knee,geos.box,leather,0,-.09-i*.10,.073,.10,.022,.015);part(knee,geos.box,bronze,side*.048,-.09-i*.10,.067,.016,.020,.020);}
   }
   for(const [arm,side] of [[leftArm,-1],[rightArm,1]] as const) {
     arm.position.set(side*(paladin?.31:.265),.20,0);chest.add(arm);
-    part(arm,contourGeometry([[-.28,.052,.047,.018],[-.19,.065,.065,.015],[-.10,.082,.069,.01],[-.02,.091,.084],[.055,.072,.068],[.09,.025,.033]],16),paladin?leather:skin,0,0,0);
+    part(arm,insetLoftTop(contourGeometry([[-.28,.048,.047,.018],[-.20,.059,.059,.021],[-.13,.078,.073,.025],[-.035,.086,.080,-.006],[.035,.076,.072,-.013],[.09,.030,.036]],16),-side*.09,0,.09),paladin?leather:druid||necromancer?fabric:skin,0,0,0);
+    if(druid||necromancer)part(arm,contourGeometry([[-.27,.057,.055,.018],[-.14,.088,.079,.02],[0,.096,.09],[.06,.067,.064]],14,.09),fabric,0,0,0);
+    if(assassin){for(let i=0;i<3;i++)part(arm,plateGeometry([[-.068,.04],[.065,.03],[.07,-.04],[-.06,-.05]],.015,.006),dark,side*.025,.005-i*.065,.068).rotation.y=side*.45;}
     if(paladin||amazon){
       part(arm,contourGeometry([[-.055,paladin?.137:.102,.125],[-.005,paladin?.15:.109,.135],[.065,paladin?.13:.095,.105],[.095,.055,.065]],10),paladin?steel:bronze,side*.024,0,-.006);
       trim(arm,side*.024,-.04,0,paladin?.135:.098,.85);
@@ -187,7 +206,7 @@ export function createHeroActor(classId: ClassId): Actor {
     profile(elbow,paladin?steel:leather,[[.04,-.225],[.064,-.14],[.069,-.045]],0,0,0,.82);
     trim(elbow,0,-.20,0,.047,.84);if(sorceress)trim(elbow,0,-.06,0,.065,.84);
     const hand=new THREE.Group();hand.position.set(0,-.25,.012);elbow.add(hand);hands.push(hand);
-    ball(hand,paladin?leather:skin,0,-.01,0,.046,.066,.042);
+    part(hand,contourGeometry([[-.065,.029,.029,.011],[-.025,.043,.030],[.022,.040,.027],[.052,.029,.023]],10),paladin?leather:skin,0,0,0);
     for(let i=0;i<3;i++)ball(hand,paladin?leather:skin,(i-1)*.018,-.037,.026,.012,.031,.014);
   }
   const weaponRoot=new THREE.Group();weaponRoot.name='hero-weapon';hands[1].add(weaponRoot);
@@ -236,9 +255,8 @@ export function createHeroActor(classId: ClassId): Actor {
   // Split cloth panels follow the hips; no rigid cone skirt hides leg articulation.
   const clothPanels:THREE.Mesh[]=[];
   const cloth=(parent:THREE.Object3D,width:number,height:number,x:number,y:number,z:number,mat:THREE.Material)=>{
-    const geo=new THREE.PlaneGeometry(width,height,8,12),pos=geo.attributes.position;
-    for(let i=0;i<pos.count;i++){const h=.5-pos.getY(i)/height;pos.setX(i,pos.getX(i)*(1+h*.3));pos.setZ(i,Math.sin(pos.getX(i)*35)*.018*h);}
-    geo.computeVertexNormals();const panel=part(parent,geo,mat,x,y,z);panel.material.side=THREE.DoubleSide;panel.userData.rest=Float32Array.from(pos.array);panel.userData.cloth=true;clothPanels.push(panel);return panel;
+    const geo=drapedCloth(width,height,x*3),pos=geo.attributes.position;
+    const panel=part(parent,geo,mat,x,y,z);panel.material.side=THREE.DoubleSide;panel.userData.rest=Float32Array.from(pos.array);panel.userData.cloth=true;clothPanels.push(panel);return panel;
   };
   let cape:THREE.Mesh|undefined;
   if(paladin){cape=cloth(chest,.49,.83,0,-.20,-.20,clothBack);cloth(rig,.25,.46,0,.67,.18,fabric);for(const side of [-1,1])cloth(rig,.018,.44,side*.10,.67,.191,gold);}

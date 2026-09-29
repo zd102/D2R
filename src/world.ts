@@ -8,7 +8,9 @@ import { CAMP } from './camp.ts';
 import type { ClassId } from './classes.ts';
 import { createHeroActor } from './hero-models.ts';
 import { createMonsterActor } from './monster-models.ts';
-import { createVillagerModel } from './villager-model.ts';
+import { createVillagerModel, type NpcRole } from './villager-model.ts';
+import { actorMaterial, plateGeometry } from './actor-modeling.ts';
+import { createSceneryLibrary, pavingSlabGeometry } from './scenery-props.ts';
 import { BOSSES, MONSTERS } from './bestiary.ts';
 import { clearWalk, clearObstacles, collisionGrid, NAV_SCALE, PLAYER_RADIUS, type Obstacle } from './navigation.ts';
 import { sceneDesign } from './scene-design.ts';
@@ -188,8 +190,11 @@ export class GameWorld {
     this.mergeStatic();
   }
   buildCamp() {
-    const paving = new THREE.MeshStandardMaterial({ color: 0x959d91, map: stoneTexture(), roughness: 1 });
-    const timber = mat(0x64675b), redCanvas = mat(0x923f4b), blueCanvas = mat(0x4b7885);
+    const pavingMap=sceneryTexture('flagstone',813),paving = new THREE.MeshStandardMaterial({ color: 0x898b7d, map:pavingMap,bumpMap:pavingMap,bumpScale:.045,roughness:1 });
+    const slab=pavingSlabGeometry(),timber = mat(0x64675b), redCanvas = actorMaterial(0x643f37,'cloth'), blueCanvas = actorMaterial(0x465353,'cloth');
+    redCanvas.side=blueCanvas.side=THREE.DoubleSide;
+    const campMaterials={stone,wall:edgeStone,dark:darkStone,wood:timber,trim:gold,bone,iron,foliage:moss,ice:steel,leaves:cloth,silk:cloth,cloth:redCanvas};
+    const scenery=createSceneryLibrary(campMaterials),blueScenery=createSceneryLibrary({...campMaterials,cloth:blueCanvas});
     timber.map=timber.bumpMap=sceneryTexture('bark',780);timber.bumpScale=.055;
     for (let z = -13; z <= 18; z++) for (let x = -15; x <= 15; x++) {
       this.floorCells.push({ x, z });
@@ -200,7 +205,7 @@ export class GameWorld {
         return Math.hypot(x - CAMP.spawn.x - t * dx, z - CAMP.spawn.z - t * dz) < 1.6;
       });
       if (Math.abs(x) <= 1 || onPath || facilities.some(p => Math.hypot(x - p.x, z - p.z) < 3)) {
-        mesh(this.staticGroup, box, paving, x, .015, z, .96, .13, .96);
+        const slabMesh=mesh(this.staticGroup,slab,paving,x,.015,z,.965,.13,.965);slabMesh.rotation.y=Math.sin(x*31+z*17)*.012;
       }
     }
     for (const x of [-16, 16]) {
@@ -221,20 +226,8 @@ export class GameWorld {
       if (column < 13 || column > 43 || row < 15 || row > 46) this.grid.setWalkableAt(column, row, false);
     }
     for (const [x, z, color] of [[-11, -1, redCanvas], [11, 1, blueCanvas], [-10, -9, blueCanvas], [9, -8, redCanvas]] as const) {
-      const tent = new THREE.Group(); tent.position.set(x, 0, z); this.staticGroup.add(tent);
-      const roof = new THREE.BufferGeometry();
-      roof.setAttribute('position', new THREE.Float32BufferAttribute([
-        -2.5, .3, -2, 0, 3.3, -2, -2.5, .3, 2, 0, 3.3, -2, 0, 3.3, 2, -2.5, .3, 2,
-        0, 3.3, -2, 2.5, .3, -2, 0, 3.3, 2, 2.5, .3, -2, 2.5, .3, 2, 0, 3.3, 2,
-      ], 3)); roof.computeVertexNormals();
-      const canvas = color.clone(); canvas.side = THREE.DoubleSide; mesh(tent, roof, canvas, 0, 0, 0);
-      for (const side of [-1, 1]) beam(tent, [0, 0, side * 2.1], [0, 3.4, side * 2.1], .08, timber);
-      mesh(tent, box, leather, 0, .1, 0, 4.8, .2, 3.8);
-      this.addCollider(x, z, 5, 4);
-      for (const side of [-1, 1]) {
-        beam(tent, [side * 2.4, .4, 2], [side * 3, .1, 2.7], .025, bone);
-        mesh(tent, cylinder, timber, side * 3, .2, 2.7, .07, .4, .07);
-      }
+      const tent=(color===blueCanvas?blueScenery:scenery)('tent');tent.position.set(x,0,z);this.staticGroup.add(tent);
+      this.addCollider(x,z,5,4);
     }
     for (let i = 0; i < 9; i++) {
       const angle = i / 9 * Math.PI * 2;
@@ -244,24 +237,26 @@ export class GameWorld {
     this.torch(0, -5, .6, true); this.addCollider(0, -5, 2, 2);
     for (const [x, z] of [[-13, 12], [12, 15], [0, -11]]) this.torch(x, z, 2, true);
     const { x, z } = CAMP.supply;
-    mesh(this.staticGroup, box, timber, x, .75, z, 2.4, .18, 1.2);
-    for (const side of [-1, 1]) mesh(this.staticGroup, box, timber, x + side, .35, z, .15, .7, 1);
+    const supplyBench=scenery('workbench');supplyBench.position.set(x,0,z);this.staticGroup.add(supplyBench);
     for (let i = 0; i < 4; i++) mesh(this.staticGroup, sphere, i % 2 ? blueCanvas : redCanvas, x - .75 + i * .5, 1, z, .16, .24, .16);
-    mesh(this.staticGroup, box, timber, x + 2.2, .55, z, 1.2, 1.1, 1.1);
+    const supplyCrate=scenery('crate');supplyCrate.position.set(x+2.2,0,z);this.staticGroup.add(supplyCrate);
     this.addCollider(x, z, 2.4, 1.2); this.addCollider(x + 2.2, z, 1.2, 1.1);
     const merchant = new THREE.Group(); merchant.position.set(CAMP.baseMerchant.x, 0, CAMP.baseMerchant.z); this.staticGroup.add(merchant);
-    mesh(merchant, box, timber, 0, .7, 0, 2, .16, 1);
-    for (const side of [-1, 1]) mesh(merchant, box, timber, side * .8, .35, 0, .15, .7, .8);
+    const counter=scenery('workbench');counter.scale.set(.86,.84,.88);merchant.add(counter);
     mesh(merchant, box, edgeStone, -.5, .9, 0, .6, .25, .5);
     mesh(merchant, cylinder, leather, .3, .9, 0, .3, .25, .3);
     const vendor = createVillagerModel(); vendor.name = 'base-merchant-body';
     vendor.position.z = -1; vendor.scale.setScalar(1.35); merchant.add(vendor);
     this.addCollider(CAMP.baseMerchant.x, CAMP.baseMerchant.z - .4, 2, 2);
+    for(const [role,point] of [['captain',CAMP.mercenaryMerchant],['artisan',CAMP.socketMerchant],['gambler',CAMP.gamblingMerchant],['healer',CAMP.supply]] as const) {
+      const npc=createVillagerModel(role satisfies NpcRole);npc.position.set(point.x,0,point.z-1.12);npc.scale.setScalar(1.35);this.staticGroup.add(npc);
+      this.addCollider(point.x,point.z-1.12,.62,.62);
+      if(role==='artisan'||role==='gambler') {
+        const prop=scenery(role==='artisan'?'cask':'crate');prop.position.set(point.x+1.1,0,point.z-.8);this.staticGroup.add(prop);this.addCollider(point.x+1.1,point.z-.8,.85,.85);
+      }
+    }
     const chest = new THREE.Group(); chest.position.set(CAMP.stash.x, 0, CAMP.stash.z); this.sharedStash = chest; this.scene.add(chest);
-    mesh(chest, box, leather, 0, .45, 0, 2, .9, 1.2);
-    mesh(chest, box, timber, 0, .98, 0, 2.1, .2, 1.3);
-    for (const side of [-1, 1]) { mesh(chest, box, gold, side * .7, .5, .615, .12, .9, .05); mesh(chest, box, gold, side * .7, 1.1, 0, .12, .04, 1.3); }
-    mesh(chest, box, gold, 0, .75, .66, .3, .3, .07);
+    chest.add(scenery('chest'));
     const lamp = new THREE.PointLight(0xe0bf76, 3, 5); lamp.position.set(0, 1.8, 0); chest.add(lamp);
     this.addCollider(CAMP.stash.x, CAMP.stash.z, 2, 1.2);
   }
@@ -293,9 +288,8 @@ export class GameWorld {
   makeMysteriousCorpse(x: number, z: number) {
     const group = new THREE.Group(); group.position.set(x, 0, z); this.scene.add(group);
     const corpse = mat(0x8d8271), clothMat = mat(0x4e2930), glow = new THREE.MeshBasicMaterial({ color: 0x8de4c5, transparent: true, opacity: .78 });
-    mesh(group, sphere, corpse, 0, .24, 0, .42, .16, .76); mesh(group, sphere, corpse, 0, .42, .55, .23, .22, .22);
-    for (const side of [-1, 1]) { mesh(group, cylinder, corpse, side * .22, .2, -.18, .09, .65, .09).rotation.z = side * .92; mesh(group, cylinder, corpse, side * .16, .2, .44, .075, .6, .075).rotation.z = side * .62; }
-    mesh(group, box, clothMat, 0, .19, -.12, .58, .12, .84); const mark = mesh(group, new THREE.OctahedronGeometry(.22), glow, 0, 1.02, 0, 1, 1.6, 1); mark.name = 'mystery-mark';
+    const scenery=createSceneryLibrary({stone,wall:edgeStone,dark:darkStone,wood:leather,trim:gold,bone:corpse,iron,foliage:moss,ice:steel,leaves:clothMat,silk:clothMat,cloth:clothMat});
+    group.add(scenery('corpse'));const mark = mesh(group, new THREE.OctahedronGeometry(.22), glow, 0, 1.02, 0, 1, 1.6, 1); mark.name = 'mystery-mark';
     const light = new THREE.PointLight(0x80e4c3, 2.5, 4); light.position.y = .9; group.add(light); this.addCollider(x, z, .6, .6);
     return { x, z, opened: false, group };
   }
@@ -304,27 +298,33 @@ export class GameWorld {
   }
   makeObjective(x: number, z: number, id: number, prop: QuestProp) {
     const group = new THREE.Group(); group.position.set(x, 0, z); group.userData.id = id; this.scene.add(group);
-    const theme = ACTS[this.level.act], material = mat(theme.stone), accent = mat(theme.accent, .35), bars = mat(0x7a8889, .7);
+    const theme = ACTS[this.level.act], material = actorMaterial(theme.stone,'stone'), accent = actorMaterial(theme.accent,'bronze'), bars = actorMaterial(0x6c726a,'steel');
+    const scenery=createSceneryLibrary({stone:material,wall:material,dark:darkStone,wood:leather,trim:accent,bone,iron:bars,foliage:moss,ice:accent,leaves:cloth,silk:cloth,cloth});
     mesh(group, cylinder, material, 0, .15, 0, 1.25, .3, 1.25);
     if (prop === 'cage') {
       for (const side of [-1, 1]) for (const p of [-.65, 0, .65]) {
         mesh(group, cylinder, bars, side * .75, 1.1, p, .045, 2, .045); mesh(group, cylinder, bars, p, 1.1, side * .75, .045, 2, .045);
       }
-      mesh(group, box, material, 0, 2.15, 0, 1.7, .18, 1.7);
-      mesh(group, sphere, accent, 0, .7, 0, .24, .4, .24); mesh(group, sphere, accent, 0, 1.28, 0, .2, .22, .2);
+      for(const y of [.40,1.90])for(const side of [-1,1]){mesh(group,box,bars,side*.76,y,0,.08,.06,1.60);mesh(group,box,bars,0,y,side*.76,1.60,.06,.08);}
+      mesh(group, pavingSlabGeometry(), material, 0, 2.15, 0, 1.7, .18, 1.7);
+      const captive=createVillagerModel('merchant');captive.scale.setScalar(.68);captive.position.set(.1,.3,-.07);group.add(captive);
+      mesh(group,box,bars,0,1.1,.82,.16,.23,.06);
     } else if (prop === 'chest') {
-      mesh(group, box, material, 0, .55, 0, 1.2, .7, .85); mesh(group, box, accent, 0, .95, 0, 1.3, .16, .95);
-      mesh(group, box, gold, 0, .66, .45, .18, .22, .06);
+      const chest=scenery('chest');chest.scale.set(.64,.74,.74);chest.position.y=.3;group.add(chest);
     } else if (prop === 'grave') {
-      mesh(group, box, material, 0, .9, 0, .8, 1.5, .32); mesh(group, box, accent, 0, 1.1, .2, .55, .08, .07);
+      const grave=scenery('grave');grave.scale.set(1.12,1.15,1);grave.position.y=.3;group.add(grave);
     } else if (prop === 'siege') {
-      mesh(group, box, material, 0, .8, 0, 1.8, .45, 1.5);
-      beam(group, [-.8, .5, 0], [.8, 2, 0], .18, bars); mesh(group, sphere, accent, .8, 2, 0, .4, .3, .4);
+      for(const side of [-1,1]){mesh(group,box,leather,side*.65,.48,0,.20,.25,1.70);beam(group,[side*.65,.58,-.6],[side*.65,1.5,.1],.095,leather);beam(group,[side*.65,1.5,.1],[side*.65,.58,.7],.095,leather);}
+      beam(group,[-.75,1.5,.1],[.75,1.5,.1],.11,bars);beam(group,[0,.50,-.55],[0,2.03,.63],.11,leather);
+      mesh(group,new THREE.CylinderGeometry(.32,.28,.10,12),bars,0,2.04,.63).rotation.x=.7;
+      for(const side of [-1,1])for(const z of [-.6,.6]){const wheel=mesh(group,new THREE.TorusGeometry(.29,.055,6,14),leather,side*.85,.39,z);wheel.rotation.y=Math.PI/2;mesh(group,cylinder,bars,side*.85,.39,z,.06,.17,.06).rotation.z=Math.PI/2;}
     } else if (prop === 'ice') {
       mesh(group, new THREE.OctahedronGeometry(1), new THREE.MeshStandardMaterial({ color: 0xb7f3ff, transparent: true, opacity: .8, metalness: .4, roughness: .2 }), 0, 1.2, 0, .8, 1.3, .8);
     } else {
-      mesh(group, cylinder, material, 0, .75, 0, .5, 1.1, .5);
-      mesh(group, prop === 'forge' ? box : new THREE.OctahedronGeometry(1), accent, 0, 1.55, 0, .65, .45, .65);
+      for(const [y,w,h] of [[.39,.73,.18],[.85,.51,.76],[1.27,.71,.16]])mesh(group,pavingSlabGeometry(),material,0,y,0,w,h,w);
+      if(prop==='forge')mesh(group,plateGeometry([[-.48,-.22],[.35,-.22],[.26,-.05],[.31,.10],[.60,.19],[.52,.25],[-.41,.25],[-.35,.06],[-.29,-.08]],.34,.025),bars,0,1.52,-.17);
+      else if(prop==='altar'){mesh(group,box,leather,0,1.40,0,.48,.09,.42).rotation.z=.10;mesh(group,box,bone,0,1.455,.006,.43,.025,.37).rotation.z=.10;}
+      else {const seal=mesh(group,new THREE.TorusGeometry(.31,.035,6,24),accent,0,1.65,0);seal.rotation.y=.2;mesh(group,new THREE.OctahedronGeometry(.15),accent,0,1.65,0);}
     }
     const indicator = makeRing(1.5, theme.accent); indicator.name = 'indicator'; group.add(indicator);
     const footprint = prop === 'cage' ? [1.7, 1.7] : prop === 'siege' ? [1.8, 1.5] : prop === 'grave' ? [.8, .32] : prop === 'chest' ? [1.3, .95] : prop === 'ice' ? [1.6, 1.6] : [.65, .65];
@@ -332,14 +332,18 @@ export class GameWorld {
   }
   makeChest(id: number, x: number, z: number): WorldChest {
     const group = new THREE.Group(); group.position.set(x, 0, z); this.scene.add(group);
-    const wood = mat(0x796c53), band = mat(0xb2a071, .65, .45);
+    const wood = mat(0x63533d), band = actorMaterial(0x948567,'steel');
+    wood.map=wood.bumpMap=sceneryTexture('bark',780);wood.bumpScale=.035;
     mesh(group, box, darkStone, 0, .12, 0, 1.65, .2, 1.1);
     mesh(group, box, wood, 0, .45, 0, 1.5, .65, 1);
     const lid = new THREE.Group(); lid.position.set(0, .78, -.5); group.add(lid);
-    mesh(lid, box, wood, 0, .08, .5, 1.6, .2, 1.08);
+    const arch=new THREE.Shape();arch.moveTo(-.54,0);arch.lineTo(.54,0);arch.absellipse(0,0,.54,.29,0,Math.PI,false,0);arch.closePath();
+    const lidGeometry=new THREE.ExtrudeGeometry(arch,{depth:1.6,bevelEnabled:true,bevelSize:.009,bevelThickness:.009,bevelSegments:1,curveSegments:10});lidGeometry.translate(0,0,-.8);lidGeometry.rotateY(Math.PI/2);
+    mesh(lid,lidGeometry,wood,0,0,.5);
     for (const side of [-1, 1]) {
       mesh(group, box, band, side * .5, .48, .51, .09, .6, .04);
-      mesh(lid, box, band, side * .5, .19, .5, .1, .025, 1.08);
+      const hoop=mesh(lid,new THREE.TorusGeometry(.55,.024,5,16,Math.PI),band,side*.5,0,.5,1,.55,1);hoop.rotation.y=Math.PI/2;
+      for(const y of [.23,.69])mesh(group,sphere,band,side*.5,y,.541,.020,.020,.011);
     }
     mesh(lid, box, band, 0, -.03, 1.06, .18, .26, .05);
     this.addCollider(x, z, 1.6, 1.1);

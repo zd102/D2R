@@ -1,0 +1,1844 @@
+{
+  "date": "2026-09-29",
+  "baselineCommit": "f5bef3e4c0bdf2c53e56c3efefd3af42cb699fa6",
+  "checks": [
+    {
+      "command": "npm test",
+      "status": "passed",
+      "result": "621 passed, 0 failed"
+    },
+    {
+      "command": "npm run build",
+      "status": "passed",
+      "result": "Production build passed; existing chunk-size advisory remains"
+    },
+    {
+      "command": "npm run test:models",
+      "status": "passed",
+      "result": "65 definitions, 28 body plans, mobile, front/rear/combat, GPU disposal"
+    },
+    {
+      "command": "npm run test:companions-models",
+      "status": "passed",
+      "result": "37 hero, companion, NPC, transformation and trap models"
+    },
+    {
+      "command": "npm run test:materials",
+      "status": "passed",
+      "result": "10 material families at native and reduced resolution"
+    },
+    {
+      "command": "npm run test:visuals",
+      "status": "passed",
+      "result": "3 hero rigs, actions, 8 effect families, mobile and stable resource disposal"
+    },
+    {
+      "command": "npm run test:monster-batches",
+      "status": "passed",
+      "result": "112 direct/batched image comparisons"
+    },
+    {
+      "command": "npm run test:model-loading",
+      "status": "passed",
+      "result": "3 repeated worlds with 40 cows: 13,771,828 geometry bytes each, GPU geometry/texture counts return to zero"
+    },
+    {
+      "command": "npm run test:maps",
+      "status": "passed",
+      "result": "25 layouts, quest/boss/exit/supply/chest routes, box opening, camp/reset, mouse/F/touch"
+    },
+    {
+      "command": "npm run test:scenery",
+      "status": "passed",
+      "result": "25 scenes, navigation seeds 17 and 91919, mobile screenshots and budgets"
+    },
+    {
+      "command": "npm run test:mercenary",
+      "status": "passed",
+      "result": "1440/390/360 px: hire, equipment, aura, combat, potion, death and rehire"
+    },
+    {
+      "command": "npm run test:camp-return",
+      "status": "passed",
+      "result": "1440/390 px: scene restore, frozen state, independent portals, save/reload"
+    },
+    {
+      "command": "npm run models:previews",
+      "status": "passed",
+      "result": "182 images, 516 views, offline filters, mobile width and complete image paths"
+    },
+    {
+      "command": "node --experimental-strip-types --test tests/model-detailing.test.ts",
+      "status": "passed",
+      "result": "4 checks after the final gravestone relief placement correction"
+    },
+    {
+      "command": "npm run test:performance (AREAS=17,cow; STRESS=1; HERO_CLASS=sorceress; WARMUP=600; FRAMES=300), plus camp",
+      "status": "passed",
+      "result": "Both battle samples and the camp sample exceed 59 FPS with P95 below 18 ms at their reported adaptive pixel ratios"
+    }
+  ],
+  "geometry": {
+    "note": "Actor factory default equipment visibility; bytes include owned hidden equipment geometry.",
+    "summary": {
+      "hero": {
+        "count": 7,
+        "before": {
+          "maxTriangles": 22980,
+          "meanTriangles": 20689.14285714286,
+          "maxMeshes": 47
+        },
+        "after": {
+          "maxTriangles": 23004,
+          "meanTriangles": 20570.285714285714,
+          "maxMeshes": 47
+        }
+      },
+      "monster": {
+        "count": 40,
+        "before": {
+          "maxTriangles": 25656,
+          "meanTriangles": 10294.65,
+          "maxMeshes": 45
+        },
+        "after": {
+          "maxTriangles": 27296,
+          "meanTriangles": 11345.05,
+          "maxMeshes": 45
+        }
+      },
+      "boss": {
+        "count": 25,
+        "before": {
+          "maxTriangles": 25664,
+          "meanTriangles": 11098.96,
+          "maxMeshes": 46
+        },
+        "after": {
+          "maxTriangles": 27304,
+          "meanTriangles": 12482.16,
+          "maxMeshes": 46
+        }
+      }
+    },
+    "rows": [
+      {
+        "id": "paladin",
+        "category": "hero",
+        "before": {
+          "triangles": 22980,
+          "meshes": 46,
+          "bytes": 823816
+        },
+        "after": {
+          "triangles": 22484,
+          "meshes": 46,
+          "bytes": 924320
+        }
+      },
+      {
+        "id": "amazon",
+        "category": "hero",
+        "before": {
+          "triangles": 21728,
+          "meshes": 45,
+          "bytes": 807456
+        },
+        "after": {
+          "triangles": 21264,
+          "meshes": 45,
+          "bytes": 879380
+        }
+      },
+      {
+        "id": "sorceress",
+        "category": "hero",
+        "before": {
+          "triangles": 22500,
+          "meshes": 47,
+          "bytes": 788136
+        },
+        "after": {
+          "triangles": 23004,
+          "meshes": 47,
+          "bytes": 881888
+        }
+      },
+      {
+        "id": "necromancer",
+        "category": "hero",
+        "before": {
+          "triangles": 19788,
+          "meshes": 38,
+          "bytes": 717800
+        },
+        "after": {
+          "triangles": 19980,
+          "meshes": 38,
+          "bytes": 798956
+        }
+      },
+      {
+        "id": "barbarian",
+        "category": "hero",
+        "before": {
+          "triangles": 18064,
+          "meshes": 36,
+          "bytes": 665216
+        },
+        "after": {
+          "triangles": 17600,
+          "meshes": 36,
+          "bytes": 722108
+        }
+      },
+      {
+        "id": "druid",
+        "category": "hero",
+        "before": {
+          "triangles": 20644,
+          "meshes": 39,
+          "bytes": 724536
+        },
+        "after": {
+          "triangles": 20652,
+          "meshes": 39,
+          "bytes": 801188
+        }
+      },
+      {
+        "id": "assassin",
+        "category": "hero",
+        "before": {
+          "triangles": 19120,
+          "meshes": 38,
+          "bytes": 685112
+        },
+        "after": {
+          "triangles": 19008,
+          "meshes": 40,
+          "bytes": 770012
+        }
+      },
+      {
+        "id": "pindleskin",
+        "category": "monster",
+        "before": {
+          "triangles": 10502,
+          "meshes": 18,
+          "bytes": 307732
+        },
+        "after": {
+          "triangles": 10542,
+          "meshes": 18,
+          "bytes": 339312
+        }
+      },
+      {
+        "id": "nihlathak",
+        "category": "monster",
+        "before": {
+          "triangles": 11336,
+          "meshes": 23,
+          "bytes": 351408
+        },
+        "after": {
+          "triangles": 11376,
+          "meshes": 23,
+          "bytes": 387792
+        }
+      },
+      {
+        "id": "fallen",
+        "category": "monster",
+        "before": {
+          "triangles": 8474,
+          "meshes": 23,
+          "bytes": 251468
+        },
+        "after": {
+          "triangles": 10114,
+          "meshes": 23,
+          "bytes": 317340
+        }
+      },
+      {
+        "id": "shaman",
+        "category": "monster",
+        "before": {
+          "triangles": 20592,
+          "meshes": 39,
+          "bytes": 647488
+        },
+        "after": {
+          "triangles": 22232,
+          "meshes": 39,
+          "bytes": 753744
+        }
+      },
+      {
+        "id": "zombie",
+        "category": "monster",
+        "before": {
+          "triangles": 9916,
+          "meshes": 24,
+          "bytes": 300728
+        },
+        "after": {
+          "triangles": 11556,
+          "meshes": 24,
+          "bytes": 371676
+        }
+      },
+      {
+        "id": "rogue",
+        "category": "monster",
+        "before": {
+          "triangles": 9156,
+          "meshes": 21,
+          "bytes": 279320
+        },
+        "after": {
+          "triangles": 10796,
+          "meshes": 21,
+          "bytes": 348132
+        }
+      },
+      {
+        "id": "skeleton",
+        "category": "monster",
+        "before": {
+          "triangles": 10502,
+          "meshes": 18,
+          "bytes": 307732
+        },
+        "after": {
+          "triangles": 10542,
+          "meshes": 18,
+          "bytes": 339312
+        }
+      },
+      {
+        "id": "boneMage",
+        "category": "monster",
+        "before": {
+          "triangles": 11336,
+          "meshes": 23,
+          "bytes": 351408
+        },
+        "after": {
+          "triangles": 11376,
+          "meshes": 23,
+          "bytes": 387792
+        }
+      },
+      {
+        "id": "goat",
+        "category": "monster",
+        "before": {
+          "triangles": 8542,
+          "meshes": 21,
+          "bytes": 272148
+        },
+        "after": {
+          "triangles": 10182,
+          "meshes": 21,
+          "bytes": 340524
+        }
+      },
+      {
+        "id": "ghost",
+        "category": "monster",
+        "before": {
+          "triangles": 8118,
+          "meshes": 13,
+          "bytes": 257476
+        },
+        "after": {
+          "triangles": 8158,
+          "meshes": 13,
+          "bytes": 283764
+        }
+      },
+      {
+        "id": "tainted",
+        "category": "monster",
+        "before": {
+          "triangles": 13416,
+          "meshes": 28,
+          "bytes": 394504
+        },
+        "after": {
+          "triangles": 15660,
+          "meshes": 27,
+          "bytes": 470736
+        }
+      },
+      {
+        "id": "burningDead",
+        "category": "monster",
+        "before": {
+          "triangles": 10702,
+          "meshes": 17,
+          "bytes": 309620
+        },
+        "after": {
+          "triangles": 10742,
+          "meshes": 17,
+          "bytes": 341256
+        }
+      },
+      {
+        "id": "mummy",
+        "category": "monster",
+        "before": {
+          "triangles": 10326,
+          "meshes": 24,
+          "bytes": 326436
+        },
+        "after": {
+          "triangles": 11966,
+          "meshes": 24,
+          "bytes": 400260
+        }
+      },
+      {
+        "id": "unraveler",
+        "category": "monster",
+        "before": {
+          "triangles": 10598,
+          "meshes": 26,
+          "bytes": 344964
+        },
+        "after": {
+          "triangles": 12238,
+          "meshes": 26,
+          "bytes": 420900
+        }
+      },
+      {
+        "id": "huntress",
+        "category": "monster",
+        "before": {
+          "triangles": 9732,
+          "meshes": 23,
+          "bytes": 294200
+        },
+        "after": {
+          "triangles": 11372,
+          "meshes": 23,
+          "bytes": 364440
+        }
+      },
+      {
+        "id": "beetle",
+        "category": "monster",
+        "before": {
+          "triangles": 7400,
+          "meshes": 26,
+          "bytes": 176440
+        },
+        "after": {
+          "triangles": 7712,
+          "meshes": 25,
+          "bytes": 202176
+        }
+      },
+      {
+        "id": "maggot",
+        "category": "monster",
+        "before": {
+          "triangles": 8120,
+          "meshes": 23,
+          "bytes": 196248
+        },
+        "after": {
+          "triangles": 8528,
+          "meshes": 23,
+          "bytes": 226368
+        }
+      },
+      {
+        "id": "viper",
+        "category": "monster",
+        "before": {
+          "triangles": 4812,
+          "meshes": 7,
+          "bytes": 157160
+        },
+        "after": {
+          "triangles": 4892,
+          "meshes": 7,
+          "bytes": 175260
+        }
+      },
+      {
+        "id": "spider",
+        "category": "monster",
+        "before": {
+          "triangles": 5928,
+          "meshes": 21,
+          "bytes": 193632
+        },
+        "after": {
+          "triangles": 6056,
+          "meshes": 21,
+          "bytes": 217104
+        }
+      },
+      {
+        "id": "flayer",
+        "category": "monster",
+        "before": {
+          "triangles": 9726,
+          "meshes": 22,
+          "bytes": 304820
+        },
+        "after": {
+          "triangles": 11366,
+          "meshes": 22,
+          "bytes": 376392
+        }
+      },
+      {
+        "id": "flayerShaman",
+        "category": "monster",
+        "before": {
+          "triangles": 25656,
+          "meshes": 45,
+          "bytes": 810672
+        },
+        "after": {
+          "triangles": 27296,
+          "meshes": 45,
+          "bytes": 933528
+        }
+      },
+      {
+        "id": "zealot",
+        "category": "monster",
+        "before": {
+          "triangles": 8316,
+          "meshes": 31,
+          "bytes": 275912
+        },
+        "after": {
+          "triangles": 9956,
+          "meshes": 31,
+          "bytes": 344988
+        }
+      },
+      {
+        "id": "council",
+        "category": "monster",
+        "before": {
+          "triangles": 10774,
+          "meshes": 25,
+          "bytes": 338180
+        },
+        "after": {
+          "triangles": 12414,
+          "meshes": 25,
+          "bytes": 413136
+        }
+      },
+      {
+        "id": "doll",
+        "category": "monster",
+        "before": {
+          "triangles": 9726,
+          "meshes": 22,
+          "bytes": 304820
+        },
+        "after": {
+          "triangles": 11366,
+          "meshes": 22,
+          "bytes": 376392
+        }
+      },
+      {
+        "id": "vampire",
+        "category": "monster",
+        "before": {
+          "triangles": 12200,
+          "meshes": 25,
+          "bytes": 373872
+        },
+        "after": {
+          "triangles": 12240,
+          "meshes": 25,
+          "bytes": 412416
+        }
+      },
+      {
+        "id": "doomKnight",
+        "category": "monster",
+        "before": {
+          "triangles": 8836,
+          "meshes": 33,
+          "bytes": 295096
+        },
+        "after": {
+          "triangles": 10476,
+          "meshes": 33,
+          "bytes": 366180
+        }
+      },
+      {
+        "id": "oblivion",
+        "category": "monster",
+        "before": {
+          "triangles": 11856,
+          "meshes": 27,
+          "bytes": 370592
+        },
+        "after": {
+          "triangles": 11896,
+          "meshes": 27,
+          "bytes": 408984
+        }
+      },
+      {
+        "id": "soul",
+        "category": "monster",
+        "before": {
+          "triangles": 8118,
+          "meshes": 13,
+          "bytes": 257476
+        },
+        "after": {
+          "triangles": 8158,
+          "meshes": 13,
+          "bytes": 283764
+        }
+      },
+      {
+        "id": "mauler",
+        "category": "monster",
+        "before": {
+          "triangles": 9964,
+          "meshes": 23,
+          "bytes": 307624
+        },
+        "after": {
+          "triangles": 11604,
+          "meshes": 23,
+          "bytes": 379368
+        }
+      },
+      {
+        "id": "venomLord",
+        "category": "monster",
+        "before": {
+          "triangles": 13416,
+          "meshes": 28,
+          "bytes": 394504
+        },
+        "after": {
+          "triangles": 15660,
+          "meshes": 27,
+          "bytes": 470736
+        }
+      },
+      {
+        "id": "spawner",
+        "category": "monster",
+        "before": {
+          "triangles": 8120,
+          "meshes": 23,
+          "bytes": 196248
+        },
+        "after": {
+          "triangles": 8528,
+          "meshes": 23,
+          "bytes": 226368
+        }
+      },
+      {
+        "id": "imp",
+        "category": "monster",
+        "before": {
+          "triangles": 8294,
+          "meshes": 19,
+          "bytes": 241476
+        },
+        "after": {
+          "triangles": 9934,
+          "meshes": 19,
+          "bytes": 306204
+        }
+      },
+      {
+        "id": "overseer",
+        "category": "monster",
+        "before": {
+          "triangles": 10316,
+          "meshes": 23,
+          "bytes": 330728
+        },
+        "after": {
+          "triangles": 11956,
+          "meshes": 23,
+          "bytes": 405096
+        }
+      },
+      {
+        "id": "reanimated",
+        "category": "monster",
+        "before": {
+          "triangles": 11022,
+          "meshes": 22,
+          "bytes": 326916
+        },
+        "after": {
+          "triangles": 11062,
+          "meshes": 22,
+          "bytes": 360504
+        }
+      },
+      {
+        "id": "frozen",
+        "category": "monster",
+        "before": {
+          "triangles": 11712,
+          "meshes": 23,
+          "bytes": 391232
+        },
+        "after": {
+          "triangles": 13352,
+          "meshes": 23,
+          "bytes": 472116
+        }
+      },
+      {
+        "id": "iceCrawler",
+        "category": "monster",
+        "before": {
+          "triangles": 4812,
+          "meshes": 7,
+          "bytes": 157160
+        },
+        "after": {
+          "triangles": 4892,
+          "meshes": 7,
+          "bytes": 175260
+        }
+      },
+      {
+        "id": "succubus",
+        "category": "monster",
+        "before": {
+          "triangles": 9536,
+          "meshes": 23,
+          "bytes": 272600
+        },
+        "after": {
+          "triangles": 11524,
+          "meshes": 23,
+          "bytes": 350232
+        }
+      },
+      {
+        "id": "bloodLord",
+        "category": "monster",
+        "before": {
+          "triangles": 9774,
+          "meshes": 28,
+          "bytes": 313060
+        },
+        "after": {
+          "triangles": 11414,
+          "meshes": 28,
+          "bytes": 385656
+        }
+      },
+      {
+        "id": "minion",
+        "category": "monster",
+        "before": {
+          "triangles": 13416,
+          "meshes": 28,
+          "bytes": 394504
+        },
+        "after": {
+          "triangles": 15660,
+          "meshes": 27,
+          "bytes": 470736
+        }
+      },
+      {
+        "id": "hellCow",
+        "category": "monster",
+        "before": {
+          "triangles": 6688,
+          "meshes": 20,
+          "bytes": 210216
+        },
+        "after": {
+          "triangles": 7008,
+          "meshes": 20,
+          "bytes": 239880
+        }
+      },
+      {
+        "id": "corpsefire",
+        "category": "boss",
+        "before": {
+          "triangles": 9924,
+          "meshes": 25,
+          "bytes": 301496
+        },
+        "after": {
+          "triangles": 11564,
+          "meshes": 25,
+          "bytes": 372540
+        }
+      },
+      {
+        "id": "bloodRaven",
+        "category": "boss",
+        "before": {
+          "triangles": 10096,
+          "meshes": 24,
+          "bytes": 307184
+        },
+        "after": {
+          "triangles": 11736,
+          "meshes": 24,
+          "bytes": 378780
+        }
+      },
+      {
+        "id": "griswold",
+        "category": "boss",
+        "before": {
+          "triangles": 10324,
+          "meshes": 24,
+          "bytes": 331496
+        },
+        "after": {
+          "triangles": 11964,
+          "meshes": 24,
+          "bytes": 405960
+        }
+      },
+      {
+        "id": "countess",
+        "category": "boss",
+        "before": {
+          "triangles": 11714,
+          "meshes": 26,
+          "bytes": 366044
+        },
+        "after": {
+          "triangles": 13354,
+          "meshes": 26,
+          "bytes": 443784
+        }
+      },
+      {
+        "id": "andariel",
+        "category": "boss",
+        "before": {
+          "triangles": 10652,
+          "meshes": 23,
+          "bytes": 300248
+        },
+        "after": {
+          "triangles": 12292,
+          "meshes": 23,
+          "bytes": 370560
+        }
+      },
+      {
+        "id": "radament",
+        "category": "boss",
+        "before": {
+          "triangles": 10606,
+          "meshes": 27,
+          "bytes": 345732
+        },
+        "after": {
+          "triangles": 12246,
+          "meshes": 27,
+          "bytes": 421764
+        }
+      },
+      {
+        "id": "bloodwitch",
+        "category": "boss",
+        "before": {
+          "triangles": 9164,
+          "meshes": 22,
+          "bytes": 280088
+        },
+        "after": {
+          "triangles": 10804,
+          "meshes": 22,
+          "bytes": 348996
+        }
+      },
+      {
+        "id": "coldworm",
+        "category": "boss",
+        "before": {
+          "triangles": 8128,
+          "meshes": 24,
+          "bytes": 197016
+        },
+        "after": {
+          "triangles": 8536,
+          "meshes": 24,
+          "bytes": 227232
+        }
+      },
+      {
+        "id": "summoner",
+        "category": "boss",
+        "before": {
+          "triangles": 12276,
+          "meshes": 25,
+          "bytes": 379272
+        },
+        "after": {
+          "triangles": 12316,
+          "meshes": 25,
+          "bytes": 418440
+        }
+      },
+      {
+        "id": "duriel",
+        "category": "boss",
+        "before": {
+          "triangles": 10250,
+          "meshes": 27,
+          "bytes": 276852
+        },
+        "after": {
+          "triangles": 10714,
+          "meshes": 27,
+          "bytes": 321192
+        }
+      },
+      {
+        "id": "szzark",
+        "category": "boss",
+        "before": {
+          "triangles": 5936,
+          "meshes": 22,
+          "bytes": 194400
+        },
+        "after": {
+          "triangles": 6064,
+          "meshes": 22,
+          "bytes": 217968
+        }
+      },
+      {
+        "id": "endugu",
+        "category": "boss",
+        "before": {
+          "triangles": 25664,
+          "meshes": 46,
+          "bytes": 811440
+        },
+        "after": {
+          "triangles": 27304,
+          "meshes": 46,
+          "bytes": 934392
+        }
+      },
+      {
+        "id": "sarina",
+        "category": "boss",
+        "before": {
+          "triangles": 10096,
+          "meshes": 24,
+          "bytes": 307184
+        },
+        "after": {
+          "triangles": 11736,
+          "meshes": 24,
+          "bytes": 378780
+        }
+      },
+      {
+        "id": "ismail",
+        "category": "boss",
+        "before": {
+          "triangles": 10782,
+          "meshes": 26,
+          "bytes": 338948
+        },
+        "after": {
+          "triangles": 12422,
+          "meshes": 26,
+          "bytes": 414000
+        }
+      },
+      {
+        "id": "mephisto",
+        "category": "boss",
+        "before": {
+          "triangles": 12094,
+          "meshes": 17,
+          "bytes": 367364
+        },
+        "after": {
+          "triangles": 12134,
+          "meshes": 17,
+          "bytes": 404412
+        }
+      },
+      {
+        "id": "abyssVanguard",
+        "category": "boss",
+        "before": {
+          "triangles": 13944,
+          "meshes": 31,
+          "bytes": 414456
+        },
+        "after": {
+          "triangles": 16188,
+          "meshes": 30,
+          "bytes": 492792
+        }
+      },
+      {
+        "id": "izual",
+        "category": "boss",
+        "before": {
+          "triangles": 8708,
+          "meshes": 33,
+          "bytes": 286600
+        },
+        "after": {
+          "triangles": 10348,
+          "meshes": 33,
+          "bytes": 356724
+        }
+      },
+      {
+        "id": "hephasto",
+        "category": "boss",
+        "before": {
+          "triangles": 10324,
+          "meshes": 24,
+          "bytes": 331496
+        },
+        "after": {
+          "triangles": 11964,
+          "meshes": 24,
+          "bytes": 405960
+        }
+      },
+      {
+        "id": "deSeis",
+        "category": "boss",
+        "before": {
+          "triangles": 8844,
+          "meshes": 34,
+          "bytes": 295864
+        },
+        "after": {
+          "triangles": 10484,
+          "meshes": 34,
+          "bytes": 367044
+        }
+      },
+      {
+        "id": "diablo",
+        "category": "boss",
+        "before": {
+          "triangles": 16728,
+          "meshes": 25,
+          "bytes": 496448
+        },
+        "after": {
+          "triangles": 18624,
+          "meshes": 24,
+          "bytes": 573000
+        }
+      },
+      {
+        "id": "shenk",
+        "category": "boss",
+        "before": {
+          "triangles": 10324,
+          "meshes": 24,
+          "bytes": 331496
+        },
+        "after": {
+          "triangles": 11964,
+          "meshes": 24,
+          "bytes": 405960
+        }
+      },
+      {
+        "id": "eldritch",
+        "category": "boss",
+        "before": {
+          "triangles": 9782,
+          "meshes": 29,
+          "bytes": 313828
+        },
+        "after": {
+          "triangles": 11422,
+          "meshes": 29,
+          "bytes": 386520
+        }
+      },
+      {
+        "id": "frozenstein",
+        "category": "boss",
+        "before": {
+          "triangles": 11720,
+          "meshes": 24,
+          "bytes": 392000
+        },
+        "after": {
+          "triangles": 13360,
+          "meshes": 24,
+          "bytes": 472980
+        }
+      },
+      {
+        "id": "talic",
+        "category": "boss",
+        "before": {
+          "triangles": 8518,
+          "meshes": 34,
+          "bytes": 290804
+        },
+        "after": {
+          "triangles": 10158,
+          "meshes": 34,
+          "bytes": 361596
+        }
+      },
+      {
+        "id": "baal",
+        "category": "boss",
+        "before": {
+          "triangles": 10876,
+          "meshes": 25,
+          "bytes": 339160
+        },
+        "after": {
+          "triangles": 12356,
+          "meshes": 25,
+          "bytes": 413292
+        }
+      }
+    ]
+  },
+  "scenery": {
+    "maxDrawCalls": 80,
+    "maxTriangles": 360538,
+    "maxGeometries": 65,
+    "maxTextures": 10,
+    "rows": [
+      {
+        "index": 0,
+        "name": "邪恶洞窟",
+        "landmark": "den",
+        "surface": "earth",
+        "atmosphere": "dust",
+        "description": "潮湿岩洞 · 盘根与兽骨",
+        "width": 125,
+        "height": 145,
+        "cells": 3210,
+        "failures": [],
+        "colors": 104,
+        "lit": 1612,
+        "drawCalls": 37,
+        "triangles": 255438,
+        "geometries": 38,
+        "textures": 7,
+        "ms": 1860
+      },
+      {
+        "index": 1,
+        "name": "埋骨之地",
+        "landmark": "graveyard",
+        "surface": "earth",
+        "atmosphere": "rain",
+        "description": "荒凉墓园 · 铁栅与枯树",
+        "width": 99,
+        "height": 109,
+        "cells": 4264,
+        "failures": [],
+        "colors": 59,
+        "lit": 3630,
+        "drawCalls": 55,
+        "triangles": 147108,
+        "geometries": 54,
+        "textures": 9,
+        "ms": 1841
+      },
+      {
+        "index": 2,
+        "name": "崔斯特瑞姆",
+        "landmark": "tristram",
+        "surface": "flagstone",
+        "atmosphere": "ash",
+        "description": "焚毁街巷 · 教堂与水井",
+        "width": 109,
+        "height": 119,
+        "cells": 4307,
+        "failures": [],
+        "colors": 97,
+        "lit": 1308,
+        "drawCalls": 57,
+        "triangles": 179534,
+        "geometries": 62,
+        "textures": 8,
+        "ms": 2321
+      },
+      {
+        "index": 3,
+        "name": "遗忘之塔",
+        "landmark": "tower",
+        "surface": "flagstone",
+        "atmosphere": "dust",
+        "description": "伯爵地牢 · 红毯与窖藏",
+        "width": 155,
+        "height": 95,
+        "cells": 2938,
+        "failures": [],
+        "colors": 70,
+        "lit": 1260,
+        "drawCalls": 72,
+        "triangles": 131646,
+        "geometries": 53,
+        "textures": 8,
+        "ms": 910
+      },
+      {
+        "index": 4,
+        "name": "地下墓穴",
+        "landmark": "catacombs",
+        "surface": "flagstone",
+        "atmosphere": "dust",
+        "description": "修道院墓穴 · 灵柩与毒火",
+        "width": 185,
+        "height": 165,
+        "cells": 5867,
+        "failures": [],
+        "colors": 82,
+        "lit": 1584,
+        "drawCalls": 63,
+        "triangles": 174916,
+        "geometries": 40,
+        "textures": 7,
+        "ms": 571
+      },
+      {
+        "index": 5,
+        "name": "鲁高因下水道",
+        "landmark": "sewers",
+        "surface": "flagstone",
+        "atmosphere": "dust",
+        "description": "下水道 · 污水渠与砖拱",
+        "width": 115,
+        "height": 225,
+        "cells": 4351,
+        "failures": [],
+        "colors": 92,
+        "lit": 1603,
+        "drawCalls": 50,
+        "triangles": 167918,
+        "geometries": 50,
+        "textures": 7,
+        "ms": 590
+      },
+      {
+        "index": 6,
+        "name": "死亡之殿",
+        "landmark": "burial-hall",
+        "surface": "sand",
+        "atmosphere": "dust",
+        "description": "沙埋墓室 · 彩绘石棺",
+        "width": 155,
+        "height": 165,
+        "cells": 5101,
+        "failures": [],
+        "colors": 131,
+        "lit": 1877,
+        "drawCalls": 80,
+        "triangles": 167600,
+        "geometries": 42,
+        "textures": 8,
+        "ms": 491
+      },
+      {
+        "index": 7,
+        "name": "蛆虫巢穴",
+        "landmark": "hive",
+        "surface": "sand",
+        "atmosphere": "dust",
+        "description": "砂岩虫道 · 卵囊与虫后巢",
+        "width": 245,
+        "height": 105,
+        "cells": 2990,
+        "failures": [],
+        "colors": 119,
+        "lit": 1309,
+        "drawCalls": 38,
+        "triangles": 243700,
+        "geometries": 34,
+        "textures": 7,
+        "ms": 369
+      },
+      {
+        "index": 8,
+        "name": "神秘避难所",
+        "landmark": "orrery",
+        "surface": "mosaic",
+        "atmosphere": "stars",
+        "description": "星海十字桥 · 星仪与符文",
+        "width": 225,
+        "height": 225,
+        "cells": 2537,
+        "failures": [],
+        "colors": 183,
+        "lit": 1003,
+        "drawCalls": 50,
+        "triangles": 20518,
+        "geometries": 44,
+        "textures": 9,
+        "ms": 412
+      },
+      {
+        "index": 9,
+        "name": "塔拉夏古墓",
+        "landmark": "horadric-tomb",
+        "surface": "mosaic",
+        "atmosphere": "dust",
+        "description": "七墓符印 · 赫拉迪克墓门",
+        "width": 175,
+        "height": 145,
+        "cells": 4551,
+        "failures": [],
+        "colors": 169,
+        "lit": 1728,
+        "drawCalls": 63,
+        "triangles": 117928,
+        "geometries": 41,
+        "textures": 8,
+        "ms": 481
+      },
+      {
+        "index": 10,
+        "name": "蜘蛛森林",
+        "landmark": "spider-grove",
+        "surface": "mud",
+        "atmosphere": "rain",
+        "description": "湿林水岸 · 巨蛛结网",
+        "width": 235,
+        "height": 255,
+        "cells": 10533,
+        "failures": [],
+        "colors": 95,
+        "lit": 2386,
+        "drawCalls": 46,
+        "triangles": 269098,
+        "geometries": 29,
+        "textures": 9,
+        "ms": 772
+      },
+      {
+        "index": 11,
+        "name": "剥皮丛林",
+        "landmark": "flayer-village",
+        "surface": "mud",
+        "atmosphere": "rain",
+        "description": "丛林村寨 · 草屋与图腾",
+        "width": 285,
+        "height": 195,
+        "cells": 8266,
+        "failures": [],
+        "colors": 118,
+        "lit": 1637,
+        "drawCalls": 46,
+        "triangles": 360538,
+        "geometries": 33,
+        "textures": 8,
+        "ms": 1912
+      },
+      {
+        "index": 12,
+        "name": "库拉斯特商场",
+        "landmark": "bazaar",
+        "surface": "mosaic",
+        "atmosphere": "dust",
+        "description": "失落商场 · 拱廊与残破神殿",
+        "width": 205,
+        "height": 165,
+        "cells": 9675,
+        "failures": [],
+        "colors": 86,
+        "lit": 1414,
+        "drawCalls": 71,
+        "triangles": 161000,
+        "geometries": 41,
+        "textures": 10,
+        "ms": 595
+      },
+      {
+        "index": 13,
+        "name": "崔凡克",
+        "landmark": "travincal",
+        "surface": "mosaic",
+        "atmosphere": "dust",
+        "description": "高阶神殿 · 阶台与强制之球",
+        "width": 115,
+        "height": 135,
+        "cells": 5218,
+        "failures": [],
+        "colors": 123,
+        "lit": 2792,
+        "drawCalls": 53,
+        "triangles": 66568,
+        "geometries": 49,
+        "textures": 7,
+        "ms": 337
+      },
+      {
+        "index": 14,
+        "name": "憎恨囚牢",
+        "landmark": "durance",
+        "surface": "flagstone",
+        "atmosphere": "dust",
+        "description": "鲜血囚牢 · 血池与祭坛",
+        "width": 185,
+        "height": 205,
+        "cells": 6696,
+        "failures": [],
+        "colors": 89,
+        "lit": 1327,
+        "drawCalls": 63,
+        "triangles": 173134,
+        "geometries": 38,
+        "textures": 8,
+        "ms": 575
+      },
+      {
+        "index": 15,
+        "name": "外侧草原",
+        "landmark": "steppes",
+        "surface": "basalt",
+        "atmosphere": "ash",
+        "description": "堡垒断崖 · 灰烬与焦骨",
+        "width": 275,
+        "height": 235,
+        "cells": 21082,
+        "failures": [],
+        "colors": 66,
+        "lit": 2988,
+        "drawCalls": 50,
+        "triangles": 266500,
+        "geometries": 28,
+        "textures": 6,
+        "ms": 689
+      },
+      {
+        "index": 16,
+        "name": "绝望平原",
+        "landmark": "despair",
+        "surface": "basalt",
+        "atmosphere": "ash",
+        "description": "荒芜平原 · 灵魂尖碑",
+        "width": 259,
+        "height": 299,
+        "cells": 17773,
+        "failures": [],
+        "colors": 65,
+        "lit": 2596,
+        "drawCalls": 43,
+        "triangles": 169566,
+        "geometries": 31,
+        "textures": 7,
+        "ms": 875
+      },
+      {
+        "index": 17,
+        "name": "火焰之河",
+        "landmark": "hellforge",
+        "surface": "basalt",
+        "atmosphere": "ash",
+        "description": "熔岩长堤 · 铁链与巨砧",
+        "width": 155,
+        "height": 265,
+        "cells": 5020,
+        "failures": [],
+        "colors": 189,
+        "lit": 1862,
+        "drawCalls": 25,
+        "triangles": 21628,
+        "geometries": 28,
+        "textures": 8,
+        "ms": 1103
+      },
+      {
+        "index": 18,
+        "name": "混沌避难所",
+        "landmark": "chaos",
+        "surface": "flagstone",
+        "atmosphere": "ash",
+        "description": "混沌教堂 · 十字翼廊与封印",
+        "width": 195,
+        "height": 215,
+        "cells": 5765,
+        "failures": [],
+        "colors": 156,
+        "lit": 2071,
+        "drawCalls": 65,
+        "triangles": 145504,
+        "geometries": 40,
+        "textures": 9,
+        "ms": 643
+      },
+      {
+        "index": 19,
+        "name": "恐惧之心",
+        "landmark": "terror",
+        "surface": "basalt",
+        "atmosphere": "ash",
+        "description": "混沌核心 · 五芒星祭场",
+        "width": 155,
+        "height": 145,
+        "cells": 4623,
+        "failures": [],
+        "colors": 195,
+        "lit": 2978,
+        "drawCalls": 32,
+        "triangles": 30232,
+        "geometries": 44,
+        "textures": 8,
+        "ms": 386
+      },
+      {
+        "index": 20,
+        "name": "血腥丘陵",
+        "landmark": "siege",
+        "surface": "snow",
+        "atmosphere": "snow",
+        "description": "血腥战线 · 城垒与投石机",
+        "width": 299,
+        "height": 145,
+        "cells": 7047,
+        "failures": [],
+        "colors": 132,
+        "lit": 3782,
+        "drawCalls": 57,
+        "triangles": 318368,
+        "geometries": 35,
+        "textures": 7,
+        "ms": 528
+      },
+      {
+        "index": 21,
+        "name": "冰冻高地",
+        "landmark": "prison",
+        "surface": "snow",
+        "atmosphere": "snow",
+        "description": "风雪高地 · 木寨与囚笼",
+        "width": 235,
+        "height": 255,
+        "cells": 10001,
+        "failures": [],
+        "colors": 144,
+        "lit": 3371,
+        "drawCalls": 44,
+        "triangles": 125856,
+        "geometries": 28,
+        "textures": 9,
+        "ms": 823
+      },
+      {
+        "index": 22,
+        "name": "冰河",
+        "landmark": "frozen-river",
+        "surface": "ice",
+        "atmosphere": "dust",
+        "description": "地下冰河 · 蓝冰裂隙与冰封安雅",
+        "width": 135,
+        "height": 235,
+        "cells": 3979,
+        "failures": [],
+        "colors": 137,
+        "lit": 4072,
+        "drawCalls": 39,
+        "triangles": 87520,
+        "geometries": 34,
+        "textures": 6,
+        "ms": 376
+      },
+      {
+        "index": 23,
+        "name": "亚瑞特之巅",
+        "landmark": "ancients",
+        "surface": "snow",
+        "atmosphere": "snow",
+        "description": "圣山峰顶 · 三先祖与圆形祭坛",
+        "width": 85,
+        "height": 85,
+        "cells": 2116,
+        "failures": [],
+        "colors": 244,
+        "lit": 4011,
+        "drawCalls": 65,
+        "triangles": 25372,
+        "geometries": 65,
+        "textures": 8,
+        "ms": 481
+      },
+      {
+        "index": 24,
+        "name": "世界之石大殿",
+        "landmark": "worldstone",
+        "surface": "mosaic",
+        "atmosphere": "stars",
+        "description": "世界之石 · 赤红晶体与王座长廊",
+        "width": 105,
+        "height": 255,
+        "cells": 5360,
+        "failures": [],
+        "colors": 167,
+        "lit": 1418,
+        "drawCalls": 29,
+        "triangles": 29498,
+        "geometries": 36,
+        "textures": 8,
+        "ms": 490
+      }
+    ]
+  },
+  "performance": {
+    "settings": {
+      "class": "sorceress",
+      "areas": [
+        "17",
+        "cow"
+      ],
+      "stress": true,
+      "warmup": 600,
+      "frames": 300
+    },
+    "before": {
+      "hardware": {
+        "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 770 (0x00004690) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "multiDraw": true,
+        "width": 1920,
+        "height": 1080,
+        "dpr": 1
+      },
+      "results": [
+        {
+          "area": "17",
+          "point": "battle",
+          "fps": 35.503378738209946,
+          "p50": 33.299999999995634,
+          "p95": 49.900000000001455,
+          "p99": 50.099999999998545,
+          "max": 50.099999999998545,
+          "overBudget": 191,
+          "outliers": [],
+          "calls": 358.9202657807309,
+          "triangles": 337178.67441860464,
+          "submissions": {},
+          "costs": {
+            "update": 10.487707641037595,
+            "render": 11.378405308802659,
+            "ui": 2.3375415302986324,
+            "physics": 3.999999997623735,
+            "ai": 3.657142860152793,
+            "broadphase": 2.7717607932233337,
+            "contacts": 0.15249170496614273,
+            "solve": 0.5993355397766215,
+            "matrices": 2.1235880352729977,
+            "batch": 1.0551495140177072,
+            "path": 0.006312292675639308
+          },
+          "enemies": 61,
+          "active": 24,
+          "quality": "auto",
+          "pixelRatio": 0.5220062499999999,
+          "seed": 20260913,
+          "casts": 57
+        },
+        {
+          "area": "cow",
+          "point": "battle",
+          "fps": 35.783723177117515,
+          "p50": 33.29999999998836,
+          "p95": 50,
+          "p99": 50.09999999999127,
+          "max": 50.10000000000582,
+          "overBudget": 183,
+          "outliers": [],
+          "calls": 421.7674418604651,
+          "triangles": 779062.3488372093,
+          "submissions": {},
+          "costs": {
+            "update": 9.475083055686317,
+            "render": 12.13455149105617,
+            "ui": 2.4770764179800038,
+            "physics": 1.811960141920172,
+            "ai": 4.385714271931949,
+            "broadphase": 0.5634551658186802,
+            "contacts": 0.10598006438575314,
+            "solve": 0.6561461912833179,
+            "matrices": 2.44086377961295,
+            "batch": 1.2468438647514166,
+            "path": 0.006644518272425249
+          },
+          "enemies": 82,
+          "active": 24,
+          "quality": "auto",
+          "pixelRatio": 0.5220062499999999,
+          "seed": 20260914,
+          "casts": 45
+        }
+      ],
+      "errors": []
+    },
+    "after": {
+      "hardware": {
+        "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 770 (0x00004690) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "multiDraw": true,
+        "width": 1920,
+        "height": 1080,
+        "dpr": 1
+      },
+      "results": [
+        {
+          "area": "17",
+          "point": "battle",
+          "fps": 59.7990751076383,
+          "p50": 16.700000000000728,
+          "p95": 16.799999999999272,
+          "p99": 16.80000000000291,
+          "max": 33.30000000000291,
+          "overBudget": 1,
+          "outliers": [],
+          "calls": 372.2591362126246,
+          "triangles": 362697.5448504983,
+          "submissions": {},
+          "costs": {
+            "update": 3.5485049878243986,
+            "render": 7.276411955538778,
+            "ui": 1.3219269066553971,
+            "physics": 1.52624584986918,
+            "ai": 0.9943521656467273,
+            "broadphase": 1.2086378712194703,
+            "contacts": 0.03588039455223717,
+            "solve": 0.1561461904912296,
+            "matrices": 1.4202657688495726,
+            "batch": 0.7518272439506759,
+            "path": 0.0009966783745344295
+          },
+          "enemies": 61,
+          "active": 24,
+          "quality": "auto",
+          "pixelRatio": 0.5220062499999999,
+          "seed": 20260913,
+          "casts": 36
+        },
+        {
+          "area": "cow",
+          "point": "battle",
+          "fps": 59.40594059405941,
+          "p50": 16.69999999999709,
+          "p95": 16.80000000000291,
+          "p99": 33.19999999999709,
+          "max": 33.30000000000291,
+          "overBudget": 3,
+          "outliers": [],
+          "calls": 453.8837209302326,
+          "triangles": 485054.9800664452,
+          "submissions": {},
+          "costs": {
+            "update": 3.039534882453589,
+            "render": 7.807973427629946,
+            "ui": 1.6116278995311142,
+            "physics": 0.4760797388133813,
+            "ai": 1.2847175994188682,
+            "broadphase": 0.1578073145147178,
+            "contacts": 0.026578080218495722,
+            "solve": 0.16245847049345605,
+            "matrices": 1.243521587397173,
+            "batch": 0.8302325663772532,
+            "path": 0.0023255815537664977
+          },
+          "enemies": 82,
+          "active": 24,
+          "quality": "auto",
+          "pixelRatio": 0.5220062499999999,
+          "seed": 20260914,
+          "casts": 33
+        }
+      ],
+      "errors": []
+    },
+    "camp": {
+      "hardware": {
+        "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 770 (0x00004690) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "multiDraw": true,
+        "width": 1920,
+        "height": 1080,
+        "dpr": 1
+      },
+      "results": [
+        {
+          "area": "camp",
+          "point": "spawn",
+          "fps": 60.00120002400048,
+          "p50": 16.69999999999891,
+          "p95": 16.80000000000109,
+          "p99": 16.900000000001455,
+          "max": 17,
+          "overBudget": 0,
+          "outliers": [],
+          "calls": 133.49501661129568,
+          "triangles": 98008.36212624585,
+          "submissions": {},
+          "costs": {
+            "update": 0.9126245824997608,
+            "render": 1.5867109694750205,
+            "ui": 0.6578073073859231,
+            "physics": 0.0468438574642042,
+            "ai": 0.006644519064513552,
+            "broadphase": 0.016611298849416332,
+            "contacts": 0.0033222615124775326,
+            "solve": 0.001661130360194615,
+            "matrices": 0.11794019220675345,
+            "batch": 0.0009966791666227322,
+            "path": 0
+          },
+          "enemies": 0,
+          "active": 0,
+          "quality": "auto",
+          "pixelRatio": 0.7224999999999999,
+          "seed": 20260913,
+          "casts": 0
+        }
+      ],
+      "errors": []
+    }
+  },
+  "notes": [
+    "The earlier map invocation required mode=local to reach the seeded local character fixture.",
+    "Visibility failures were fixed by increasing fill light in the Arcane Sanctuary and Chaos Sanctuary.",
+    "The lava light test now protects the minimum fill rather than requiring every lava area to use an identical constant.",
+    "The mercenary HUD displays tenths of one percent; its browser test now allows half of that display step.",
+    "The original baseline and final stress samples have different spell counts and wall-clock durations; FPS differences are observational."
+  ],
+  "preview": {
+    "items": 182,
+    "views": 516,
+    "manifest": "model-previews/manifest.json",
+    "sourceHashes": "verified with LF normalization"
+  }
+}

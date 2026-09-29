@@ -4,6 +4,8 @@
 
 体验改进：营地提供出发 / 返程引导，手机竖屏直接显示任务进度，技能栏明确提示缺蓝与聚气耗尽。地面重要掉落优先显示，可在设置或地图下方切换“全部 / 精选”；桌面按 L 切换、按住 Alt 临时显示全部。详见 [游戏体验分析与优化](docs/game-experience.md)。
 
+模型与场景：[全模型预览目录](docs/model-previews/index.html) 保留人物、怪物、NPC、召唤物、装备、道具和全部场景的多角度图片，支持离线搜索和分类浏览。建模、表面质感与性能处理见 [美术建模细化说明](docs/art-direction-models-20260929.md)。
+
 服务端安装部署包（Windows 系统服务 / Linux systemd）：[下载 Release](https://github.com/zd102/D2R/releases/latest) · [安装与配置说明](docs/server-release.md)。
 
 底材现支持 D2R 原生词条、超强品质与无形生成，地面显示超强、无形和孔数；底材属性无需鉴定，制作符文之语与重载保留原值。数据、概率和获取范围见 [底材生成规则](docs/base-properties.md)。

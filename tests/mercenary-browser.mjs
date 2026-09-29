@@ -188,7 +188,8 @@ try {
       return { fills, follows, pointer, deathHidden, restored };
     });
     assert.equal(overhead.fills.length, 3);
-    for (const [index, value] of [50, 25, 100 / 3].entries()) assert.ok(Math.abs(overhead.fills[index] - value) < .01);
+    // The HUD reports tenths of a percent (one third is rendered as 33.3%).
+    for (const [index, value] of [50, 25, 100 / 3].entries()) assert.ok(Math.abs(overhead.fills[index] - value) <= .05, `resource fill ${index}: ${overhead.fills[index]} vs ${value}`);
     assert.ok(overhead.follows && overhead.deathHidden && overhead.restored);
     assert.equal(overhead.pointer, 'none');
     const hudViewports = width === 390 ? [[390, 844], [844, 390]] : [[width, width === 360 ? 740 : 960]];

@@ -24,16 +24,28 @@ export function batchStaticGeometry(root: THREE.Group, scene: THREE.Scene) {
     const source = meshes[0];
     // Transparent decals retain the existing merged rendering path and ordering.
     if (meshes.length >= 8 && !source.material.transparent) {
-      const batch = new THREE.InstancedMesh(source.geometry, source.material, meshes.length);
-      batch.name = 'static-instances'; batch.castShadow = source.castShadow; batch.receiveShadow = source.receiveShadow;
-      meshes.forEach((mesh, i) => batch.setMatrixAt(i, matrix.multiplyMatrices(inverse, mesh.matrixWorld)));
-      batch.instanceMatrix.needsUpdate = true; batch.computeBoundingBox(); batch.computeBoundingSphere(); scene.add(batch);
+      // Bound each group spatially: a single map-wide instance bound submits
+      // thousands of off-camera trees to both the main and shadow passes.
+      const cells=new Map<string,typeof meshes>();
+      for(const mesh of meshes){
+        matrix.multiplyMatrices(inverse,mesh.matrixWorld);
+        const cell=`${Math.floor(matrix.elements[12]/32)},${Math.floor(matrix.elements[14]/32)}`;
+        const list=cells.get(cell)??[];list.push(mesh);cells.set(cell,list);
+      }
+      for(const nearby of cells.values()){
+        const batch = new THREE.InstancedMesh(source.geometry, source.material, nearby.length);
+        batch.name = 'static-instances'; batch.castShadow = source.castShadow; batch.receiveShadow = source.receiveShadow;
+        nearby.forEach((mesh, i) => batch.setMatrixAt(i, matrix.multiplyMatrices(inverse, mesh.matrixWorld)));
+        batch.instanceMatrix.needsUpdate = true; batch.computeBoundingBox(); batch.computeBoundingSphere(); scene.add(batch);
+      }
     } else {
       const key = `${source.material.uuid}:${source.castShadow}:${source.receiveShadow}`;
       const entry = unique.get(key) ?? { source, geometries: [] };
       for (const mesh of meshes) {
         const geometry = mesh.geometry.clone().applyMatrix4(matrix.multiplyMatrices(inverse, mesh.matrixWorld));
-        for (const name of Object.keys(geometry.attributes)) if (!['position', 'normal', 'uv'].includes(name)) geometry.deleteAttribute(name);
+        const attributes=['position','normal','uv'];
+        if(source.material instanceof THREE.MeshStandardMaterial&&source.material.userData.actorCavity)attributes.push('surfaceCavity');
+        for (const name of Object.keys(geometry.attributes)) if (!attributes.includes(name)) geometry.deleteAttribute(name);
         entry.geometries.push(ensureGeometryIndex(geometry));
       }
       unique.set(key, entry);

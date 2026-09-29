@@ -3,12 +3,13 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 
 import { ensureGeometryIndex } from './geometry-batching.ts';
 import { modelGeometryCache } from './model-geometry-cache.ts';
+import { bakeModelCavity } from './model-detailing.ts';
 
 type Surface = 'skin' | 'hide' | 'bone' | 'steel' | 'bronze' | 'cloth' | 'leather' | 'fur' | 'chitin' | 'stone';
 
 // Continuous low-frequency planes break the perfect ellipsoid without adding
 // separate floating muscle balls. Deterministic positions preserve batch reuse.
-export function organicGeometry(style: 'muscle' | 'fur' | 'stone' = 'muscle', segments = 16) {
+export function organicGeometry(style: 'muscle' | 'fur' | 'stone' | 'carapace' = 'muscle', segments = 16) {
   return modelGeometryCache.get(`organic:${style}:${segments}`,()=>{
   // These volumes mostly become knuckles, eyes, rivets and small muscle masses.
   // Spend the silhouette budget on the authored lofts instead of hidden sphere rings.
@@ -16,12 +17,13 @@ export function organicGeometry(style: 'muscle' | 'fur' | 'stone' = 'muscle', se
   for (let i=0;i<position.count;i++) {
     const x=position.getX(i), y=position.getY(i), z=position.getZ(i);
     const planes = style === 'stone' ? .11*Math.sin(x*8+y*3+z*5)*Math.sin(y*7-z*4)
+      : style === 'carapace' ? .045*Math.cos(z*17)*(.6+.4*Math.max(0,y))+.025*Math.cos(x*7-y*4)
       : style === 'fur' ? .055*Math.sin(x*11+z*9)*Math.sin(y*7)
       : .055*Math.cos(y*4+x*2)*Math.cos(z*3)-.035*Math.sin(y*7);
     const r=1+planes;
     position.setXYZ(i,x*r,y*r,z*r);
   }
-  geometry.computeVertexNormals(); return geometry;
+  geometry.computeVertexNormals();bakeModelCavity(geometry);return geometry;
   });
 }
 
@@ -31,12 +33,24 @@ export function actorMaterial(color: THREE.ColorRepresentation, surface: Surface
   const metal = surface === 'steel' || surface === 'bronze';
   const material = new THREE.MeshStandardMaterial({ color, roughness: metal ? .43 : surface === 'skin' ? .76 : surface === 'chitin' ? .39 : surface === 'leather' ? .68 : .91, metalness: metal ? .74 : 0 });
   material.userData.surface = surface;
-  material.customProgramCacheKey = () => `actor-surface-v4-${surface}`;
+  material.customProgramCacheKey = () => `actor-surface-v5-${surface}-${material.userData.actorCavity ? 'cavity' : 'plain'}`;
   material.onBeforeCompile = shader => {
-    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vActorSurface;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvActorSurface = position;');
+    if (material.userData.actorCavity) (shader.defines ??= {}).ACTOR_CAVITY = 1;
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>
+      varying vec3 vActorSurface;
+      #ifdef ACTOR_CAVITY
+      attribute float surfaceCavity; varying float vSurfaceCavity;
+      #endif`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vActorSurface = position;
+        #ifdef ACTOR_CAVITY
+        vSurfaceCavity=surfaceCavity;
+        #endif`);
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>
       varying vec3 vActorSurface;
+      #ifdef ACTOR_CAVITY
+      varying float vSurfaceCavity;
+      #endif
       float actorHash(vec3 p) {
         p = fract(p * vec3(.1031,.11369,.13787)); p += dot(p, p.yzx + 19.19);
         return fract((p.x + p.y) * p.z);
@@ -99,8 +113,16 @@ export function actorMaterial(color: THREE.ColorRepresentation, surface: Surface
         diffuseColor.rgb *= ${surface === 'skin' ? '.88 + wear * .14 + grain * .025' : '.59 + wear * .36 + grain * .14'};
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(${surface === 'skin' ? '1.08,.91,.84' : '1.04,.91,.76'}), patina * .28);
       `}
+      #ifdef ACTOR_CAVITY
+      diffuseColor.rgb *= .78+.22*vSurfaceCavity;
+      #endif
     `).replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor + (grain - .5) * .12 + patina * ${metal ? '.09' : '.07'}, .30, 1.0);`)
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>\n${metal ? 'metalnessFactor *= 1.0-patina*.25;' : ''}`)
+      .replace('#include <aomap_fragment>', `#include <aomap_fragment>
+        #ifdef ACTOR_CAVITY
+        reflectedLight.indirectDiffuse *= vSurfaceCavity;
+        reflectedLight.indirectSpecular *= vSurfaceCavity;
+        #endif`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         vec3 surfaceDx = normalize(dFdx(-vViewPosition)), surfaceDy = normalize(dFdy(-vViewPosition));
         vec3 gradientX = cross(surfaceDy, normal), gradientY = cross(normal, surfaceDx);
@@ -154,7 +176,7 @@ export function contourGeometry(sections: readonly (readonly [number, number, nu
     normal.set(normals.getX(first) + normals.getX(last), normals.getY(first) + normals.getY(last), normals.getZ(first) + normals.getZ(last)).normalize();
     normals.setXYZ(first, normal.x, normal.y, normal.z); normals.setXYZ(last, normal.x, normal.y, normal.z);
   }
-  return geometry;
+  bakeModelCavity(geometry);return geometry;
 }
 
 export function plateGeometry(points: readonly (readonly [number, number])[], depth = .035, bevel = .015) {
@@ -162,14 +184,22 @@ export function plateGeometry(points: readonly (readonly [number, number])[], de
   const shape = new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x, y)));
   shape.closePath();
   const source=new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel * .65, bevelSegments: 2, curveSegments: 5 });
-  const geometry=mergeVertices(source);source.dispose();return geometry;
+  const geometry=mergeVertices(source);source.dispose();bakeModelCavity(geometry);return geometry;
   });
 }
 
 // Only merge siblings: knees, hands, weapons, wings and tails retain their pivots.
 export function mergeActorParts(root: THREE.Object3D) {
   const sources = new Set<THREE.BufferGeometry>(), parents: THREE.Object3D[] = [];
-  root.traverse(node => { if (node instanceof THREE.Mesh) sources.add(node.geometry); if (node instanceof THREE.Group) parents.push(node); });
+  root.traverse(node => {
+    if (node instanceof THREE.Mesh) {
+      sources.add(node.geometry);bakeModelCavity(node.geometry);
+      for(const material of Array.isArray(node.material)?node.material:[node.material]) {
+        if(material instanceof THREE.MeshStandardMaterial&&material.userData.surface)material.userData.actorCavity=true;
+      }
+    }
+    if (node instanceof THREE.Group) parents.push(node);
+  });
   for (const parent of parents) {
     const batches = new Map<string, THREE.Mesh[]>();
     for (const child of parent.children) {

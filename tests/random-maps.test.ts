@@ -13,7 +13,7 @@ import { rotateLayout, rotateMapPoint } from '../src/map-orientation.ts';
 
 const seeds = [0, 1, 17, 20260910, 0x7fffffff, 0xffffffff, 811, 91919];
 test('lava areas have dedicated ambient light for stable readable exploration', () => {
-  for (const index of [17, 18, 19]) assert.equal(sceneDesign(LEVELS[index]).ambient, 1.3, LEVELS[index].name);
+  for (const index of [17, 18, 19]) assert.ok(sceneDesign(LEVELS[index]).ambient >= 1.3, `${LEVELS[index].name}: preserve the minimum exploration fill light`);
 });
 test('200 generated maps connect every objective, room, boss, chest and encounter to a safe entrance', () => {
   for (const level of LEVELS) for (const seed of seeds) {

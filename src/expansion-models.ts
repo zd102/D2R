@@ -5,6 +5,7 @@ import { createMonsterActor } from './monster-models.ts';
 import { MONSTERS } from './bestiary.ts';
 import { createHeroActor } from './hero-models.ts';
 import { actorMaterial, mergeActorParts, organicGeometry, plateGeometry } from './actor-modeling.ts';
+import { carveSurface } from './model-detailing.ts';
 
 export function createBeastActor(bear=false,upright=false):Actor {
   const group=new THREE.Group(),body=new THREE.Group();group.add(body);
@@ -12,7 +13,11 @@ export function createBeastActor(bear=false,upright=false):Actor {
   const sphere=organicGeometry('fur'),cone=new THREE.ConeGeometry(1,1,7);
   const part=(p:THREE.Object3D,mat:THREE.Material,x:number,y:number,z:number,sx:number,sy:number,sz:number,geo:THREE.BufferGeometry=sphere)=>{const mesh=new THREE.Mesh(geo,mat);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);mesh.castShadow=true;p.add(mesh);return mesh;};
   const bulk=bear?1.3:1;
-  part(body,fur,0,upright?1:.65,0,.34*bulk,upright?.67:.36,.62*bulk);
+  const ribcage=contourGeometry(upright
+    ? [[-.59,.23,.26],[-.24,.32,.30],[.16,.37,.35],[.42,.32,.29],[.64,.20,.23]]
+    : [[-.65,.14,.18],[-.42,.28,.29],[-.10,.32,.35],[.28,.34,.34],[.51,.25,.26],[.66,.14,.18]],18,.025);
+  if(!upright)ribcage.rotateX(Math.PI/2);
+  part(body,fur,0,upright?1:.65,0,bulk,1,bulk,ribcage);
   const head=new THREE.Group();head.position.set(0,upright?1.65:.92,upright?.2:.53);body.add(head);
   const skull=contourGeometry([[-.22,.10,.13,.02],[-.11,.20*bulk,.19,.02],[.04,.22*bulk,.24],[.17,.17*bulk,.20,-.03],[.24,.095,.10,-.05]],14);
   part(head,fur,0,0,0,1,1,1,skull);
@@ -28,7 +33,7 @@ export function createBeastActor(bear=false,upright=false):Actor {
     }
   }
   // Shoulder blades and a tapered chest replace the toy-like uniform barrel.
-  part(body,fur,0,upright?1.15:.72,.29,.30*bulk,.38,.36);
+  for(const side of [-1,1])part(body,fur,side*.21*bulk,upright?1.33:.75,.29,.11*bulk,.24,.25,contourGeometry([[-1,.28,.40],[-.3,.72,.92],[.5,.92,.75],[1,.40,.34]],12));
   const legs:THREE.Group[]=[];
   for(let i=0;i<4;i++){const side=i%2?1:-1,front=i<2,limb=new THREE.Group();body.add(limb);limb.position.set(side*(upright&&front?.32:.25)*bulk,upright&&front?1.33:.52,front?(upright?.1:.37):-.38);legs.push(limb);
     part(body,fur,limb.position.x,limb.position.y,limb.position.z,.15*bulk,.17,.16);
@@ -44,7 +49,11 @@ export function createCompanionActor(id:string):Actor {
     const actor=createMonsterActor(MONSTERS[id==='raiseSkeleton'?'skeleton':'boneMage']??MONSTERS.skeleton);actor.group.scale.setScalar(.8);return actor;
   }
   if(id==='shadowWarrior'||id==='shadowMaster'){
-    const actor=createHeroActor('assassin');actor.group.traverse(node=>{if(node instanceof THREE.Mesh)for(const mat of Array.isArray(node.material)?node.material:[node.material]){if(mat instanceof THREE.MeshStandardMaterial){mat.color.multiplyScalar(.5);mat.emissive.setHex(0x261f45);}}});return actor;
+    const actor=createHeroActor('assassin'),materials=new Set<THREE.MeshStandardMaterial>();
+    actor.group.traverse(node=>{if(node instanceof THREE.Mesh)for(const mat of Array.isArray(node.material)?node.material:[node.material])if(mat instanceof THREE.MeshStandardMaterial)materials.add(mat);});
+    // Joint meshes share materials. Tint each surface once, so gloves and skin
+    // do not become black merely because more geometry uses the same material.
+    for(const material of materials){material.color.multiplyScalar(.5);material.emissive.setHex(0x261f45);}return actor;
   }
   if(id==='summonSpiritWolf'||id==='summonFenris'||id==='summonGrizzly')return createBeastActor(id==='summonGrizzly');
   const group=new THREE.Group(),material=actorMaterial(id==='fireGolem'?0xa44322:id==='ironGolem'?0x828988:id==='bloodGolem'?0x7d3936:id==='raven'?0x252b31:0x796950,id==='ironGolem'?'steel':id==='bloodGolem'?'hide':id==='raven'?'fur':'stone'),glow=new THREE.MeshStandardMaterial({color:0xa9c578,emissive:0x36532a});
@@ -80,14 +89,20 @@ export function createCompanionActor(id:string):Actor {
     ball(group,Math.sin(6.4)*.3,.63,.48,.15,.10,.18,glow);
     ball(group,Math.sin(6.4)*.3,.66,.61,.10,.035,.04,material);
   }else{
-    const torso=new THREE.Mesh(sculptedTorso([[.46,.25,.22],[.67,.29,.25],[.95,.34,.28],[1.20,.45,.30],[1.39,.30,.23]],.065),material);torso.castShadow=true;group.add(torso);
+    const torso=new THREE.Mesh(carveSurface(sculptedTorso([[.46,.25,.22],[.67,.29,.25],[.95,.34,.28],[1.20,.45,.30],[1.39,.30,.23]],.065),id==='bloodGolem'?.012:.025),material);torso.castShadow=true;group.add(torso);
     const head=new THREE.Mesh(contourGeometry([[1.30,.105,.11,.06],[1.39,.17,.16,.07],[1.58,.20,.18,.02],[1.73,.15,.14],[1.77,.08,.09]],10,.05),material);head.castShadow=true;group.add(head);
     for(const side of [-1,1]) {
       if(id==='ironGolem') {
         const plate=new THREE.Mesh(plateGeometry([[-.18,-.1],[.15,-.1],[.23,.08],[0,.19],[-.23,.08]],.055,.014),material);plate.position.set(side*.40,1.32,.09);plate.rotation.y=side*.5;group.add(plate);
       }
     }
-    for(const [i,side] of [-1,1].entries()){limbs[i].position.set(side*.46,1.21,0);ball(limbs[i],0,-.32,0,.17,.4,.18);ball(limbs[i],0,-.65,.1,.19,.16,.22);limbs[i+2].position.set(side*.23,.49,0);ball(limbs[i+2],0,-.19,0,.19,.3,.22);ball(group,side*.075,1.58,.25,.035,.023,.02,glow);}
+    for(const [i,side] of [-1,1].entries()){
+      limbs[i].position.set(side*.46,1.21,0);
+      const arm=new THREE.Mesh(carveSurface(contourGeometry([[-.68,.16,.14,.09],[-.48,.17,.18,.06],[-.32,.13,.14],[0,.18,.19]],12),.018),material);arm.castShadow=true;limbs[i].add(arm);
+      ball(limbs[i],0,-.65,.1,.19,.16,.22);limbs[i+2].position.set(side*.23,.49,0);
+      const leg=new THREE.Mesh(carveSurface(contourGeometry([[-.46,.16,.23,.05],[-.39,.18,.22,.05],[-.20,.15,.16],[.04,.19,.20]],12),.018),material);leg.castShadow=true;limbs[i+2].add(leg);
+      ball(group,side*.075,1.58,.25,.035,.023,.02,glow);
+    }
   }
   mergeActorParts(group);
   return {group,leftArm:limbs[0],rightArm:limbs[1],leftLeg:limbs[2],rightLeg:limbs[3],kind:id,animate(time,moving,attacking){if(id==='raven'){limbs[0].rotation.z=Math.sin(time*14)*.6;limbs[1].rotation.z=-Math.sin(time*14)*.6;}else{for(let i=0;i<4;i++)limbs[i].rotation.x=moving?Math.sin(time*6+i*Math.PI)*.3:attacking&&i<2?-.8:0;}}};

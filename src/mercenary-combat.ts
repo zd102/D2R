@@ -5,8 +5,8 @@ import { hasMonsterAffix } from './monster-affixes.ts';
 import * as THREE from 'three';
 import type { Game, Enemy } from './game.ts';
 import type { AttackSnapshot } from './combat.ts';
-import { createActor, animateActor, makeRing, type Actor } from './world.ts';
-import { playHeroAction } from './hero-models.ts';
+import { animateActor, makeRing, type Actor } from './world.ts';
+import { createMercenaryActor, playHeroAction } from './hero-models.ts';
 import { clearShot } from './ranged.ts';
 import { followPath } from './navigation.ts';
 import { hitChance, resistedDamage } from './model.ts';
@@ -50,12 +50,7 @@ export class MercenaryCombat {
     const g = this.game, merc = g.hero.mercenary;
     if (!merc || merc.status !== 'alive' || merc.hp <= 0) { if (this.ally) this.clear(); return; }
     if (!this.ally) {
-      const actor = createActor('hero', 'paladin'); actor.group.name = 'mercenary-mishan';
-      for (const name of ['hero-weapon', 'hero-shield', 'hero-staff', 'hero-javelin', 'hero-bow', 'hero-crossbow']) { const object = actor.group.getObjectByName(name); if (object) object.visible = false; }
-      const spear = new THREE.Group(); spear.name = 'mercenary-spear';
-      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 2.5, 8), new THREE.MeshStandardMaterial({ color: 0x735839 }));
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(.14, .5, 4), new THREE.MeshStandardMaterial({ color: 0xb9ccd0, metalness: .7, roughness: .3 })); tip.position.y = 1.5;
-      spear.add(shaft, tip); spear.position.set(.15, -.5, .2); spear.rotation.x = .3; actor.rightArm.add(spear);
+      const actor = createMercenaryActor();
       actor.group.position.copy(g.position); actor.group.rotation.y = g.actor.group.rotation.y;
       this.ally = { id: 'mercenary', actor, get hp() { return merc.hp; }, set hp(value: number) { merc.hp = value; } };
       this.ring = makeRing(.8, 0x8dd5ba, .6); g.world.scene.add(actor.group, this.ring);
